@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Placeholder tokens. Each org gets its own values (Bridge red/gold,
+  Elite Squad's own palette, etc.) loaded from org config, never hardcoded
+  in shared components. See docs/DESIGN_SYSTEM.md.
+*/
+:root {
+  --ink: #0a0a0a;
+  --bg: #f4f4f5;
+  --paper: #ffffff;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --accent: #c8180c;
+  --success: #10b981;
+  --danger: #dc2626;
+}
+
+[data-theme="dark"] {
+  --ink: #ffffff;
+  --bg: #0c0c0c;
+  --paper: #1a1a1a;
+  --muted: #9ca3af;
+  --line: rgba(255, 255, 255, 0.12);
+}
+
+body {
+  color: var(--ink);
+  background: var(--bg);
+}
