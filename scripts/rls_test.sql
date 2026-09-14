@@ -114,6 +114,18 @@ begin
   raise notice 'PASS: shared reference data (schools) is visible regardless of org';
 end $$;
 
+do $$
+declare n int;
+begin
+  -- Regression test: orgs had RLS enabled with zero policies until this
+  -- was caught building the org-resolution page, which silently denied
+  -- every row to every non-owner role, including a member reading their
+  -- own org.
+  select count(*) into n from orgs;
+  if n <> 1 then raise exception 'FAIL: user1 saw % orgs, expected 1 (their own Bridge row, not Elite Squad''s)', n; end if;
+  raise notice 'PASS: user1 can read their own org row, not the other org''s';
+end $$;
+
 -- ── Anonymous: no auth.uid() at all. Every org-scoped table should be
 -- empty, not merely filtered down. ──
 select set_test_user(null);

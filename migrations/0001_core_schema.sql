@@ -177,3 +177,11 @@ create policy benchmark_sets_by_org on benchmark_sets for all
   using (org_id is null or org_id in (select _member_org_ids()));
 
 create policy users_self on users for select using (id = auth.uid());
+
+-- orgs had RLS enabled above with no policy at all until this was
+-- caught building the org-resolution page: RLS enabled + zero policies
+-- means Postgres denies every row to every non-owner role by default,
+-- for every command. A signed-in member couldn't even read their own
+-- org's name or role_labels/modules/branding config. A member reads
+-- (never writes, that stays service-role-only) any org they belong to.
+create policy orgs_by_membership on orgs for select using (id in (select _member_org_ids()));

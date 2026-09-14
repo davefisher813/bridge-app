@@ -129,6 +129,30 @@ current user belong to" must call `_member_org_ids()`, never write
 again - that's exactly the pattern that recursed. This should probably
 become a law once `src/laws/` can usefully static-scan SQL.
 
+## 2026-09 - Fixed a second real RLS bug: `orgs` had zero policies
+
+**Decision:** Added `orgs_by_membership` (`select` only, via
+`_member_org_ids()`) to `migrations/0001_core_schema.sql`.
+
+**Reason:** `orgs` had `alter table orgs enable row level security`
+with no `create policy` for it at all. In Postgres, RLS enabled plus
+zero policies denies every row to every non-owner role for every
+command - not "no extra restriction," but "nothing visible." A signed-
+in member couldn't read their own org's name, `role_labels`,
+`modules`, or `branding`. This was caught while building the
+org-resolution page (a user's post-login redirect needs to read their
+own org row to know where to send them), not by a dedicated test
+written in advance - a reminder that `scripts/rls_test.sql` should grow
+a case for every table as pages start actually reading it, not just the
+tables that happened to get exercised first.
+
+**Consequences:** Added the missing policy plus a regression assertion
+to `scripts/rls_test.sql` (11/11 now pass). The general lesson: `alter
+table ... enable row level security` with no policy is a silent
+"nobody can read this" trap, not a safe default - worth treating every
+new org-scoped table's policy as part of the same change that enables
+RLS on it, never a follow-up.
+
 ## 2026-09 - Doc AI: port the categories/provenance/versioning design, fix a real double-penalty bug in the legibility downgrade
 
 **Decision:** Rebuilt Bridge's Engine/EngineBridge document-extraction
