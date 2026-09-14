@@ -148,8 +148,72 @@ assertions pass after the fix; see `scripts/README.md`.
 This has been verified locally, not yet against a real Supabase
 project - see docs/CURRENT_STATE.md.
 
+## Doc AI: document upload + structured-data extraction
+
+`src/lib/docai/` rebuilds Bridge's `Engine`/`EngineBridge`
+(bffsa-site/index.html ~lines 1621-2660, 13358-14973). Unlike the fit
+engine, most of Bridge's Doc AI design was already coherent: a
+config-driven categories registry, a confidence-scoring model with
+named thresholds, and a versioning/reconciliation step, not a patch
+stack. So this is mostly a port-and-generalize:
+
+- `categories.ts` - one registry entry per document type (transcript,
+  test scores, offer letter, recommendation, financial aid; film is a
+  placeholder that stops at "not supported yet"). Each entry pairs an
+  extraction prompt with a Zod schema (`schemas.ts`) - the one thing
+  Bridge's version never had. Bridge trusted raw `JSON.parse` output
+  completely; here, extraction output that doesn't match its category's
+  schema is rejected before anything downstream (a database write, a
+  review queue) ever sees it.
+- `gpa.ts` - GPA scale normalization (4.0/5.0/10/20/100-point scales to
+  a common 4.0 scale), ported as-is: admin-tuned conversion data, not a
+  patch.
+- `resolver.ts` - fuzzy name/school/grad-year matching to find which
+  roster athlete a document belongs to, plus an override-pinning path
+  for when a coordinator explicitly names the athlete. Pure functions
+  over a roster array the caller supplies, same "no database access
+  inside the module" design as the fit engine.
+- `provenance.ts` - confidence scoring (`effectiveConfidence`: model
+  confidence x source-role weight x triage legibility) and the
+  auto-apply/review/reject routing decision. See docs/DECISIONS.md for
+  a real double-penalty bug this port found and fixed in the original
+  low-legibility handling.
+- `versioning.ts` - classifies a new extraction against prior ones for
+  the same athlete/category as a replacement (same grad year, recent)
+  or a new period. Bridge kept this index in localStorage; here the
+  caller supplies prior versions queried from the database, since
+  localStorage doesn't exist server-side and wasn't shared across an
+  org's users anyway.
+- `parseModelJson.ts` - strips markdown fences and recovers a JSON
+  object from a model response that ignored the "return only JSON"
+  instruction, same cleanup Bridge repeated in three places.
+- `pipeline.ts` - orchestrates triage -> extract -> validate -> route.
+  Takes a `ModelCaller` the caller supplies (a thin wrapper around
+  whatever actually calls the Anthropic API), so the whole pipeline is
+  testable with a scripted fake model and touches no network or API key
+  in tests. Returns a result; it never writes to a database itself -
+  Bridge's version wrote straight into a global object, which doesn't
+  have an equivalent here since `org_id` and RLS matter for where a
+  result actually lands.
+
+**Not yet built, and why:** the file ingest pipeline (magic-byte
+sniffing, HEIC conversion, EXIF-aware image normalization, PDF
+pre-validation - bffsa-site/index.html ~lines 1857-2170) is real,
+solid, mostly framework-agnostic browser code, but it depends on
+`File`/`Image`/`canvas`/`FileReader`, none of which exist in this
+sandbox to actually exercise. Porting it now and claiming it was tested
+would be dishonest; it's deferred to whenever real screens exist and a
+browser is available to verify it in. Likewise, the actual Anthropic
+API call (auth, retry/backoff, per-org budget tracking - Bridge's
+`Engine.api`, ~lines 1651-1855) needs a real API key and a persistent
+budget store (a DB table, since this is now multi-tenant and
+server-side, not localStorage), neither of which exist yet. `pipeline.ts`
+is designed so that wiring is a matter of implementing one `ModelCaller`
+function, not a pipeline redesign.
+
 ## What isn't built yet
 
-Doc AI (document upload/extraction), the actual UI (roster, recruiting
-board, communication, calendar), board/governance and donor/fundraising
-modules, and any deployment/hosting setup. See docs/ROADMAP.md.
+Doc AI's file-ingest pipeline and its actual Anthropic API wiring (see
+above), the actual UI (roster, recruiting board, communication,
+calendar), board/governance and donor/fundraising modules, and any
+deployment/hosting setup. See docs/ROADMAP.md.

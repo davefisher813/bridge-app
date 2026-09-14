@@ -129,6 +129,49 @@ current user belong to" must call `_member_org_ids()`, never write
 again - that's exactly the pattern that recursed. This should probably
 become a law once `src/laws/` can usefully static-scan SQL.
 
+## 2026-09 - Doc AI: port the categories/provenance/versioning design, fix a real double-penalty bug in the legibility downgrade
+
+**Decision:** Rebuilt Bridge's Engine/EngineBridge document-extraction
+pipeline (`src/lib/docai/`) as a faithful port of its categories
+registry, confidence scoring, and versioning/reconciliation logic - this
+part of Bridge was already coherent, config-driven design, unlike the
+fit engine - with two changes: extraction output is now validated
+against a Zod schema per category before anything downstream sees it
+(Bridge trusted raw `JSON.parse` completely), and the pipeline is a
+pure function returning a result instead of writing straight into a
+global object, so persistence stays the caller's job where `org_id` and
+RLS actually live.
+
+**Reason:** Dave named Doc AI, alongside the recruiting engine, as one
+of the two hardest-but-most-valuable pieces to get right.
+
+**A bug found while porting, not before:** Bridge's EX-10 low-legibility
+handling (bffsa-site/index.html ~2658-2664) caps the model's reported
+confidence at 0.55 when a scan's legibility is below 0.6, then passes
+that capped value into `effectiveConfidence()`, which multiplies by the
+*same* legibility score again. Worked through the algebra:
+`0.55 (cap) x <0.6 (legibility) x <=1.0 (role weight)` is always below
+`CONFIDENCE_REVIEW_MIN` (0.40). So despite Bridge's own comment saying
+this "routes to review queue," every low-legibility case actually fell
+straight to reject - the review band was mathematically unreachable
+whenever this branch fired. Fixed by making legibility suppress
+confidence in exactly one place (`effectiveConfidence`'s multiplier);
+the low-legibility branch now only adds a warning. Verified with a
+regression test (`provenance.test.ts`, "a moderately low legibility
+score can still land in the review band, not just reject") that fails
+against the old double-penalty logic and passes against the fix.
+
+**Alternatives considered:** Leave the bug in place for fidelity to
+Bridge's shipped behavior. Rejected - matching a real bug isn't
+faithfulness, and a rule this consequential (does a family's transcript
+get auto-applied, sent to a human, or bounced back for a retake)
+deserves to actually do what its own comment says it does.
+
+**Consequences:** Any future change to confidence math must remember
+legibility is applied once, in `effectiveConfidence`, not layered again
+elsewhere - this should become a law once `src/laws/` has a reason to
+static-check numeric logic like this instead of only strings/policies.
+
 ## 2026-09 - Add an eligibility dimension for the NCAA transfer portal
 
 **Decision:** Support `transfer_4to4`, `transfer_juco`, and

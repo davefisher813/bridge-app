@@ -3,16 +3,27 @@
 Not a committed timeline - Dave hasn't scoped dates for any of this yet.
 Ordered by what naturally follows what's already built.
 
+## Done from the original "next up" list
+
+1. ~~Verify RLS enforcement for real~~ - done, found and fixed a real
+   infinite-recursion bug. See docs/DECISIONS.md.
+2. ~~Doc AI redesign~~ - core logic done (categories, schemas, GPA
+   normalization, resolver, provenance/routing, versioning, pipeline
+   orchestration), found and fixed a real double-penalty bug in the
+   confidence math. Ingest and the real API call are not done - see
+   below.
+
 ## Next up
 
-1. **Verify RLS enforcement for real**, not just schema shape, before
-   building anything on top of it that would be painful to redo. See
-   docs/CURRENT_STATE.md's known gaps.
-2. **Doc AI redesign.** Bridge's real `Engine`/`EngineBridge` system has
-   been read in full; it needs the same treatment the fit engine got -
-   understand what's genuinely good (this is real, working extraction
-   logic) vs. what's accumulated as patches, then rebuild the coherent
-   version against the same org-scoped, walled-off-module principles.
+1. **Doc AI file ingest**, ported from Bridge's `Engine.ingest`, once
+   there's a browser available to actually exercise
+   `File`/`Image`/`canvas`/`FileReader` code against - not worth porting
+   blind with no way to verify it. Likely bundled with the first real
+   upload screen rather than built standalone.
+2. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
+   key (none exists in this environment) and a persistent per-org budget
+   table, since Bridge's localStorage-based daily budget tracking has no
+   multi-tenant, server-side equivalent yet.
 3. **First real screens**, built against docs/DESIGN_SYSTEM.md's rules:
    likely roster/athletes list first, since the fit engine has nothing
    to score without athlete and school data actually in the database.

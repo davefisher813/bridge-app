@@ -1,0 +1,194 @@
+import { describe, expect, it } from "vitest";
+import { runExtractionPipeline, type ModelCaller } from "./pipeline";
+import type { IngestedRecord, ResolverAthlete } from "./types";
+
+function fakeRecord(): IngestedRecord {
+  return {
+    originalName: "transcript.pdf",
+    originalSize: 12345,
+    originalMime: "application/pdf",
+    kind: "pdf",
+    sourceRole: "admin",
+    ingestedAt: new Date().toISOString(),
+    requestId: "r_test_1",
+    mediaType: "application/pdf",
+    base64: "ZmFrZQ==",
+    blockType: "document",
+  };
+}
+
+const roster: ResolverAthlete[] = [{ id: "1", name: "Xavier Davis", school: "Stamford High", gradYear: 2027 }];
+
+function scriptedCaller(byRequestSuffix: Record<string, string>): ModelCaller {
+  return async (opts) => {
+    const suffix = opts.requestId.endsWith("_triage") ? "_triage" : "_extract";
+    const response = byRequestSuffix[suffix];
+    if (!response) throw new Error(`No scripted response for ${suffix}`);
+    return response;
+  };
+}
+
+const GOOD_TRIAGE = JSON.stringify({
+  readable: true,
+  legibilityScore: 0.95,
+  detectedType: "transcript",
+  typeMatchesExpected: true,
+  pagesDetected: 1,
+  issues: [],
+  recommendation: "proceed",
+  reason: "Clear scan.",
+});
+
+const GOOD_TRANSCRIPT = JSON.stringify({
+  studentName: "Xavier Davis",
+  school: "Stamford High",
+  gradYear: 2027,
+  sport: "Baseball",
+  gpa: 3.7,
+  gpaScale: "4.0",
+  gpaVerified: true,
+  courseLoad: "Heavy AP/IB",
+  apCount: 5,
+  honorsCount: 2,
+  regularCount: 1,
+  ibCount: 0,
+  dualCount: 0,
+  confidence: 0.92,
+  warnings: [],
+});
+
+describe("runExtractionPipeline", () => {
+  it("auto-applies a clean, high-confidence, well-matched transcript", async () => {
+    const result = await runExtractionPipeline({
+      categoryId: "transcript",
+      records: [fakeRecord()],
+      sourceRole: "admin",
+      roster,
+      rosterContext: roster,
+      priorVersions: [],
+      callModel: scriptedCaller({ _triage: GOOD_TRIAGE, _extract: GOOD_TRANSCRIPT }),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.route).toBe("auto_apply");
+      expect(result.candidates[0]?.athlete.id).toBe("1");
+      expect(result.versionClassification).toEqual({ kind: "first" });
+    }
+  });
+
+  it("stops at triage when the model recommends a retake", async () => {
+    const badTriage = JSON.stringify({
+      readable: false,
+      legibilityScore: 0.2,
+      detectedType: "transcript",
+      typeMatchesExpected: true,
+      pagesDetected: 1,
+      issues: ["Bottom third of page is cut off"],
+      recommendation: "retake",
+      reason: "Cropped.",
+    });
+    const result = await runExtractionPipeline({
+      categoryId: "transcript",
+      records: [fakeRecord()],
+      sourceRole: "admin",
+      roster,
+      rosterContext: roster,
+      priorVersions: [],
+      callModel: scriptedCaller({ _triage: badTriage, _extract: GOOD_TRANSCRIPT }),
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.stage).toBe("triage_retake");
+  });
+
+  it("routes a low-legibility scan to review even when the model claims high confidence", async () => {
+    const lowLegTriage = JSON.stringify({
+      readable: true,
+      legibilityScore: 0.55,
+      detectedType: "transcript",
+      typeMatchesExpected: true,
+      pagesDetected: 1,
+      issues: ["Slightly blurry"],
+      recommendation: "proceed",
+      reason: "Readable but blurry.",
+    });
+    const result = await runExtractionPipeline({
+      categoryId: "transcript",
+      records: [fakeRecord()],
+      sourceRole: "admin",
+      roster,
+      rosterContext: roster,
+      priorVersions: [],
+      callModel: scriptedCaller({ _triage: lowLegTriage, _extract: GOOD_TRANSCRIPT }),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.route).toBe("review");
+      expect(result.extracted.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/Low-legibility/)]));
+    }
+  });
+
+  it("rejects extraction output that fails schema validation instead of trusting it", async () => {
+    const badShape = JSON.stringify({ studentName: "Xavier Davis", gpa: "not a number" });
+    const result = await runExtractionPipeline({
+      categoryId: "transcript",
+      records: [fakeRecord()],
+      sourceRole: "admin",
+      roster,
+      rosterContext: roster,
+      priorVersions: [],
+      callModel: scriptedCaller({ _triage: GOOD_TRIAGE, _extract: badShape }),
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.stage).toBe("extraction_invalid");
+  });
+
+  it("handles a model response wrapped in markdown fences", async () => {
+    const fenced = "```json\n" + GOOD_TRANSCRIPT + "\n```";
+    const result = await runExtractionPipeline({
+      categoryId: "transcript",
+      records: [fakeRecord()],
+      sourceRole: "admin",
+      roster,
+      rosterContext: roster,
+      priorVersions: [],
+      callModel: scriptedCaller({ _triage: GOOD_TRIAGE, _extract: fenced }),
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("refuses to run the unsupported film category without calling the model at all", async () => {
+    let called = false;
+    const result = await runExtractionPipeline({
+      categoryId: "film",
+      records: [fakeRecord()],
+      sourceRole: "admin",
+      roster,
+      rosterContext: roster,
+      priorVersions: [],
+      callModel: async () => {
+        called = true;
+        return "{}";
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.stage).toBe("unsupported");
+    expect(called).toBe(false);
+  });
+
+  it("proceeds to extraction when triage itself throws, same as Bridge's original behavior", async () => {
+    const result = await runExtractionPipeline({
+      categoryId: "transcript",
+      records: [fakeRecord()],
+      sourceRole: "admin",
+      roster,
+      rosterContext: roster,
+      priorVersions: [],
+      callModel: async (opts) => {
+        if (opts.requestId.endsWith("_triage")) throw new Error("triage service unavailable");
+        return GOOD_TRANSCRIPT;
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.triage).toBeNull();
+  });
+});
