@@ -125,11 +125,28 @@ stubbing a minimal `auth` schema - a bare `auth.users` table plus
 `auth.uid()` / `auth.role()` stub functions - so RLS policies that
 reference `auth.uid()` parse and run without the full Supabase stack.
 Smoke-tested with sample inserts across all 8 tables including the
-recruiting_targets join. This is a schema/relationship smoke test only:
-RLS *enforcement* (does a non-superuser role actually get denied cross-
-org rows) was not verified this way, since the smoke test ran as
-superuser, which bypasses RLS entirely. That remains an open item - see
-docs/CURRENT_STATE.md.
+recruiting_targets join.
+
+That first pass was a schema/relationship smoke test only, run as the
+Postgres superuser, which bypasses RLS unconditionally - it could never
+have caught an RLS bug. `scripts/run_rls_test.sh` closes that gap: it
+extends the `auth` stub with a settable session GUC so a script can
+impersonate different users, creates a genuine non-superuser
+(`NOBYPASSRLS`) role, and asserts cross-org reads/writes are actually
+denied. Running it found a real bug on the first try: `org_members`'s
+own RLS policy queried `org_members`, so any other policy that also
+filtered through `org_members` (athletes, recruiting_targets,
+benchmark_sets) recursed into re-evaluating that same policy, forever
+("infinite recursion detected in policy for relation org_members").
+Fixed with the standard pattern - a `SECURITY DEFINER` helper function,
+`_member_org_ids()`, owned by the role that owns `org_members`, so its
+internal query bypasses `org_members`'s RLS (owner bypass) instead of
+re-triggering it. Every org-scoped policy now goes through that
+function instead of querying `org_members` directly. All 10 RLS
+assertions pass after the fix; see `scripts/README.md`.
+
+This has been verified locally, not yet against a real Supabase
+project - see docs/CURRENT_STATE.md.
 
 ## What isn't built yet
 

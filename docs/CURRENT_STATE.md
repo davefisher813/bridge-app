@@ -13,11 +13,12 @@ meaningfully, not appended to.
 - **Database schema** (`migrations/0001_core_schema.sql`): `orgs`,
   `users`, `org_members`, `athletes`, `schools`, `recruiting_targets`,
   `benchmark_sets`, `transfer_windows`, with RLS policies on all 8
-  tables. Tested for schema/relationship correctness against a real
-  local Postgres 16 (stubbed `auth` schema, no Docker/Supabase needed) -
-  smoke-tested with sample inserts across an org, a user, an org
-  membership, two athletes (one HS, one JUCO transfer), a school, and a
-  recruiting target. **Not yet applied to any real Supabase project.**
+  tables, plus a `_member_org_ids()` SECURITY DEFINER helper (see
+  below). Tested twice: schema/relationship correctness as superuser,
+  and real RLS enforcement as a non-superuser role
+  (`scripts/run_rls_test.sh`, 10/10 assertions pass) - cross-org reads
+  and writes are actually denied, not just that the relationships
+  insert correctly. **Not yet applied to any real Supabase project.**
 - **Fit-scoring engine** (`src/lib/fit/`): complete first pass.
   `types.ts`, `bands.ts`, `benchmarks.ts` (ported baseball/softball
   tier data), `academic.ts`, `athletic.ts`, `financial.ts`,
@@ -34,13 +35,16 @@ meaningfully, not appended to.
 
 ## Known gaps (be honest about these, don't let them go stale)
 
-- **RLS enforcement has not been verified under a non-superuser role.**
-  The migration was smoke-tested as the Postgres superuser, which
-  bypasses RLS entirely. Before this schema goes anywhere near
-  production, test it with a real non-superuser role that sets
-  `auth.uid()` via `set_config`, or via a Supabase preview branch, and
-  confirm cross-org rows are actually denied, not just that the
-  relationships insert correctly.
+- **RLS enforcement has been verified locally, not against real
+  Supabase.** `scripts/run_rls_test.sh` proves the policies work
+  against a local Postgres 16 with a stubbed `auth` schema and a real
+  non-superuser role. It caught and led to fixing a genuine infinite-
+  recursion bug in the original policies (see docs/DECISIONS.md). It
+  has not been re-run against an actual Supabase project (real
+  `auth.uid()` from a verified JWT, Supabase's own role setup) - do
+  that before this schema goes anywhere near production, since a
+  hosted project's exact role/grant setup can differ from this local
+  approximation.
 - **No UI exists.** Roster, recruiting board, communication tracking,
   calendar - none of it is built. docs/DESIGN_SYSTEM.md documents the
   rules to build against, not built screens.

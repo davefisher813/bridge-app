@@ -141,20 +141,39 @@ alter table transfer_windows enable row level security;
 create policy schools_read on schools for select using (auth.role() = 'authenticated');
 create policy transfer_windows_read on transfer_windows for select using (auth.role() = 'authenticated');
 
+-- org_members's own policy (below) has to query org_members to decide who
+-- can see what. Every OTHER policy that also filters through org_members
+-- directly (athletes_by_org, etc.) would then recurse: evaluating their
+-- USING clause evaluates org_members's policy, which queries org_members
+-- again, forever ("infinite recursion detected in policy for relation
+-- org_members"). Confirmed by actually running this against Postgres as a
+-- non-superuser role, not just eyeballing it - a superuser-only smoke test
+-- (RLS is bypassed for superusers and table owners) never triggers this.
+--
+-- The fix is the standard one: a SECURITY DEFINER helper, owned by the
+-- migration role that owns org_members, so its internal query bypasses
+-- org_members's RLS (owner bypass) instead of re-evaluating it. Every
+-- other policy calls this function instead of querying org_members
+-- directly. See scripts/rls_test.sql for the test that caught this.
+create or replace function _member_org_ids() returns setof uuid
+  language sql stable security definer
+  set search_path = public
+  as $$ select org_id from org_members where user_id = auth.uid() $$;
+
 -- Org-scoped tables: a row is visible only to a member of its org.
 -- This is the membership-table pattern jarvis-core's architecture doc
 -- describes as the future step for JARVIS; here it's the starting point,
 -- because Bridge and Elite Squad exist on day one, not later.
 create policy org_members_self on org_members for select
-  using (user_id = auth.uid() or org_id in (select org_id from org_members where user_id = auth.uid()));
+  using (user_id = auth.uid() or org_id in (select _member_org_ids()));
 
 create policy athletes_by_org on athletes for all
-  using (org_id in (select org_id from org_members where user_id = auth.uid()));
+  using (org_id in (select _member_org_ids()));
 
 create policy recruiting_targets_by_org on recruiting_targets for all
-  using (org_id in (select org_id from org_members where user_id = auth.uid()));
+  using (org_id in (select _member_org_ids()));
 
 create policy benchmark_sets_by_org on benchmark_sets for all
-  using (org_id is null or org_id in (select org_id from org_members where user_id = auth.uid()));
+  using (org_id is null or org_id in (select _member_org_ids()));
 
 create policy users_self on users for select using (id = auth.uid());

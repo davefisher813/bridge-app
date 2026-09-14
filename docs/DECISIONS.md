@@ -94,6 +94,41 @@ rely on, which is why it's enforced as a law
 (`src/laws/fitLaws.test.ts`) rather than left as a comment that could
 drift.
 
+## 2026-09 - Fixed a real RLS infinite-recursion bug found by testing as a non-superuser role
+
+**Decision:** Added `_member_org_ids()`, a `SECURITY DEFINER` helper
+function, and rewrote every org-scoped RLS policy (`athletes_by_org`,
+`recruiting_targets_by_org`, `benchmark_sets_by_org`, `org_members_self`)
+to call it instead of querying `org_members` directly.
+
+**Reason:** `org_members`'s own policy has to query `org_members` to
+decide who can see what. Any other policy that also queries
+`org_members` directly, while `org_members` itself has an active RLS
+policy, recurses: evaluating the outer policy evaluates `org_members`'s
+policy, which queries `org_members` again, forever. Postgres reports
+this as "infinite recursion detected in policy for relation
+org_members." This was invisible in the original migration test
+(`/tmp/smoke_test.sql`, superuser-only) because RLS is bypassed
+unconditionally for superusers and table owners - the bug could not
+have been caught that way no matter how many rows were inserted.
+Building `scripts/run_rls_test.sh` (a genuine non-superuser role,
+`NOBYPASSRLS`) surfaced it on the very first query.
+
+**Alternatives considered:** Restructure the policies to avoid a
+self-referencing subquery some other way (e.g., denormalizing org
+membership onto a JWT claim, which is what Supabase's own docs suggest
+for larger-scale deployments). Not pursued yet because a JWT-claims
+approach ties this schema to actual Supabase auth-hook configuration,
+which doesn't exist yet; the SECURITY DEFINER helper is the standard,
+portable fix and doesn't foreclose moving to JWT claims later if
+`org_members` lookups ever become a real performance bottleneck.
+
+**Consequences:** Any future RLS policy that needs "which orgs does the
+current user belong to" must call `_member_org_ids()`, never write
+`select org_id from org_members where user_id = auth.uid()` inline
+again - that's exactly the pattern that recursed. This should probably
+become a law once `src/laws/` can usefully static-scan SQL.
+
 ## 2026-09 - Add an eligibility dimension for the NCAA transfer portal
 
 **Decision:** Support `transfer_4to4`, `transfer_juco`, and
