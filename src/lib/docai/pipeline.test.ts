@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runExtractionPipeline, type ModelCaller } from "./pipeline";
+import { detectCategory, runExtractionPipeline, type ModelCaller } from "./pipeline";
 import type { IngestedRecord, ResolverAthlete } from "./types";
 
 function fakeRecord(): IngestedRecord {
@@ -190,5 +190,64 @@ describe("runExtractionPipeline", () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.triage).toBeNull();
+  });
+});
+
+describe("detectCategory", () => {
+  const triageOf = (detectedType: string) =>
+    JSON.stringify({
+      readable: true,
+      legibilityScore: 0.9,
+      detectedType,
+      typeMatchesExpected: true,
+      pagesDetected: 1,
+      issues: [],
+      recommendation: "proceed",
+      reason: "ok",
+    });
+
+  it("names the category when triage recognizes the document", async () => {
+    for (const [detected, expected] of [
+      ["transcript", "transcript"],
+      ["test_scores", "test_scores"],
+      ["offer_letter", "offer_letter"],
+      ["recommendation", "recommendation"],
+      ["financial_aid", "financial_aid"],
+      ["highlight_video_screenshot", "film"],
+    ] as const) {
+      const result = await detectCategory({
+        records: [fakeRecord()],
+        callModel: scriptedCaller({ _triage: triageOf(detected) }),
+      });
+      expect(result.categoryId).toBe(expected);
+    }
+  });
+
+  // The point of returning null rather than a best guess: a driving
+  // licence is not a transcript, and guessing would send the wrong
+  // extraction prompt at it and produce confident nonsense.
+  it("returns null rather than guessing on something it does not recognize", async () => {
+    for (const detected of ["id_document", "other", "unreadable", "something_new"]) {
+      const result = await detectCategory({
+        records: [fakeRecord()],
+        callModel: scriptedCaller({ _triage: triageOf(detected) }),
+      });
+      expect(result.categoryId).toBeNull();
+    }
+  });
+
+  it("returns null when triage itself fails", async () => {
+    const result = await detectCategory({
+      records: [fakeRecord()],
+      callModel: async () => {
+        throw new Error("model down");
+      },
+    });
+    expect(result).toEqual({ categoryId: null, triage: null });
+  });
+
+  it("has nothing to detect from no files", async () => {
+    const result = await detectCategory({ records: [], callModel: scriptedCaller({}) });
+    expect(result).toEqual({ categoryId: null, triage: null });
   });
 });

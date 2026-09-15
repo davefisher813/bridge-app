@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import Link from "next/link";
+import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { signout } from "@/lib/auth/actions";
 import { RailCard, SectionHeader } from "@/components/catalog";
 
@@ -13,6 +14,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   return (
     <main className="px-4 pt-2">
@@ -21,6 +23,14 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
       </div>
 
       <div className="flex flex-col gap-2">
+        {canEdit && (
+          <Link href={`/org/${slug}/documents`} className="block">
+            <RailCard role="place">
+              <div className="text-[14px] font-semibold text-ink">Documents</div>
+              <div className="text-[12px] text-muted">Read a transcript or an offer letter into an athlete&apos;s record</div>
+            </RailCard>
+          </Link>
+        )}
         <RailCard role="neutral">
           <div className="text-[14px] font-semibold text-ink">{user.full_name || user.email}</div>
           <div className="text-[12px] text-muted">{org.name}</div>

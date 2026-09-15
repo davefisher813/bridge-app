@@ -99,6 +99,60 @@ async function runTriage(input: PipelineInput, requestId: string): Promise<Triag
   }
 }
 
+// Dave wants both ways in: triage names the document type by default, and
+// he can force one up front (see docs/DECISIONS.md). The pipeline itself
+// takes a categoryId as an input, so detection is a separate pass that
+// runs triage on its own first and hands the answer back.
+//
+// The triage prompt already returns `detectedType` regardless of what
+// category it was told to expect, so this costs one triage call and no new
+// prompt. It is a different job from runTriage's: that one asks "is this
+// readable and does it match what you were told", this one asks "what is
+// it".
+const DETECTED_TO_CATEGORY: Record<string, DocCategoryId | null> = {
+  transcript: "transcript",
+  test_scores: "test_scores",
+  offer_letter: "offer_letter",
+  recommendation: "recommendation",
+  financial_aid: "financial_aid",
+  highlight_video_screenshot: "film",
+  // A driving licence, a random page, or something unreadable is not a
+  // category. Null means "ask the user", never a guess.
+  id_document: null,
+  other: null,
+  unreadable: null,
+};
+
+export interface DetectInput {
+  records: IngestedRecord[];
+  callModel: ModelCaller;
+  triageModel?: string;
+}
+
+export interface DetectResult {
+  categoryId: DocCategoryId | null;
+  triage: TriageResult | null;
+}
+
+export async function detectCategory(input: DetectInput): Promise<DetectResult> {
+  if (!input.records.length) return { categoryId: null, triage: null };
+  const requestId = input.records[0]!.requestId;
+
+  // Told to expect nothing in particular, so `typeMatchesExpected` is
+  // meaningless here and deliberately ignored by the caller.
+  const triage = await runTriage(
+    {
+      categoryId: "transcript",
+      records: input.records,
+      callModel: input.callModel,
+      triageModel: input.triageModel,
+    } as PipelineInput,
+    requestId
+  );
+  if (!triage) return { categoryId: null, triage: null };
+  return { categoryId: DETECTED_TO_CATEGORY[triage.detectedType] ?? null, triage };
+}
+
 export async function runExtractionPipeline(input: PipelineInput): Promise<PipelineResult> {
   const cat = getCategory(input.categoryId);
   if (cat.shape === "unsupported") {

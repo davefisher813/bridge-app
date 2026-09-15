@@ -1,7 +1,7 @@
 # Current state
 
-Last updated: 2026-09-15 (styling catalog locked and applied; palette
-rebuilt on Apple iOS system colors and approved).
+Last updated: 2026-09-15 (Doc AI upload, review queue and apply built
+on a stub model caller).
 Replaced wholesale when this changes meaningfully, not appended to.
 
 ## What exists
@@ -117,9 +117,10 @@ Replaced wholesale when this changes meaningfully, not appended to.
   800/900 (self-hosted via `next/font/local` from the vendored
   `@fontsource-variable/inter` woff2 in `src/app/fonts/` - deliberately
   not `next/font/google`, so the build never depends on reaching
-  Google's font CDN), and a `--info` token (indigo) was added for the
-  "In Contact" status color. See docs/DECISIONS.md for the full
-  conflict-resolution history and a red-comparison artifact.
+  Google's font CDN). The color language has since been rebuilt twice on
+  top of this: the locked styling catalog, then the Apple iOS palette and
+  the role map that replaced it. See docs/STYLING_CATALOG.md for what is
+  current and docs/DECISIONS.md for how it got there.
 - **DB-to-fit-engine adapter** (`src/lib/data/fitAdapters.ts`): converts
   raw Supabase rows (snake_case columns) into `src/lib/fit/`'s plain
   camelCase types. Lives outside `src/lib/fit/` on purpose, so the fit
@@ -177,7 +178,10 @@ Replaced wholesale when this changes meaningfully, not appended to.
   every empty state. Only T3 (toasts) is unapplied, because the app has
   no toast anywhere yet: every write is a server action that redirects
   rather than confirming in place.
-- **Laws as tests** (`src/laws/`): no em dash, D3 never shows a
+- **Laws as tests** (`src/laws/`): the fit engine and Doc AI stay walled
+  off from Next/Supabase/components/environment (a CLAUDE.md rule that had
+  nothing enforcing it until a stub caller was written with a
+  `process.env` read in it), no em dash, D3 never shows a
   scholarship-availability claim, transfer portal window never
   fabricated, a veto always overrides the blend, and the styling laws
   (a solid fill never appears without its paired foreground, the neutral
@@ -211,6 +215,20 @@ Replaced wholesale when this changes meaningfully, not appended to.
   EXIF rotation was found, via that same Playwright harness, to be
   double-rotating images, and was deleted. See docs/DECISIONS.md. Not
   yet wired to any page - it's a library module, not a screen.
+- **Doc AI upload, review and apply** (`/org/[slug]/documents`,
+  `/documents/new`, `/documents/[id]`, `src/lib/actions/documents.ts`,
+  `migrations/0007_documents.sql`): the front end for the extraction
+  pipeline that had been built and wired to nothing. Ingestion runs in the
+  browser (`DocumentUploader.tsx`) because ingest.ts needs File/canvas;
+  the pipeline and persistence run server-side. Per Dave, both ways in:
+  triage names the type by default via the new `detectCategory()`, and a
+  type can be forced. A document routes to applied, review or refused, and
+  a human can apply it to a different athlete or discard it. **No real
+  model is wired up**: `src/lib/docai/stubCaller.ts` drives the real
+  pipeline with deterministic made-up results so the flow is usable, and
+  every screen showing one says "Simulated reading" out loud. Verified the
+  stub reaches all three routes rather than only the easy one
+  (`stubCaller.test.ts`).
 - **Docs**: this file, ARCHITECTURE.md, DESIGN_SYSTEM.md,
   BUSINESS_RULES.md, DECISIONS.md, PRODUCT.md, ROADMAP.md, CLAUDE.md.
 

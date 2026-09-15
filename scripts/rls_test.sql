@@ -49,6 +49,9 @@ insert into contacts (org_id, athlete_id, name, role) values
 insert into target_visits (org_id, target_id, visit_type) values
   ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000210', 'unofficial'),
   ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000220', 'unofficial');
+insert into documents (org_id, file_name, file_size, media_type, source_role, status) values
+  ('00000000-0000-0000-0000-000000000010', 'bridge-transcript.pdf', 1000, 'application/pdf', 'coordinator', 'pending'),
+  ('00000000-0000-0000-0000-000000000020', 'elite-transcript.pdf', 1000, 'application/pdf', 'coordinator', 'pending');
 insert into benchmark_sets (org_id, sport, tiers, positions) values
   (null, 'baseball', '[]'::jsonb, '[]'::jsonb),
   ('00000000-0000-0000-0000-000000000010', 'baseball', '[]'::jsonb, '[]'::jsonb),
@@ -162,6 +165,25 @@ end $$;
 do $$
 declare n int;
 begin
+  select count(*) into n from documents;
+  if n <> 1 then raise exception 'FAIL: user1 saw % documents rows, expected 1 (Bridge''s only)', n; end if;
+  raise notice 'PASS: user1 sees only Bridge''s document, not Elite Squad''s';
+end $$;
+
+do $$
+begin
+  begin
+    insert into documents (org_id, file_name, file_size, media_type, source_role)
+      values ('00000000-0000-0000-0000-000000000020', 'sneaky.pdf', 10, 'application/pdf', 'admin');
+    raise exception 'FAIL: user1 was able to insert a document into Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org document insert correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+declare n int;
+begin
   select count(*) into n from benchmark_sets;
   if n <> 2 then raise exception 'FAIL: user1 saw % benchmark_sets, expected 2 (Bridge''s + the global default)', n; end if;
   raise notice 'PASS: user1 sees Bridge''s benchmark set plus the shared/global one, not Elite Squad''s';
@@ -252,6 +274,14 @@ begin
   select count(*) into n from target_visits;
   if n <> 0 then raise exception 'FAIL: an anonymous session saw % target_visits rows, expected 0', n; end if;
   raise notice 'PASS: anonymous session sees zero target_visits rows';
+end $$;
+
+do $$
+declare n int;
+begin
+  select count(*) into n from documents;
+  if n <> 0 then raise exception 'FAIL: an anonymous session saw % documents rows, expected 0', n; end if;
+  raise notice 'PASS: anonymous session sees zero documents rows';
 end $$;
 
 reset role;

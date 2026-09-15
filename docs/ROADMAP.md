@@ -97,9 +97,18 @@ Ordered by what naturally follows what's already built.
     wired to any page yet - it's a library module the eventual upload UI
     will call.
 
+14. ~~Doc AI upload, review queue and apply~~ - `documents` table
+    (migration `0007`), `src/lib/actions/documents.ts`, and three screens
+    under `/org/[slug]/documents`. Dave asked for both ways in, so triage
+    names the document type by default (`detectCategory()`) and a type can
+    be forced up front. A stub ModelCaller
+    (`src/lib/docai/stubCaller.ts`) drives the real pipeline so the whole
+    flow is usable before an API key exists, and every screen showing a
+    stubbed result says so. Only the injected caller changes when a real
+    key arrives.
 ## Next up
 
-1. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
+1. **Wire a real `ModelCaller`** (the last piece of Doc AI) against the Anthropic API: needs an API
    key (Dave doesn't have one to provide yet) and a persistent per-org
    budget table, since Bridge's localStorage-based daily budget tracking
    has no multi-tenant, server-side equivalent yet. On hold until a key

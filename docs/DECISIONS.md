@@ -775,3 +775,59 @@ The preview generator now parses the color maps out of
 drifted three times during this change alone, each time showing a color
 the app does not use. A preview that disagrees with the app is worse than
 no preview.
+
+---
+
+## 2026-09 - Doc AI gets a front end, on a stub model rather than no model
+
+**Decision:** Built the upload, review-queue and apply screens on a stub
+`ModelCaller` (`src/lib/docai/stubCaller.ts`) instead of waiting for an
+Anthropic API key. Category detection is both automatic and overridable,
+per Dave. Persistence is a new `documents` table (migration `0007`).
+
+**Reason:** The extraction pipeline had been built, tested and wired to
+nothing for several sessions, blocked behind a key that does not exist
+yet. The pipeline already takes its model caller by injection precisely
+so it can run without one, so the screens, the table, the routing and the
+review flow can all be built and used now, and the only thing that
+changes when a key arrives is which caller is passed in.
+
+The stub is not a fake pretending to be real. It derives a deterministic
+result from the file's own name and size, so one upload always behaves
+the same way, and **every screen that displays a stubbed result says
+"Simulated reading" out loud**. Shipping something that looked like it
+had read a transcript when it had not would be the worst possible version
+of this feature.
+
+**Alternatives considered:** Writing the real Anthropic caller blind and
+marking it untested. Rejected: it could not be run, so claiming it worked
+would be a guess, and a wrong guess would surface as a production bug the
+first time a key was added rather than here. Also considered leaving the
+pipeline unwired until a key existed, which is what had already happened
+for several sessions.
+
+**Consequences:** `detectCategory()` is new in `pipeline.ts`. The triage
+prompt already returned `detectedType` regardless of the category it was
+told to expect, so detection costs one triage call and no new prompt. It
+returns null rather than guessing on an ID document or an unreadable
+page: guessing would send the wrong extraction prompt at it and produce
+confident nonsense.
+
+Ingestion runs in the browser and the pipeline runs on the server. That
+split is forced: `ingest.ts` needs File, FileReader, createImageBitmap
+and canvas, which is why it was verified with Playwright rather than
+vitest in the first place.
+
+The first version of the stub could not produce an auto-apply at all. Its
+best case was 0.99 model confidence against 0.88 legibility, which is
+0.83 effective once the coordinator weight applies, just under the 0.85
+threshold in `provenance.ts`. The Applied screen was unreachable and the
+stub looked fine in isolation. It is now banded once per file so triage
+and extraction agree, and `stubCaller.test.ts` asserts the pipeline
+actually reaches all three routes rather than only the easy one.
+
+One law was added while doing this, for a rule that already existed and
+had nothing enforcing it: the fit engine and Doc AI must not import
+Next, Supabase, components, or read the environment. The stub was written
+with a `process.env` check in it and that was caught by hand. It is now
+caught by `src/laws/laws.test.ts`.
