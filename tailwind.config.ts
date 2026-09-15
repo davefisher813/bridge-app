@@ -37,6 +37,18 @@ const config: Config = {
           place: "var(--solid-place)",
           "place-on": "var(--solid-place-on)",
         },
+        // Tint pairs for surfaces that sit beside a solid one: stat tiles
+        // and group tabs. Same pairing rule as the solids.
+        tint: {
+          accent: "var(--tint-accent)",
+          "accent-on": "var(--tint-accent-on)",
+          success: "var(--tint-success)",
+          "success-on": "var(--tint-success-on)",
+          info: "var(--tint-info)",
+          "info-on": "var(--tint-info-on)",
+          neutral: "var(--tint-neutral)",
+          "neutral-on": "var(--tint-neutral-on)",
+        },
       },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],

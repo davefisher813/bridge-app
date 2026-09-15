@@ -34,9 +34,9 @@ Currently enforced:
    the easiest way in a dark UI to ship text nobody can read. White on
    the raw `--accent` is 3.4:1. Every fill therefore ships as a
    contrast-checked `--solid-X` / `--solid-X-on` pair, and the pair has
-   to be written together. Also covers: no raw hex in components, and
-   the neutral fill's hairline, and the same pairing rule for the tint
-   tokens, which additionally must be declared in BOTH themes since a
+   to be written together. Also covers: no raw hex in components, the
+   neutral fill's hairline, and the same pairing rule for the tint
+   tokens, which must additionally be declared in BOTH themes since a
    tint is defined against the paper behind it. `stylingLaws.test.ts`.
 
 ## How to add a law

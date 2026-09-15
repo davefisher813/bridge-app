@@ -1,7 +1,7 @@
 # Current state
 
-Last updated: 2026-09-15 (styling catalog locked; tokens, StatusPill and
-styling laws converted to it).
+Last updated: 2026-09-15 (styling catalog locked and applied to every
+screen).
 Replaced wholesale when this changes meaningfully, not appended to.
 
 ## What exists
@@ -37,10 +37,9 @@ Replaced wholesale when this changes meaningfully, not appended to.
   (Bridge, not Elite Squad) and is an honest "coming soon" placeholder,
   not an invented dollar figure - no fundraising data model exists yet.
 - **Roster screen** (`src/app/org/[slug]/roster/page.tsx`), now with
-  add/edit. Full-bleed list, initials avatar and color-coded
-  `StatusPill` per row. The list treatment is pre-catalog: the locked
-  catalog's C2 replaces the full-bleed row with a solid card and a
-  colored left rail, not yet applied here. Staff/owner see "+ Add";
+  add/edit. Rail cards (catalog C2) with a gradient initials avatar and
+  a color-coded `StatusPill` per row, the rail in that athlete's own
+  status hue. Staff/owner see "+ Add";
   every row (everyone, not just staff/owner) links to the athlete detail
   screen (`roster/[id]`, below) rather than straight to the edit form
   (`src/lib/actions/athletes.ts`, `src/lib/validation/athlete.ts`,
@@ -168,10 +167,14 @@ Replaced wholesale when this changes meaningfully, not appended to.
   docs/DECISIONS.md). Converted so far: the token layer
   (`--solid-*` contrast-checked fill/foreground pairs in
   `globals.css` + `tailwind.config.ts`, including three new field-type
-  hues named `time`/`people`/`place`), `StatusPill` (now solid fills,
-  not 15 percent tints), and the laws below. Every other screen still
-  renders pre-catalog treatments; the catalog's closing section lists
-  which.
+  hues named `time`/`people`/`place`, plus contrast-checked tint pairs
+  for the surfaces that sit beside a solid one), the shared primitives
+  in `src/components/catalog.tsx`, the single status-to-hue mapping in
+  `src/components/statusHue.ts`, and the laws below. Applied across
+  Today, Athletes, athlete detail, Board, More, login, every form and
+  every empty state. Only T3 (toasts) is unapplied, because the app has
+  no toast anywhere yet: every write is a server action that redirects
+  rather than confirming in place.
 - **Laws as tests** (`src/laws/`): no em dash, D3 never shows a
   scholarship-availability claim, transfer portal window never
   fabricated, a veto always overrides the blend, and the styling laws
