@@ -255,3 +255,26 @@ schools jsonb field must be added to both the relevant Zod schema in
 `src/lib/fit/schema.ts` and `School`/`AthleteDetail` in
 `src/lib/fit/types.ts` together, same discipline as `athletes.detail`
 already required.
+
+## 2026-09 - Visual previews before building a new screen
+
+**Decision:** Publish a static HTML mockup via the Artifact tool for
+any new screen before writing the real page, so Dave can react and
+adjust before code exists. Roster and Board were built first and
+previewed after, as a one-time retroactive catch-up (see the
+`screen-preview.html` artifact); every screen after this point gets the
+preview first.
+
+**Reason:** Dave's explicit request: "I would like visual previews at
+some point too so we can adjust before anything gets built." There is
+also no deployed instance and no real Supabase project yet, so without
+a preview Dave has no way to actually see a screen short of it already
+being finished code.
+
+**Consequences:** The mockup uses the real tokens from
+`src/app/globals.css` and the real markup patterns from already-built
+pages (phone-frame width, the same header/nav/row structure), not a
+generic redesign, so what Dave reacts to is what will actually ship.
+Adds one step to the build sequence for a new screen: mockup, feedback,
+then real code - not a reason to skip building fast, just to sequence
+it so feedback lands before the work, not after.
