@@ -1,15 +1,30 @@
 # Current state
 
-Last updated: 2026-09-14. Replaced wholesale when this changes
+Last updated: 2026-09-15. Replaced wholesale when this changes
 meaningfully, not appended to.
 
 ## What exists
 
 - **Scaffold**: Next.js 16 / React 19 / TypeScript / Tailwind /
-  Supabase, dependency versions matching tucci-admin. No pages beyond a
-  placeholder `src/app/page.tsx`. No auth flow wired up yet beyond the
-  `getCurrentUser` / `requireRole` / `requireOwner` helpers in
-  `src/lib/auth/guard.ts`.
+  Supabase, dependency versions matching tucci-admin.
+- **Auth flow**: session-refresh middleware (`src/middleware.ts`,
+  `src/lib/supabase/middleware.ts`, ported from tucci-admin's
+  `@supabase/ssr` pattern), login/signout server actions
+  (`src/lib/auth/actions.ts`), login page, unauthorized page.
+  Self-registration stays disabled (accounts are created by an org
+  owner). `getCurrentUser` / `requireRole` / `requireOwner`
+  (`src/lib/auth/guard.ts`) are now wired into a real page, not just
+  existing as unused helpers.
+- **Multi-org membership resolution** (`src/lib/org/membership.ts`):
+  after login, 0 orgs shows a no-access message, exactly 1 auto-redirects
+  into it, more than 1 shows a picker (name + role). Org-slug-to-org
+  lookup relies on RLS (`orgs_by_membership`) as the actual access
+  control: an org the caller isn't a member of is invisible, so it
+  404s, not 403s.
+- **First real screen: roster** (`src/app/org/[slug]/roster/page.tsx`).
+  Read-only full-bleed list per DESIGN_SYSTEM.md's chassis rule
+  (plain list = rows, not cards). Honest empty state pointing at
+  ROADMAP.md, since add/edit isn't built. Gated through `requireRole`.
 - **Database schema** (`migrations/0001_core_schema.sql`): `orgs`,
   `users`, `org_members`, `athletes`, `schools`, `recruiting_targets`,
   `benchmark_sets`, `transfer_windows`, with RLS policies on all 8
@@ -56,9 +71,20 @@ meaningfully, not appended to.
   do that before this schema goes anywhere near production, since a
   hosted project's exact role/grant setup can differ from this local
   approximation.
-- **No UI exists.** Roster, recruiting board, communication tracking,
-  calendar - none of it is built. docs/DESIGN_SYSTEM.md documents the
-  rules to build against, not built screens.
+- **Only roster exists as a UI screen.** Recruiting board, communication
+  tracking, calendar - none of it is built yet. docs/DESIGN_SYSTEM.md
+  documents the rules to build against.
+- **Auth flow is structurally verified only, not runtime-verified.**
+  `npx tsc --noEmit`, `npm test` (52/52), and `npm run build` all pass
+  clean, but there is no real Supabase project or env vars yet, so
+  actual sign-in, session refresh, and RLS-backed org resolution have
+  never run against a live backend. Confirm all of that once a real
+  Supabase project exists.
+- **Next 16 flags the `middleware.ts` file convention as deprecated**
+  in favor of a `proxy.ts` convention (`npx @next/codemod@canary
+  middleware-to-proxy .` would migrate it). Still works today; not
+  worth doing until this settles, since it may change again before
+  Next 16 stabilizes further.
 - **Doc AI's file-ingest pipeline has not been ported.** Bridge's real
   ingest code (magic-byte sniffing, HEIC conversion, EXIF-aware image
   normalization, PDF pre-validation) depends on `File`/`Image`/
