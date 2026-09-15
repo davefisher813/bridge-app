@@ -4,10 +4,16 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
+import { Avatar, EmptyState, RailCard } from "@/components/catalog";
+import { statusHue } from "@/components/statusHue";
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase();
+function RosterIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
+      <circle cx="12" cy="8" r="3.4" />
+      <path d="M5 20c1-4 4-6 7-6s6 2 7 6" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 interface AthleteRow {
@@ -65,38 +71,39 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
         </div>
 
         {rows.length === 0 ? (
-          <div className="rounded-[14px] border border-line bg-paper px-4 py-8 text-center">
-            <div className="text-[14px] font-semibold text-ink">No athletes yet</div>
+          <EmptyState icon={<RosterIcon />} title="No athletes yet">
             {canEdit ? (
-              <Link href={`/org/${slug}/roster/new`} className="mt-2 inline-block text-[13px] font-bold text-accent">
+              <Link href={`/org/${slug}/roster/new`} className="font-bold text-accent">
                 Add your first athlete &rarr;
               </Link>
             ) : (
-              <p className="mt-1 text-[13px] text-muted">Ask an owner or coordinator to add one.</p>
+              "Ask an owner or coordinator to add one."
             )}
-          </div>
+          </EmptyState>
         ) : (
-          <div className="divide-y divide-line border-y border-line">
+          // Catalog item C2: each athlete is a card with a rail in their
+          // own status hue, rather than a hairline-divided full-bleed row.
+          <div className="flex flex-col gap-2">
             {rows.map((a) => {
               const row = (
-                <div className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-info text-[12px] font-extrabold text-white">
-                      {initials(a.name)}
-                    </div>
-                    <div>
-                      <div className="text-[15px] font-semibold text-ink">{a.name}</div>
-                      <div className="text-[12px] text-muted">
-                        {a.sport}
-                        {a.position ? ` · ${a.position}` : ""} · {RECRUIT_TYPE_LABEL[a.recruit_type] ?? a.recruit_type}
+                <RailCard hue={statusHue(a.status)}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={a.name} />
+                      <div>
+                        <div className="text-[15px] font-semibold text-ink">{a.name}</div>
+                        <div className="text-[12px] text-muted">
+                          {a.sport}
+                          {a.position ? ` · ${a.position}` : ""} · {RECRUIT_TYPE_LABEL[a.recruit_type] ?? a.recruit_type}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="text-[13px] font-semibold tabular-nums text-ink">{a.gpa != null ? a.gpa.toFixed(2) : "–"}</div>
+                      <StatusPill status={a.status} />
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="text-[13px] font-semibold tabular-nums text-ink">{a.gpa != null ? a.gpa.toFixed(2) : "–"}</div>
-                    <StatusPill status={a.status} />
-                  </div>
-                </div>
+                </RailCard>
               );
               return (
                 <Link key={a.id} href={`/org/${slug}/roster/${a.id}`} className="block">

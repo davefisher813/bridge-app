@@ -3,6 +3,34 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
+import { EmptyState, RailCard, SectionHeader, StatTile } from "@/components/catalog";
+import { statusHue } from "@/components/statusHue";
+
+function ClearIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M8.5 12.5l2.5 2.5 4.5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
+      <rect x="4" y="5" width="16" height="15" rx="2.5" />
+      <path d="M4 10h16M8 3v4M16 3v4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChartIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
+      <path d="M4 20V10M10 20V5M16 20v-7M22 20H2" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 // The Today screen. Per Dave (2026-09): this is an org/recruiting
 // management tool, not a life-management app - so no "add a task" /
@@ -106,101 +134,84 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
         {firstName}.
       </h1>
 
-      <div className="rounded-[20px] border border-line bg-paper p-4">
-        <div className="grid grid-cols-3">
-          <div>
-            <div className="text-[22px] font-extrabold tabular-nums text-ink">{athleteCount ?? 0}</div>
-            <div className="mt-0.5 text-[11px] font-semibold text-muted">Athletes</div>
-          </div>
-          <div className="border-l border-line pl-3">
-            <div className="text-[22px] font-extrabold tabular-nums text-info">{inContactCount}</div>
-            <div className="mt-0.5 text-[11px] font-semibold text-muted">In contact</div>
-          </div>
-          <div className="border-l border-line pl-3">
-            <div className="text-[22px] font-extrabold tabular-nums text-accent">{committedCount}</div>
-            <div className="mt-0.5 text-[11px] font-semibold text-muted">Committed</div>
-          </div>
-        </div>
-        {totalTargets > 0 && (
-          <div className="mt-3 flex h-1 overflow-hidden rounded-full bg-line">
-            <div className="bg-info" style={{ width: `${(inContactCount / totalTargets) * 100}%` }} />
-            <div className="bg-accent" style={{ width: `${(committedCount / totalTargets) * 100}%` }} />
-          </div>
-        )}
+      {/* ST1: tinted tiles, each in the hue of what it counts. */}
+      <div className="flex gap-2">
+        <StatTile value={athleteCount ?? 0} label="Athletes" />
+        <StatTile value={inContactCount} label="In contact" hue="info" />
+        <StatTile value={committedCount} label="Committed" hue="accent" />
       </div>
-
-      <div className="mb-2 mt-5 flex items-baseline justify-between">
-        <h2 className="text-[15px] font-extrabold text-ink">Needs follow-up</h2>
-        <a href={`/org/${slug}/board`} className="text-[12px] font-bold text-accent">
-          View board &rarr;
-        </a>
-      </div>
-      {needsFollowUp.length === 0 ? (
-        <div className="rounded-[20px] border border-line bg-paper px-4 py-6 text-center text-[13px] text-muted">
-          Nothing open needs a follow-up right now.
-        </div>
-      ) : (
-        <div className="rounded-[20px] border border-line bg-paper">
-          {needsFollowUp.map((t, i) => (
-            <div key={t.id} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
-              <div>
-                <div className="text-[14px] font-bold text-ink">{t.athleteName}</div>
-                <div className="text-[11.5px] text-muted">
-                  {t.schoolName} &middot; no update in {t.days} {t.days === 1 ? "day" : "days"}
-                </div>
-              </div>
-              <StatusPill status={t.status} />
-            </div>
-          ))}
+      {totalTargets > 0 && (
+        <div className="mt-2 flex h-1 overflow-hidden rounded-full bg-line">
+          <div className="bg-info" style={{ width: `${(inContactCount / totalTargets) * 100}%` }} />
+          <div className="bg-accent" style={{ width: `${(committedCount / totalTargets) * 100}%` }} />
         </div>
       )}
 
-      <div className="mb-2 mt-5 flex items-baseline justify-between">
-        <h2 className="text-[15px] font-extrabold text-ink">Upcoming</h2>
+      <div className="mb-2 mt-6">
+        <SectionHeader label="Needs follow-up" count={needsFollowUp.length} />
+      </div>
+      {needsFollowUp.length === 0 ? (
+        <EmptyState icon={<ClearIcon />} title="Nothing needs a follow-up">
+          Every open target has been touched recently.
+        </EmptyState>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {needsFollowUp.map((t) => (
+            <RailCard key={t.id} hue={statusHue(t.status)}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[14px] font-bold text-ink">{t.athleteName}</div>
+                  <div className="text-[11.5px] text-muted">
+                    {t.schoolName} &middot; no update in {t.days} {t.days === 1 ? "day" : "days"}
+                  </div>
+                </div>
+                <StatusPill status={t.status} />
+              </div>
+            </RailCard>
+          ))}
+          <a href={`/org/${slug}/board`} className="mt-1 self-end text-[12px] font-bold text-accent">
+            View board &rarr;
+          </a>
+        </div>
+      )}
+
+      <div className="mb-2 mt-6">
+        <SectionHeader label="Upcoming" count={upcomingVisits.length + upcomingWindows.length} />
       </div>
       {upcomingVisits.length === 0 && upcomingWindows.length === 0 ? (
-        <div className="rounded-[20px] border border-line bg-paper px-4 py-6 text-center text-[13px] text-muted">
-          Nothing scheduled in the next 60 days.
-        </div>
+        <EmptyState icon={<CalendarIcon />} title="Nothing scheduled">
+          No visits or portal windows in the next 60 days.
+        </EmptyState>
       ) : (
-        <div className="rounded-[20px] border border-line bg-paper">
-          {upcomingVisits.map((v, i) => (
-            <div key={v.id} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
-              <div>
-                <div className="text-[14px] font-bold text-ink">
-                  Visit &middot; {v.schoolName}
-                </div>
-                <div className="text-[11.5px] text-muted">
-                  {new Date(v.visitDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} &middot;{" "}
-                  {v.athleteName}
-                </div>
+        <div className="flex flex-col gap-2">
+          {upcomingVisits.map((v) => (
+            <RailCard key={v.id} hue="info">
+              <div className="text-[14px] font-bold text-ink">Visit &middot; {v.schoolName}</div>
+              <div className="text-[11.5px] text-muted">
+                {new Date(v.visitDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} &middot;{" "}
+                {v.athleteName}
               </div>
-            </div>
+            </RailCard>
           ))}
-          {upcomingWindows.map((w, i) => (
-            <div
-              key={`${w.sport}-${w.division}-${w.window_label}`}
-              className={`flex items-center justify-between px-4 py-3 ${i > 0 || upcomingVisits.length > 0 ? "border-t border-line" : ""}`}
-            >
-              <div>
-                <div className="text-[14px] font-bold text-ink">Transfer portal opens</div>
-                <div className="text-[11.5px] text-muted">
-                  {w.sport} {w.division} &middot; {w.window_label} &middot; in {daysUntil(w.opens_on)} days
-                </div>
+          {upcomingWindows.map((w) => (
+            <RailCard key={`${w.sport}-${w.division}-${w.window_label}`}>
+              <div className="text-[14px] font-bold text-ink">Transfer portal opens</div>
+              <div className="text-[11.5px] text-muted">
+                {w.sport} {w.division} &middot; {w.window_label} &middot; in {daysUntil(w.opens_on)} days
               </div>
-            </div>
+            </RailCard>
           ))}
         </div>
       )}
 
       {org.modules.donor_fundraising && (
         <>
-          <div className="mb-2 mt-5 flex items-baseline justify-between">
-            <h2 className="text-[15px] font-extrabold text-ink">Program overview</h2>
+          <div className="mb-2 mt-6">
+            <SectionHeader label="Program overview" />
           </div>
-          <div className="rounded-[20px] border border-line bg-paper px-4 py-6 text-center text-[13px] text-muted">
-            Fundraising tracking is coming soon &mdash; no donation data is wired up yet.
-          </div>
+          <EmptyState icon={<ChartIcon />} title="Fundraising tracking is coming soon">
+            No donation data is wired up yet.
+          </EmptyState>
         </>
       )}
     </main>

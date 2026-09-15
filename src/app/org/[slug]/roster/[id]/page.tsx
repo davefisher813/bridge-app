@@ -8,6 +8,35 @@ import { ContactForm } from "@/components/ContactForm";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
+import { EmptyState, RailCard, SectionHeader } from "@/components/catalog";
+import { statusHue } from "@/components/statusHue";
+
+function SchoolIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
+      <path d="M12 4l9 4.5-9 4.5-9-4.5L12 4z" strokeLinejoin="round" />
+      <path d="M6 11v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ContactIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
+      <circle cx="9" cy="9" r="3.2" />
+      <path d="M3.5 19c.8-3.3 3-5 5.5-5s4.7 1.7 5.5 5M16 8h5M16 12h5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function VisitIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
+      <path d="M12 21s7-5.6 7-11a7 7 0 10-14 0c0 5.4 7 11 7 11z" strokeLinejoin="round" />
+      <circle cx="12" cy="10" r="2.4" />
+    </svg>
+  );
+}
 
 const RECRUIT_TYPE_LABEL: Record<string, string> = {
   hs: "High School",
@@ -124,26 +153,34 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
         {athlete.gpa != null ? ` · ${athlete.gpa.toFixed(2)} GPA` : ""}
       </div>
 
-      <div className="mt-6 rounded-[16px] border border-line bg-paper p-4">
+      <div className="mt-6 rounded-[12px] bg-paper p-4">
         <JourneyStepper result={journey} />
       </div>
 
       <div className="mt-8">
-        <h2 className="mb-2 text-[15px] font-extrabold text-ink">Colleges</h2>
+        <div className="mb-2">
+          <SectionHeader label="Colleges" count={targets.length} />
+        </div>
         {targets.length === 0 ? (
-          <p className="text-[12.5px] text-muted">No recruiting targets yet.</p>
+          <EmptyState icon={<SchoolIcon />} title="No colleges yet">
+            Add a target from the board to start tracking one.
+          </EmptyState>
         ) : (
-          <div className="divide-y divide-line border-y border-line">
+          <div className="flex flex-col gap-2">
             {targets.map((t) => (
-              <Link key={t.id} href={`/org/${slug}/board/${t.id}/edit`} className="flex items-center justify-between py-3">
-                <div>
-                  <div className="text-[14px] font-semibold text-ink">{t.school?.name ?? "Unknown school"}</div>
-                  <div className="text-[12px] text-muted">
-                    {t.school?.division ?? ""}
-                    {t.offer_type ? ` · ${t.offer_type} offer${t.offer_scholarship_percent ? ` (${t.offer_scholarship_percent}%)` : ""}` : ""}
+              <Link key={t.id} href={`/org/${slug}/board/${t.id}/edit`} className="block">
+                <RailCard hue={statusHue(t.status)}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[14px] font-semibold text-ink">{t.school?.name ?? "Unknown school"}</div>
+                      <div className="text-[12px] text-muted">
+                        {t.school?.division ?? ""}
+                        {t.offer_type ? ` · ${t.offer_type} offer${t.offer_scholarship_percent ? ` (${t.offer_scholarship_percent}%)` : ""}` : ""}
+                      </div>
+                    </div>
+                    <StatusPill status={t.status} />
                   </div>
-                </div>
-                <StatusPill status={t.status} />
+                </RailCard>
               </Link>
             ))}
           </div>
@@ -151,35 +188,41 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="mt-8">
-        <h2 className="mb-2 text-[15px] font-extrabold text-ink">Contacts</h2>
+        <div className="mb-2">
+          <SectionHeader label="Contacts" count={contacts.length} />
+        </div>
         <div className="flex flex-col gap-3">
           {canEdit && <ContactForm action={contactAction} schools={schools} />}
           {contacts.length === 0 ? (
-            <p className="text-[12.5px] text-muted">No contacts yet.</p>
+            <EmptyState icon={<ContactIcon />} title="No contacts yet">
+              Coaches, parents and advisors for this athlete live here.
+            </EmptyState>
           ) : (
-            <div className="rounded-[16px] border border-line bg-paper">
-              {contacts.map((c, i) => (
-                <div key={c.id} className={`flex items-start justify-between px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
-                  <div>
-                    <div className="text-[13px] font-bold text-ink">{c.name}</div>
-                    <div className="text-[11.5px] text-muted">{CONTACT_ROLE_LABEL[c.role] ?? c.role}</div>
-                    {(c.email || c.phone) && (
-                      <div className="mt-1 text-[12px] text-muted">
-                        {c.email}
-                        {c.email && c.phone ? " · " : ""}
-                        {c.phone}
-                      </div>
+            <div className="flex flex-col gap-2">
+              {contacts.map((c) => (
+                <RailCard key={c.id}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[13px] font-bold text-ink">{c.name}</div>
+                      <div className="text-[11.5px] text-muted">{CONTACT_ROLE_LABEL[c.role] ?? c.role}</div>
+                      {(c.email || c.phone) && (
+                        <div className="mt-1 text-[12px] text-muted">
+                          {c.email}
+                          {c.email && c.phone ? " · " : ""}
+                          {c.phone}
+                        </div>
+                      )}
+                      {c.notes && <p className="mt-1 text-[12px] text-muted">{c.notes}</p>}
+                    </div>
+                    {canEdit && (
+                      <form action={deleteContactAction.bind(null, c.id)}>
+                        <button type="submit" className="text-[11.5px] font-bold text-danger">
+                          Remove
+                        </button>
+                      </form>
                     )}
-                    {c.notes && <p className="mt-1 text-[12px] text-muted">{c.notes}</p>}
                   </div>
-                  {canEdit && (
-                    <form action={deleteContactAction.bind(null, c.id)}>
-                      <button type="submit" className="text-[11.5px] font-bold text-danger">
-                        Remove
-                      </button>
-                    </form>
-                  )}
-                </div>
+                </RailCard>
               ))}
             </div>
           )}
@@ -187,30 +230,32 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="mt-8">
-        <h2 className="mb-2 text-[15px] font-extrabold text-ink">Visits</h2>
+        <div className="mb-2">
+          <SectionHeader label="Visits" count={visits.length} />
+        </div>
         {visits.length === 0 ? (
-          <p className="text-[12.5px] text-muted">
-            No visits logged yet. Log one from a target&apos;s{" "}
+          <EmptyState icon={<VisitIcon />} title="No visits logged yet">
+            Log one from a target&apos;s{" "}
             <Link href={`/org/${slug}/board`} className="font-bold text-accent">
               edit page
             </Link>
             .
-          </p>
+          </EmptyState>
         ) : (
-          <div className="rounded-[16px] border border-line bg-paper">
-            {visits.map((v, i) => (
-              <div key={v.id} className={`px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
-                <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2">
+            {visits.map((v) => (
+              <RailCard key={v.id}>
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-[13px] font-bold text-ink">
                     {schoolNameByTargetId.get(v.target_id) ?? "Unknown school"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}
                   </span>
-                  <span className="text-[11.5px] text-muted tabular-nums">
+                  <span className="flex-shrink-0 text-[11.5px] tabular-nums text-muted">
                     {new Date(v.visit_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                   </span>
                 </div>
                 {v.impression && <p className="mt-1 text-[12.5px] text-ink">{v.impression}</p>}
                 {v.next_step && <p className="mt-0.5 text-[12px] text-muted">Next: {v.next_step}</p>}
-              </div>
+              </RailCard>
             ))}
           </div>
         )}

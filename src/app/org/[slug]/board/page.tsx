@@ -16,6 +16,17 @@ import {
 } from "@/lib/data/fitAdapters";
 import { scoreFit } from "@/lib/fit/score";
 import type { FitTag } from "@/lib/fit/types";
+import { EmptyState, GroupTab, RailCard, ScorePill } from "@/components/catalog";
+import { statusHue } from "@/components/statusHue";
+
+function BoardIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
+      <rect x="4" y="5" width="16" height="15" rx="2.5" />
+      <path d="M4 10h16M8 3v4M16 3v4" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 interface TargetRow {
   id: string;
@@ -131,41 +142,43 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
         </div>
 
         {rows.length === 0 ? (
-          <div className="rounded-[14px] border border-line bg-paper px-4 py-8 text-center">
-            <div className="text-[14px] font-semibold text-ink">No recruiting targets yet</div>
+          <EmptyState icon={<BoardIcon />} title="No recruiting targets yet">
             {canEdit ? (
-              <Link href={`/org/${slug}/board/new`} className="mt-2 inline-block text-[13px] font-bold text-accent">
+              <Link href={`/org/${slug}/board/new`} className="font-bold text-accent">
                 Add the first target &rarr;
               </Link>
             ) : (
-              <p className="mt-1 text-[13px] text-muted">Ask an owner or coordinator to add one.</p>
+              "Ask an owner or coordinator to add one."
             )}
-          </div>
+          </EmptyState>
         ) : (
           grouped.map((group) => (
             <div key={group.status} className="mb-6">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-[13px] font-bold uppercase tracking-[0.04em] text-muted">{group.status}</div>
-                <div className="text-[12px] text-muted">{group.rows.length}</div>
+              {/* G3: a tinted pill tab, not a solid one, since the rows
+                  below carry the same hue at full saturation. */}
+              <div className="mb-2">
+                <GroupTab label={group.status} count={group.rows.length} hue={statusHue(group.status)} />
               </div>
-              <div className="divide-y divide-line border-y border-line">
+              <div className="flex flex-col gap-2">
                 {group.rows.map((r) => {
                   const row = (
-                    <div className="flex items-center justify-between py-3">
-                      <div>
-                        <div className="text-[15px] font-semibold text-ink">
-                          {r.athleteName} <span className="font-normal text-muted">to</span> {r.schoolName}
+                    <RailCard hue={statusHue(r.status)}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-[15px] font-semibold text-ink">
+                            {r.athleteName} <span className="font-normal text-muted">to</span> {r.schoolName}
+                          </div>
+                          <div className="text-[12px] text-muted">
+                            {r.athleteSport} · {r.schoolDivision}
+                            {r.coachName ? ` · ${r.coachName}` : ""}
+                          </div>
                         </div>
-                        <div className="text-[12px] text-muted">
-                          {r.athleteSport} · {r.schoolDivision}
-                          {r.coachName ? ` · ${r.coachName}` : ""}
+                        <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                          <ScorePill score={r.fit.score} />
+                          <div className={`text-[11px] font-bold ${TAG_STYLE[r.fit.tag]}`}>{r.fit.tag}</div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className={`text-[13px] font-bold tabular-nums ${TAG_STYLE[r.fit.tag]}`}>{r.fit.tag}</div>
-                        <div className="text-[11px] text-muted">{r.fit.score}</div>
-                      </div>
-                    </div>
+                    </RailCard>
                   );
                   return canEdit ? (
                     <Link key={r.id} href={`/org/${slug}/board/${r.id}/edit`} className="block">

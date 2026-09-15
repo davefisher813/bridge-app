@@ -30,7 +30,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                 type="email"
                 required
                 autoComplete="email"
-                className="rounded-[9px] border border-line bg-paper px-[11px] py-[11px] text-[15px] text-ink outline-none focus:border-accent"
+                className="rounded-[10px] border-0 bg-bg px-3 py-2.5 text-[15px] text-ink outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div className="flex flex-col gap-[6px]">
@@ -40,10 +40,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                 type="password"
                 required
                 autoComplete="current-password"
-                className="rounded-[9px] border border-line bg-paper px-[11px] py-[11px] text-[15px] text-ink outline-none focus:border-accent"
+                className="rounded-[10px] border-0 bg-bg px-3 py-2.5 text-[15px] text-ink outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
-            <button type="submit" className="mt-1 rounded-[10px] border border-accent bg-accent py-[13px] text-[14px] font-extrabold tracking-[0.02em] text-white">
+            <button type="submit" className="mt-1 rounded-[8px] bg-solid-accent py-[13px] text-[14px] font-extrabold tracking-[0.02em] text-solid-accent-on">
               Sign In
             </button>
           </form>
