@@ -41,8 +41,34 @@ const REGISTRY: Record<DocCategoryId, DocCategory> = {
       '  "courseLoad": "Regular" | "Mixed (some Honors)" | "Mostly Honors/AP" | "Heavy AP/IB",\n' +
       '  "apCount": number, "honorsCount": number, "regularCount": number, "ibCount": number, "dualCount": number,\n' +
       '  "courseRigorNotes": "1-2 sentences",\n' +
+      '  "dateOfBirth": "YYYY-MM-DD or null",\n' +
+      '  "gradingScale": [{ "letter": "B", "min": 83, "max": 86 }] | null,\n' +
+      '  "courses": [\n' +
+      '    {\n' +
+      '      "title": "course title exactly as printed",\n' +
+      '      "subject": "english" | "math" | "science" | "social_science" | "other_academic" | "non_academic",\n' +
+      '      "credit": number,\n' +
+      '      "grade": "letter or numeric grade exactly as printed",\n' +
+      '      "weighted": true only if the title says honors, AP, IB or advanced,\n' +
+      '      "term": "school year or term as printed, or null"\n' +
+      '    }\n' +
+      '  ],\n' +
       '  "confidence": number 0-1,\n' +
-      '  "warnings": []\n}',
+      '  "warnings": []\n}\n\n' +
+      // The course list is what makes an NCAA core-course GPA possible.
+      // The cumulative GPA printed on a transcript is not that number
+      // and cannot be converted into it, so these instructions are
+      // about transcribing rather than judging.
+      "Rules for `courses`:\n" +
+      "- List EVERY course on the transcript, including PE, art and electives. Mark those `non_academic`. Do not filter: what counts as an NCAA core course is decided later against the school's approved list, not by you.\n" +
+      "- Copy `grade` and `credit` exactly as printed. Keep pluses and minuses. Keep a numeric grade numeric. If a course has no grade (in progress, withdrawn, pass/fail, credit only) put the printed marker and leave it at that.\n" +
+      "- If the same course title appears in two terms, list it twice. Do not merge them and do not decide whether it is a repeat or a year-long course split across terms.\n" +
+      "- Set `weighted` from the course TITLE only. Do not infer it from the grade or the school's scale.\n" +
+      "- If the transcript covers more than one school, still list every course, and say so in `warnings`.\n" +
+      "- If the courses are not legible, return an empty array and say so in `warnings`. Never invent a course list.\n\n" +
+      "Rules for `gradingScale`:\n" +
+      "- Only fill this in if the transcript itself prints the school's numeric-to-letter conversion table. Copy it exactly.\n" +
+      "- Return null if no table is printed. Do not supply a generic or typical scale: the NCAA uses the school's own published scale, so a guessed one produces a wrong eligibility answer that looks authoritative.",
   },
   test_scores: {
     id: "test_scores",

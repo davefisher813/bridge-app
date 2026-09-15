@@ -20,6 +20,9 @@ import { createStubCaller } from "../src/lib/docai/stubCaller";
 import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole } from "../src/lib/docai/types";
 import { findCandidates } from "../src/lib/docai/resolver";
 import { effectiveConfidence, routeDecision, NAME_MATCH_AUTO } from "../src/lib/docai/provenance";
+import { calculateCoreGpa, gradePoints, MAX_WEIGHT_BONUS, type CoreCourse } from "../src/lib/fit/ncaa/coreGpa";
+import { DIVISION_STANDARDS, evaluateInitialEligibility } from "../src/lib/fit/ncaa/initialEligibility";
+import { evaluateAgeClock } from "../src/lib/fit/ncaa/ageClock";
 
 // ---------------------------------------------------------------- assertions
 
@@ -236,6 +239,92 @@ function runSuite(): Check[] {
   check("Doc AI routing", "a document is not written to a record when a sibling is right behind", () => {
     if (routeDecision(0.99, 0.8, 0.72) !== "review") return "auto-applied with the runner-up 0.08 behind";
     if (routeDecision(0.99, 0.95, 0.4) !== "auto_apply") return "a clear winner was blocked from auto-applying";
+    return null;
+  });
+
+  // NCAA rules, verified against NCAA-published documents on
+  // 2026-09-15 and cited in docs/BUSINESS_RULES.md. These run the same
+  // functions the app calls.
+  const core = (over: Partial<CoreCourse> = {}): CoreCourse => ({ title: "Course", subject: "english", credit: 1, grade: "B", ...over });
+  const sixteen = (grade: string): CoreCourse[] =>
+    Array.from({ length: 16 }, (_, i) => core({ title: `Core ${i}`, grade, ncaaApproved: true, subject: i < 4 ? "english" : i < 7 ? "math" : i < 9 ? "science" : i < 11 ? "social_science" : "other_academic" }));
+
+  check("NCAA core GPA", "the scale is A=4 B=3 C=2 D=1, with no plus or minus", () => {
+    if (gradePoints("A") !== 4 || gradePoints("B") !== 3 || gradePoints("C") !== 2 || gradePoints("D") !== 1) return "the base scale is not 4/3/2/1";
+    if (gradePoints("A-") !== 4) return `A- scored ${gradePoints("A-")}, but the NCAA does not permit minuses`;
+    if (gradePoints("B+") !== 3) return `B+ scored ${gradePoints("B+")}, but the NCAA does not permit pluses`;
+    return null;
+  });
+
+  check("NCAA core GPA", "credit-only and withdrawn courses carry no quality points", () => {
+    for (const g of ["CR", "W", "P", "I"]) {
+      if (gradePoints(g) !== null) return `"${g}" scored ${gradePoints(g)} instead of nothing`;
+    }
+    return null;
+  });
+
+  check("NCAA core GPA", "the weighted bonus is capped at one quality point and needs the school on record", () => {
+    const ap = core({ grade: "A", weighted: true, schoolWeightBonus: 3 });
+    const capped = calculateCoreGpa([ap], 16, { schoolReportsWeightedGrades: true });
+    if ((capped.gpa ?? 0) > 4 + MAX_WEIGHT_BONUS) return `bonus ran to ${capped.gpa}`;
+    const withheld = calculateCoreGpa([ap], 16, {});
+    if (withheld.gpa !== 4) return `applied a bonus with the school not on record: ${withheld.gpa}`;
+    const rankOnly = calculateCoreGpa([ap], 16, { schoolReportsWeightedGrades: true, weightingIsClassRankOnly: true });
+    if (rankOnly.gpa !== 4) return `applied a class-rank-only bonus: ${rankOnly.gpa}`;
+    return null;
+  });
+
+  check("NCAA core GPA", "electives that are not on the approved list cannot lift the number", () => {
+    const withElectives = [
+      ...Array.from({ length: 16 }, (_, i) => core({ title: `Core ${i}`, grade: "C", ncaaApproved: true })),
+      ...Array.from({ length: 6 }, (_, i) => core({ title: `PE ${i}`, grade: "A", ncaaApproved: false })),
+    ];
+    const r = calculateCoreGpa(withElectives, 16);
+    if (r.gpa !== 2) return `core GPA came out at ${r.gpa} instead of 2.0`;
+    return null;
+  });
+
+  check("NCAA eligibility", "D1 tiers: qualifier 2.3, academic redshirt 2.0, nonqualifier below", () => {
+    if (DIVISION_STANDARDS.D1.qualifierGpa !== 2.3) return `qualifier is ${DIVISION_STANDARDS.D1.qualifierGpa}`;
+    if (DIVISION_STANDARDS.D1.secondTierGpa !== 2.0) return `redshirt floor is ${DIVISION_STANDARDS.D1.secondTierGpa}`;
+    const mixed = [...sixteen("B").slice(0, 4), ...sixteen("C").slice(4)]; // 2.25
+    if (evaluateInitialEligibility({ division: "D1", courses: mixed }).status !== "academic_redshirt") return "2.25 did not land in the academic redshirt band";
+    if (evaluateInitialEligibility({ division: "D1", courses: sixteen("D") }).status !== "nonqualifier") return "a 1.0 core GPA was not a nonqualifier";
+    return null;
+  });
+
+  check("NCAA eligibility", "Division III never gets a core GPA or a qualifier status", () => {
+    for (const div of ["D3", "NCAA D3", "Division III"]) {
+      const r = evaluateInitialEligibility({ division: div, courses: sixteen("A") });
+      if (r.coreGpa !== null) return `${div} was given a core GPA`;
+      if (r.status !== "not_applicable") return `${div} was given the status ${r.status}`;
+    }
+    return null;
+  });
+
+  check("NCAA eligibility", "no number is invented for the unpublished D2 partial-qualifier floor", () => {
+    if (DIVISION_STANDARDS.D2.secondTierGpa !== null) return "a D2 second-tier GPA has been made up";
+    const r = evaluateInitialEligibility({ division: "D2", courses: sixteen("D") });
+    if (r.status === "nonqualifier") return "declared a D2 nonqualifier on a floor the NCAA does not publish";
+    return null;
+  });
+
+  check("NCAA eligibility", "a core GPA is never guessed without a course list", () => {
+    const r = evaluateInitialEligibility({ division: "D1", courses: [] });
+    if (r.coreGpa !== null) return "produced a core GPA from nothing";
+    if (r.status !== "insufficient_data") return `status was ${r.status}`;
+    return null;
+  });
+
+  check("NCAA age clock", "the five-year clock can start before an athlete enrolls anywhere", () => {
+    const r = evaluateAgeClock({ dateOfBirth: "2008-03-15", division: "D1", intendedEnrollment: "2029-08-15", today: "2026-09-15" });
+    if (r.startedBy !== "age") return `clock started by ${r.startedBy ?? "nothing"}`;
+    if ((r.yearsBurnedAtEnrollment ?? 0) < 1.9) return `only ${r.yearsBurnedAtEnrollment} years burned before enrollment`;
+    return null;
+  });
+
+  check("NCAA age clock", "does not apply to Division III", () => {
+    if (evaluateAgeClock({ dateOfBirth: "2008-03-15", division: "D3", today: "2026-09-15" }).applies) return "ran the age clock for a D3 athlete";
     return null;
   });
 

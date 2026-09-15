@@ -38,6 +38,42 @@ export const transcriptSchema = z.object({
   ibCount: z.number().int().min(0).default(0),
   dualCount: z.number().int().min(0).default(0),
   courseRigorNotes: z.string().optional(),
+  // Needed for the age-based eligibility clock, which can start before
+  // an athlete enrols anywhere. Transcripts usually print it.
+  dateOfBirth: z.string().nullable().optional(),
+  // Many transcripts print the school's own numeric-to-letter table
+  // (Westminster prints "86-83 = B", Cardinal Hayes weights H/R
+  // courses). The NCAA converts numeric grades using the school's own
+  // published scale, not a generic curve, so when the table is on the
+  // page it is the authoritative thing to capture.
+  gradingScale: z
+    .array(z.object({ letter: z.string().min(1), min: z.number(), max: z.number() }))
+    .nullable()
+    .optional(),
+  // The per-course rows an NCAA core-course GPA is actually computed
+  // from. A cumulative transcript GPA cannot be converted into a core
+  // GPA, so without these there is no NCAA number to give anyone.
+  //
+  // Optional on purpose: a transcript whose course table is unreadable
+  // is still a useful document, and losing the whole extraction over a
+  // missing course list is the mistake that was already made once with
+  // studentName.
+  courses: z
+    .array(
+      z.object({
+        title: z.string().min(1),
+        subject: z.enum(["english", "math", "science", "social_science", "other_academic", "non_academic"]),
+        credit: z.number().min(0),
+        // A string because transcripts print letters, numbers, and
+        // markers like W, P and CR, and coercing early loses the
+        // difference between a C and a credit-only course.
+        grade: z.string(),
+        weighted: z.boolean().optional().default(false),
+        term: z.string().nullable().optional(),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
 export const testScoreItemSchema = z.object({
