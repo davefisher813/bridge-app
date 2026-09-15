@@ -52,6 +52,16 @@ Ordered by what naturally follows what's already built.
    cross-org `athlete_id` (RLS alone can't catch that one, since it only
    checks the target row's own `org_id`) by re-fetching the athlete
    scoped to the org before writing.
+9. ~~Communication log per target~~ - `target_communications` (migration
+   `0004`), logged from the target-edit page
+   (`src/components/CommunicationForm.tsx`). Feeds
+   `RecruitingSignals.commCount`/`visitCount` into `scoreFit()` on the
+   board for real now (`src/lib/data/fitAdapters.ts`'s
+   `communicationsToSignals`) - the board had been calling `scoreFit()`
+   with no signals at all since it was built. Logging a communication
+   also bumps the parent target's `updated_at`, which is what actually
+   makes Today's "needs follow-up" staleness mean something day to day,
+   not just react to someone opening the full edit form.
 
 ## Next up
 
@@ -66,9 +76,11 @@ Ordered by what naturally follows what's already built.
    `schools` yet (see above). Likely Doc AI ingest once that's ported,
    or a deliberate decision to open a service-role-gated admin path -
    not decided.
-3. **Communication log per target** (calls, texts, visits) - the data
-   `RecruitingSignals.commCount`/`visitCount` in `src/lib/fit/types.ts`
-   already expects as an input but nothing populates yet.
+3. **A real `offer` signal.** `RecruitingSignals.offer` (offer type,
+   scholarship percent) still isn't captured anywhere -
+   `recruiting_targets.status = 'Offer'` is a coarser thing and isn't
+   substituted for it. Needs its own fields, likely on
+   `recruiting_targets` alongside `visit_date`.
 4. **Doc AI file ingest**, ported from Bridge's `Engine.ingest`, once
    there's a browser available to actually exercise
    `File`/`Image`/`canvas`/`FileReader` code against - not worth porting

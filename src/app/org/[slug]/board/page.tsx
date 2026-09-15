@@ -3,7 +3,15 @@ import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { athleteRowToFitAthlete, schoolRowToFitSchool, transferWindowRowToFit, type AthleteRow, type SchoolRow, type TransferWindowRow } from "@/lib/data/fitAdapters";
+import {
+  athleteRowToFitAthlete,
+  communicationsToSignals,
+  schoolRowToFitSchool,
+  transferWindowRowToFit,
+  type AthleteRow,
+  type SchoolRow,
+  type TransferWindowRow,
+} from "@/lib/data/fitAdapters";
 import { scoreFit } from "@/lib/fit/score";
 import type { FitTag } from "@/lib/fit/types";
 
@@ -48,7 +56,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
 
   const supabase = await createClient();
 
-  const [{ data: targets }, { data: windowRows }] = await Promise.all([
+  const [{ data: targets }, { data: windowRows }, { data: commRows }] = await Promise.all([
     supabase
       .from("recruiting_targets")
       .select(
@@ -57,9 +65,21 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
       .eq("org_id", org.id)
       .order("created_at", { ascending: false }),
     supabase.from("transfer_windows").select("sport, division, season_year, window_label, opens_on, closes_on"),
+    supabase.from("target_communications").select("target_id, kind").eq("org_id", org.id),
   ]);
 
   const transferWindows = ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit);
+
+  // One batched query for every target's log, grouped in memory, rather
+  // than a query per row - the fit tag/score is already computed live on
+  // every page load, so the communication signal that feeds it should be
+  // too, not stored or cached alongside it.
+  const commsByTarget = new Map<string, { target_id: string; kind: string }[]>();
+  for (const row of commRows ?? []) {
+    const list = commsByTarget.get(row.target_id) ?? [];
+    list.push(row);
+    commsByTarget.set(row.target_id, list);
+  }
 
   const rows = ((targets ?? []) as TargetRow[])
     .map((t) => {
@@ -69,7 +89,8 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
 
       const athlete = athleteRowToFitAthlete(athleteRow);
       const school = schoolRowToFitSchool(schoolRow);
-      const fit = scoreFit(athlete, school, { isPlaced: t.status === "Committed", transferWindows });
+      const signals = communicationsToSignals(commsByTarget.get(t.id) ?? []);
+      const fit = scoreFit(athlete, school, { isPlaced: t.status === "Committed", transferWindows, signals });
 
       return { id: t.id, status: t.status, coachName: t.coach_name, athleteName: athlete.name, athleteSport: athlete.sport, schoolName: school.name, schoolDivision: school.division, fit };
     })

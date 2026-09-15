@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { athleteRowToFitAthlete, schoolRowToFitSchool, transferWindowRowToFit, type AthleteRow, type SchoolRow, type TransferWindowRow } from "./fitAdapters";
+import {
+  athleteRowToFitAthlete,
+  communicationsToSignals,
+  schoolRowToFitSchool,
+  transferWindowRowToFit,
+  type AthleteRow,
+  type SchoolRow,
+  type TransferWindowRow,
+} from "./fitAdapters";
 
 function makeAthleteRow(overrides: Partial<AthleteRow> = {}): AthleteRow {
   return {
@@ -99,5 +107,23 @@ describe("transferWindowRowToFit", () => {
       opensOn: "2026-08-01",
       closesOn: "2026-08-15",
     });
+  });
+});
+
+describe("communicationsToSignals", () => {
+  it("splits visit-kind rows from every other kind", () => {
+    const signals = communicationsToSignals([
+      { target_id: "t1", kind: "call" },
+      { target_id: "t1", kind: "text" },
+      { target_id: "t1", kind: "visit" },
+      { target_id: "t1", kind: "email" },
+      { target_id: "t1", kind: "visit" },
+      { target_id: "t1", kind: "other" },
+    ]);
+    expect(signals).toEqual({ visitCount: 2, commCount: 4 });
+  });
+
+  it("returns zero counts for an empty log", () => {
+    expect(communicationsToSignals([])).toEqual({ visitCount: 0, commCount: 0 });
   });
 });

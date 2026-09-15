@@ -57,6 +57,14 @@ this changes meaningfully, not appended to.
   an honest empty state, not a workaround. The action also re-checks
   that a submitted `athleteId` actually belongs to the org before
   writing, since RLS alone doesn't catch a cross-org mismatch here.
+- **Communication log** (`target_communications` table, logged from the
+  target-edit page). Every entry feeds `src/lib/fit/score.ts`'s
+  `RecruitingSignals.commCount`/`visitCount` on the board's live
+  `scoreFit()` call (`src/lib/data/fitAdapters.ts`'s
+  `communicationsToSignals`), computed fresh on every page load like the
+  fit tag itself - not stored or cached. Logging one also bumps the
+  parent target's `updated_at`, so Today's "needs follow-up" staleness
+  reflects real engagement day to day, not just full-form edits.
 - **Shared org chrome** (`src/app/org/[slug]/layout.tsx`): org name up
   top, a bottom tab bar (`src/components/BottomTabBar.tsx`) for
   Today/Athletes/Board/More instead of the old text-link nav. Forces
@@ -88,12 +96,11 @@ this changes meaningfully, not appended to.
   jsonb field (bad `detail`, bad `academics`/`financials`/`athletics`)
   degrades to "not on file" rather than throwing and taking a page down;
   covered by `fitAdapters.test.ts` (6 tests).
-- **Database schema** (`migrations/0001_core_schema.sql`,
-  `0002_athlete_intl_eligibility_fields.sql`,
-  `0003_recruiting_target_tracking_fields.sql`): `orgs`, `users`,
-  `org_members`, `athletes`, `schools`, `recruiting_targets`,
-  `benchmark_sets`, `transfer_windows`, with RLS policies on all 8
-  tables, plus a `_member_org_ids()` SECURITY DEFINER helper (see
+- **Database schema** (`migrations/0001_core_schema.sql` through
+  `0004_target_communications.sql`): `orgs`, `users`, `org_members`,
+  `athletes`, `schools`, `recruiting_targets`, `benchmark_sets`,
+  `transfer_windows`, `target_communications`, with RLS policies on all
+  9 tables, plus a `_member_org_ids()` SECURITY DEFINER helper (see
   below). `0002` adds five athlete columns (`is_international`,
   `toefl_score`, `ielts_score`, `f1_visa_status`,
   `ncaa_eligibility_status`) that the fit engine's `Athlete` type always
@@ -101,10 +108,13 @@ this changes meaningfully, not appended to.
   board's data adapter. `0003` adds `recruiting_targets.updated_at` and
   `.visit_date` - found building the Today screen's "needs follow-up"
   and "upcoming" sections, which otherwise had no honest way to say how
-  stale a target was or when a visit is scheduled. Tested twice:
+  stale a target was or when a visit is scheduled. `0004` adds
+  `target_communications` (call/text/email/visit/other, per-target),
+  feeding `RecruitingSignals` into the board's `scoreFit()` call for the
+  first time - it had been running with none. Tested twice:
   schema/relationship correctness as superuser, and real RLS enforcement
-  as a non-superuser role (`scripts/run_rls_test.sh`, 11/11 assertions
-  pass, all three migrations applied) - cross-org reads and writes are
+  as a non-superuser role (`scripts/run_rls_test.sh`, 15/15 assertions
+  pass, all four migrations applied) - cross-org reads and writes are
   actually denied, not just that the relationships insert correctly.
   **Not yet applied to any real Supabase project.**
 - **Fit-scoring engine** (`src/lib/fit/`): complete first pass.
@@ -158,18 +168,18 @@ this changes meaningfully, not appended to.
   scope with Dave before building it. docs/DESIGN_SYSTEM.md documents
   the rules to build against.
 - **Auth flow and all four screens are structurally verified only, not
-  runtime-verified.** `npx tsc --noEmit`, `npm test` (80/80), and
+  runtime-verified.** `npx tsc --noEmit`, `npm test` (85/85), and
   `npm run build` all pass clean, but there is no real Supabase project
   or env vars yet, so actual sign-in, session refresh, RLS-backed org
   resolution, and the board's/Today's live queries have never run
   against a live backend or real seeded data. Confirm all of that once a
   real Supabase project exists.
-- **The Today screen's "needs follow-up" staleness is honest but young.**
-  `recruiting_targets.updated_at` (added in `0003`) defaults to
-  `created_at` and is only bumped by app code on an edit - and target
-  editing isn't built yet. Until it is, every target's "no update in N
-  days" is really "days since created," which is accurate but will read
-  oddly once real data exists and nothing has touched it in months.
+- **The Today screen's "needs follow-up" staleness now has two real ways
+  to move**: editing a target (`board/[id]/edit`) and logging a
+  communication (same page) both bump `recruiting_targets.updated_at`.
+  Before target-add/edit and the communication log existed, it only
+  ever defaulted to `created_at` - now it moves under normal use, not
+  just in theory.
 - **The `schools.academics`/`financials`/`athletics`/`conflicts` jsonb
   key-casing convention (camelCase, matching `School` in
   `src/lib/fit/types.ts`) is decided and documented (docs/DECISIONS.md)

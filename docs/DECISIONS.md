@@ -448,3 +448,36 @@ complete but has nothing to select. Getting real schools into the
 system is now its own ROADMAP.md item, likely tied to Doc AI ingest
 once that's ported, or a separate deliberate decision to open a
 service-role-gated admin path.
+
+## 2026-09 - Communication log wires real RecruitingSignals into the board
+
+**Decision:** New `target_communications` table (migration `0004`):
+call/text/email/visit/other, per target, logged from the target-edit
+page. The board's `scoreFit()` call now passes real
+`RecruitingSignals` built from this log
+(`communicationsToSignals()`), instead of no signals at all.
+
+**Reason:** `src/lib/fit/types.ts`'s `RecruitingSignals` and
+`score.ts`'s handling of `commCount`/`visitCount` have existed since the
+fit engine was first ported, but the board page never actually
+constructed a `signals` object - every fit score on the board has been
+computed as if no communication or visit had ever happened, silently.
+`score.ts`'s own comment splits the two ("a visit is worth more than a
+call"), so `kind = 'visit'` counts toward `visitCount` and everything
+else toward `commCount`.
+
+**Alternatives considered:** Derive `visitCount` from
+`recruiting_targets.visit_date` (added in `0003`) instead of a separate
+log. Rejected - `visit_date` is a single *scheduled* date for Today's
+"Upcoming" section, not a count of visits that actually happened; conflating
+the two would either undercount repeat visits or misrepresent a
+scheduled-but-not-yet-happened visit as a completed one.
+
+**Consequences:** Logging a communication also bumps the parent
+target's `updated_at` - the same column added in `0003` for follow-up
+staleness, now with a second real way to move besides the full edit
+form. `offer` (the third `RecruitingSignals` field) is still not wired
+to anything real; `recruiting_targets.status = 'Offer'` is a coarser
+thing and wasn't substituted for it. 15/15 RLS assertions pass with the
+new table, including its own cross-org isolation and insert-rejection
+checks (`scripts/rls_test.sql`).

@@ -32,11 +32,17 @@ insert into orgs (id, name, slug) values
 insert into org_members (user_id, org_id, role) values
   ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', 'owner'),
   ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000020', 'owner');
-insert into athletes (org_id, recruit_type, name, sport) values
-  ('00000000-0000-0000-0000-000000000010', 'hs', 'Bridge Athlete A', 'baseball'),
-  ('00000000-0000-0000-0000-000000000010', 'hs', 'Bridge Athlete B', 'baseball'),
-  ('00000000-0000-0000-0000-000000000020', 'hs', 'Elite Squad Athlete', 'baseball');
-insert into schools (name, division) values ('Shared Reference School', 'D1');
+insert into athletes (id, org_id, recruit_type, name, sport) values
+  ('00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000010', 'hs', 'Bridge Athlete A', 'baseball'),
+  ('00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000010', 'hs', 'Bridge Athlete B', 'baseball'),
+  ('00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000020', 'hs', 'Elite Squad Athlete', 'baseball');
+insert into schools (id, name, division) values ('00000000-0000-0000-0000-000000000130', 'Shared Reference School', 'D1');
+insert into recruiting_targets (id, org_id, athlete_id, school_id, status) values
+  ('00000000-0000-0000-0000-000000000210', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000130', 'In Contact'),
+  ('00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000130', 'In Contact');
+insert into target_communications (org_id, target_id, kind, notes) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000210', 'call', 'Bridge call log'),
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000220', 'call', 'Elite Squad call log');
 insert into benchmark_sets (org_id, sport, tiers, positions) values
   (null, 'baseball', '[]'::jsonb, '[]'::jsonb),
   ('00000000-0000-0000-0000-000000000010', 'baseball', '[]'::jsonb, '[]'::jsonb),
@@ -93,6 +99,25 @@ end $$;
 do $$
 declare n int;
 begin
+  select count(*) into n from target_communications;
+  if n <> 1 then raise exception 'FAIL: user1 saw % target_communications rows, expected 1 (Bridge''s only)', n; end if;
+  raise notice 'PASS: user1 sees only Bridge''s communication log entry, not Elite Squad''s';
+end $$;
+
+do $$
+begin
+  begin
+    insert into target_communications (org_id, target_id, kind, notes)
+      values ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000220', 'call', 'Sneaky log entry');
+    raise exception 'FAIL: user1 was able to insert a communication into Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org communication-log insert correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+declare n int;
+begin
   select count(*) into n from benchmark_sets;
   if n <> 2 then raise exception 'FAIL: user1 saw % benchmark_sets, expected 2 (Bridge''s + the global default)', n; end if;
   raise notice 'PASS: user1 sees Bridge''s benchmark set plus the shared/global one, not Elite Squad''s';
@@ -144,6 +169,14 @@ begin
   select count(*) into n from org_members;
   if n <> 0 then raise exception 'FAIL: an anonymous session saw % org_members rows, expected 0', n; end if;
   raise notice 'PASS: anonymous session sees zero org_members rows';
+end $$;
+
+do $$
+declare n int;
+begin
+  select count(*) into n from target_communications;
+  if n <> 0 then raise exception 'FAIL: an anonymous session saw % target_communications rows, expected 0', n; end if;
+  raise notice 'PASS: anonymous session sees zero communication-log rows';
 end $$;
 
 reset role;

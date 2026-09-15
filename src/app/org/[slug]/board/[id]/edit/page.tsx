@@ -4,7 +4,11 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { updateTarget } from "@/lib/actions/targets";
+import { logCommunication } from "@/lib/actions/communications";
 import { TargetForm } from "@/components/TargetForm";
+import { CommunicationForm } from "@/components/CommunicationForm";
+
+const KIND_LABEL: Record<string, string> = { call: "Call", text: "Text", email: "Email", visit: "Visit", other: "Other" };
 
 export default async function EditTargetPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
@@ -13,10 +17,16 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const [{ data: target }, { data: athleteRows }, { data: schoolRows }] = await Promise.all([
+  const [{ data: target }, { data: athleteRows }, { data: schoolRows }, { data: commRows }] = await Promise.all([
     supabase.from("recruiting_targets").select("id, athlete_id, school_id, status, coach_name, notes, visit_date").eq("id", id).eq("org_id", org.id).single(),
     supabase.from("athletes").select("id, name").eq("org_id", org.id).is("deleted_at", null).order("name"),
     supabase.from("schools").select("id, name, division").order("name"),
+    supabase
+      .from("target_communications")
+      .select("id, kind, occurred_on, notes")
+      .eq("target_id", id)
+      .eq("org_id", org.id)
+      .order("occurred_on", { ascending: false }),
   ]);
 
   if (!target) notFound();
@@ -25,6 +35,8 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
   const schools = (schoolRows ?? []).map((s) => ({ id: s.id, label: `${s.name} (${s.division})` }));
 
   const action = updateTarget.bind(null, slug, target.id);
+  const commAction = logCommunication.bind(null, slug, target.id);
+  const comms = commRows ?? [];
 
   return (
     <main className="px-4 pt-2 pb-6">
@@ -48,6 +60,28 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
           visitDate: target.visit_date ?? undefined,
         }}
       />
+
+      <div className="mt-8 flex flex-col gap-3">
+        <h2 className="text-[15px] font-extrabold text-ink">Communication log</h2>
+        <CommunicationForm action={commAction} />
+        {comms.length === 0 ? (
+          <p className="text-[12.5px] text-muted">Nothing logged yet.</p>
+        ) : (
+          <div className="rounded-[16px] border border-line bg-paper">
+            {comms.map((c, i) => (
+              <div key={c.id} className={`px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-bold text-ink">{KIND_LABEL[c.kind] ?? c.kind}</span>
+                  <span className="text-[11.5px] text-muted tabular-nums">
+                    {new Date(c.occurred_on).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </div>
+                {c.notes && <p className="mt-1 text-[12.5px] text-muted">{c.notes}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </main>
   );
 }

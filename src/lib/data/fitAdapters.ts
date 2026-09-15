@@ -5,7 +5,7 @@
 // is the one seam that knows about column names.
 
 import { z } from "zod";
-import type { Athlete, RecruitType, School, TransferWindow } from "@/lib/fit/types";
+import type { Athlete, RecruitType, RecruitingSignals, School, TransferWindow } from "@/lib/fit/types";
 import { parseSchoolAcademics, parseSchoolAthletics, parseSchoolConflicts, parseSchoolFinancials, safeParseAthleteDetail } from "@/lib/fit/schema";
 
 export interface AthleteRow {
@@ -100,4 +100,27 @@ export function transferWindowRowToFit(row: TransferWindowRow): TransferWindow {
     opensOn: row.opens_on,
     closesOn: row.closes_on,
   };
+}
+
+// migrations/0004_target_communications.sql. score.ts's RecruitingSignals
+// splits "visits completed" from "communications" (see its comment: a
+// visit is worth more as a demonstrated-interest signal than a call or
+// text) - a logged 'visit' kind counts toward visitCount, everything
+// else (call/text/email/other) toward commCount. `offer` isn't derived
+// here: nothing yet captures offer type/scholarship percent, only the
+// coarser recruiting_targets.status = 'Offer', which isn't the same
+// signal - see docs/ROADMAP.md.
+export interface TargetCommunicationRow {
+  target_id: string;
+  kind: string;
+}
+
+export function communicationsToSignals(rows: TargetCommunicationRow[]): RecruitingSignals {
+  let visitCount = 0;
+  let commCount = 0;
+  for (const row of rows) {
+    if (row.kind === "visit") visitCount += 1;
+    else commCount += 1;
+  }
+  return { visitCount, commCount };
 }
