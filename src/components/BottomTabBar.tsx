@@ -57,15 +57,26 @@ export function BottomTabBar({ slug }: { slug: string }) {
       {TABS.map((tab) => {
         const href = tab.href ? `${base}/${tab.href}` : base;
         const active = tab.href ? pathname.startsWith(href) : pathname === base;
+        // Catalog item TB1: only the icon sits on the solid pill, never
+        // the whole tab column, so the pill reads as a marker rather than
+        // a pressed button. See docs/STYLING_CATALOG.md.
         return (
           <Link
             key={tab.label}
             href={href}
-            className={`flex flex-1 flex-col items-center gap-0.5 text-[10px] font-bold ${active ? "text-accent" : "text-muted"}`}
+            className={`flex flex-1 flex-col items-center gap-1 text-[10px] font-bold ${active ? "text-ink" : "text-muted"}`}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
-              {tab.icon}
-            </svg>
+            <span
+              className={
+                active
+                  ? "flex h-[26px] w-[38px] items-center justify-center rounded-[8px] bg-solid-accent text-solid-accent-on"
+                  : "flex h-[26px] w-[38px] items-center justify-center"
+              }
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+                {tab.icon}
+              </svg>
+            </span>
             {tab.label}
           </Link>
         );

@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { RECRUIT_TYPES, ATHLETE_STATUSES } from "@/lib/validation/athlete";
 import type { AthleteActionState } from "@/lib/actions/athletes";
 import type { RecruitType } from "@/lib/fit/types";
+import { errorClass, fieldClass, inputClass, labelClass, submitClass } from "@/components/formStyles";
 
 type ServerAction = (prevState: AthleteActionState, formData: FormData) => Promise<AthleteActionState>;
 
@@ -49,11 +50,6 @@ function field(state: AthleteActionState, initial: AthleteFormInitialValues, key
   return fromInitial === undefined || fromInitial === null ? "" : String(fromInitial);
 }
 
-const inputClass =
-  "w-full rounded-[12px] border border-line bg-bg px-3 py-2.5 text-[14px] text-ink placeholder:text-muted focus:border-accent focus:outline-none";
-const labelClass = "mb-1.5 block text-[12px] font-bold text-muted";
-const errorClass = "mt-1 text-[11.5px] font-semibold text-danger";
-
 export function AthleteForm({
   action,
   initialValues = {},
@@ -87,7 +83,7 @@ export function AthleteForm({
         <label className={labelClass} htmlFor="name">
           Name
         </label>
-        <input className={inputClass} id="name" name="name" defaultValue={f("name")} placeholder="Jose Ulloa" required />
+        <input className={fieldClass(err("name"))} id="name" name="name" defaultValue={f("name")} placeholder="Jose Ulloa" required />
         {err("name") && <p className={errorClass}>{err("name")}</p>}
       </div>
 
@@ -96,7 +92,7 @@ export function AthleteForm({
           <label className={labelClass} htmlFor="sport">
             Sport
           </label>
-          <input className={inputClass} id="sport" name="sport" defaultValue={f("sport")} placeholder="Baseball" required />
+          <input className={fieldClass(err("sport"))} id="sport" name="sport" defaultValue={f("sport")} placeholder="Baseball" required />
           {err("sport") && <p className={errorClass}>{err("sport")}</p>}
         </div>
         <div>
@@ -131,7 +127,7 @@ export function AthleteForm({
           <label className={labelClass} htmlFor="gpa">
             GPA
           </label>
-          <input className={inputClass} id="gpa" name="gpa" type="number" step="0.01" min="0" max="4" defaultValue={f("gpa")} />
+          <input className={fieldClass(err("gpa"))} id="gpa" name="gpa" type="number" step="0.01" min="0" max="4" defaultValue={f("gpa")} />
           {err("gpa") && <p className={errorClass}>{err("gpa")}</p>}
         </div>
         <div>
@@ -175,14 +171,14 @@ export function AthleteForm({
               <label className={labelClass} htmlFor="satTotal">
                 SAT total
               </label>
-              <input className={inputClass} id="satTotal" name="satTotal" type="number" defaultValue={f("satTotal")} />
+              <input className={fieldClass(err("satTotal"))} id="satTotal" name="satTotal" type="number" defaultValue={f("satTotal")} />
               {err("satTotal") && <p className={errorClass}>{err("satTotal")}</p>}
             </div>
             <div>
               <label className={labelClass} htmlFor="actComposite">
                 ACT composite
               </label>
-              <input className={inputClass} id="actComposite" name="actComposite" type="number" defaultValue={f("actComposite")} />
+              <input className={fieldClass(err("actComposite"))} id="actComposite" name="actComposite" type="number" defaultValue={f("actComposite")} />
               {err("actComposite") && <p className={errorClass}>{err("actComposite")}</p>}
             </div>
           </div>
@@ -220,7 +216,7 @@ export function AthleteForm({
             <label className={labelClass} htmlFor="currentSchool">
               Current school
             </label>
-            <input className={inputClass} id="currentSchool" name="currentSchool" defaultValue={f("currentSchool")} required={isTransfer} />
+            <input className={fieldClass(err("currentSchool"))} id="currentSchool" name="currentSchool" defaultValue={f("currentSchool")} required={isTransfer} />
             {err("currentSchool") && <p className={errorClass}>{err("currentSchool")}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -243,7 +239,7 @@ export function AthleteForm({
                 Eligibility years left
               </label>
               <input
-                className={inputClass}
+                className={fieldClass(err("eligibilityYearsRemaining"))}
                 id="eligibilityYearsRemaining"
                 name="eligibilityYearsRemaining"
                 type="number"
@@ -259,7 +255,7 @@ export function AthleteForm({
               <label className={labelClass} htmlFor="transferCount">
                 Prior transfers
               </label>
-              <input className={inputClass} id="transferCount" name="transferCount" type="number" min="0" defaultValue={f("transferCount") || "0"} />
+              <input className={fieldClass(err("transferCount"))} id="transferCount" name="transferCount" type="number" min="0" defaultValue={f("transferCount") || "0"} />
               {err("transferCount") && <p className={errorClass}>{err("transferCount")}</p>}
             </div>
           </div>
@@ -309,14 +305,14 @@ export function AthleteForm({
             <label className={labelClass} htmlFor="toeflScore">
               TOEFL
             </label>
-            <input className={inputClass} id="toeflScore" name="toeflScore" type="number" min="0" max="120" defaultValue={f("toeflScore")} />
+            <input className={fieldClass(err("toeflScore"))} id="toeflScore" name="toeflScore" type="number" min="0" max="120" defaultValue={f("toeflScore")} />
             {err("toeflScore") && <p className={errorClass}>{err("toeflScore")}</p>}
           </div>
           <div>
             <label className={labelClass} htmlFor="ieltsScore">
               IELTS
             </label>
-            <input className={inputClass} id="ieltsScore" name="ieltsScore" type="number" step="0.5" min="0" max="9" defaultValue={f("ieltsScore")} />
+            <input className={fieldClass(err("ieltsScore"))} id="ieltsScore" name="ieltsScore" type="number" step="0.5" min="0" max="9" defaultValue={f("ieltsScore")} />
             {err("ieltsScore") && <p className={errorClass}>{err("ieltsScore")}</p>}
           </div>
           <div>
@@ -334,7 +330,7 @@ export function AthleteForm({
         </div>
       )}
 
-      <button type="submit" disabled={pending} className="mt-1 rounded-full bg-accent py-3 text-center text-[14px] font-bold text-white disabled:opacity-60">
+      <button type="submit" disabled={pending} className={submitClass}>
         {pending ? "Saving..." : submitLabel}
       </button>
     </form>

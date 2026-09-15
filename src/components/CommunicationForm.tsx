@@ -3,14 +3,11 @@
 import { useActionState } from "react";
 import { COMMUNICATION_KINDS } from "@/lib/validation/communication";
 import type { CommunicationActionState } from "@/lib/actions/communications";
+import { inputClass, labelClass, submitSmallClass } from "@/components/formStyles";
 
 type ServerAction = (prevState: CommunicationActionState, formData: FormData) => Promise<CommunicationActionState>;
 
 const EMPTY_STATE: CommunicationActionState = { errors: {} };
-
-const inputClass =
-  "w-full rounded-[12px] border border-line bg-bg px-3 py-2.5 text-[14px] text-ink placeholder:text-muted focus:border-accent focus:outline-none";
-const labelClass = "mb-1.5 block text-[12px] font-bold text-muted";
 
 const KIND_LABEL: Record<string, string> = {
   call: "Call",
@@ -52,7 +49,7 @@ export function CommunicationForm({ action }: { action: ServerAction }) {
         </label>
         <input className={inputClass} id="notes" name="notes" placeholder="What was discussed" />
       </div>
-      <button type="submit" disabled={pending} className="rounded-full bg-accent py-2.5 text-center text-[13px] font-bold text-white disabled:opacity-60">
+      <button type="submit" disabled={pending} className={submitSmallClass}>
         {pending ? "Logging..." : "Log communication"}
       </button>
     </form>

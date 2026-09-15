@@ -6,30 +6,43 @@ import { JOURNEY_STAGES, type JourneyResult } from "@/lib/journey";
 export function JourneyStepper({ result }: { result: JourneyResult }) {
   return (
     <div>
+      {/*
+        Catalog item J1: connected dots, and the line fills behind them as
+        stages complete. Done is success green, the current stage is accent
+        and renders larger, stages ahead are the line color. The segment
+        between two nodes belongs to the node on its left, so a segment is
+        filled only once the stage before it is actually done.
+        See docs/STYLING_CATALOG.md.
+      */}
       <div className="flex items-center">
         {JOURNEY_STAGES.map((label, i) => {
           const stepNum = i + 1;
           const done = stepNum < result.stageIndex;
           const current = stepNum === result.stageIndex;
           return (
-            <div key={label} className="relative flex flex-1 flex-col items-center gap-1.5">
+            <div key={label} className="relative flex flex-1 flex-col items-center gap-2">
               {i > 0 && (
                 <div
-                  className={`absolute left-[-50%] top-[11px] h-0.5 w-full ${
-                    stepNum <= result.stageIndex ? "bg-accent" : "bg-line"
+                  className={`absolute left-[-50%] top-[6px] h-0.5 w-full ${
+                    stepNum <= result.stageIndex ? "bg-success" : "bg-line"
                   }`}
                 />
               )}
-              <div
-                className={`z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full text-[11px] font-extrabold ${
-                  done
-                    ? "bg-accent text-white"
-                    : current
-                      ? "border-2 border-accent bg-paper text-accent"
-                      : "border-2 border-line bg-paper text-muted"
-                }`}
-              >
-                {done ? "✓" : stepNum}
+              {/*
+                The dots differ in size, so each sits in a fixed 14px box.
+                That keeps every dot's center on the same line as the
+                connector, which is set to match at top-[6px].
+              */}
+              <div className="z-10 flex h-[14px] items-center">
+                <div
+                  className={`rounded-full ${
+                    current
+                      ? "h-[13px] w-[13px] bg-accent"
+                      : done
+                        ? "h-[10px] w-[10px] bg-success"
+                        : "h-[10px] w-[10px] bg-line"
+                  }`}
+                />
               </div>
               <div className={`text-center text-[9.5px] font-bold ${done || current ? "text-ink" : "text-muted"}`}>{label}</div>
             </div>

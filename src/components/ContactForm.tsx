@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { CONTACT_ROLES } from "@/lib/validation/contact";
 import type { ContactActionState } from "@/lib/actions/contacts";
+import { errorClass, fieldClass, inputClass, labelClass, submitSmallClass } from "@/components/formStyles";
 
 type ServerAction = (prevState: ContactActionState, formData: FormData) => Promise<ContactActionState>;
 
@@ -12,11 +13,6 @@ export interface ContactFormSchoolOption {
 }
 
 const EMPTY_STATE: ContactActionState = { errors: {} };
-
-const inputClass =
-  "w-full rounded-[12px] border border-line bg-bg px-3 py-2.5 text-[14px] text-ink placeholder:text-muted focus:border-accent focus:outline-none";
-const labelClass = "mb-1.5 block text-[12px] font-bold text-muted";
-const errorClass = "mt-1 text-[11.5px] font-semibold text-danger";
 
 const ROLE_LABEL: Record<(typeof CONTACT_ROLES)[number], string> = {
   hs_coach: "HS coach",
@@ -39,7 +35,7 @@ export function ContactForm({ action, schools }: { action: ServerAction; schools
           <label className={labelClass} htmlFor="name">
             Name
           </label>
-          <input className={inputClass} id="name" name="name" placeholder="T. Reilly" required />
+          <input className={fieldClass(err("name"))} id="name" name="name" placeholder="T. Reilly" required />
           {err("name") && <p className={errorClass}>{err("name")}</p>}
         </div>
         <div>
@@ -73,7 +69,7 @@ export function ContactForm({ action, schools }: { action: ServerAction; schools
           <label className={labelClass} htmlFor="email">
             Email
           </label>
-          <input className={inputClass} id="email" name="email" type="email" />
+          <input className={fieldClass(err("email"))} id="email" name="email" type="email" />
           {err("email") && <p className={errorClass}>{err("email")}</p>}
         </div>
         <div>
@@ -89,7 +85,7 @@ export function ContactForm({ action, schools }: { action: ServerAction; schools
         </label>
         <input className={inputClass} id="notes" name="notes" />
       </div>
-      <button type="submit" disabled={pending} className="rounded-full bg-accent py-2.5 text-center text-[13px] font-bold text-white disabled:opacity-60">
+      <button type="submit" disabled={pending} className={submitSmallClass}>
         {pending ? "Adding..." : "Add contact"}
       </button>
     </form>

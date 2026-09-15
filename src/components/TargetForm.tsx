@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { OFFER_TYPES, TARGET_STATUSES } from "@/lib/validation/target";
 import type { TargetActionState } from "@/lib/actions/targets";
+import { errorClass, fieldClass, inputClass, labelClass, submitClass } from "@/components/formStyles";
 
 type ServerAction = (prevState: TargetActionState, formData: FormData) => Promise<TargetActionState>;
 
@@ -33,11 +34,6 @@ const OFFER_TYPE_LABEL: Record<(typeof OFFER_TYPES)[number], string> = {
 
 const EMPTY_STATE: TargetActionState = { errors: {} };
 
-const inputClass =
-  "w-full rounded-[12px] border border-line bg-bg px-3 py-2.5 text-[14px] text-ink placeholder:text-muted focus:border-accent focus:outline-none";
-const labelClass = "mb-1.5 block text-[12px] font-bold text-muted";
-const errorClass = "mt-1 text-[11.5px] font-semibold text-danger";
-
 export function TargetForm({
   action,
   athletes,
@@ -67,7 +63,7 @@ export function TargetForm({
         <label className={labelClass} htmlFor="athleteId">
           Athlete
         </label>
-        <select className={inputClass} id="athleteId" name="athleteId" defaultValue={initialValues.athleteId ?? ""} required>
+        <select className={fieldClass(err("athleteId"))} id="athleteId" name="athleteId" defaultValue={initialValues.athleteId ?? ""} required>
           <option value="" disabled>
             Select an athlete
           </option>
@@ -84,7 +80,7 @@ export function TargetForm({
         <label className={labelClass} htmlFor="schoolId">
           School
         </label>
-        <select className={inputClass} id="schoolId" name="schoolId" defaultValue={initialValues.schoolId ?? ""} required>
+        <select className={fieldClass(err("schoolId"))} id="schoolId" name="schoolId" defaultValue={initialValues.schoolId ?? ""} required>
           <option value="" disabled>
             Select a school
           </option>
@@ -152,7 +148,7 @@ export function TargetForm({
             Scholarship percent
           </label>
           <input
-            className={inputClass}
+            className={fieldClass(err("offerScholarshipPercent"))}
             id="offerScholarshipPercent"
             name="offerScholarshipPercent"
             type="number"
@@ -171,7 +167,7 @@ export function TargetForm({
         <textarea className={`${inputClass} min-h-[90px] resize-y`} id="notes" name="notes" defaultValue={initialValues.notes ?? ""} />
       </div>
 
-      <button type="submit" disabled={pending} className="mt-1 rounded-full bg-accent py-3 text-center text-[14px] font-bold text-white disabled:opacity-60">
+      <button type="submit" disabled={pending} className={submitClass}>
         {pending ? "Saving..." : submitLabel}
       </button>
     </form>

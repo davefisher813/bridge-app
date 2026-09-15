@@ -3,14 +3,11 @@
 import { useActionState } from "react";
 import { VISIT_TYPES } from "@/lib/validation/visit";
 import type { VisitActionState } from "@/lib/actions/visits";
+import { inputClass, labelClass, submitSmallClass } from "@/components/formStyles";
 
 type ServerAction = (prevState: VisitActionState, formData: FormData) => Promise<VisitActionState>;
 
 const EMPTY_STATE: VisitActionState = { errors: {} };
-
-const inputClass =
-  "w-full rounded-[12px] border border-line bg-bg px-3 py-2.5 text-[14px] text-ink placeholder:text-muted focus:border-accent focus:outline-none";
-const labelClass = "mb-1.5 block text-[12px] font-bold text-muted";
 
 const VISIT_TYPE_LABEL: Record<(typeof VISIT_TYPES)[number], string> = {
   official: "Official",
@@ -64,7 +61,7 @@ export function VisitForm({ action }: { action: ServerAction }) {
         </label>
         <input className={inputClass} id="notes" name="notes" />
       </div>
-      <button type="submit" disabled={pending} className="rounded-full bg-accent py-2.5 text-center text-[13px] font-bold text-white disabled:opacity-60">
+      <button type="submit" disabled={pending} className={submitSmallClass}>
         {pending ? "Logging..." : "Log visit"}
       </button>
     </form>
