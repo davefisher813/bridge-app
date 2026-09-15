@@ -13,7 +13,7 @@
   --paper: #ffffff;
   --muted: #6b7280;
   --line: #e5e7eb;
-  --accent: #c8180c;
+  --accent: #ff3b30;
   --success: #10b981;
   --danger: #dc2626;
 }
@@ -24,6 +24,7 @@
   --paper: #1a1a1a;
   --muted: #9ca3af;
   --line: rgba(255, 255, 255, 0.12);
+  --accent: #ff453a;
 }
 
 body {

@@ -278,3 +278,29 @@ generic redesign, so what Dave reacts to is what will actually ship.
 Adds one step to the build sequence for a new screen: mockup, feedback,
 then real code - not a reason to skip building fast, just to sequence
 it so feedback lands before the work, not after.
+
+## 2026-09 - Accent red changed to Apple's system red
+
+**Decision:** `--accent` in `src/app/globals.css` is now Apple's
+`systemRed` - `#ff3b30` in light mode, `#ff453a` in dark mode - replacing
+the original Bridge brand red `#c8180c`.
+
+**Reason:** Dave created his own redesign mockup in ChatGPT and asked
+to match its styling. Its red sampled from actual screenshot pixels as
+`#fa123e`, noticeably pinker/brighter than the original Bridge red. Sent
+Dave a side-by-side comparison artifact of the two; his answer was "I
+like more of the bridge red but it's your call. Actually whatever Apple
+uses. Let's just do that." Apple differentiates light/dark for
+`systemRed`, so both values are applied the same way the existing
+`[data-theme="dark"]` block already overrides other tokens, rather than
+picking one flat value for both themes.
+
+**Alternatives considered:** The redesign's own `#fa123e`. Not used -
+superseded by Dave's explicit final call for Apple's red.
+
+**Consequences:** Original Bridge brand red is no longer this app's
+default accent (docs/DESIGN_SYSTEM.md updated). No law or test
+hardcoded the old hex, so nothing else needed to change; `npm run
+typecheck` still clean. bffsa-site's own red is unaffected - this only
+changes the recruiting platform's shared default token, not
+`orgs.branding` for any individual org.

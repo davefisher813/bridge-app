@@ -10,12 +10,20 @@ improvised and then retrofitted.
 Per Dave: "obviously, like, bridge has different logos, but, like, the
 color scheme, we can keep pretty much the same... the styling, the
 formatting, the flows... we can keep a lot of that the same." Bridge's
-locked tokens (bffsa-site/docs/DESIGN_SYSTEM.md): brand red `#c8180c`,
-brand yellow `#ffd60a`, dark and light themes only (no third
-theme), breakpoints at 767/768/1024. When Bridge-facing screens are
-built, start from these tokens, not new ones - Elite Squad and future
-orgs get their own `branding` config (see `orgs.branding` jsonb) rather
-than a new hardcoded palette per org.
+original locked tokens (bffsa-site/docs/DESIGN_SYSTEM.md): brand red
+`#c8180c`, brand yellow `#ffd60a`, dark and light themes only (no third
+theme), breakpoints at 767/768/1024. Structure, formatting, and flows
+still carry over from these. Brand yellow still carries over as-is.
+
+**Accent red superseded, 2026-09.** Dave redesigned the app himself in
+ChatGPT and asked to match its styling; he then chose Apple's system
+red over both the old Bridge red and the redesign's own red. This
+repo's `--accent` token (`src/app/globals.css`) is now Apple's
+`systemRed`: `#ff3b30` in light, `#ff453a` in dark (Apple's own
+light/dark pair, not a single flat value). See docs/DECISIONS.md.
+Elite Squad and future orgs still get their own `branding` config
+(`orgs.branding` jsonb) rather than a new hardcoded palette per org -
+this change only affects the shared default token.
 
 ## What carries over from JARVIS: structure, not product
 
