@@ -229,6 +229,16 @@ Replaced wholesale when this changes meaningfully, not appended to.
   every screen showing one says "Simulated reading" out loud. Verified the
   stub reaches all three routes rather than only the easy one
   (`stubCaller.test.ts`).
+- **Previews and the functional test bench** (`scripts/build_previews.sh`,
+  run after every finished feature per CLAUDE.md). The previews render the
+  real screens from the app's own compiled CSS, parsing the color maps out
+  of `statusHue.ts` rather than copying them. The bench
+  (`scripts/build_testbench.py` + `testbench_entry.ts`) is not a mockup: it
+  bundles the shipped `src/lib/fit/` and `src/lib/docai/` with esbuild and
+  runs them in the browser, so the fit engine and the Doc AI pipeline can
+  be driven by hand and the repo's own laws execute live. 19 assertions,
+  checked in a real headless browser by `scripts/verify_testbench.mjs`
+  before anything is published.
 - **Docs**: this file, ARCHITECTURE.md, DESIGN_SYSTEM.md,
   BUSINESS_RULES.md, DECISIONS.md, PRODUCT.md, ROADMAP.md, CLAUDE.md.
 

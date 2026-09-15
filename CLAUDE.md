@@ -19,6 +19,19 @@ Dave wants to see and adjust a screen before it's built, not after ("I would lik
 
 When the question is what something should look like, don't revise a single guessed direction. Build a catalog of real rendered options, component by component, let Dave select, then lock the selection in as a written contract. This is how JARVIS works and Dave asked for it here by name ("we are going to need to create a styling catalog contract like we do with Jarvis before we move forward... build me a catalog with options to select from. Needs visuals. Once I select we will lock it in" - Dave, 2026-09, after two rejected revisions of a single direction). The catalog must be selectable inside the artifact itself, tappable, not a list of codes for him to type back. docs/STYLING_CATALOG.md is the result and is now locked.
 
+## Previews and the test bench are automatic, not on request
+
+"I need a preview for everything we build it should be automatic once you complete it. We also need to run functional tests in artifacts too to make sure this shit works." - Dave, 2026-09.
+
+So: when a feature is finished and verified, run `scripts/build_previews.sh` and publish the artifacts, without being asked and without checking first. That script regenerates the full-app preview, the Doc AI preview and the functional test bench from the current state of the repo, and fails if the bench's own assertions do not pass in a real browser.
+
+Two different things, and both are required:
+
+- **Previews** (`scripts/build_preview.py`, `build_docai_preview.py`) show what a screen looks like. They use the app's own compiled Tailwind output and parse the colour maps out of `src/components/statusHue.ts` rather than keeping copies. A wrong class renders as nothing rather than quietly looking fine. Copies drifted three times in one sitting before the parsing was added; do not reintroduce them.
+- **The test bench** (`scripts/build_testbench.py` + `testbench_entry.ts`) is not a mockup. It bundles the SHIPPED `src/lib/fit/` and `src/lib/docai/` with esbuild and runs them in the page, so Dave can change an input and watch the real code respond, and the check list is the repo's own laws executing in his browser. This only works because both modules are walled off from Next/Supabase/DOM - that is the practical payoff of the rule, so do not weaken it for convenience.
+
+Anything new that is pure logic belongs in the bench too, with real assertions, not a screenshot of it working.
+
 ## Standing autonomy: keep building without per-step check-ins
 
 "I would like to push through code moving forward unless I say otherwise" - Dave, 2026-09 (clarified: means keep implementing without stopping for confirmation each step, not git push - no GitHub remote exists for this repo, see the top of this file). Default to proceeding through implementation - migrations, components, pages, docs, tests - the same way "Keep going" worked earlier in this project, rather than pausing to ask before each piece. Still applies: the visual-preview rule above before a new screen's real code, running the verification commands before calling something done, and never touching the actual "push"/"go" git rule without Dave using one of those words himself.
