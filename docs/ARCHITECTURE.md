@@ -225,27 +225,45 @@ stack. So this is mostly a port-and-generalize:
   have an equivalent here since `org_id` and RLS matter for where a
   result actually lands.
 
-**Not yet built, and why:** the file ingest pipeline (magic-byte
-sniffing, HEIC conversion, EXIF-aware image normalization, PDF
-pre-validation - bffsa-site/index.html ~lines 1857-2170) is real,
-solid, mostly framework-agnostic browser code, but it depends on
-`File`/`Image`/`canvas`/`FileReader`, none of which exist in this
-sandbox to actually exercise. Porting it now and claiming it was tested
-would be dishonest; it's deferred to whenever real screens exist and a
-browser is available to verify it in. Likewise, the actual Anthropic
-API call (auth, retry/backoff, per-org budget tracking - Bridge's
-`Engine.api`, ~lines 1651-1855) needs a real API key and a persistent
-budget store (a DB table, since this is now multi-tenant and
-server-side, not localStorage), neither of which exist yet. `pipeline.ts`
-is designed so that wiring is a matter of implementing one `ModelCaller`
-function, not a pipeline redesign.
+**Built and verified:** the file ingest pipeline
+(`src/lib/docai/magicBytes.ts`, `src/lib/docai/ingest.ts`). Magic-byte
+sniffing (PDF/JPEG/PNG/GIF/WEBP/HEIC by leading bytes, not extension or
+claimed MIME type) is pure logic, unit-tested under vitest like the
+rest of the fit engine. The browser-dependent half
+(`File`/`FileReader`/`Blob`/`createImageBitmap`/`canvas`) can't run
+under vitest's node environment, so it's verified instead with
+Playwright driving a real headless Chromium
+(`scripts/docai_ingest_browsertest.mjs`, 18/18 assertions passing) -
+this sandbox has both available, so the "can't test it, can't ship it"
+problem that used to defer this doesn't apply anymore.
+
+One design change from Bridge's original: EXIF orientation is *not*
+hand-parsed and rotated. The first pass did that (parse the JPEG's own
+orientation tag, rotate via canvas transform), but the Playwright
+verification caught that this sandbox's Chromium auto-rotates on
+`createImageBitmap` regardless of an explicit `imageOrientation: "none"`
+override, so the manual rotation was silently applying a second,
+wrong rotation on top of the browser's own. The fix was to delete the
+manual EXIF code entirely and trust `createImageBitmap`'s native
+orientation handling. See docs/DECISIONS.md. HEIC files are detected
+by magic bytes but not decoded (neither this browser nor Anthropic's
+API can read HEIC directly) - surfaced to the caller as an honest
+`fallbackReason` rather than silently mis-processed.
+
+**Not yet built, and why:** the actual Anthropic API call (auth,
+retry/backoff, per-org budget tracking - Bridge's `Engine.api`, ~lines
+1651-1855) needs a real API key and a persistent budget store (a DB
+table, since this is now multi-tenant and server-side, not
+localStorage), neither of which exist yet - Dave held this off pending
+a key. `pipeline.ts` is designed so that wiring is a matter of
+implementing one `ModelCaller` function, not a pipeline redesign.
 
 ## What isn't built yet
 
-Doc AI's file-ingest pipeline and its actual Anthropic API wiring (see
-above), athlete/target add and edit, communication tracking, an
-athlete detail/profile screen (the journey stepper logic exists but
-nothing renders it yet), board/governance module, a real fundraising
-data model behind `donor_fundraising`, and any deployment/hosting
-setup. Today, roster, the recruiting board, and a placeholder More
-screen exist as real UI. See docs/ROADMAP.md.
+Doc AI's actual Anthropic API wiring (see above - a `ModelCaller`
+implementation, held pending an API key), board/governance module, a
+real fundraising data model behind `donor_fundraising`, and any
+deployment/hosting setup. Today roster (with a full athlete detail
+screen: journey stepper, colleges, contacts, visits), the recruiting
+board, communication and visit logging, and an owner-gated schools
+admin form exist as real UI. See docs/ROADMAP.md.

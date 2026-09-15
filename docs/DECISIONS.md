@@ -603,3 +603,53 @@ proving an ordinary authenticated user's direct insert into `schools`
 is still rejected, so this door staying "owner-gated app code, not an
 RLS policy" is actually verified, not just asserted in a comment.
 22/22 RLS assertions pass.
+
+## 2026-09 - Doc AI file ingest: trust the browser for EXIF, not a hand-rolled parser
+
+**Decision:** `src/lib/docai/ingest.ts` sniffs a file's real type from
+its magic bytes (`magicBytes.ts`, pure/unit-tested), then for
+JPEG/PNG/GIF/WEBP decodes it via `createImageBitmap(blob, {
+imageOrientation: "from-image" })` and re-encodes through canvas, with
+no manual EXIF parsing or rotation logic anywhere. HEIC is detected but
+not decoded (an honest `fallbackReason`, not a silent failure); PDFs
+pass through as base64; oversized files (> 4MB) are rejected before any
+decode work.
+
+**Reason:** the first implementation ported Bridge's approach more
+literally - hand-parse the JPEG's EXIF orientation tag, request
+`createImageBitmap(blob, { imageOrientation: "none" })` to get
+unrotated pixels, then apply the rotation manually via a canvas
+transform. Built the standalone Playwright harness
+(`scripts/docai_ingest_browsertest.mjs`, real headless Chromium, not a
+mock) specifically to verify this against actual images before calling
+it done, per CLAUDE.md's "porting it now and claiming it was tested
+would be dishonest." The harness caught a real bug on the first run (13
+of 17 checks passing, not 17): this sandbox's Chromium auto-rotates on
+`createImageBitmap` regardless of the `"none"` option for a
+Blob-sourced JPEG - the option is simply not honored here for that
+input type. The manual rotation code was therefore rotating an
+already-correctly-rotated image a second time, which for a 4x2
+orientation-6 JPEG produced wrong final dimensions. (A second, separate
+bug was also caught by hand before running the harness: the manual
+transform was being called with the post-swap canvas dimensions instead
+of the pre-swap source dimensions, which the standard rotation-matrix
+recipe requires the other way round.)
+
+**Alternatives considered:** Keep the manual EXIF/rotation code and
+special-case around the browser's auto-rotation (detect it, then skip
+the manual step when it would happen). Rejected - it would mean
+carrying dead code whose only job is to run in browsers where the
+auto-rotation behavior differs, which is more surface area for exactly
+the kind of bug this one already was, for zero behavioral gain over
+just trusting the browser's native (spec-default) handling.
+
+**Consequences:** `src/lib/docai/exif.ts` and its test file were
+deleted entirely - there is no EXIF-parsing code left in the repo.
+`normalizeImage()` is simpler and shorter than the original port. If a
+future browser or environment doesn't auto-rotate on decode, this
+would need revisiting, but `{ imageOrientation: "from-image" }` is the
+spec default precisely so that a compliant browser always handles it
+consistently. Re-ran the harness after the fix: 18/18 assertions pass
+(the count includes the size-guard, unknown-bytes, and
+magic-byte-beats-extension checks, none of which existed in the first
+13/17 run).

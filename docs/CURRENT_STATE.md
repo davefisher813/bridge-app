@@ -1,7 +1,7 @@
 # Current state
 
-Last updated: 2026-09-15 (post-redesign pass). Replaced wholesale when
-this changes meaningfully, not appended to.
+Last updated: 2026-09-15 (Doc AI file ingest built and verified).
+Replaced wholesale when this changes meaningfully, not appended to.
 
 ## What exists
 
@@ -178,6 +178,18 @@ this changes meaningfully, not appended to.
   double-penalty bug in Bridge's original low-legibility confidence
   handling (see docs/DECISIONS.md) that made its "review" queue
   mathematically unreachable.
+- **Doc AI file ingest** (`src/lib/docai/magicBytes.ts`,
+  `src/lib/docai/ingest.ts`): magic-byte sniffing (PDF/JPEG/PNG/GIF/WEBP/HEIC
+  by leading bytes, not extension or claimed MIME) is pure logic, unit
+  tested (11 tests). The browser-dependent half - decode via
+  `createImageBitmap`/canvas, base64 encode, size-guard oversized files -
+  can't run under vitest, so it's verified with Playwright driving a real
+  headless Chromium instead (`scripts/docai_ingest_browsertest.mjs`,
+  18/18 assertions pass). Trusts the browser's native EXIF-orientation
+  handling rather than hand-parsing it - a first pass that hand-rolled
+  EXIF rotation was found, via that same Playwright harness, to be
+  double-rotating images, and was deleted. See docs/DECISIONS.md. Not
+  yet wired to any page - it's a library module, not a screen.
 - **Docs**: this file, ARCHITECTURE.md, DESIGN_SYSTEM.md,
   BUSINESS_RULES.md, DECISIONS.md, PRODUCT.md, ROADMAP.md, CLAUDE.md.
 
@@ -193,8 +205,8 @@ this changes meaningfully, not appended to.
   add, and More exist as UI screens.** Communication tracking, a
   per-athlete detail route, contacts, a real visit log, and an
   owner-gated way to add a school are all built now (see above) - this
-  gap is closed. Remaining known-missing pieces: Doc AI ingest (in
-  progress) and a real `ModelCaller`.
+  gap is closed. Remaining known-missing piece: a real `ModelCaller`
+  (see below).
 - **Auth flow and all screens are structurally verified only, not
   runtime-verified.** `npx tsc --noEmit`, `npm test` (108/108), and
   `npm run build` all pass clean, but there is no real Supabase project
@@ -219,13 +231,6 @@ this changes meaningfully, not appended to.
   middleware-to-proxy .` would migrate it). Still works today; not
   worth doing until this settles, since it may change again before
   Next 16 stabilizes further.
-- **Doc AI's file-ingest pipeline has not been ported.** Bridge's real
-  ingest code (magic-byte sniffing, HEIC conversion, EXIF-aware image
-  normalization, PDF pre-validation) depends on `File`/`Image`/
-  `canvas`/`FileReader`, none of which exist in this build sandbox to
-  actually exercise. Porting it without a browser to verify it in would
-  mean shipping untested code while claiming otherwise - deferred to
-  when real screens exist. See docs/ARCHITECTURE.md.
 - **Doc AI has no real model wired up.** `pipeline.ts` takes an
   injected `ModelCaller`; nothing implements one against the real
   Anthropic API yet. That needs an API key (none exists in this

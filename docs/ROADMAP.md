@@ -87,13 +87,19 @@ Ordered by what naturally follows what's already built.
     since `schools` still has no INSERT policy for ordinary users -
     `requireOwner()` is the actual gate here, not RLS. Linked from the
     target-add form's empty state and header for owners. See docs/DECISIONS.md.
+13. ~~Doc AI file ingest~~ - `src/lib/docai/magicBytes.ts` (pure,
+    unit-tested) and `src/lib/docai/ingest.ts` (browser-dependent,
+    verified with Playwright driving real headless Chromium -
+    `scripts/docai_ingest_browsertest.mjs`, 18/18 assertions). Found and
+    fixed a real double-rotation bug in the first pass's hand-rolled EXIF
+    handling; the shipped version trusts the browser's native
+    `createImageBitmap` orientation instead. See docs/DECISIONS.md. Not
+    wired to any page yet - it's a library module the eventual upload UI
+    will call.
 
 ## Next up
 
-1. **Doc AI file ingest**, ported from Bridge's `Engine.ingest`, tested
-   with the sandbox's headless Chromium via Playwright rather than
-   blind - see below, in progress.
-2. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
+1. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
    key (Dave doesn't have one to provide yet) and a persistent per-org
    budget table, since Bridge's localStorage-based daily budget tracking
    has no multi-tenant, server-side equivalent yet. On hold until a key
