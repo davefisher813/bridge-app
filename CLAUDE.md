@@ -7,12 +7,17 @@ Owner: Dave Fisher, personally. Explicitly not built with Bridge/BFFSA resources
 
 1. docs/CURRENT_STATE.md
 2. docs/BUSINESS_RULES.md (org/module model, NCAA facts, fit-scoring design)
-3. docs/DESIGN_SYSTEM.md before touching any screen (once it has content beyond placeholders)
-4. docs/ARCHITECTURE.md before touching the multi-tenant boundary, the fit engine, or Doc AI
+3. docs/STYLING_CATALOG.md before touching any screen. Locked 2026-09-15; it is the contract for every component treatment and overrides visual judgment.
+4. docs/DESIGN_SYSTEM.md before touching any screen (structure, typography, status language, and what carries over from JARVIS)
+5. docs/ARCHITECTURE.md before touching the multi-tenant boundary, the fit engine, or Doc AI
 
 ## Visual previews before building a new screen
 
 Dave wants to see and adjust a screen before it's built, not after ("I would like visual previews at some point too so we can adjust before anything gets built" - Dave, 2026-09). For any new screen (not a small edit to one that already exists and was already previewed): publish a static HTML mockup via the Artifact tool first, built from the real tokens in `src/app/globals.css` and the real markup patterns already in use, and let Dave react before writing the actual page. Roster and Board were built before this was said explicitly, so they got a retroactive preview instead - don't let that happen again for a screen that doesn't exist yet.
+
+## Design direction: catalog of options, not revisions of one guess
+
+When the question is what something should look like, don't revise a single guessed direction. Build a catalog of real rendered options, component by component, let Dave select, then lock the selection in as a written contract. This is how JARVIS works and Dave asked for it here by name ("we are going to need to create a styling catalog contract like we do with Jarvis before we move forward... build me a catalog with options to select from. Needs visuals. Once I select we will lock it in" - Dave, 2026-09, after two rejected revisions of a single direction). The catalog must be selectable inside the artifact itself, tappable, not a list of codes for him to type back. docs/STYLING_CATALOG.md is the result and is now locked.
 
 ## Standing autonomy: keep building without per-step check-ins
 
