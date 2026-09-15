@@ -9,26 +9,6 @@
 
 import type { ResolverAthlete, ResolverCandidate } from "./types";
 
-function tokens(s: string | undefined): string[] {
-  return (s || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter((t) => t.length > 1);
-}
-
-function jaccard(a: string[], b: string[]): number {
-  const A = new Set(a);
-  const B = new Set(b);
-  if (!A.size || !B.size) return 0;
-  let inter = 0;
-  A.forEach((x) => {
-    if (B.has(x)) inter++;
-  });
-  const uni = new Set([...A, ...B]).size;
-  return inter / uni;
-}
-
 function levenshtein(a: string, b: string): number {
   if (!a.length) return b.length;
   if (!b.length) return a.length;
@@ -44,19 +24,92 @@ function levenshtein(a: string, b: string): number {
   return m[a.length]![b.length]!;
 }
 
+// Name comparison is structural, not bag-of-words. The first version
+// here scored token overlap (Jaccard) against a surname-similarity
+// fallback, and running it against Dave's real roster and real
+// transcripts showed two failures that mattered:
+//
+//   1. Every official transcript prints "Lastname, Firstname Middlename".
+//      The middle name is a third token the roster does not have, so
+//      Jaccard capped at 2/3 = 0.667 and the combined candidate score
+//      landed at 0.581 - under NAME_MATCH_AUTO. No real transcript could
+//      ever auto-apply, for a document that names the athlete exactly.
+//   2. The surname fallback was worth 0.85 on its own, so the bare token
+//      "Branche" scored 0.85 against both Branche brothers on the
+//      roster and auto-applied one boy's transcript to whichever sorted
+//      first. A surname is not an identification.
+//
+// So: parse the name into given and family parts (handling the comma
+// form, multi-word surnames like "De Los Santos", parenthesised
+// nicknames, and generational suffixes), score those two parts
+// separately, and refuse to treat a surname on its own as a match.
+const NAME_SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv"]);
+
+interface ParsedName {
+  given: string;
+  family: string;
+}
+
+function parseName(raw: string | undefined): ParsedName | null {
+  const cleaned = (raw || "")
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ") // "Jayden (JJ) Batista"
+    .replace(/[^a-z\s,]/g, " ");
+  const strip = (parts: string[]) => parts.filter((t) => t && !NAME_SUFFIXES.has(t));
+  const comma = cleaned.indexOf(",");
+
+  if (comma >= 0) {
+    const family = strip(cleaned.slice(0, comma).split(/\s+/));
+    const given = strip(cleaned.slice(comma + 1).split(/\s+/));
+    if (!family.length) return null;
+    return { given: given[0] || "", family: family.join(" ") };
+  }
+
+  const parts = strip(cleaned.split(/\s+/));
+  if (!parts.length) return null;
+  if (parts.length === 1) return { given: "", family: parts[0]! };
+  return { given: parts[0]!, family: parts[parts.length - 1]! };
+}
+
+function ratio(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  return Math.max(0, 1 - levenshtein(a, b) / Math.max(a.length, b.length));
+}
+
+// "Santos" and "De Los Santos" are the same family name written two
+// ways, which is what the comma form vs the plain form produces for the
+// same person.
+function familySim(a: string, b: string): number {
+  if (a === b) return 1;
+  const aw = a.split(" ");
+  const bw = b.split(" ");
+  if (aw[aw.length - 1] === bw[bw.length - 1]) return 1;
+  return ratio(a, b);
+}
+
+// An initial is weak evidence, not a match: "D. Branche" must not score
+// the same as "Darwins Branche" when there is an Erwins Branche on the
+// same roster.
+function givenSim(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length === 1 || b.length === 1) return a[0] === b[0] ? 0.55 : 0;
+  return ratio(a, b);
+}
+
+// A surname with no given name attached. Capped well below
+// NAME_MATCH_AUTO so it always goes to a human.
+const SURNAME_ONLY_CEILING = 0.5;
+
 export function nameMatch(a: string | undefined, b: string | undefined): number {
-  const na = (a || "").toLowerCase().trim();
-  const nb = (b || "").toLowerCase().trim();
-  if (!na || !nb) return 0;
-  if (na === nb) return 1;
-  const ta = tokens(na);
-  const tb = tokens(nb);
-  const j = jaccard(ta, tb);
-  const lastA = ta[ta.length - 1] || "";
-  const lastB = tb[tb.length - 1] || "";
-  const lastDist = levenshtein(lastA, lastB) / Math.max(lastA.length, lastB.length, 1);
-  const lastSim = 1 - lastDist;
-  return Math.max(j, lastSim * 0.85);
+  const pa = parseName(a);
+  const pb = parseName(b);
+  if (!pa || !pb) return 0;
+
+  const family = familySim(pa.family, pb.family);
+  if (!pa.given || !pb.given) return family * SURNAME_ONLY_CEILING;
+  return 0.6 * family + 0.4 * givenSim(pa.given, pb.given);
 }
 
 export interface ExtractedIdentity {

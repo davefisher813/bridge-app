@@ -58,7 +58,7 @@ export interface PipelineInput {
 }
 
 export type PipelineResult =
-  | { ok: false; stage: "unsupported" | "ingest" | "triage_retake" | "extraction_parse" | "extraction_invalid"; error: string; triage?: TriageResult }
+  | { ok: false; stage: "unsupported" | "ingest" | "triage_retake" | "triage_wrong_category" | "extraction_parse" | "extraction_invalid"; error: string; triage?: TriageResult }
   | {
       ok: true;
       extracted: Record<string, unknown>;
@@ -169,6 +169,24 @@ export async function runExtractionPipeline(input: PipelineInput): Promise<Pipel
     return { ok: false, stage: "triage_retake", error: `Document not readable: ${triage.issues[0] || triage.reason}`, triage };
   }
 
+  // `wrong_category` was in the triage schema and in the triage prompt
+  // from the start, and nothing ever read it. Running a real Elite Squad
+  // player profile through the pipeline as a transcript showed the cost:
+  // triage correctly answered detectedType "other", recommendation
+  // "wrong_category", and the pipeline extracted it as a transcript
+  // anyway and offered a self-reported profile-sheet GPA for review as
+  // though it came off a school document. Refusing here is what makes
+  // the forced-category path safe to offer.
+  if (triage && triage.recommendation === "wrong_category") {
+    const detected = triage.detectedType === "other" ? "something else" : triage.detectedType.replace(/_/g, " ");
+    return {
+      ok: false,
+      stage: "triage_wrong_category",
+      error: `This looks like ${detected}, not a ${cat.label.toLowerCase()}. ${triage.issues[0] || triage.reason}`,
+      triage,
+    };
+  }
+
   const lowLegibility = triage != null && triage.legibilityScore < 0.6;
 
   const systemPrompt = buildExtractionSystemPrompt(input.categoryId, input.rosterContext, input.override);
@@ -222,8 +240,31 @@ export async function runExtractionPipeline(input: PipelineInput): Promise<Pipel
   };
   const candidates = findCandidates(identity, input.roster, input.override);
   const topScore = candidates[0]?.score ?? null;
+  const runnerUpScore = candidates[1]?.score ?? null;
 
-  const route = routeDecision(provenance.confidence, topScore);
+  let route = routeDecision(provenance.confidence, topScore, runnerUpScore);
+
+  // Nobody on the roster resembles the name on the document. That is not
+  // a high-confidence result, it is an athlete who has not been added
+  // yet, and routeDecision cannot see it because a null score skips its
+  // identity checks entirely. Auto-applying here would mean writing to
+  // no record at all.
+  if (!candidates.length) {
+    if (route === "auto_apply") route = "review";
+    extracted.warnings = [...(extracted.warnings ?? []), "No athlete on this roster matches the name on this document."];
+  }
+
+  // A transcript that never prints the student's name is a real and
+  // common export (Alma and similar portals put the name in page
+  // furniture that does not survive print-to-PDF). It used to be
+  // rejected outright by the schema. It is now allowed through, but the
+  // only thing tying it to an athlete is whoever typed the override, so
+  // it never auto-applies: a human says whose it is, and a human
+  // confirms it.
+  if (!identity.studentName) {
+    if (route === "auto_apply") route = "review";
+    extracted.warnings = [...(extracted.warnings ?? []), "This document does not name the student, so the athlete was set by hand and needs confirming."];
+  }
   const versionClassification = classifyAgainstPrior(
     { gpa: (extracted as { gpa?: number }).gpa ?? null, gradYear: (extracted as { gradYear?: number }).gradYear ?? null },
     input.priorVersions

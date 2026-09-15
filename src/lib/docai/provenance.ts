@@ -53,9 +53,25 @@ export const CONFIDENCE_AUTO_APPLY = 0.85;
 export const CONFIDENCE_REVIEW_MIN = 0.4; // below this, treated as failed extraction
 export const NAME_MATCH_AUTO = 0.7; // below this, identity check fails even at high confidence
 
-export function routeDecision(confidence: number, nameMatchScore: number | null): RouteDecision {
+// How far clear of the runner-up the best candidate has to be before a
+// document is written to a record without a human looking.
+//
+// This exists because of a real pair on Dave's roster: Darwins Branche
+// and Erwins Branche, brothers, same surname. Running the real resolver
+// over the real roster, an extracted name of "D. Branche" scored 0.775
+// for Darwins and 0.595 for Erwins, and routeDecision, which only ever
+// saw the top score, returned auto_apply. One brother's transcript
+// would have been written onto the other's record with nothing logged
+// and nobody asked.
+//
+// A confident match that is barely ahead of a second athlete is not a
+// confident match. Identity being a two-horse race is itself the signal.
+export const AMBIGUOUS_MATCH_GAP = 0.15;
+
+export function routeDecision(confidence: number, nameMatchScore: number | null, runnerUpScore?: number | null): RouteDecision {
   if (confidence < CONFIDENCE_REVIEW_MIN) return "reject";
   if (nameMatchScore != null && nameMatchScore < NAME_MATCH_AUTO) return "review";
+  if (nameMatchScore != null && runnerUpScore != null && nameMatchScore - runnerUpScore < AMBIGUOUS_MATCH_GAP) return "review";
   if (confidence >= CONFIDENCE_AUTO_APPLY) return "auto_apply";
   return "review";
 }

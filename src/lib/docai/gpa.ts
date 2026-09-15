@@ -17,12 +17,20 @@ export function normalizeGpa(rawGpa: number | null | undefined, scaleHint?: stri
   let scale = (scaleHint || "").toLowerCase().trim();
   const explicit = scale === "4.0" || scale === "5.0" || scale === "10" || scale === "20" || scale === "100";
 
+  // A weighted 100-point school can and does report an average above
+  // 100: Cardinal Hayes weights every H/R/AP course and its transcripts
+  // carry course grades like 102. Those used to fall past the `n <= 100`
+  // branch into `return null`, so a real weighted average came back as
+  // "no GPA at all" rather than as a very good one. Anything in this
+  // band is a 100-scale number and is treated as the top of that scale.
+  const HUNDRED_SCALE_MAX = 110;
+
   if (!explicit) {
     if (n <= 4.3) scale = "4.0";
     else if (n <= 5.5) scale = "5.0"; // some weighted scales
     else if (n <= 11) scale = "10"; // some international
     else if (n <= 22) scale = "20"; // French/Belgian
-    else if (n <= 100) scale = "100";
+    else if (n <= HUNDRED_SCALE_MAX) scale = "100";
     else return null; // out of bounds
   }
 
@@ -30,8 +38,11 @@ export function normalizeGpa(rawGpa: number | null | undefined, scaleHint?: stri
   if (scale === "5.0" && (n < 0 || n > 5.5)) return null;
   if (scale === "10" && (n < 0 || n > 10)) return null;
   if (scale === "20" && (n < 0 || n > 20)) return null;
-  if (scale === "100" && (n < 0 || n > 100)) return null;
+  if (scale === "100" && (n < 0 || n > HUNDRED_SCALE_MAX)) return null;
 
+  // origValue below keeps what the document actually said; a weighted
+  // 100-scale value above 97 already lands on 4.0 in the branch below,
+  // so a 102 needs no special case beyond being let through the bound.
   let converted = n;
   if (scale === "5.0") converted = (n * 4) / 5;
   else if (scale === "10") converted = (n * 4) / 10;

@@ -18,7 +18,13 @@ const baseFields = {
 
 export const transcriptSchema = z.object({
   ...baseFields,
-  studentName: z.string().min(1),
+  // Nullable on purpose. A student-portal transcript printed to PDF
+  // often carries no name anywhere on the page, and requiring one here
+  // threw away an otherwise perfect four-year transcript at the
+  // validation step, before the coordinator's "this is for X" override
+  // was ever consulted. The pipeline handles the missing name by
+  // refusing to auto-apply it, which is the right place for that call.
+  studentName: z.string().min(1).nullable(),
   school: z.string().min(1),
   gradYear: z.number().int().min(2000).max(2100),
   sport: z.string().nullable().optional(),

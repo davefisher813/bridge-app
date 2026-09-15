@@ -19,7 +19,7 @@ import { detectCategory, runExtractionPipeline } from "../src/lib/docai/pipeline
 import { createStubCaller } from "../src/lib/docai/stubCaller";
 import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole } from "../src/lib/docai/types";
 import { findCandidates } from "../src/lib/docai/resolver";
-import { effectiveConfidence, routeDecision } from "../src/lib/docai/provenance";
+import { effectiveConfidence, routeDecision, NAME_MATCH_AUTO } from "../src/lib/docai/provenance";
 
 // ---------------------------------------------------------------- assertions
 
@@ -176,6 +176,11 @@ function runSuite(): Check[] {
   const roster: ResolverAthlete[] = [
     { id: "a1", name: "Sample Athlete", school: "Sample High School", gradYear: 2027 },
     { id: "a2", name: "Marcus Bellamy", school: "Other High", gradYear: 2026 },
+    // A sibling pair, because the real roster has one and that is what
+    // exposed the wrong-athlete route.
+    { id: "a3", name: "Darnell Whitfield", school: "Monroe (Comp Sci HS)", gradYear: 2027 },
+    { id: "a4", name: "Ervin Whitfield", school: "James Monroe", gradYear: 2022 },
+    { id: "a5", name: "Jayden (JJ) Pereira", school: "Elite Squad Academy", gradYear: 2025 },
   ];
 
   check("Doc AI routing", "source role changes the outcome, not just the number", () => {
@@ -201,6 +206,36 @@ function runSuite(): Check[] {
   check("Doc AI matching", "a name nobody on the roster has matches nobody", () => {
     const found = findCandidates({ studentName: "Zxqw Vbnm", school: null, gradYear: null }, roster);
     if (found.length > 0) return `matched ${found[0]!.athlete.name} anyway`;
+    return null;
+  });
+
+  // The next four all failed against Dave's real Google Drive documents
+  // before 2026-09-15. Real transcripts print names one way, the roster
+  // stores them another, and two brothers share a surname.
+  check("Doc AI matching", 'a transcript that prints "Lastname, Firstname Middlename" still matches', () => {
+    const found = findCandidates({ studentName: "Athlete, Sample Alexander", school: "Sample High School", gradYear: 2027 }, roster);
+    const top = found[0];
+    if (top?.athlete.id !== "a1") return `top match was ${top?.athlete.name ?? "nobody"}`;
+    if (top.score < NAME_MATCH_AUTO) return `scored ${top.score.toFixed(3)}, under the ${NAME_MATCH_AUTO} auto-apply bar`;
+    return null;
+  });
+
+  check("Doc AI matching", "a nickname in brackets on the roster does not break the match", () => {
+    const found = findCandidates({ studentName: "Pereira, Jayden", school: "Elite Squad Academy", gradYear: 2025 }, roster);
+    if (found[0]?.athlete.id !== "a5") return `top match was ${found[0]?.athlete.name ?? "nobody"}`;
+    return null;
+  });
+
+  check("Doc AI matching", "a surname on its own is never enough to identify anyone", () => {
+    const found = findCandidates({ studentName: "Whitfield", school: null, gradYear: null }, roster);
+    const top = found[0];
+    if (top && top.score >= NAME_MATCH_AUTO) return `"Whitfield" scored ${top.score.toFixed(3)} against ${top.athlete.name}`;
+    return null;
+  });
+
+  check("Doc AI routing", "a document is not written to a record when a sibling is right behind", () => {
+    if (routeDecision(0.99, 0.8, 0.72) !== "review") return "auto-applied with the runner-up 0.08 behind";
+    if (routeDecision(0.99, 0.95, 0.4) !== "auto_apply") return "a clear winner was blocked from auto-applying";
     return null;
   });
 
