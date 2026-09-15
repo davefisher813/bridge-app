@@ -17,7 +17,7 @@ import {
 import { scoreFit } from "@/lib/fit/score";
 import type { FitTag } from "@/lib/fit/types";
 import { EmptyState, GroupTab, RailCard, ScorePill } from "@/components/catalog";
-import { statusHue } from "@/components/statusHue";
+import { statusRole } from "@/components/statusHue";
 
 function BoardIcon() {
   return (
@@ -43,11 +43,14 @@ interface TargetRow {
 // state that isn't forward progress.
 const STATUS_ORDER = ["Target", "In Contact", "Visit", "Offer", "Committed", "Not Interested"] as const;
 
+// The score pill above this tag already says how good the fit is, so the
+// tag is low-weight text rather than a third colour-coded thing. Red is
+// deliberately absent: it belongs to actions now, not to a rating.
 const TAG_STYLE: Record<FitTag, string> = {
-  Safety: "text-success",
-  Fit: "text-accent",
-  Reach: "text-ink",
-  Conflict: "text-danger",
+  Safety: "text-ios-green",
+  Fit: "text-ink",
+  Reach: "text-muted",
+  Conflict: "text-ios-pink",
   Unknown: "text-muted",
 };
 
@@ -157,12 +160,12 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
               {/* G3: a tinted pill tab, not a solid one, since the rows
                   below carry the same hue at full saturation. */}
               <div className="mb-2">
-                <GroupTab label={group.status} count={group.rows.length} hue={statusHue(group.status)} />
+                <GroupTab label={group.status} count={group.rows.length} role={statusRole(group.status)} />
               </div>
               <div className="flex flex-col gap-2">
                 {group.rows.map((r) => {
                   const row = (
-                    <RailCard hue={statusHue(r.status)}>
+                    <RailCard role={statusRole(r.status)}>
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="text-[15px] font-semibold text-ink">

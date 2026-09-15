@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
 import { EmptyState, RailCard, SectionHeader, StatTile } from "@/components/catalog";
-import { statusHue } from "@/components/statusHue";
+import { statusRole } from "@/components/statusHue";
 
 function ClearIcon() {
   return (
@@ -134,16 +134,16 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
         {firstName}.
       </h1>
 
-      {/* ST1: tinted tiles, each in the hue of what it counts. */}
+      {/* ST1: tinted tiles, each in the role of what it counts. */}
       <div className="flex gap-2">
         <StatTile value={athleteCount ?? 0} label="Athletes" />
-        <StatTile value={inContactCount} label="In contact" hue="info" />
-        <StatTile value={committedCount} label="Committed" hue="accent" />
+        <StatTile value={inContactCount} label="In contact" role="contact" />
+        <StatTile value={committedCount} label="Committed" role="committed" />
       </div>
       {totalTargets > 0 && (
         <div className="mt-2 flex h-1 overflow-hidden rounded-full bg-line">
-          <div className="bg-info" style={{ width: `${(inContactCount / totalTargets) * 100}%` }} />
-          <div className="bg-accent" style={{ width: `${(committedCount / totalTargets) * 100}%` }} />
+          <div className="bg-ios-blue" style={{ width: `${(inContactCount / totalTargets) * 100}%` }} />
+          <div className="bg-ios-green" style={{ width: `${(committedCount / totalTargets) * 100}%` }} />
         </div>
       )}
 
@@ -157,7 +157,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       ) : (
         <div className="flex flex-col gap-2">
           {needsFollowUp.map((t) => (
-            <RailCard key={t.id} hue={statusHue(t.status)}>
+            <RailCard key={t.id} role={statusRole(t.status)}>
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-[14px] font-bold text-ink">{t.athleteName}</div>
@@ -185,7 +185,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       ) : (
         <div className="flex flex-col gap-2">
           {upcomingVisits.map((v) => (
-            <RailCard key={v.id} hue="info">
+            <RailCard key={v.id} role="visit">
               <div className="text-[14px] font-bold text-ink">Visit &middot; {v.schoolName}</div>
               <div className="text-[11.5px] text-muted">
                 {new Date(v.visitDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} &middot;{" "}

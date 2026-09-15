@@ -3,9 +3,27 @@
 @tailwind utilities;
 
 /*
-  Placeholder tokens. Each org gets its own values (Bridge red/gold,
-  Elite Squad's own palette, etc.) loaded from org config, never hardcoded
-  in shared components. See docs/DESIGN_SYSTEM.md.
+  COLOR. Two tiers, and only tier 1 is a real color.
+
+  Tier 1, primitives: Apple's iOS system colors, verbatim (--ios-*).
+  Nothing in this app may introduce a color that is not one of these.
+
+  Tier 2, roles: what a color MEANS here (--solid-*, --tint-*), derived
+  from the primitives with every fill and tint paired to a foreground that
+  clears 4.5:1.
+
+  Tier 2 is GENERATED. Do not hand-edit anything between the generated
+  markers: change the role map in scripts/gen_tokens.py and run
+  `python3 scripts/gen_tokens.py --write`. Hand-editing a fill without its
+  foreground is exactly the failure the pairing exists to prevent, and the
+  laws in src/laws/stylingLaws.test.ts will fail the build if you try.
+
+  The role map, in short. Stage axis, rendered as solid pills, is the
+  recruiting pipeline as one progression: gray, blue, mint, orange, green.
+  Score axis is tints only, so a fit score never competes with a stage pill
+  even where they share a hue. Field-badge axis is yellow, teal, indigo.
+  Action axis is red for the primary action and pink for destructive, kept
+  apart so Remove never looks like Add.
 */
 :root {
   --ink: #0a0a0a;
@@ -13,10 +31,88 @@
   --paper: #ffffff;
   --muted: #6b7280;
   --line: #e5e7eb;
+
+  /* Aliases the components use for text, borders and rules. */
   --accent: #ff3b30;
-  --success: #10b981;
-  --danger: #dc2626;
-  --info: #6366f1;
+  --success: #34c759;
+  --danger: #ff2d55;
+  --info: #007aff;
+
+  /* BEGIN GENERATED TOKENS - scripts/gen_tokens.py */
+  /* Primitives: Apple's iOS system colors, dark values. */
+  --ios-red: #FF453A;
+  --ios-orange: #FF9F0A;
+  --ios-yellow: #FFD60A;
+  --ios-green: #30D158;
+  --ios-mint: #63E6E2;
+  --ios-teal: #40CBE0;
+  --ios-cyan: #64D2FF;
+  --ios-blue: #0A84FF;
+  --ios-indigo: #5E5CE6;
+  --ios-purple: #BF5AF2;
+  --ios-pink: #FF375F;
+  --ios-brown: #AC8E68;
+  --ios-gray: #8E8E93;
+
+  /* Roles: solid fill plus its only legal foreground. */
+  --solid-target: #75757a;
+  --solid-target-on: #ffffff;
+  --solid-contact: #0070e1;
+  --solid-contact-on: #ffffff;
+  --solid-visit: #63E6E2;
+  --solid-visit-on: #0f5955;
+  --solid-offer: #FF9F0A;
+  --solid-offer-on: #643e00;
+  --solid-committed: #30D158;
+  --solid-committed-on: #115123;
+  --solid-high: #30D158;
+  --solid-high-on: #115123;
+  --solid-mid: #FFD60A;
+  --solid-mid-on: #645100;
+  --solid-low: #75757a;
+  --solid-low-on: #ffffff;
+  --solid-time: #FFD60A;
+  --solid-time-on: #645100;
+  --solid-people: #40CBE0;
+  --solid-people-on: #10515c;
+  --solid-place: #5E5CE6;
+  --solid-place-on: #ffffff;
+  --solid-accent: #e90b00;
+  --solid-accent-on: #ffffff;
+  --solid-danger: #e6002e;
+  --solid-danger-on: #ffffff;
+  --solid-neutral: #75757a;
+  --solid-neutral-on: #ffffff;
+
+  --tint-target: #e6e6e7;
+  --tint-target-on: #66666b;
+  --tint-contact: #c7e2ff;
+  --tint-contact-on: #005cc3;
+  --tint-visit: #c7f3f1;
+  --tint-visit-on: #007771;
+  --tint-offer: #ffe8c7;
+  --tint-offer-on: #9b5900;
+  --tint-committed: #d2f3da;
+  --tint-committed-on: #207736;
+  --tint-high: #d2f3da;
+  --tint-high-on: #207736;
+  --tint-mid: #fff4c7;
+  --tint-mid-on: #876c00;
+  --tint-low: #e6e6e7;
+  --tint-low-on: #66666b;
+  --tint-time: #fff4c7;
+  --tint-time-on: #876c00;
+  --tint-people: #d1eef3;
+  --tint-people-on: #1c6877;
+  --tint-place: #dadaf6;
+  --tint-place-on: #4846d2;
+  --tint-accent: #ffd4d1;
+  --tint-accent-on: #b70a00;
+  --tint-danger: #ffd1da;
+  --tint-danger-on: #b40020;
+  --tint-neutral: #e6e6e7;
+  --tint-neutral-on: #66666b;
+  /* END GENERATED TOKENS */
 }
 
 [data-theme="dark"] {
@@ -25,84 +121,44 @@
   --paper: #1a1a1a;
   --muted: #9ca3af;
   --line: rgba(255, 255, 255, 0.12);
+
   --accent: #ff453a;
-}
+  --success: #30d158;
+  --danger: #ff375f;
+  --info: #0a84ff;
 
-/*
-  SOLID FILL TOKENS. The locked styling catalog (docs/STYLING_CATALOG.md)
-  renders status pills, icon badges, group tabs and toasts as solid
-  saturated fills, not tints. A solid fill needs a foreground picked for
-  contrast, so every fill ships as a pair: --solid-X is the background,
-  --solid-X-on is the only text color allowed on it. Each pair clears
-  4.5:1 (pills are 11px bold, which is not WCAG large text, so the
-  large-text exemption does not apply). Ratios are in the catalog.
-
-  These are deliberately NOT themed. Each pair is self-contained, so it
-  reads the same on the dark org screens and the light login screen, and
-  there is no second set of values to keep in sync.
-
-  --accent stays Apple systemRed for borders, underlines and text on a
-  dark surface; --solid-accent is a deeper red because white on
-  systemRed is only 3.4:1 and fails. They are different jobs, not a
-  drift, and the catalog says which to reach for.
-*/
-:root {
-  --solid-accent: #d32011;
-  --solid-accent-on: #ffffff;
-  --solid-success: #10b981;
-  --solid-success-on: #052e21;
-  --solid-info: #4f46e5;
-  --solid-info-on: #ffffff;
-  --solid-neutral: #3f3f46;
-  --solid-neutral-on: #e4e4e7;
-
-  /*
-    One hue per metadata field type, per catalog item B1. Named by the
-    role, not the color, so a screen asks for "time" and cannot quietly
-    start using the due-date orange for something unrelated. The status
-    hues above are reserved for status meaning and are never reused as
-    field-type badges.
-  */
-  --solid-time: #f59e0b;
-  --solid-time-on: #3a2503;
-  --solid-people: #14b8a6;
-  --solid-people-on: #04302c;
-  --solid-place: #9333ea;
-  --solid-place-on: #ffffff;
-}
-
-/*
-  TINT TOKENS. Stat tiles (ST1) and board group tabs (G3) are tinted
-  rather than solid, because they sit right next to surfaces using the
-  same hue at full saturation and should not compete with them. A tint is
-  the hue at 22 percent over --paper, so it reads as a surface rather than
-  as a wash over the page, and it carries its own paired foreground for
-  the same reason the solid fills do: the hue itself on its own tint is
-  about 3.2:1, which fails.
-
-  Unlike the solid pairs these ARE themed, because a tint is defined
-  against the paper behind it and that paper flips between themes.
-*/
-:root {
-  --tint-accent: #ffd4d1;
-  --tint-accent-on: #a11109;
-  --tint-success: #caf0e3;
-  --tint-success-on: #065f46;
-  --tint-info: #ddddfc;
-  --tint-info-on: #3730a3;
-  --tint-neutral: #dee0e3;
-  --tint-neutral-on: #3f3f46;
-}
-
-[data-theme="dark"] {
+  /* A tint is mixed into the paper behind it, and that paper flips between
+     themes, so unlike the solid fills the tints are themed. */
+  /* BEGIN GENERATED DARK TINTS - scripts/gen_tokens.py */
+--tint-target: #343435;
+  --tint-target-on: #a2a2a7;
+  --tint-contact: #16314c;
+  --tint-contact-on: #46a2ff;
+  --tint-visit: #2a4746;
+  --tint-visit-on: #63E6E2;
+  --tint-offer: #4c3716;
+  --tint-offer-on: #FF9F0A;
+  --tint-committed: #1f4228;
+  --tint-committed-on: #30D158;
+  --tint-high: #1f4228;
+  --tint-high-on: #30D158;
+  --tint-mid: #4c4316;
+  --tint-mid-on: #FFD60A;
+  --tint-low: #343435;
+  --tint-low-on: #a2a2a7;
+  --tint-time: #4c4316;
+  --tint-time-on: #FFD60A;
+  --tint-people: #224146;
+  --tint-people-on: #40CBE0;
+  --tint-place: #292947;
+  --tint-place-on: #9392ef;
   --tint-accent: #4c2321;
-  --tint-accent-on: #ffb4ae;
-  --tint-success: #183d31;
-  --tint-success-on: #6ee7b7;
-  --tint-info: #2a2b49;
-  --tint-info-on: #a5b4fc;
-  --tint-neutral: #37383b;
-  --tint-neutral-on: #e4e4e7;
+  --tint-accent-on: #ff6b62;
+  --tint-danger: #4c2029;
+  --tint-danger-on: #ff5f7f;
+  --tint-neutral: #343435;
+  --tint-neutral-on: #a2a2a7;
+  /* END GENERATED DARK TINTS */
 }
 
 body {

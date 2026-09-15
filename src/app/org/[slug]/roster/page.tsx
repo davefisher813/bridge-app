@@ -5,7 +5,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
 import { Avatar, EmptyState, RailCard } from "@/components/catalog";
-import { statusHue } from "@/components/statusHue";
+import { statusRole } from "@/components/statusHue";
 
 function RosterIcon() {
   return (
@@ -86,7 +86,7 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
           <div className="flex flex-col gap-2">
             {rows.map((a) => {
               const row = (
-                <RailCard hue={statusHue(a.status)}>
+                <RailCard role={statusRole(a.status)}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Avatar name={a.name} />

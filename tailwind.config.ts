@@ -1,8 +1,52 @@
 import type { Config } from "tailwindcss";
 
-// Palette is a placeholder. Real org branding (Bridge red/gold, Elite Squad's
-// own colors, etc.) is applied per org via the org config, not hardcoded here.
-// See docs/DESIGN_SYSTEM.md.
+// Colors come in two tiers, matching src/app/globals.css. `ios` is the
+// palette (Apple's system colors, the only real colors in the app) and
+// `solid` / `tint` are what they mean here, each a contrast-checked pair.
+// A pair is always used together: bg-solid-offer with text-solid-offer-on,
+// never a fill with some other foreground. src/laws/stylingLaws.test.ts
+// enforces that.
+const ROLES = [
+  "target",
+  "contact",
+  "visit",
+  "offer",
+  "committed",
+  "high",
+  "mid",
+  "low",
+  "time",
+  "people",
+  "place",
+  "accent",
+  "danger",
+  "neutral",
+] as const;
+
+const pairs = (prefix: "solid" | "tint") =>
+  Object.fromEntries(
+    ROLES.flatMap((r) => [
+      [r, `var(--${prefix}-${r})`],
+      [`${r}-on`, `var(--${prefix}-${r}-on)`],
+    ])
+  );
+
+const IOS = [
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "mint",
+  "teal",
+  "cyan",
+  "blue",
+  "indigo",
+  "purple",
+  "pink",
+  "brown",
+  "gray",
+] as const;
+
 const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
@@ -17,38 +61,9 @@ const config: Config = {
         success: "var(--success)",
         danger: "var(--danger)",
         info: "var(--info)",
-        // Solid fill pairs for pills, badges, group tabs and toasts.
-        // Always used as a pair: bg-solid-accent with text-solid-accent-on,
-        // never a fill with some other foreground. See globals.css and
-        // docs/STYLING_CATALOG.md.
-        solid: {
-          accent: "var(--solid-accent)",
-          "accent-on": "var(--solid-accent-on)",
-          success: "var(--solid-success)",
-          "success-on": "var(--solid-success-on)",
-          info: "var(--solid-info)",
-          "info-on": "var(--solid-info-on)",
-          neutral: "var(--solid-neutral)",
-          "neutral-on": "var(--solid-neutral-on)",
-          time: "var(--solid-time)",
-          "time-on": "var(--solid-time-on)",
-          people: "var(--solid-people)",
-          "people-on": "var(--solid-people-on)",
-          place: "var(--solid-place)",
-          "place-on": "var(--solid-place-on)",
-        },
-        // Tint pairs for surfaces that sit beside a solid one: stat tiles
-        // and group tabs. Same pairing rule as the solids.
-        tint: {
-          accent: "var(--tint-accent)",
-          "accent-on": "var(--tint-accent-on)",
-          success: "var(--tint-success)",
-          "success-on": "var(--tint-success-on)",
-          info: "var(--tint-info)",
-          "info-on": "var(--tint-info-on)",
-          neutral: "var(--tint-neutral)",
-          "neutral-on": "var(--tint-neutral-on)",
-        },
+        ios: Object.fromEntries(IOS.map((n) => [n, `var(--ios-${n})`])),
+        solid: pairs("solid"),
+        tint: pairs("tint"),
       },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],

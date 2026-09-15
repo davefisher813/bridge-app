@@ -9,7 +9,7 @@ import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
 import { EmptyState, RailCard, SectionHeader } from "@/components/catalog";
-import { statusHue } from "@/components/statusHue";
+import { statusRole } from "@/components/statusHue";
 
 function SchoolIcon() {
   return (
@@ -169,7 +169,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
           <div className="flex flex-col gap-2">
             {targets.map((t) => (
               <Link key={t.id} href={`/org/${slug}/board/${t.id}/edit`} className="block">
-                <RailCard hue={statusHue(t.status)}>
+                <RailCard role={statusRole(t.status)}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-[14px] font-semibold text-ink">{t.school?.name ?? "Unknown school"}</div>
@@ -200,7 +200,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
           ) : (
             <div className="flex flex-col gap-2">
               {contacts.map((c) => (
-                <RailCard key={c.id}>
+                <RailCard key={c.id} role="people">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-[13px] font-bold text-ink">{c.name}</div>
@@ -244,7 +244,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
         ) : (
           <div className="flex flex-col gap-2">
             {visits.map((v) => (
-              <RailCard key={v.id}>
+              <RailCard key={v.id} role="place">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[13px] font-bold text-ink">
                     {schoolNameByTargetId.get(v.target_id) ?? "Unknown school"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}

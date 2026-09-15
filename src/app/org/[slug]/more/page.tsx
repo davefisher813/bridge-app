@@ -21,7 +21,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
       </div>
 
       <div className="flex flex-col gap-2">
-        <RailCard>
+        <RailCard role="neutral">
           <div className="text-[14px] font-semibold text-ink">{user.full_name || user.email}</div>
           <div className="text-[12px] text-muted">{org.name}</div>
         </RailCard>

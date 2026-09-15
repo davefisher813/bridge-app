@@ -7,8 +7,14 @@ page source, so if the preview looks right, the app looks right. If a
 class were wrong, it would simply have no styling here rather than
 silently looking fine.
 
+The colour maps are PARSED OUT of src/components/statusHue.ts at build
+time rather than copied here. They were copied at first, and drifted three
+separate times in one sitting: a mint Visit pill on a blue rail, a red
+"Fit" tag after red stopped being a rating, a red rail on a contact card.
+A preview that lies about the app is worse than no preview.
+
 Run: npx tailwindcss -i src/app/globals.css -o /tmp/preview.css --minify
-then python3 build_preview.py
+then python3 scripts/build_preview.py
 """
 
 import re
@@ -32,18 +38,18 @@ SCREENS["today"] = ("Today", "dark", """
       <div class="text-[18px] font-extrabold tabular-nums">24</div>
       <div class="mt-0.5 text-[10.5px] font-bold uppercase tracking-[0.03em] opacity-80">Athletes</div>
     </div>
-    <div class="flex-1 rounded-[12px] px-3 py-2.5 bg-tint-info text-tint-info-on">
+    <div class="flex-1 rounded-[12px] px-3 py-2.5 bg-tint-contact text-tint-contact-on">
       <div class="text-[18px] font-extrabold tabular-nums">7</div>
       <div class="mt-0.5 text-[10.5px] font-bold uppercase tracking-[0.03em] opacity-80">In contact</div>
     </div>
-    <div class="flex-1 rounded-[12px] px-3 py-2.5 bg-tint-accent text-tint-accent-on">
+    <div class="flex-1 rounded-[12px] px-3 py-2.5 bg-tint-committed text-tint-committed-on">
       <div class="text-[18px] font-extrabold tabular-nums">3</div>
       <div class="mt-0.5 text-[10.5px] font-bold uppercase tracking-[0.03em] opacity-80">Committed</div>
     </div>
   </div>
   <div class="mt-2 flex h-1 overflow-hidden rounded-full bg-line">
-    <div class="bg-info" style="width:38%"></div>
-    <div class="bg-accent" style="width:16%"></div>
+    <div class="bg-ios-blue" style="width:38%"></div>
+    <div class="bg-ios-green" style="width:16%"></div>
   </div>
 
   <div class="mb-2 mt-6">__SH_FOLLOWUP__</div>
@@ -55,11 +61,11 @@ SCREENS["today"] = ("Today", "dark", """
 
   <div class="mb-2 mt-6">__SH_UPCOMING__</div>
   <div class="flex flex-col gap-2">
-    <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 border-l-info">
+    <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_visit__">
       <div class="text-[14px] font-bold text-ink">Visit &middot; Fairview State</div>
       <div class="text-[11.5px] text-muted">Fri, Sep 19 &middot; Marcus Bell</div>
     </div>
-    <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 border-l-accent">
+    <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_time__">
       <div class="text-[14px] font-bold text-ink">Transfer portal opens</div>
       <div class="text-[11.5px] text-muted">Baseball D1 &middot; Fall window &middot; in 42 days</div>
     </div>
@@ -107,7 +113,7 @@ SCREENS["athlete"] = ("Athlete detail", "dark", """
   <div class="mt-8">
     <div class="mb-2">__SH_COLLEGES__</div>
     <div class="flex flex-col gap-2">
-      <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 border-l-info">
+      <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_visit__">
         <div class="flex items-center justify-between gap-3">
           <div>
             <div class="text-[14px] font-semibold text-ink">Fairview State</div>
@@ -116,7 +122,7 @@ SCREENS["athlete"] = ("Athlete detail", "dark", """
           __PILL_VISIT__
         </div>
       </div>
-      <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 border-l-success">
+      <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_offer__">
         <div class="flex items-center justify-between gap-3">
           <div>
             <div class="text-[14px] font-semibold text-ink">Northgate College</div>
@@ -131,7 +137,7 @@ SCREENS["athlete"] = ("Athlete detail", "dark", """
   <div class="mt-8">
     <div class="mb-2">__SH_CONTACTS__</div>
     <div class="flex flex-col gap-2">
-      <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 border-l-accent">
+      <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_people__">
         <div class="flex items-start justify-between gap-3">
           <div>
             <div class="text-[13px] font-bold text-ink">Coach Rivera</div>
@@ -237,7 +243,7 @@ SCREENS["more"] = ("More", "dark", """
 <main class="px-4 pt-2">
   <div class="mb-3">__SH_MORE__</div>
   <div class="flex flex-col gap-2">
-    <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 border-l-accent">
+    <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_neutral__">
       <div class="text-[14px] font-semibold text-ink">Dave Fisher</div>
       <div class="text-[12px] text-muted">Bridge Foundation for Student Athletes</div>
     </div>
@@ -287,14 +293,27 @@ def section_header(label, count=None, dot="bg-accent"):
     )
 
 
-PILL = {
-    "In Contact": "bg-solid-info text-solid-info-on",
-    "Visit": "bg-solid-info text-solid-info-on",
-    "Offer": "bg-solid-success text-solid-success-on",
-    "Committed": "bg-solid-accent text-solid-accent-on",
-    "Active": "bg-solid-success text-solid-success-on",
-    "Target": "bg-solid-neutral text-solid-neutral-on border border-line",
-}
+# Parsed from the real component, so the preview cannot disagree with it.
+def _parse_ts_map(source, name):
+    body = re.search(name + r"\s*(?::[^=]*)?=\s*\{(.*?)\n\}", source, re.S)
+    if not body:
+        raise SystemExit(f"could not find {name} in statusHue.ts")
+    out = {}
+    for k, v in re.findall(r'"?([A-Za-z ]+)"?\s*:\s*"([^"]+)"', body.group(1)):
+        out[k.strip()] = v
+    return out
+
+
+_HUE_SRC = open("src/components/statusHue.ts").read()
+STATUS_ROLE = _parse_ts_map(_HUE_SRC, "STATUS_ROLE")
+SOLID = _parse_ts_map(_HUE_SRC, "SOLID")
+TINT = _parse_ts_map(_HUE_SRC, "TINT")
+RAIL_MAP = _parse_ts_map(_HUE_SRC, "RAIL")
+DOT_MAP = _parse_ts_map(_HUE_SRC, "DOT")
+
+PILL = {status: SOLID[role] for status, role in STATUS_ROLE.items()}
+RAIL = RAIL_MAP
+HUE_OF = STATUS_ROLE
 
 
 def pill(status):
@@ -308,13 +327,18 @@ def avatar(name):
     ini = (parts[0][0] + (parts[-1][0] if len(parts) > 1 else "")).upper()
     return (
         '<div class="flex flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br '
-        'from-info to-accent font-extrabold text-white" style="width:34px;height:34px;font-size:12px">'
+        'from-ios-blue to-ios-indigo font-extrabold text-white" style="width:34px;height:34px;font-size:12px">'
         f"{ini}</div>"
     )
 
 
-RAIL = {"accent": "border-l-accent", "success": "border-l-success", "info": "border-l-info", "neutral": "border-l-line"}
-HUE_OF = {"Active": "success", "In Contact": "info", "Visit": "info", "Offer": "success", "Committed": "accent", "Target": "neutral"}
+RAIL = {
+    "target": "border-l-ios-gray", "contact": "border-l-ios-blue", "visit": "border-l-ios-mint",
+    "offer": "border-l-ios-orange", "committed": "border-l-ios-green", "accent": "border-l-ios-red",
+    "neutral": "border-l-ios-gray",
+}
+HUE_OF = {"Active": "committed", "In Contact": "contact", "Visit": "visit",
+          "Offer": "offer", "Committed": "committed", "Target": "target"}
 
 
 def roster_row(name, meta, gpa, status):
@@ -331,17 +355,19 @@ def roster_row(name, meta, gpa, status):
 
 
 def score_pill(score):
+    # Tint, not solid: stage and score are different axes and must not
+    # compete for the same colour. See ScorePill in catalog.tsx.
     cls = (
-        "bg-solid-success text-solid-success-on"
+        "bg-tint-high text-tint-high-on"
         if score >= 70
-        else "bg-solid-time text-solid-time-on"
+        else "bg-tint-mid text-tint-mid-on"
         if score >= 40
-        else "bg-solid-neutral text-solid-neutral-on border border-line"
+        else "bg-tint-low text-tint-low-on"
     )
     return f'<span class="inline-flex items-center rounded-full px-3 py-1 text-[13px] font-extrabold tabular-nums {cls}">{score}</span>'
 
 
-TAG_STYLE = {"Safety": "text-success", "Fit": "text-accent", "Reach": "text-ink", "Conflict": "text-danger", "Unknown": "text-muted"}
+TAG_STYLE = {"Safety": "text-ios-green", "Fit": "text-ink", "Reach": "text-muted", "Conflict": "text-ios-pink", "Unknown": "text-muted"}
 
 
 def board_row(athlete, school, meta, score, tag, status):
@@ -355,9 +381,6 @@ def board_row(athlete, school, meta, score, tag, status):
       <div class="text-[11px] font-bold {TAG_STYLE[tag]}">{tag}</div>
     </div>
   </div></div></a>"""
-
-
-TINT = {"info": "bg-tint-info text-tint-info-on", "accent": "bg-tint-accent text-tint-accent-on", "success": "bg-tint-success text-tint-success-on", "neutral": "bg-tint-neutral text-tint-neutral-on"}
 
 
 def group_tab(label, count, hue):
@@ -378,11 +401,11 @@ def followup(name, sub, status):
 def step(kind, label, first=False):
     seg = ""
     if not first:
-        color = "bg-success" if kind in ("done", "current") else "bg-line"
+        color = "bg-ios-green" if kind in ("done", "current") else "bg-line"
         seg = f'<div class="absolute left-[-50%] top-[6px] h-0.5 w-full {color}"></div>'
     dot = {
-        "done": "h-[10px] w-[10px] bg-success",
-        "current": "h-[13px] w-[13px] bg-accent",
+        "done": "h-[10px] w-[10px] bg-ios-green",
+        "current": "h-[13px] w-[13px] bg-ios-red",
         "todo": "h-[10px] w-[10px] bg-line",
     }[kind]
     text = "text-ink" if kind in ("done", "current") else "text-muted"
@@ -392,6 +415,7 @@ def step(kind, label, first=False):
 
 
 FRAGMENTS = {
+    **{f"__RAIL_{role}__": cls for role, cls in RAIL_MAP.items()},
     "__SH_FOLLOWUP__": section_header("Needs follow-up", 2),
     "__SH_UPCOMING__": section_header("Upcoming", 2),
     "__SH_COLLEGES__": section_header("Colleges", 2),
@@ -406,8 +430,8 @@ FRAGMENTS = {
     "__BOARD_MARCUS__": board_row("Marcus Bell", "Fairview State", "Baseball &middot; D2 &middot; Coach Rivera", 78, "Fit", "In Contact"),
     "__BOARD_AVA__": board_row("Ava Thompson", "Riverside University", "Softball &middot; D1", 54, "Reach", "In Contact"),
     "__BOARD_DIEGO__": board_row("Diego Marin", "Northgate College", "Baseball &middot; D3", 88, "Safety", "Committed"),
-    "__TAB_INCONTACT__": group_tab("In Contact", 2, "info"),
-    "__TAB_COMMITTED__": group_tab("Committed", 1, "accent"),
+    "__TAB_INCONTACT__": group_tab("In Contact", 2, "contact"),
+    "__TAB_COMMITTED__": group_tab("Committed", 1, "committed"),
     "__PILL_VISIT__": pill("Visit"),
     "__PILL_OFFER__": pill("Offer"),
     "__STEP_1__": step("done", "Profile", first=True),

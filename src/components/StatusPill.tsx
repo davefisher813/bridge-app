@@ -1,4 +1,4 @@
-import { SOLID_BY_HUE, statusHue } from "@/components/statusHue";
+import { SOLID, statusRole } from "@/components/statusHue";
 
 // Catalog item P1: solid saturated fills, not tints, each used with its
 // own paired foreground token, which is what keeps an 11px bold pill above
@@ -7,7 +7,7 @@ import { SOLID_BY_HUE, statusHue } from "@/components/statusHue";
 // never disagree about what color a status is.
 // See docs/STYLING_CATALOG.md.
 export function StatusPill({ status }: { status: string }) {
-  const style = SOLID_BY_HUE[statusHue(status)];
+  const style = SOLID[statusRole(status)];
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-bold ${style}`}>
       {status}
