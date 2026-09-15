@@ -75,6 +75,27 @@ describe("LAW: a solid fill never appears without its paired foreground", () => 
   // Verified this law bites: removed `border border-line` from
   // DEFAULT_STYLE in StatusPill.tsx, ran the test, watched it fail,
   // restored it.
+  // Tints have the same failure mode as fills, just quieter: the hue on
+  // its own tint is about 3.2:1. So a tint is paired exactly like a fill.
+  //
+  // Verified this law bites: changed a StatTile class to
+  // "bg-tint-info text-info", ran `npx vitest run stylingLaws`, watched it
+  // fail naming catalog.tsx, reverted.
+  it("every bg-tint-X is written alongside text-tint-X-on", () => {
+    const violations: string[] = [];
+    for (const f of SOURCES) {
+      for (const lit of stringLiterals(read(f))) {
+        const tints = [...lit.matchAll(/\bbg-tint-([a-z]+)\b/g)].map((m) => m[1]);
+        for (const hue of tints) {
+          if (!lit.includes(`text-tint-${hue}-on`)) {
+            violations.push(`${rel(f)}: "bg-tint-${hue}" without "text-tint-${hue}-on"`);
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
   it("bg-solid-neutral always carries a border-line hairline", () => {
     const violations: string[] = [];
     for (const f of SOURCES) {
@@ -112,6 +133,7 @@ describe("LAW: the solid token set stays complete", () => {
 
   const declared = [...css.matchAll(/--solid-([a-z]+):/g)].map((m) => m[1]);
   const fills = [...new Set(declared.filter((n) => !n.endsWith("-on")))];
+  const tintsDeclared = [...new Set([...css.matchAll(/--tint-([a-z]+):/g)].map((m) => m[1]))];
 
   // A fill without its foreground is a fill someone will pair with
   // whatever looks right that day, which is how white on a 3.4:1 red
@@ -143,5 +165,33 @@ describe("LAW: the solid token set stays complete", () => {
     expect(fills.sort()).toEqual(
       ["accent", "info", "neutral", "people", "place", "success", "time"]
     );
+  });
+
+  // A tint is defined against the paper behind it, and that paper flips
+  // between themes, so unlike the solid pairs a tint MUST be declared in
+  // both. A tint declared only once is a tint that is wrong in one theme.
+  //
+  // Verified this law bites: removed the --tint-info override from the
+  // dark block in globals.css, ran the test, watched it fail, restored it.
+  it("every tint has a paired foreground, in both themes, and reaches Tailwind", () => {
+    const tintFills = tintsDeclared.filter((n) => !n.endsWith("-on"));
+    expect(tintFills.sort()).toEqual(["accent", "info", "neutral", "success"]);
+
+    // Only the bodies of the [data-theme="dark"] blocks. Slicing from the
+    // first one to the end of the file would sweep in the :root tint
+    // declarations below it and make this check pass vacuously, which is
+    // exactly what it did on the first attempt.
+    const darkBlock = [...css.matchAll(/\[data-theme="dark"\]\s*\{([^}]*)\}/g)]
+      .map((m) => m[1])
+      .join("\n");
+    const problems: string[] = [];
+    for (const n of tintFills) {
+      if (!css.includes(`--tint-${n}-on:`)) problems.push(`--tint-${n} has no -on`);
+      if (!darkBlock.includes(`--tint-${n}:`)) problems.push(`--tint-${n} missing in dark`);
+      if (!darkBlock.includes(`--tint-${n}-on:`)) problems.push(`--tint-${n}-on missing in dark`);
+      if (!tw.includes(`var(--tint-${n})`)) problems.push(`--tint-${n} not in Tailwind`);
+      if (!tw.includes(`var(--tint-${n}-on)`)) problems.push(`--tint-${n}-on not in Tailwind`);
+    }
+    expect(problems).toEqual([]);
   });
 });

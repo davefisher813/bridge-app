@@ -69,6 +69,36 @@ app background. `--solid-neutral` is 1.87:1, close in value to the
 background by design, so anything using the neutral fill carries a
 `border border-line` hairline. That is the one fill with an extra rule.
 
+## The tint rule
+
+Two items are tinted rather than solid, because they sit directly beside
+surfaces carrying the same hue at full saturation: stat tiles (ST1) and
+board group tabs (G3).
+
+A tint has the same failure mode as a fill, just quieter. The first pass
+used the hue at 15 percent over the page with the hue itself as text,
+which measured 3.2:1 and, worse, barely registered as a surface at all:
+the tiles read as floating numbers rather than tiles. So tints are
+tokenized in pairs exactly like fills, at 22 percent of the hue over
+`--paper`.
+
+| Pair | Dark fill | Dark on | Ratio | Light fill | Light on | Ratio |
+| --- | --- | --- | --- | --- | --- | --- |
+| accent | `#4c2321` | `#ffb4ae` | 7.89:1 | `#ffd4d1` | `#a11109` | 6.00:1 |
+| success | `#183d31` | `#6ee7b7` | 7.87:1 | `#caf0e3` | `#065f46` | 6.25:1 |
+| info | `#2a2b49` | `#a5b4fc` | 6.84:1 | `#ddddfc` | `#3730a3` | 7.48:1 |
+| neutral | `#37383b` | `#e4e4e7` | 9.24:1 | `#dee0e3` | `#3f3f46` | 7.90:1 |
+
+Unlike the solid pairs, tints **are** themed. A tint is defined against
+the paper behind it, and that paper flips between themes, so a tint
+declared in only one theme is wrong in the other. The law checks for
+both.
+
+Text inside a tinted surface uses that tint's own foreground, never
+`text-muted`: muted is chosen against the page, not against a tint, and
+lands near 3:1 on one. A secondary line inside a tint drops to
+`opacity-80` of the paired foreground instead.
+
 ## Component contracts
 
 ### P1, status pills
@@ -144,10 +174,10 @@ is what separates a control you press from a label you read. Do not
 
 ### ST1, stat tiles
 
-`rounded-[12px]`, background is the stat's hue mixed into `--paper`
-rather than a solid fill, so a row of tiles does not compete with the
-pills next to it. Number at 18px `font-extrabold`, label below at
-10.5px ALL CAPS `text-muted`.
+`rounded-[12px]`, background is the stat's tint pair rather than a solid
+fill, so a row of tiles does not compete with the pills next to it.
+Number at 18px `font-extrabold`, label below at 10.5px ALL CAPS at
+`opacity-80` of the tint's paired foreground.
 
 ### TB1, bottom tab bar
 
@@ -199,18 +229,39 @@ statically:
 
 1. No component pairs a `bg-solid-*` fill with anything but its own
    `text-solid-*-on` foreground.
-2. No raw hex color in any component or page. Colors come from tokens.
-3. Status pills are rendered through `StatusPill`, not restyled inline.
-4. Every `--solid-*` fill token declared in `globals.css` has a matching
-   `-on` token, and both are exposed in `tailwind.config.ts`.
+2. The same for `bg-tint-*` and `text-tint-*-on`.
+3. The neutral fill always carries its `border-line` hairline.
+4. No raw hex color in any component or page. Colors come from tokens.
+5. Every `--solid-*` fill declared in `globals.css` has a matching `-on`
+   token, and both are exposed in `tailwind.config.ts`.
+6. Every `--tint-*` has its `-on`, is declared in **both** themes, and
+   reaches Tailwind.
+
+Each of those has been proven to fail on a planted violation rather than
+just asserted, per `src/laws/README.md`. One of them, the both-themes
+tint check, passed vacuously on the first attempt (it was scanning the
+whole file rather than the dark blocks) and was only caught because the
+planted violation did not fail. That is the entire argument for planting
+one.
 
 Rules that cannot be checked statically, such as whether a card's rail
 color is meaningful, are reviewed against this document instead.
 
-## Still to apply
+## State of the conversion
 
-The tokens, `StatusPill` and the laws are in place. The remaining
-screens still render the pre-catalog treatments and get converted
-screen by screen: the forms (F3), the board group headers (G3), the
-athlete and board rows (C2), the tab bar (TB1), the stepper (J1), stat
-tiles (ST1), empty states (E1) and toasts (T3).
+Applied: all fourteen items across Today, Athletes, athlete detail,
+Board, More, login, every form, and every empty state. The shared
+primitives live in `src/components/catalog.tsx` and the single
+status-to-hue mapping in `src/components/statusHue.ts`.
+
+Not yet applied: **T3 toasts.** The app has no toast anywhere yet, since
+every write is a server action that redirects rather than confirming in
+place. T3 is specified and waiting for the first surface that needs it.
+
+One thing worth revisiting with Dave. C2 says a row with no status of its
+own takes an accent rail. On the athlete detail screen that makes both
+the contacts and the visits lists red-railed, and a contact card's
+red rail sits next to its red "Remove" control. It reads fine, but the
+field-type hues (`people` for contacts, `place` for visits) would read
+better, and that would be a change to a locked item, so it is his call,
+not a quiet fix.

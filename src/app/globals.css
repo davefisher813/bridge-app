@@ -71,6 +71,40 @@
   --solid-place-on: #ffffff;
 }
 
+/*
+  TINT TOKENS. Stat tiles (ST1) and board group tabs (G3) are tinted
+  rather than solid, because they sit right next to surfaces using the
+  same hue at full saturation and should not compete with them. A tint is
+  the hue at 22 percent over --paper, so it reads as a surface rather than
+  as a wash over the page, and it carries its own paired foreground for
+  the same reason the solid fills do: the hue itself on its own tint is
+  about 3.2:1, which fails.
+
+  Unlike the solid pairs these ARE themed, because a tint is defined
+  against the paper behind it and that paper flips between themes.
+*/
+:root {
+  --tint-accent: #ffd4d1;
+  --tint-accent-on: #a11109;
+  --tint-success: #caf0e3;
+  --tint-success-on: #065f46;
+  --tint-info: #ddddfc;
+  --tint-info-on: #3730a3;
+  --tint-neutral: #dee0e3;
+  --tint-neutral-on: #3f3f46;
+}
+
+[data-theme="dark"] {
+  --tint-accent: #4c2321;
+  --tint-accent-on: #ffb4ae;
+  --tint-success: #183d31;
+  --tint-success-on: #6ee7b7;
+  --tint-info: #2a2b49;
+  --tint-info-on: #a5b4fc;
+  --tint-neutral: #37383b;
+  --tint-neutral-on: #e4e4e7;
+}
+
 body {
   color: var(--ink);
   background: var(--bg);

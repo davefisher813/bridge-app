@@ -33,12 +33,14 @@ export const SOLID_BY_HUE: Record<Hue, string> = {
 };
 
 // A tint of the same hue, for surfaces that sit next to a solid one and
-// should not compete with it (stat tiles, group tabs).
+// should not compete with it (stat tiles, group tabs). Paired like the
+// solids: the hue on its own tint is about 3.2:1 and fails, so each tint
+// carries a foreground chosen for it.
 export const TINT_BY_HUE: Record<Hue, string> = {
-  accent: "bg-accent/15 text-accent",
-  success: "bg-success/15 text-success",
-  info: "bg-info/15 text-info",
-  neutral: "bg-ink/5 text-muted",
+  accent: "bg-tint-accent text-tint-accent-on",
+  success: "bg-tint-success text-tint-success-on",
+  info: "bg-tint-info text-tint-info-on",
+  neutral: "bg-tint-neutral text-tint-neutral-on",
 };
 
 // The 5px left rail on a card. A rail is a border, not a filled surface

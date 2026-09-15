@@ -93,9 +93,12 @@ export function GroupTab({ label, count, hue = "neutral" }: { label: string; cou
 // ST1: tinted stat tile. Tinted for the same reason as the group tab.
 export function StatTile({ value, label, hue = "neutral" }: { value: ReactNode; label: string; hue?: Hue }) {
   return (
+    // The label deliberately inherits the tile's paired foreground rather
+    // than using text-muted: muted is chosen against the page, not against
+    // a tint, and lands near 3:1 on one.
     <div className={`flex-1 rounded-[12px] px-3 py-2.5 ${TINT_BY_HUE[hue]}`}>
       <div className="text-[18px] font-extrabold tabular-nums">{value}</div>
-      <div className="mt-0.5 text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">{label}</div>
+      <div className="mt-0.5 text-[10.5px] font-bold uppercase tracking-[0.03em] opacity-80">{label}</div>
     </div>
   );
 }
