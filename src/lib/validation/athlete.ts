@@ -1,0 +1,121 @@
+// Validation for the athlete add/edit form. Separate from
+// src/lib/fit/schema.ts on purpose: that file validates athletes.detail's
+// shape for the fit engine's own consumption (and must stay walled off
+// from anything DB/form-specific, per CLAUDE.md); this validates the
+// full form payload, including the plain columns detail doesn't cover,
+// and reuses athleteDetailSchema's pieces rather than duplicating them.
+
+import { z } from "zod";
+import { athleteDetailSchema } from "@/lib/fit/schema";
+import type { AthleteDetail, RecruitType } from "@/lib/fit/types";
+
+export const RECRUIT_TYPES: { value: RecruitType; label: string }[] = [
+  { value: "hs", label: "High School" },
+  { value: "transfer_4to4", label: "Transfer (4-to-4)" },
+  { value: "transfer_juco", label: "Transfer (JUCO)" },
+  { value: "transfer_grad", label: "Transfer (Grad)" },
+];
+
+export const ATHLETE_STATUSES = ["Active", "Committed", "Inactive"] as const;
+
+const numOrUndef = (v: FormDataEntryValue | null) => {
+  if (v === null || v === "") return undefined;
+  const n = Number(v);
+  return Number.isNaN(n) ? undefined : n;
+};
+
+const strOrUndef = (v: FormDataEntryValue | null) => (v === null || v === "" ? undefined : String(v));
+
+export const athleteBaseSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  sport: z.string().trim().min(1, "Sport is required"),
+  position: z.string().trim().optional(),
+  recruitType: z.enum(["hs", "transfer_4to4", "transfer_juco", "transfer_grad"]),
+  gpa: z.number().min(0).max(4.0).optional(),
+  gpaVerified: z.boolean().default(false),
+  status: z.enum(ATHLETE_STATUSES).default("Active"),
+  isInternational: z.boolean().default(false),
+  toeflScore: z.number().int().min(0).max(120).optional(),
+  ieltsScore: z.number().min(0).max(9).optional(),
+  f1VisaStatus: z.string().trim().optional(),
+  ncaaEligibilityStatus: z.string().trim().optional(),
+});
+
+export type AthleteFormValues = z.infer<typeof athleteBaseSchema>;
+
+export interface AthleteFormResult {
+  ok: boolean;
+  values: AthleteFormValues;
+  detail: AthleteDetail | null;
+  errors: Record<string, string>;
+}
+
+// Parses a raw FormData into the base fields plus a validated `detail`
+// (hs or transfer, matching recruitType), or collects field-level errors
+// instead of throwing - a form re-render needs to say what to fix, not
+// just that something was wrong.
+export function parseAthleteForm(formData: FormData): AthleteFormResult {
+  const errors: Record<string, string> = {};
+
+  const baseInput = {
+    name: String(formData.get("name") ?? ""),
+    sport: String(formData.get("sport") ?? ""),
+    position: strOrUndef(formData.get("position")),
+    recruitType: String(formData.get("recruitType") ?? "hs"),
+    gpa: numOrUndef(formData.get("gpa")),
+    gpaVerified: formData.get("gpaVerified") === "on",
+    status: String(formData.get("status") ?? "Active"),
+    isInternational: formData.get("isInternational") === "on",
+    toeflScore: numOrUndef(formData.get("toeflScore")),
+    ieltsScore: numOrUndef(formData.get("ieltsScore")),
+    f1VisaStatus: strOrUndef(formData.get("f1VisaStatus")),
+    ncaaEligibilityStatus: strOrUndef(formData.get("ncaaEligibilityStatus")),
+  };
+
+  const baseResult = athleteBaseSchema.safeParse(baseInput);
+  if (!baseResult.success) {
+    for (const issue of baseResult.error.issues) {
+      errors[String(issue.path[0])] = issue.message;
+    }
+  }
+  const values = baseResult.success ? baseResult.data : (baseInput as unknown as AthleteFormValues);
+
+  const recruitType = values.recruitType;
+  const detailInput =
+    recruitType === "hs"
+      ? {
+          kind: "hs" as const,
+          gradYear: numOrUndef(formData.get("gradYear")),
+          apCount: numOrUndef(formData.get("apCount")),
+          ibCount: numOrUndef(formData.get("ibCount")),
+          honorsCount: numOrUndef(formData.get("honorsCount")),
+          dualCount: numOrUndef(formData.get("dualCount")),
+          satTotal: numOrUndef(formData.get("satTotal")),
+          actComposite: numOrUndef(formData.get("actComposite")),
+          desiredMajor: strOrUndef(formData.get("desiredMajor")),
+        }
+      : {
+          kind: "transfer" as const,
+          currentSchool: String(formData.get("currentSchool") ?? ""),
+          currentDivision: strOrUndef(formData.get("currentDivision")),
+          collegeGpa: numOrUndef(formData.get("collegeGpa")),
+          creditHoursCompleted: numOrUndef(formData.get("creditHoursCompleted")),
+          eligibilityYearsRemaining: numOrUndef(formData.get("eligibilityYearsRemaining")) ?? 0,
+          portalEntryDate: strOrUndef(formData.get("portalEntryDate")),
+          transferCount: numOrUndef(formData.get("transferCount")) ?? 0,
+          degreeCompleted: recruitType === "transfer_grad" ? formData.get("degreeCompleted") === "on" : undefined,
+          desiredMajor: strOrUndef(formData.get("desiredMajor")),
+        };
+
+  const detailResult = athleteDetailSchema.safeParse(detailInput);
+  let detail: AthleteDetail | null = null;
+  if (detailResult.success) {
+    detail = detailResult.data as AthleteDetail;
+  } else {
+    for (const issue of detailResult.error.issues) {
+      errors[String(issue.path[0] ?? "detail")] = issue.message;
+    }
+  }
+
+  return { ok: baseResult.success && detailResult.success, values, detail, errors };
+}
