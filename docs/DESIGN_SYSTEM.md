@@ -96,8 +96,26 @@ single-user offline-capable personal app. This is a multi-tenant web
 app with a different product entirely; only the structural rules above
 transfer.
 
+## Component-level treatments: see the locked catalog
+
+Every concrete component treatment (pills, section headers, icon badges,
+cards, score display, avatars, buttons, stat tiles, tab bar, stepper,
+form inputs, group headers, empty states, toasts) is specified in
+**docs/STYLING_CATALOG.md**, locked 2026-09-15. Read that before
+building or restyling any screen. It supersedes visual guesswork, and
+its checkable rules are enforced by `src/laws/stylingLaws.test.ts`.
+
+One item in the catalog knowingly departs from the JARVIS structure
+above: Dave picked solid cards with a colored left rail (C2) over the
+full-bleed hairline row of point 1's "chassis, not a card pile". The
+chassis rule describes JARVIS, not this app.
+
 ## Not yet decided
 
 Component library approach (Tailwind utility-first vs. a small internal
 component set), exact typography, and how `orgs.branding` maps onto the
 token system for a third organization that isn't Bridge or Elite Squad.
+The `--solid-*` fill pairs are contrast-checked against each other
+rather than against a page background, which is what lets an org's
+branding replace a hue without re-auditing every screen, but no third
+org has actually exercised that yet.

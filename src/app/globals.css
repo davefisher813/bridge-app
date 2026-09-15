@@ -28,6 +28,49 @@
   --accent: #ff453a;
 }
 
+/*
+  SOLID FILL TOKENS. The locked styling catalog (docs/STYLING_CATALOG.md)
+  renders status pills, icon badges, group tabs and toasts as solid
+  saturated fills, not tints. A solid fill needs a foreground picked for
+  contrast, so every fill ships as a pair: --solid-X is the background,
+  --solid-X-on is the only text color allowed on it. Each pair clears
+  4.5:1 (pills are 11px bold, which is not WCAG large text, so the
+  large-text exemption does not apply). Ratios are in the catalog.
+
+  These are deliberately NOT themed. Each pair is self-contained, so it
+  reads the same on the dark org screens and the light login screen, and
+  there is no second set of values to keep in sync.
+
+  --accent stays Apple systemRed for borders, underlines and text on a
+  dark surface; --solid-accent is a deeper red because white on
+  systemRed is only 3.4:1 and fails. They are different jobs, not a
+  drift, and the catalog says which to reach for.
+*/
+:root {
+  --solid-accent: #d32011;
+  --solid-accent-on: #ffffff;
+  --solid-success: #10b981;
+  --solid-success-on: #052e21;
+  --solid-info: #4f46e5;
+  --solid-info-on: #ffffff;
+  --solid-neutral: #3f3f46;
+  --solid-neutral-on: #e4e4e7;
+
+  /*
+    One hue per metadata field type, per catalog item B1. Named by the
+    role, not the color, so a screen asks for "time" and cannot quietly
+    start using the due-date orange for something unrelated. The status
+    hues above are reserved for status meaning and are never reused as
+    field-type badges.
+  */
+  --solid-time: #f59e0b;
+  --solid-time-on: #3a2503;
+  --solid-people: #14b8a6;
+  --solid-people-on: #04302c;
+  --solid-place: #9333ea;
+  --solid-place-on: #ffffff;
+}
+
 body {
   color: var(--ink);
   background: var(--bg);

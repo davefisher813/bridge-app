@@ -1,93 +1,216 @@
-# Styling catalog (DRAFT, not yet locked)
+# Styling catalog (LOCKED)
 
-Status: **draft**. Dave is choosing between the three options below.
-Nothing here is built into real components yet. Once he picks one (or a
-mix), this document gets rewritten as the locked contract and
-docs/DESIGN_SYSTEM.md's "Not yet decided" section gets closed out
-against it.
+Status: **locked, 2026-09-15.** Dave selected all fourteen component
+treatments from the visual catalog artifact. This document is the
+contract. A screen that renders one of these components renders it the
+way this file says, or the law tests in `src/laws/` fail.
 
-## Why this document exists
+Changing a locked item is a conversation with Dave, not a judgment call
+mid-screen. Adding a component type that is not in this file means
+adding it here first.
 
-JARVIS's `STYLING_CATALOG_V3.md` is a locked, written contract: a fixed
-set of component-level rules (chip law, button law, card treatment,
-status vocabulary) that every screen is built against, checked by
-`src/laws/`. This repo adopted JARVIS's *structure* early
-(docs/DESIGN_SYSTEM.md, "What carries over from JARVIS") but explicitly
-left the concrete visual decisions open.
+## The selections
 
-The first full-app preview (Artifact, two revisions) showed why that
-gap matters: round one was judged too flat, round two added glass
-surfaces and tinted chips but was still short of what Dave wanted,
-which turned out to be JARVIS's actual visual language, saturated
-solid-fill pills and badges, colored-dot section headers, progress
-bars, not just "more color" in the abstract. Guessing a single
-direction and revising it in place wasn't converging. This document and
-the paired visual catalog (Artifact: "Styling Catalog") exist so Dave
-picks a direction from real side-by-side options instead.
+| Component | Code | Treatment |
+| --- | --- | --- |
+| Status pills | P1 | Solid fill, paired foreground |
+| Section headers | H1 | Colored dot, dotted rule, trailing count |
+| Metadata icon badges | B1 | Solid square badge, one hue per field type |
+| Cards and rows | C2 | Solid card, colored left border rail |
+| Fit score | S2 | Solid numeric pill |
+| Avatars | AV1 | Gradient fill with initials |
+| Primary buttons | BT3 | Solid rounded rectangle |
+| Stat tiles | ST1 | Tinted background |
+| Bottom tab bar | TB1 | Active tab gets a solid pill behind the icon |
+| Journey stepper | J1 | Connected dots, line fills as it completes |
+| Form inputs | F3 | Filled, no border |
+| Board group headers | G3 | Solid tinted pill tab |
+| Empty states | E1 | Icon, title, subtext, centered |
+| Toasts | T3 | Solid pill |
 
-## How to read the options
+## The solid fill rule
 
-All three options render the same sample content (same athlete, same
-school, same score, same follow-up case) so the only variable is the
-styling treatment. All three stay inside the forced-dark `/org/[slug]/*`
-theme already locked in docs/DESIGN_SYSTEM.md; none of them touch
-navigation, typography, or copy rules, which are already decided.
+Most of what Dave picked is solid saturated color rather than the tints
+the app shipped with. Solid fills are the single biggest source of
+unreadable text in a dark UI, so they are tokenized in pairs.
 
-### Option A: JARVIS Mirror
+Every fill in `src/app/globals.css` ships as `--solid-X` (background)
+and `--solid-X-on` (the only foreground allowed on it), exposed to
+Tailwind as `bg-solid-X` and `text-solid-X-on`. Using a fill with any
+other text color is a law violation.
 
-Closest to the literal JARVIS screens Dave sent. Introduces three new
-solid hues on top of this repo's existing five tokens: orange, teal,
-purple, used as **solid-fill square icon badges** per metadata field
-type (mirroring JARVIS's Due/Repeat/Length/Area/Person/Project/Where
-badges). Status pills are solid saturated fills with white text, not
-tints. Section headers use a colored dot, a dotted rule, and a count
-("BRIDGE ⋯⋯⋯ 7"). Progress bars are thick and solid.
+| Pair | Fill | Foreground | Contrast |
+| --- | --- | --- | --- |
+| accent | `#d32011` | `#ffffff` | 5.27:1 |
+| success | `#10b981` | `#052e21` | 5.83:1 |
+| info | `#4f46e5` | `#ffffff` | 6.29:1 |
+| neutral | `#3f3f46` | `#e4e4e7` | 8.23:1 |
+| time | `#f59e0b` | `#3a2503` | 6.76:1 |
+| people | `#14b8a6` | `#04302c` | 5.76:1 |
+| place | `#9333ea` | `#ffffff` | 5.38:1 |
 
-Tradeoff: most visually bold, closest match to what Dave pointed at in
-the screenshots, but it's the only option that adds new color tokens
-beyond `--accent`/`--success`/`--danger`/`--info`, which is a bigger
-change to `tailwind.config.ts` and `globals.css` than the other two.
+Every pair clears 4.5:1. The large-text exemption does not apply: pills
+render at 11px bold, and WCAG large text starts at 14pt bold (about
+18.7px). White on `--accent` itself is 3.4:1, which is why
+`--solid-accent` is a deeper red than `--accent` rather than the same
+value. They are two different jobs:
 
-### Option B: Refined Bridge
+- `--accent` for borders, underlines, icons and text on a dark surface.
+- `--solid-accent` only as a filled background, always with
+  `--solid-accent-on` over it.
 
-The v2 preview Dave already saw and said was "better but" not enough.
-Translucent 15%-tint chips, SVG ring gauges for fit scores, colored
-left-rail accents on cards, glass surfaces. Zero new hues, stays
-strictly inside the five existing tokens.
+The solid pairs are not themed. Each pair is self-contained and reads
+the same on the forced-dark org screens and the light login screen, so
+there is no second set of values to drift.
 
-Tradeoff: smallest change to the real token system, but this is the
-direction Dave already flagged as too soft relative to JARVIS. Listed
-here for completeness and as a baseline, not a recommendation.
+**Fill versus background.** A fill also has to read as a shape against
+the surface behind it. The colored fills all clear 3:1 against the dark
+app background. `--solid-neutral` is 1.87:1, close in value to the
+background by design, so anything using the neutral fill carries a
+`border border-line` hairline. That is the one fill with an extra rule.
 
-### Option C: Bold Bridge
+## Component contracts
 
-A middle ground. Solid-fill status pills like Option A (not tints), but
-built entirely from the five existing tokens, no new hues. Cards use a
-5px solid colored left border instead of icon badges. Fit score renders
-as a solid numeric pill instead of a ring. Section headers use the same
-colored-dot-plus-dotted-rule-plus-count pattern as Option A, with the
-dot always accent red rather than varying per section.
+### P1, status pills
 
-Tradeoff: gets the saturated, high-contrast JARVIS feel Dave is asking
-for without introducing new color tokens or new badge iconography, so
-it is the smallest real change that still addresses the "too dull"
-feedback. Doesn't have JARVIS's per-field-type icon badges, since that
-needs the extra hues.
+`src/components/StatusPill.tsx` is the only implementation. Do not
+re-style status text inline anywhere.
 
-## What happens after Dave picks
+Rounded full, `px-2.5 py-1`, 11px, `font-bold`. Solid fill plus its
+paired foreground. The status color language is unchanged from
+docs/DESIGN_SYSTEM.md: success for Active and Offer, info for In
+Contact and Visit, accent for Committed, neutral for everything else
+including Target, Not Interested and any unrecognized value.
 
-1. This file gets rewritten: the chosen option's rules become the
-   locked contract, the other two get cut, and the "not yet locked"
-   status above goes away.
-2. docs/DESIGN_SYSTEM.md's "Not yet decided" line is updated to point
-   here instead of remaining an open question.
-3. If new tokens are introduced (Option A, or a custom mix that adds
-   any), they're added to `src/app/globals.css` and
-   `tailwind.config.ts` following the same light/dark-pair pattern as
-   the existing tokens.
-4. Shared components (`StatusPill.tsx`, card wrappers, section headers)
-   get built or updated to match, and a law goes into `src/laws/` for
-   anything checkable statically (pill fill vs. tint, badge shape),
-   matching the "Laws as tests" pattern already in place.
-5. Only after that does any existing screen get restyled to match.
-   Nothing existing changes until the contract is locked.
+### H1, section headers
+
+Colored dot, label, dotted rule filling the gap, count at the trailing
+edge. Label is ALL CAPS, `font-extrabold`, `text-muted`. The count is
+`text-ink`, not muted, because the number is the useful part. The dot
+is `--accent` unless the section maps to a status, in which case it is
+that status hue.
+
+The rule is `border-bottom: 2px dotted var(--line)` on a flexed spacer,
+never a background image or a row of typed characters.
+
+### B1, metadata icon badges
+
+A 30px solid square, `rounded-[8px]`, icon centered, one hue per field
+type. Three hues exist and they are named for their role:
+
+- `time` (amber): due dates, last contact, days idle, anything on a clock.
+- `people` (teal): coaches, contacts, assigned staff.
+- `place` (purple): schools, divisions, locations, visits.
+
+Anything outside those three uses `neutral`. The status hues are never
+reused as field badges, so a badge can never be mistaken for a status.
+Adding a fourth field-type hue means adding a token pair here first,
+with its contrast ratio recorded in the table above.
+
+### C2, cards and rows
+
+Solid `bg-paper`, `rounded-[10px]`, `border-left: 5px` in a meaningful
+color, which means the row's status hue, or `--accent` for a row with no
+status. Not a glass surface, and not a hairline-divided full-bleed row.
+
+This is the one place the catalog departs from JARVIS's own "chassis,
+not a card pile" rule in docs/DESIGN_SYSTEM.md. Dave picked the rail
+card knowingly. The DESIGN_SYSTEM reference to full-bleed rows now
+describes JARVIS, not this app.
+
+### S2, fit score
+
+A solid pill carrying the number alone, no label, no ring, no track.
+Fill is picked by band: success at 70 and above, time at 40 to 69,
+neutral below 40. The bands live in one place in code, never inline per
+screen.
+
+### AV1, avatars
+
+36px circle, `linear-gradient(135deg, var(--info), var(--accent))`,
+initials in white, `font-extrabold`. The gradient is fixed. Do not
+rotate the gradient per person.
+
+### BT3, primary buttons
+
+Solid `bg-solid-accent text-solid-accent-on`, `rounded-[8px]`, not
+`rounded-full`. One primary action per surface, per the button law in
+docs/DESIGN_SYSTEM.md.
+
+Buttons are the only rectangular element in the system while pills,
+tabs and toasts are all fully rounded. That contrast is intentional and
+is what separates a control you press from a label you read. Do not
+"fix" it by rounding buttons fully.
+
+### ST1, stat tiles
+
+`rounded-[12px]`, background is the stat's hue mixed into `--paper`
+rather than a solid fill, so a row of tiles does not compete with the
+pills next to it. Number at 18px `font-extrabold`, label below at
+10.5px ALL CAPS `text-muted`.
+
+### TB1, bottom tab bar
+
+The active tab's icon sits on a solid `--solid-accent` pill,
+`rounded-[8px]`, label below in `--ink`. Inactive tabs are `--muted`
+with no pill. Only the icon gets the pill, never the whole tab column.
+
+### J1, journey stepper
+
+Four nodes for Profile, In Contact, Visits, Committed, joined by 2px
+segments. Completed nodes and the segments behind them are `--success`.
+The current node is `--accent` and renders larger (13px against 10px).
+Nodes ahead are `--line`. Derived live from the athlete's targets by
+`src/lib/journey.ts`, never stored.
+
+### F3, form inputs
+
+Filled `bg-paper`, no border, `rounded-[10px]`, `px-3 py-2.5`. Label
+above at 11px `font-bold text-muted`. Focus state is a 2px `--accent`
+ring, since there is no border to recolor. Error state adds a
+`--danger` ring plus the message below at 11.5px.
+
+Every form component in `src/components/` follows this. The current
+`inputClass` constants use a border and need converting.
+
+### G3, board group headers
+
+A solid tinted pill tab carrying the group name and its count, tinted
+in the group's status hue rather than solid-filled, because a group
+header sits directly above rows that use the same hue at full
+saturation and would otherwise compete with them.
+
+### E1, empty states
+
+Centered icon, title at 13px `font-extrabold`, one line of subtext at
+11.5px `text-muted`. The subtext names the next action in plain words.
+Never an empty container, and never a bare muted sentence with no icon.
+
+### T3, toasts
+
+A solid pill, full width of the content column, centered text at 12.5px
+`font-extrabold`. Success uses the success pair, errors use accent.
+Toasts confirm that something happened and never carry an action.
+
+## What is enforced by tests
+
+`src/laws/stylingLaws.test.ts` checks the rules that can be checked
+statically:
+
+1. No component pairs a `bg-solid-*` fill with anything but its own
+   `text-solid-*-on` foreground.
+2. No raw hex color in any component or page. Colors come from tokens.
+3. Status pills are rendered through `StatusPill`, not restyled inline.
+4. Every `--solid-*` fill token declared in `globals.css` has a matching
+   `-on` token, and both are exposed in `tailwind.config.ts`.
+
+Rules that cannot be checked statically, such as whether a card's rail
+color is meaningful, are reviewed against this document instead.
+
+## Still to apply
+
+The tokens, `StatusPill` and the laws are in place. The remaining
+screens still render the pre-catalog treatments and get converted
+screen by screen: the forms (F3), the board group headers (G3), the
+athlete and board rows (C2), the tab bar (TB1), the stepper (J1), stat
+tiles (ST1), empty states (E1) and toasts (T3).

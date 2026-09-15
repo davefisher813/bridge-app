@@ -28,6 +28,14 @@ Currently enforced:
    a hard conflict (GPA below the floor, JUCO GPA below 2.5, no degree
    for a grad transfer, sport not sponsored) must never be averaged away
    by a strong score elsewhere. `fitLaws.test.ts`.
+5. **A solid fill never appears without its paired foreground, and the
+   solid token set stays complete.** The locked styling catalog
+   (docs/STYLING_CATALOG.md) is built on solid saturated fills, which is
+   the easiest way in a dark UI to ship text nobody can read. White on
+   the raw `--accent` is 3.4:1. Every fill therefore ships as a
+   contrast-checked `--solid-X` / `--solid-X-on` pair, and the pair has
+   to be written together. Also covers: no raw hex in components, and
+   the neutral fill's hairline. `stylingLaws.test.ts`.
 
 ## How to add a law
 

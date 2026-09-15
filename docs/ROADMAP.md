@@ -99,7 +99,13 @@ Ordered by what naturally follows what's already built.
 
 ## Next up
 
-1. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
+1. **Apply the locked styling catalog to the remaining screens.**
+   docs/STYLING_CATALOG.md is locked and its token layer, `StatusPill`
+   and laws are in place. Still on pre-catalog treatments: forms (F3
+   filled borderless inputs), board group headers (G3), athlete and
+   board rows (C2), the tab bar (TB1), the stepper (J1), stat tiles
+   (ST1), empty states (E1) and toasts (T3).
+2. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
    key (Dave doesn't have one to provide yet) and a persistent per-org
    budget table, since Bridge's localStorage-based daily budget tracking
    has no multi-tenant, server-side equivalent yet. On hold until a key

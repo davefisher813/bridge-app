@@ -1,6 +1,7 @@
 # Current state
 
-Last updated: 2026-09-15 (Doc AI file ingest built and verified).
+Last updated: 2026-09-15 (styling catalog locked; tokens, StatusPill and
+styling laws converted to it).
 Replaced wholesale when this changes meaningfully, not appended to.
 
 ## What exists
@@ -36,8 +37,10 @@ Replaced wholesale when this changes meaningfully, not appended to.
   (Bridge, not Elite Squad) and is an honest "coming soon" placeholder,
   not an invented dollar figure - no fundraising data model exists yet.
 - **Roster screen** (`src/app/org/[slug]/roster/page.tsx`), now with
-  add/edit. Full-bleed list per DESIGN_SYSTEM.md's chassis rule, initials
-  avatar and color-coded `StatusPill` per row. Staff/owner see "+ Add";
+  add/edit. Full-bleed list, initials avatar and color-coded
+  `StatusPill` per row. The list treatment is pre-catalog: the locked
+  catalog's C2 replaces the full-bleed row with a solid card and a
+  colored left rail, not yet applied here. Staff/owner see "+ Add";
   every row (everyone, not just staff/owner) links to the athlete detail
   screen (`roster/[id]`, below) rather than straight to the edit form
   (`src/lib/actions/athletes.ts`, `src/lib/validation/athlete.ts`,
@@ -159,10 +162,23 @@ Replaced wholesale when this changes meaningfully, not appended to.
   `athletes.detail`), `score.ts` (the combiner), `index.ts` (public
   API). 6 smoke tests (`score.smoke.test.ts`) plus 9 laws-as-tests
   (`src/laws/`), all passing (15/15). `npx tsc --noEmit` clean.
+- **Locked styling catalog** (`docs/STYLING_CATALOG.md`): fourteen
+  component treatments, selected by Dave from an interactive catalog
+  artifact rather than guessed at across revision rounds (see
+  docs/DECISIONS.md). Converted so far: the token layer
+  (`--solid-*` contrast-checked fill/foreground pairs in
+  `globals.css` + `tailwind.config.ts`, including three new field-type
+  hues named `time`/`people`/`place`), `StatusPill` (now solid fills,
+  not 15 percent tints), and the laws below. Every other screen still
+  renders pre-catalog treatments; the catalog's closing section lists
+  which.
 - **Laws as tests** (`src/laws/`): no em dash, D3 never shows a
   scholarship-availability claim, transfer portal window never
-  fabricated, a veto always overrides the blend. Each has actually been
-  proven to fail on a planted violation this session, not just asserted.
+  fabricated, a veto always overrides the blend, and the styling laws
+  (a solid fill never appears without its paired foreground, the neutral
+  fill always carries its hairline, no raw hex in components, the solid
+  token set stays complete and Tailwind-exposed). Each has actually been
+  proven to fail on a planted violation, not just asserted.
 - **RLS enforcement test** (`scripts/`): real non-superuser role test,
   not just a superuser smoke test. Found and led to fixing a genuine
   infinite-recursion bug in the original RLS policies.

@@ -653,3 +653,68 @@ consistently. Re-ran the harness after the fix: 18/18 assertions pass
 (the count includes the size-guard, unknown-bytes, and
 magic-byte-beats-extension checks, none of which existed in the first
 13/17 run).
+
+---
+
+## 2026-09 - Styling catalog locked by selection, not by another revision round
+
+**Decision:** Stopped iterating on a single guessed visual direction and
+built a component-level catalog instead: fourteen component categories,
+each with three to five real rendered options, published as an
+interactive artifact where Dave taps the one he wants. His fourteen
+selections are now docs/STYLING_CATALOG.md, locked, and the checkable
+rules are enforced by `src/laws/stylingLaws.test.ts`.
+
+The picks: P1 solid pills, H1 dot-and-dotted-rule section headers, B1
+solid square icon badges with one hue per field type, C2 solid cards
+with a colored left rail, S2 solid numeric score pill, AV1 gradient
+avatars, BT3 rounded-rectangle buttons, ST1 tinted stat tiles, TB1 solid
+pill behind the active tab icon, J1 connected-dot stepper, F3 filled
+borderless inputs, G3 tinted pill group tabs, E1 icon-plus-text empty
+states, T3 solid pill toasts.
+
+**Reason:** Two full-app preview revisions were both rejected on look
+("This does not look like it referenced the Jarvis styling catalog at
+all", then "Better but"). Each revision was a guess at one direction,
+and a rejected guess teaches almost nothing about which direction was
+wanted. Dave's own instruction was to stop and build the catalog first:
+"we are going to need to create a styling catalog contract like we do
+with Jarvis before we move forward." Showing options side by side on
+identical sample content turns a taste question into a selection, which
+is both faster and produces a contract as a byproduct.
+
+**Alternatives considered:** A third revision mirroring the JARVIS
+screenshots more literally. Rejected for the reason above, and because
+it would still have left no written contract, so the fourth screen built
+months from now would drift again. Also considered presenting the
+options as three fixed packages (A/B/C); rejected after Dave asked for
+a "FULL design catalog", and component-level picking turned out to
+matter, since his final set mixes boldly (solid pills) and quietly
+(tinted stat tiles and group tabs) in a way no single package offered.
+
+**Consequences:** Three new color tokens were needed, since B1 requires
+one hue per metadata field type and the existing five could not cover it
+without reusing status colors as field types. They are named for their
+role (`time`, `people`, `place`), not their hue, so a screen cannot
+quietly start using the due-date amber for something unrelated.
+
+More significant: solid fills forced a foreground problem into the open.
+White on `--accent` (Apple systemRed) is 3.4:1 and fails WCAG AA, and
+pills render at 11px bold, which is below the large-text threshold, so
+the exemption does not apply. Every fill therefore ships as a
+contrast-checked pair, `--solid-X` with `--solid-X-on`, and
+`--solid-accent` is a deeper red than `--accent` rather than the same
+value. `--accent` keeps its job (borders, underlines, text on dark) and
+the new token takes the filled-background job. All seven pairs clear
+4.5:1; the ratios are recorded in the catalog.
+
+The catalog also overrides one inherited JARVIS structural rule: C2
+(solid card, colored rail) replaces "chassis, not a card pile" for this
+app's rows. That was Dave's call, made with both rendered in front of
+him, and docs/DESIGN_SYSTEM.md now says so rather than contradicting it.
+
+Only the tokens, `StatusPill` and the laws were converted in this pass.
+The remaining screens still render pre-catalog treatments and get
+converted screen by screen; the catalog's closing section lists exactly
+which.
+
