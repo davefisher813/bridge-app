@@ -28,7 +28,7 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  await requireRole(org.id, ["owner", "staff", "member"]);
 
   const supabase = await createClient();
   const { data: athletes } = await supabase
@@ -41,12 +41,7 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
   const rows = (athletes ?? []) as AthleteRow[];
 
   return (
-    <main className="min-h-screen bg-bg pb-10">
-      <div className="border-b border-line bg-paper px-4 py-4">
-        <div className="text-[20px] font-extrabold text-ink">{org.name}</div>
-        <div className="text-[12px] text-muted">Roster - signed in as {user.email}</div>
-      </div>
-
+    <main>
       <div className="px-4 pt-4">
         <div className="mb-2 flex items-center justify-between">
           <div className="text-[13px] font-bold uppercase tracking-[0.04em] text-muted">Athletes</div>

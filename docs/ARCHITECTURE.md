@@ -108,6 +108,27 @@ afterward as bounded nudges, not another chain of tag reassignments.
 See docs/BUSINESS_RULES.md for the specific rules each dimension
 encodes and how they were verified.
 
+### The DB-to-fit-engine seam: `src/lib/data/fitAdapters.ts`
+
+The walled-off boundary means `src/lib/fit/` never imports Supabase or
+knows a column is `snake_case`. Something still has to bridge a raw
+`athletes`/`schools`/`transfer_windows` row into `Athlete`/`School`/
+`TransferWindow` - that's `src/lib/data/fitAdapters.ts`, deliberately
+outside `src/lib/fit/`. It does two things: renames columns
+(`is_international` -> `isInternational`, etc.) and validates the jsonb
+columns (`athletes.detail`, `schools.academics`/`financials`/
+`athletics`/`conflicts`) through the Zod schemas in
+`src/lib/fit/schema.ts`, degrading a malformed field to "not on file"
+(`.catch({})` / `.catch([])`) rather than throwing - a bad row from
+shared reference data (schools) or a hand-edited jsonb value should
+never take down a whole page. `src/app/org/[slug]/board/page.tsx` is
+the first caller.
+
+`schools.academics`/`financials`/`athletics`/`conflicts` jsonb use
+camelCase keys, matching `School` in `types.ts` directly (same
+convention `athletes.detail` already used) - see docs/DECISIONS.md for
+why this needed deciding explicitly rather than being obvious.
+
 ## Roles
 
 `org_role` is a 3-value enum: `owner | staff | member`. Generalized from
@@ -214,6 +235,7 @@ function, not a pipeline redesign.
 ## What isn't built yet
 
 Doc AI's file-ingest pipeline and its actual Anthropic API wiring (see
-above), the actual UI (roster, recruiting board, communication,
-calendar), board/governance and donor/fundraising modules, and any
-deployment/hosting setup. See docs/ROADMAP.md.
+above), athlete/target add and edit, communication tracking, calendar,
+board/governance and donor/fundraising modules, and any deployment/
+hosting setup. Roster and the recruiting board exist as read-only
+screens. See docs/ROADMAP.md.

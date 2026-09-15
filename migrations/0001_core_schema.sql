@@ -78,9 +78,9 @@ create table schools (
   division          text not null, -- 'D1' | 'D2' | 'D3' | 'NAIA' | 'JUCO D1' | 'JUCO D2' | 'JUCO D3' | 'Prep School'
   conference        text,
   sports_sponsored  text[] not null default '{}',
-  academics         jsonb not null default '{}'::jsonb, -- gpa_min, gpa_avg, sat_range, act_range, major_availability
-  financials        jsonb not null default '{}'::jsonb, -- athletic_scholarship, avg_athletic_aid, avg_merit_aid, avg_need_aid, cost
-  athletics         jsonb not null default '{}'::jsonb, -- playing_time_outlook, position_depth
+  academics         jsonb not null default '{}'::jsonb, -- camelCase: gpaMin, gpaAvg, satRange, actRange, majorAvailability
+  financials        jsonb not null default '{}'::jsonb, -- camelCase: athleticScholarship, avgAthleticAid, avgMeritAid, avgNeedAid, outstateTotal, instateTotal, rosterSpotsOpen
+  athletics         jsonb not null default '{}'::jsonb, -- camelCase: playingTimeOutlook, positionDepth
   conflicts         jsonb not null default '[]'::jsonb,
   profile_date      timestamptz,
   created_at        timestamptz not null default now()

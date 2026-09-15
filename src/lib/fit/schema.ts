@@ -42,3 +42,65 @@ export function parseAthleteDetail(input: unknown): AthleteDetail {
 export function safeParseAthleteDetail(input: unknown) {
   return athleteDetailSchema.safeParse(input);
 }
+
+// Same split applies to schools.academics/financials/athletics/conflicts:
+// bare jsonb in Postgres, shape owned here. Keys are camelCase to match
+// School in ./types.ts directly, same convention as athletes.detail above
+// (0001_core_schema.sql's inline comments show snake_case examples from
+// before this was decided; camelCase is the actual convention). Schools
+// are shared reference data any org can eventually edit, so a malformed
+// field degrades to "not on file" via .catch() rather than throwing and
+// taking down a page over one bad value.
+
+const schoolAcademicsSchema = z
+  .object({
+    gpaMin: z.number().optional(),
+    gpaAvg: z.number().optional(),
+    satRange: z.string().optional(),
+    actRange: z.string().optional(),
+    majorAvailability: z.record(z.string(), z.object({ offered: z.boolean(), accreditationNotes: z.string().optional() })).optional(),
+  })
+  .catch({});
+
+const schoolFinancialsSchema = z
+  .object({
+    athleticScholarship: z.enum(["full", "partial", "none"]).optional(),
+    avgAthleticAid: z.number().optional(),
+    avgMeritAid: z.number().optional(),
+    avgNeedAid: z.number().optional(),
+    outstateTotal: z.number().optional(),
+    instateTotal: z.number().optional(),
+    rosterSpotsOpen: z.number().optional(),
+  })
+  .catch({});
+
+const schoolAthleticsSchema = z
+  .object({
+    playingTimeOutlook: z.enum(["realistic", "competitive", "difficult"]).optional(),
+    positionDepth: z.string().optional(),
+  })
+  .catch({});
+
+const schoolConflictSchema = z.object({
+  type: z.string(),
+  severity: z.enum(["conflict", "warning"]),
+  message: z.string(),
+});
+
+const schoolConflictsSchema = z.array(schoolConflictSchema).catch([]);
+
+export function parseSchoolAcademics(input: unknown) {
+  return schoolAcademicsSchema.parse(input);
+}
+
+export function parseSchoolFinancials(input: unknown) {
+  return schoolFinancialsSchema.parse(input);
+}
+
+export function parseSchoolAthletics(input: unknown) {
+  return schoolAthleticsSchema.parse(input);
+}
+
+export function parseSchoolConflicts(input: unknown) {
+  return schoolConflictsSchema.parse(input);
+}

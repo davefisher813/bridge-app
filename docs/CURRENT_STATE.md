@@ -21,19 +21,41 @@ meaningfully, not appended to.
   lookup relies on RLS (`orgs_by_membership`) as the actual access
   control: an org the caller isn't a member of is invisible, so it
   404s, not 403s.
-- **First real screen: roster** (`src/app/org/[slug]/roster/page.tsx`).
-  Read-only full-bleed list per DESIGN_SYSTEM.md's chassis rule
-  (plain list = rows, not cards). Honest empty state pointing at
-  ROADMAP.md, since add/edit isn't built. Gated through `requireRole`.
-- **Database schema** (`migrations/0001_core_schema.sql`): `orgs`,
-  `users`, `org_members`, `athletes`, `schools`, `recruiting_targets`,
+- **Roster screen** (`src/app/org/[slug]/roster/page.tsx`). Read-only
+  full-bleed list per DESIGN_SYSTEM.md's chassis rule (plain list =
+  rows, not cards). Honest empty state pointing at ROADMAP.md, since
+  add/edit isn't built. Gated through `requireRole`.
+- **Recruiting board screen** (`src/app/org/[slug]/board/page.tsx`).
+  Every `recruiting_targets` row for the org, grouped by status
+  (Target/In Contact/Visit/Offer/Committed/Not Interested, in that
+  pipeline order), with a fit tag and score computed live from
+  `src/lib/fit/` rather than stored, so it can never go stale the way a
+  saved tag could. Read-only; adding/updating a target isn't built.
+- **Shared org chrome** (`src/app/org/[slug]/layout.tsx`): org name,
+  a Roster/Board nav, sign out - one place instead of each page
+  duplicating a header.
+- **DB-to-fit-engine adapter** (`src/lib/data/fitAdapters.ts`): converts
+  raw Supabase rows (snake_case columns) into `src/lib/fit/`'s plain
+  camelCase types. Lives outside `src/lib/fit/` on purpose, so the fit
+  engine itself stays walled off from anything DB-specific. A malformed
+  jsonb field (bad `detail`, bad `academics`/`financials`/`athletics`)
+  degrades to "not on file" rather than throwing and taking a page down;
+  covered by `fitAdapters.test.ts` (6 tests).
+- **Database schema** (`migrations/0001_core_schema.sql`,
+  `0002_athlete_intl_eligibility_fields.sql`): `orgs`, `users`,
+  `org_members`, `athletes`, `schools`, `recruiting_targets`,
   `benchmark_sets`, `transfer_windows`, with RLS policies on all 8
   tables, plus a `_member_org_ids()` SECURITY DEFINER helper (see
-  below). Tested twice: schema/relationship correctness as superuser,
-  and real RLS enforcement as a non-superuser role
-  (`scripts/run_rls_test.sh`, 10/10 assertions pass) - cross-org reads
-  and writes are actually denied, not just that the relationships
-  insert correctly. **Not yet applied to any real Supabase project.**
+  below). `0002` adds five athlete columns (`is_international`,
+  `toefl_score`, `ielts_score`, `f1_visa_status`,
+  `ncaa_eligibility_status`) that the fit engine's `Athlete` type always
+  declared but no migration had actually created - found building the
+  board's data adapter. Tested twice: schema/relationship correctness as
+  superuser, and real RLS enforcement as a non-superuser role
+  (`scripts/run_rls_test.sh`, 11/11 assertions pass, both migrations
+  applied) - cross-org reads and writes are actually denied, not just
+  that the relationships insert correctly. **Not yet applied to any real
+  Supabase project.**
 - **Fit-scoring engine** (`src/lib/fit/`): complete first pass.
   `types.ts`, `bands.ts`, `benchmarks.ts` (ported baseball/softball
   tier data), `academic.ts`, `athletic.ts`, `financial.ts`,
@@ -71,15 +93,23 @@ meaningfully, not appended to.
   do that before this schema goes anywhere near production, since a
   hosted project's exact role/grant setup can differ from this local
   approximation.
-- **Only roster exists as a UI screen.** Recruiting board, communication
-  tracking, calendar - none of it is built yet. docs/DESIGN_SYSTEM.md
-  documents the rules to build against.
-- **Auth flow is structurally verified only, not runtime-verified.**
-  `npx tsc --noEmit`, `npm test` (52/52), and `npm run build` all pass
-  clean, but there is no real Supabase project or env vars yet, so
-  actual sign-in, session refresh, and RLS-backed org resolution have
-  never run against a live backend. Confirm all of that once a real
-  Supabase project exists.
+- **Only roster and board exist as UI screens.** No add/edit for
+  athletes or targets, no communication tracking, no calendar. Adding a
+  target or an athlete has to go through Supabase directly or a future
+  screen. docs/DESIGN_SYSTEM.md documents the rules to build against.
+- **Auth flow and both screens are structurally verified only, not
+  runtime-verified.** `npx tsc --noEmit`, `npm test` (58/58), and
+  `npm run build` all pass clean, but there is no real Supabase project
+  or env vars yet, so actual sign-in, session refresh, RLS-backed org
+  resolution, and the board's live fit-scoring query have never run
+  against a live backend or real seeded data. Confirm all of that once a
+  real Supabase project exists.
+- **The `schools.academics`/`financials`/`athletics`/`conflicts` jsonb
+  key-casing convention (camelCase, matching `School` in
+  `src/lib/fit/types.ts`) is decided and documented (docs/DECISIONS.md)
+  but nothing has ever written real data into these columns** - the
+  convention hasn't been exercised against a real school profile yet,
+  only against test fixtures.
 - **Next 16 flags the `middleware.ts` file convention as deprecated**
   in favor of a `proxy.ts` convention (`npx @next/codemod@canary
   middleware-to-proxy .` would migrate it). Still works today; not

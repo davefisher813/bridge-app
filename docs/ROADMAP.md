@@ -19,24 +19,33 @@ Ordered by what naturally follows what's already built.
    since none exists.
 4. ~~First real screen: roster~~ - read-only athletes list, gated
    through `requireRole`. Add/edit still not built.
+5. ~~Recruiting board~~ - every target grouped by status, with a fit
+   tag/score computed live (not stored) via the new
+   `src/lib/data/fitAdapters.ts` bridge into `src/lib/fit/`. Found and
+   fixed a real schema gap doing it: `athletes` was missing five columns
+   (`is_international`, `toefl_score`, `ielts_score`, `f1_visa_status`,
+   `ncaa_eligibility_status`) the fit engine's `Athlete` type always
+   declared. See docs/DECISIONS.md. Read-only; adding/updating a target
+   still isn't built.
 
 ## Next up
 
-1. **Doc AI file ingest**, ported from Bridge's `Engine.ingest`, once
+1. **Athlete add/edit and target add/edit**, since both board and roster
+   are read-only today - there's no way to get real data in short of
+   using Supabase directly. This unblocks actually trying the product on
+   real Bridge data.
+2. **Communication log per target** (calls, texts, visits) - the data
+   `RecruitingSignals.commCount`/`visitCount` in `src/lib/fit/types.ts`
+   already expects as an input but nothing populates yet.
+3. **Doc AI file ingest**, ported from Bridge's `Engine.ingest`, once
    there's a browser available to actually exercise
    `File`/`Image`/`canvas`/`FileReader` code against - not worth porting
    blind with no way to verify it. Likely bundled with the first real
    upload screen rather than built standalone.
-2. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
+4. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
    key (none exists in this environment) and a persistent per-org budget
    table, since Bridge's localStorage-based daily budget tracking has no
    multi-tenant, server-side equivalent yet.
-3. **Recruiting board** (targets, statuses, communication log) - the
-   screen the fit engine actually feeds, and the natural next screen
-   now that roster exists.
-4. **Athlete add/edit**, since roster is read-only today and the fit
-   engine has nothing real to score without a way to get athlete data
-   in.
 
 ## After that
 - Board/governance and donor/fundraising modules, gated behind

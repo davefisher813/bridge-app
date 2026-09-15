@@ -209,3 +209,49 @@ transfer students as well. So research the transfer portal."
 (`transfer_windows` table), never hardcoded, since the NCAA changes
 them most years by vote - this constraint shaped the whole dimension's
 design (see docs/ARCHITECTURE.md and docs/BUSINESS_RULES.md).
+
+## 2026-09 - Recruiting board: found and fixed a real schema gap, established the jsonb key-casing convention
+
+**Decision:** Added `migrations/0002_athlete_intl_eligibility_fields.sql`
+(five real columns on `athletes`: `is_international`, `toefl_score`,
+`ielts_score`, `f1_visa_status`, `ncaa_eligibility_status`). Also
+established that `schools.academics`/`financials`/`athletics`/
+`conflicts` jsonb store camelCase keys matching `School` in
+`src/lib/fit/types.ts` directly, validated by new Zod schemas in
+`src/lib/fit/schema.ts` (`parseSchoolAcademics` etc., each `.catch()`-
+guarded so one malformed field degrades to "not on file" instead of
+throwing).
+
+**Reason:** Building the recruiting board screen required a data
+adapter (`src/lib/data/fitAdapters.ts`) converting raw Supabase rows
+into the fit engine's plain types. `src/lib/fit/types.ts`'s `Athlete`
+interface has declared `isInternational`, `toeflScore`, `ieltsScore`,
+`f1VisaStatus`, and `ncaaEligibilityStatus` since the fit engine was
+built, and `score.ts` already reads them (the international-athlete
+TOEFL warning, the NCAA Eligibility Center warning) - but
+`0001_core_schema.sql` never actually created columns for them. The
+adapter had nowhere to read these from. Separately, `0001`'s own
+inline comments showed snake_case example field names for the schools
+jsonb columns (`gpa_min`, `avg_athletic_aid`, etc.) that never matched
+`School`'s camelCase fields - nothing had been written to those
+columns yet, so this was caught before it caused a real mismatch, not
+after.
+
+**Reason for real columns over jsonb:** These five fields are true for
+every `recruit_type`, unlike the HS-vs-transfer fields that correctly
+live in the type-varying `detail` jsonb. That's the same reasoning
+`gpa`/`gpa_verified` already followed as real columns rather than
+living in `detail`.
+
+**Alternatives considered:** Silently drop these fields from `Athlete`
+since nothing had wired them up yet. Rejected - `score.ts`'s
+international-athlete and NCAA-eligibility warnings already depend on
+them; removing the fields would mean quietly disabling functionality
+the fit engine was built to have, not simplifying it.
+
+**Consequences:** Reran `scripts/run_rls_test.sh` against both
+migrations applied in sequence; all 11 assertions still pass. Any new
+schools jsonb field must be added to both the relevant Zod schema in
+`src/lib/fit/schema.ts` and `School`/`AthleteDetail` in
+`src/lib/fit/types.ts` together, same discipline as `athletes.detail`
+already required.
