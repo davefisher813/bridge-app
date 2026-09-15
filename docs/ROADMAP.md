@@ -37,6 +37,22 @@ Ordered by what naturally follows what's already built.
    gating (placeholder only - no fundraising data model exists). See
    docs/DECISIONS.md.
 
+## Done from the redesign pass
+
+7. ~~Athlete add/edit~~ - `src/app/org/[slug]/roster/new` and
+   `.../[id]/edit`, staff/owner only, HS-vs-transfer conditional detail
+   fields, international-athlete fields, server-side re-validation via
+   `src/lib/validation/athlete.ts`.
+8. ~~Target add/edit~~ - `src/app/org/[slug]/board/new` and
+   `.../[id]/edit`. Deliberately does not let staff create new schools:
+   `schools` is shared reference data, writable only via the service
+   role by design (see the RLS comment in `migrations/0001_core_schema.sql`
+   and docs/ARCHITECTURE.md) - an org with zero schools seeded sees an
+   honest empty state instead of a workaround. Also guards against a
+   cross-org `athlete_id` (RLS alone can't catch that one, since it only
+   checks the target row's own `org_id`) by re-fetching the athlete
+   scoped to the org before writing.
+
 ## Next up
 
 1. **Athlete profile / detail screen**, including the recruiting-journey
@@ -45,12 +61,11 @@ Ordered by what naturally follows what's already built.
    full-preview artifact mocked but deliberately wasn't built as real
    code, since it also implies Contacts and a real Visits log, neither
    of which has a table yet - scope that with Dave before building.
-2. **Athlete add/edit and target add/edit**, since both board and roster
-   are read-only today - there's no way to get real data in short of
-   using Supabase directly. This unblocks actually trying the product on
-   real Bridge data, and starts making the Today screen's "needs
-   follow-up" staleness mean something (`recruiting_targets.updated_at`
-   only moves when an edit does).
+2. **A real way to get schools into the system** - the target-add form
+   can only pick from schools that already exist, and nothing writes to
+   `schools` yet (see above). Likely Doc AI ingest once that's ported,
+   or a deliberate decision to open a service-role-gated admin path -
+   not decided.
 3. **Communication log per target** (calls, texts, visits) - the data
    `RecruitingSignals.commCount`/`visitCount` in `src/lib/fit/types.ts`
    already expects as an input but nothing populates yet.

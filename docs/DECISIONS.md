@@ -413,3 +413,38 @@ verify it isn't verifying it.
 variable font covers weight 100-900 in a single file, so Tailwind's
 `font-extrabold`/`font-black` utilities render real heavy weights
 rather than faux-bolding a single static weight.
+
+## 2026-09 - Target add/edit does not let staff create schools
+
+**Decision:** The new "Add target" form (`board/new`) only lets staff
+pick from schools that already exist in the `schools` table. It does
+not offer a "create a new school" option, even though that's the
+obvious dead end when the list is empty.
+
+**Reason:** `migrations/0001_core_schema.sql` already has an explicit,
+reasoned policy here: "Schools and transfer_windows are shared reference
+data: readable by any signed-in member of any org, writable only via
+the service role." Only a `schools_read` SELECT policy exists - no
+INSERT/UPDATE policy - so any org's staff writing to shared reference
+data that every other org also reads was a deliberate non-goal, not an
+oversight like the missing athlete columns or the missing
+`recruiting_targets` timestamp columns were. Building a workaround
+around an existing, reasoned architectural boundary is a product
+decision, not a technical one - not mine to make unilaterally.
+
+**Alternatives considered:** Add an INSERT policy scoped to
+`STAFF_ROLES` so any org's coordinator/owner could add a school.
+Rejected for now - shared reference data one org's staff can freely
+edit risks another org's data quality (a Bridge coordinator fat-
+fingering a GPA minimum Elite Squad also reads), and there's no dedup
+story (no unique constraint on school name) to prevent duplicate rows
+either. Worth revisiting deliberately, not as a side effect of building
+target-add.
+
+**Consequences:** An org with zero schools seeded sees an honest empty
+state on `board/new` ("schools aren't editable from this screen... ask
+Dave how school data should get in") instead of a form that looks
+complete but has nothing to select. Getting real schools into the
+system is now its own ROADMAP.md item, likely tied to Doc AI ingest
+once that's ported, or a separate deliberate decision to open a
+service-role-gated admin path.

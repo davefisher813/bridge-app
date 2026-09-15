@@ -35,17 +35,28 @@ this changes meaningfully, not appended to.
   section appears only when `orgs.modules.donor_fundraising` is true
   (Bridge, not Elite Squad) and is an honest "coming soon" placeholder,
   not an invented dollar figure - no fundraising data model exists yet.
-- **Roster screen** (`src/app/org/[slug]/roster/page.tsx`). Read-only
-  full-bleed list per DESIGN_SYSTEM.md's chassis rule (plain list =
-  rows, not cards). Now shows an initials avatar and a color-coded
-  `StatusPill` per row. Honest empty state pointing at ROADMAP.md, since
-  add/edit isn't built. Gated through `requireRole`.
-- **Recruiting board screen** (`src/app/org/[slug]/board/page.tsx`).
-  Every `recruiting_targets` row for the org, grouped by status
-  (Target/In Contact/Visit/Offer/Committed/Not Interested, in that
-  pipeline order), with a fit tag and score computed live from
-  `src/lib/fit/` rather than stored, so it can never go stale the way a
-  saved tag could. Read-only; adding/updating a target isn't built.
+- **Roster screen** (`src/app/org/[slug]/roster/page.tsx`), now with
+  add/edit. Full-bleed list per DESIGN_SYSTEM.md's chassis rule, initials
+  avatar and color-coded `StatusPill` per row. Staff/owner see "+ Add"
+  and rows link to `roster/new` / `roster/[id]/edit`
+  (`src/lib/actions/athletes.ts`, `src/lib/validation/athlete.ts`,
+  `src/components/AthleteForm.tsx`) - HS-vs-transfer conditional detail
+  fields, international-athlete fields, server-side re-validation
+  through the same `athleteDetailSchema` the fit engine reads. Members
+  still get the read-only view. Gated through `requireRole`.
+- **Recruiting board screen** (`src/app/org/[slug]/board/page.tsx`), now
+  with add/edit. Every `recruiting_targets` row for the org, grouped by
+  status (Target/In Contact/Visit/Offer/Committed/Not Interested, in
+  that pipeline order), with a fit tag and score computed live from
+  `src/lib/fit/` rather than stored. Staff/owner see "+ Add target" and
+  rows link to `board/new` / `board/[id]/edit`
+  (`src/lib/actions/targets.ts`, `src/lib/validation/target.ts`,
+  `src/components/TargetForm.tsx`). Target-add can only pick an
+  *existing* school - `schools` stays writable only via the service role
+  by design (see docs/ARCHITECTURE.md), so an org with none seeded gets
+  an honest empty state, not a workaround. The action also re-checks
+  that a submitted `athleteId` actually belongs to the org before
+  writing, since RLS alone doesn't catch a cross-org mismatch here.
 - **Shared org chrome** (`src/app/org/[slug]/layout.tsx`): org name up
   top, a bottom tab bar (`src/components/BottomTabBar.tsx`) for
   Today/Athletes/Board/More instead of the old text-link nav. Forces
@@ -133,9 +144,10 @@ this changes meaningfully, not appended to.
   do that before this schema goes anywhere near production, since a
   hosted project's exact role/grant setup can differ from this local
   approximation.
-- **Only Today, roster, board, and More exist as UI screens.** No
-  add/edit for athletes or targets, no communication tracking, no
-  per-athlete detail route. The recruiting-journey stepper
+- **Today, roster (+ add/edit), board (+ add/edit), and More exist as UI
+  screens.** No communication tracking, no per-athlete detail route, and
+  no way to add a *school* (see the target-add note above). The
+  recruiting-journey stepper
   (`JourneyStepper.tsx`) is built and tested but nothing renders it yet
   - it belongs on an athlete profile screen that doesn't exist. That
   screen is mocked in the full-preview artifact Dave approved but was
@@ -146,7 +158,7 @@ this changes meaningfully, not appended to.
   scope with Dave before building it. docs/DESIGN_SYSTEM.md documents
   the rules to build against.
 - **Auth flow and all four screens are structurally verified only, not
-  runtime-verified.** `npx tsc --noEmit`, `npm test` (69/69), and
+  runtime-verified.** `npx tsc --noEmit`, `npm test` (80/80), and
   `npm run build` all pass clean, but there is no real Supabase project
   or env vars yet, so actual sign-in, session refresh, RLS-backed org
   resolution, and the board's/Today's live queries have never run

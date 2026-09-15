@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { athleteRowToFitAthlete, schoolRowToFitSchool, transferWindowRowToFit, type AthleteRow, type SchoolRow, type TransferWindowRow } from "@/lib/data/fitAdapters";
 import { scoreFit } from "@/lib/fit/score";
@@ -42,7 +43,8 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
-  await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
 
@@ -83,10 +85,24 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
   return (
     <main>
       <div className="px-4 pt-4">
+        <div className="mb-2 flex items-center justify-end">
+          {canEdit && (
+            <Link href={`/org/${slug}/board/new`} className="text-[12px] font-bold text-accent">
+              + Add target
+            </Link>
+          )}
+        </div>
+
         {rows.length === 0 ? (
           <div className="rounded-[14px] border border-line bg-paper px-4 py-8 text-center">
             <div className="text-[14px] font-semibold text-ink">No recruiting targets yet</div>
-            <p className="mt-1 text-[13px] text-muted">Adding a target isn't built yet. See docs/ROADMAP.md.</p>
+            {canEdit ? (
+              <Link href={`/org/${slug}/board/new`} className="mt-2 inline-block text-[13px] font-bold text-accent">
+                Add the first target &rarr;
+              </Link>
+            ) : (
+              <p className="mt-1 text-[13px] text-muted">Ask an owner or coordinator to add one.</p>
+            )}
           </div>
         ) : (
           grouped.map((group) => (
@@ -96,23 +112,32 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
                 <div className="text-[12px] text-muted">{group.rows.length}</div>
               </div>
               <div className="divide-y divide-line border-y border-line">
-                {group.rows.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between py-3">
-                    <div>
-                      <div className="text-[15px] font-semibold text-ink">
-                        {r.athleteName} <span className="font-normal text-muted">to</span> {r.schoolName}
+                {group.rows.map((r) => {
+                  const row = (
+                    <div className="flex items-center justify-between py-3">
+                      <div>
+                        <div className="text-[15px] font-semibold text-ink">
+                          {r.athleteName} <span className="font-normal text-muted">to</span> {r.schoolName}
+                        </div>
+                        <div className="text-[12px] text-muted">
+                          {r.athleteSport} · {r.schoolDivision}
+                          {r.coachName ? ` · ${r.coachName}` : ""}
+                        </div>
                       </div>
-                      <div className="text-[12px] text-muted">
-                        {r.athleteSport} · {r.schoolDivision}
-                        {r.coachName ? ` · ${r.coachName}` : ""}
+                      <div className="text-right">
+                        <div className={`text-[13px] font-bold tabular-nums ${TAG_STYLE[r.fit.tag]}`}>{r.fit.tag}</div>
+                        <div className="text-[11px] text-muted">{r.fit.score}</div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className={`text-[13px] font-bold tabular-nums ${TAG_STYLE[r.fit.tag]}`}>{r.fit.tag}</div>
-                      <div className="text-[11px] text-muted">{r.fit.score}</div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                  return canEdit ? (
+                    <Link key={r.id} href={`/org/${slug}/board/${r.id}/edit`} className="block">
+                      {row}
+                    </Link>
+                  ) : (
+                    <div key={r.id}>{row}</div>
+                  );
+                })}
               </div>
             </div>
           ))
