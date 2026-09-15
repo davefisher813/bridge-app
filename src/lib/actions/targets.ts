@@ -48,6 +48,8 @@ export async function createTarget(slug: string, _prevState: TargetActionState, 
     coach_name: parsed.values.coachName ?? null,
     notes: parsed.values.notes ?? null,
     visit_date: parsed.values.visitDate ?? null,
+    offer_type: parsed.values.offerType ?? null,
+    offer_scholarship_percent: parsed.values.offerScholarshipPercent ?? null,
   });
 
   if (error) {
@@ -82,6 +84,8 @@ export async function updateTarget(slug: string, targetId: string, _prevState: T
       coach_name: parsed.values.coachName ?? null,
       notes: parsed.values.notes ?? null,
       visit_date: parsed.values.visitDate ?? null,
+      offer_type: parsed.values.offerType ?? null,
+      offer_scholarship_percent: parsed.values.offerScholarshipPercent ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", targetId)

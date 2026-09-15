@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { TARGET_STATUSES } from "@/lib/validation/target";
+import { useActionState, useState } from "react";
+import { OFFER_TYPES, TARGET_STATUSES } from "@/lib/validation/target";
 import type { TargetActionState } from "@/lib/actions/targets";
 
 type ServerAction = (prevState: TargetActionState, formData: FormData) => Promise<TargetActionState>;
@@ -18,7 +18,18 @@ export interface TargetFormInitialValues {
   coachName?: string;
   notes?: string;
   visitDate?: string;
+  offerType?: string;
+  offerScholarshipPercent?: number;
 }
+
+const OFFER_TYPE_LABEL: Record<(typeof OFFER_TYPES)[number], string> = {
+  scholarship: "Scholarship",
+  written: "Written (non-scholarship)",
+  verbal: "Verbal",
+  preferred_walk_on: "Preferred walk-on",
+  admission_only: "Admission only",
+  walk_on: "Walk-on",
+};
 
 const EMPTY_STATE: TargetActionState = { errors: {} };
 
@@ -42,6 +53,7 @@ export function TargetForm({
 }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const err = (key: string) => state.errors[key];
+  const [offerType, setOfferType] = useState<string>(initialValues.offerType ?? "");
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -112,6 +124,45 @@ export function TargetForm({
         <input className={inputClass} id="visitDate" name="visitDate" type="date" defaultValue={initialValues.visitDate ?? ""} />
         <p className="mt-1 text-[11.5px] text-muted">Shows up on Today's "Upcoming" once set.</p>
       </div>
+
+      <div>
+        <label className={labelClass} htmlFor="offerType">
+          Offer
+        </label>
+        <select
+          className={inputClass}
+          id="offerType"
+          name="offerType"
+          value={offerType}
+          onChange={(e) => setOfferType(e.target.value)}
+        >
+          <option value="">No offer yet</option>
+          {OFFER_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {OFFER_TYPE_LABEL[t]}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-[11.5px] text-muted">Separate from status - this is the actual offer on file, not just the pipeline stage.</p>
+      </div>
+
+      {offerType === "scholarship" && (
+        <div>
+          <label className={labelClass} htmlFor="offerScholarshipPercent">
+            Scholarship percent
+          </label>
+          <input
+            className={inputClass}
+            id="offerScholarshipPercent"
+            name="offerScholarshipPercent"
+            type="number"
+            min="0"
+            max="100"
+            defaultValue={initialValues.offerScholarshipPercent ?? ""}
+          />
+          {err("offerScholarshipPercent") && <p className={errorClass}>{err("offerScholarshipPercent")}</p>}
+        </div>
+      )}
 
       <div>
         <label className={labelClass} htmlFor="notes">

@@ -7,6 +7,7 @@ import {
   athleteRowToFitAthlete,
   communicationsToSignals,
   schoolRowToFitSchool,
+  targetOfferToSignal,
   transferWindowRowToFit,
   type AthleteRow,
   type SchoolRow,
@@ -19,6 +20,8 @@ interface TargetRow {
   id: string;
   status: string;
   coach_name: string | null;
+  offer_type: string | null;
+  offer_scholarship_percent: number | null;
   athletes: AthleteRow | AthleteRow[] | null;
   schools: SchoolRow | SchoolRow[] | null;
 }
@@ -60,7 +63,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
     supabase
       .from("recruiting_targets")
       .select(
-        "id, status, coach_name, athletes(id, org_id, recruit_type, name, sport, position, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)"
+        "id, status, coach_name, offer_type, offer_scholarship_percent, athletes(id, org_id, recruit_type, name, sport, position, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)"
       )
       .eq("org_id", org.id)
       .order("created_at", { ascending: false }),
@@ -89,7 +92,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
 
       const athlete = athleteRowToFitAthlete(athleteRow);
       const school = schoolRowToFitSchool(schoolRow);
-      const signals = communicationsToSignals(commsByTarget.get(t.id) ?? []);
+      const signals = { ...communicationsToSignals(commsByTarget.get(t.id) ?? []), offer: targetOfferToSignal(t) };
       const fit = scoreFit(athlete, school, { isPlaced: t.status === "Committed", transferWindows, signals });
 
       return { id: t.id, status: t.status, coachName: t.coach_name, athleteName: athlete.name, athleteSport: athlete.sport, schoolName: school.name, schoolDivision: school.division, fit };

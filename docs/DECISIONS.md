@@ -481,3 +481,40 @@ to anything real; `recruiting_targets.status = 'Offer'` is a coarser
 thing and wasn't substituted for it. 15/15 RLS assertions pass with the
 new table, including its own cross-org isolation and insert-rejection
 checks (`scripts/rls_test.sql`).
+
+## 2026-09 - Real `offer` signal, independent of pipeline status
+
+**Decision:** Two new columns on `recruiting_targets` (migration
+`0005`): `offer_type` (enum: scholarship, written, verbal,
+preferred_walk_on, admission_only, walk_on) and
+`offer_scholarship_percent` (0-100, only meaningful when
+`offer_type = 'scholarship'`). Set from the target add/edit form
+(conditionally showing the percent field only for a scholarship offer,
+same pattern as `AthleteForm`'s international-athlete toggle), and fed
+into `RecruitingSignals.offer` on the board via
+`fitAdapters.ts`'s `targetOfferToSignal()`.
+
+**Reason:** This was the last of `RecruitingSignals`'s three fields
+with nothing real behind it - `commCount`/`visitCount` were fixed by
+the communication log above. `score.ts` treats a scholarship or
+written offer very differently from a verbal or walk-on one, but
+nothing captured which kind of offer existed, only the coarser
+`recruiting_targets.status = 'Offer'` pipeline stage. Status and offer
+are genuinely different things: a target can sit at status `Offer`
+while a written offer is pending signature, and a committed athlete
+(`status = 'Committed'`) still has an `offer_type` on file describing
+what they committed to.
+
+**Alternatives considered:** Deriving a synthetic offer signal from
+`status = 'Offer'` alone (e.g. treating any target at that status as a
+generic offer). Rejected - it would have thrown away exactly the
+distinction `score.ts` needs (scholarship vs. verbal vs. walk-on) and
+produced a plausible-looking but fake signal, the same mistake the
+board's missing-signals gap was.
+
+**Consequences:** `offerScholarshipPercent` is validated (via a Zod
+`.refine()` in `src/lib/validation/target.ts`) to only apply when
+`offerType === "scholarship"`, and the DB has its own `check`
+constraint (0-100) as a second line of defense. 15/15 RLS assertions
+still pass; no new assertions were needed since these are plain
+columns on an already-tested table, not a new org-scoped relationship.

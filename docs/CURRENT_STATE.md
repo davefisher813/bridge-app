@@ -65,6 +65,15 @@ this changes meaningfully, not appended to.
   fit tag itself - not stored or cached. Logging one also bumps the
   parent target's `updated_at`, so Today's "needs follow-up" staleness
   reflects real engagement day to day, not just full-form edits.
+- **Offer tracking** (`recruiting_targets.offer_type` /
+  `.offer_scholarship_percent`, set from the target add/edit form,
+  scholarship-percent field only shown for a scholarship offer). Feeds
+  the third and last `RecruitingSignals` field, `offer`, into the
+  board's live `scoreFit()` call (`fitAdapters.ts`'s
+  `targetOfferToSignal`). Deliberately independent of
+  `recruiting_targets.status = 'Offer'`, which is a pipeline stage, not
+  an offer record - a scholarship offer and a verbal one score
+  differently in `score.ts` even at the same status.
 - **Shared org chrome** (`src/app/org/[slug]/layout.tsx`): org name up
   top, a bottom tab bar (`src/components/BottomTabBar.tsx`) for
   Today/Athletes/Board/More instead of the old text-link nav. Forces
@@ -97,12 +106,12 @@ this changes meaningfully, not appended to.
   degrades to "not on file" rather than throwing and taking a page down;
   covered by `fitAdapters.test.ts` (6 tests).
 - **Database schema** (`migrations/0001_core_schema.sql` through
-  `0004_target_communications.sql`): `orgs`, `users`, `org_members`,
-  `athletes`, `schools`, `recruiting_targets`, `benchmark_sets`,
-  `transfer_windows`, `target_communications`, with RLS policies on all
-  9 tables, plus a `_member_org_ids()` SECURITY DEFINER helper (see
-  below). `0002` adds five athlete columns (`is_international`,
-  `toefl_score`, `ielts_score`, `f1_visa_status`,
+  `0005_recruiting_target_offer_fields.sql`): `orgs`, `users`,
+  `org_members`, `athletes`, `schools`, `recruiting_targets`,
+  `benchmark_sets`, `transfer_windows`, `target_communications`, with
+  RLS policies on all 9 tables, plus a `_member_org_ids()` SECURITY
+  DEFINER helper (see below). `0002` adds five athlete columns
+  (`is_international`, `toefl_score`, `ielts_score`, `f1_visa_status`,
   `ncaa_eligibility_status`) that the fit engine's `Athlete` type always
   declared but no migration had actually created - found building the
   board's data adapter. `0003` adds `recruiting_targets.updated_at` and
@@ -110,12 +119,15 @@ this changes meaningfully, not appended to.
   and "upcoming" sections, which otherwise had no honest way to say how
   stale a target was or when a visit is scheduled. `0004` adds
   `target_communications` (call/text/email/visit/other, per-target),
-  feeding `RecruitingSignals` into the board's `scoreFit()` call for the
-  first time - it had been running with none. Tested twice:
-  schema/relationship correctness as superuser, and real RLS enforcement
-  as a non-superuser role (`scripts/run_rls_test.sh`, 15/15 assertions
-  pass, all four migrations applied) - cross-org reads and writes are
-  actually denied, not just that the relationships insert correctly.
+  feeding `RecruitingSignals.commCount`/`visitCount` into the board's
+  `scoreFit()` call for the first time - it had been running with none.
+  `0005` adds `recruiting_targets.offer_type` /
+  `.offer_scholarship_percent`, the third and last `RecruitingSignals`
+  field that had nothing real behind it. Tested twice: schema/relationship
+  correctness as superuser, and real RLS enforcement as a non-superuser
+  role (`scripts/run_rls_test.sh`, 15/15 assertions pass, all five
+  migrations applied) - cross-org reads and writes are actually denied,
+  not just that the relationships insert correctly.
   **Not yet applied to any real Supabase project.**
 - **Fit-scoring engine** (`src/lib/fit/`): complete first pass.
   `types.ts`, `bands.ts`, `benchmarks.ts` (ported baseball/softball

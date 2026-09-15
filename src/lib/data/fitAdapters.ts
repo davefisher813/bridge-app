@@ -106,10 +106,7 @@ export function transferWindowRowToFit(row: TransferWindowRow): TransferWindow {
 // splits "visits completed" from "communications" (see its comment: a
 // visit is worth more as a demonstrated-interest signal than a call or
 // text) - a logged 'visit' kind counts toward visitCount, everything
-// else (call/text/email/other) toward commCount. `offer` isn't derived
-// here: nothing yet captures offer type/scholarship percent, only the
-// coarser recruiting_targets.status = 'Offer', which isn't the same
-// signal - see docs/ROADMAP.md.
+// else (call/text/email/other) toward commCount.
 export interface TargetCommunicationRow {
   target_id: string;
   kind: string;
@@ -123,4 +120,29 @@ export function communicationsToSignals(rows: TargetCommunicationRow[]): Recruit
     else commCount += 1;
   }
   return { visitCount, commCount };
+}
+
+// migrations/0005_recruiting_target_offer_fields.sql. Deliberately not
+// derived from recruiting_targets.status = 'Offer' - that's a pipeline
+// stage, not an offer record, and score.ts treats a scholarship/written
+// offer very differently from a verbal one (see its comment block).
+// Null offer_type means no offer exists yet, not an unknown one.
+export interface TargetOfferRow {
+  offer_type: string | null;
+  offer_scholarship_percent: number | null;
+}
+
+const OFFER_TYPES = ["scholarship", "written", "verbal", "preferred_walk_on", "admission_only", "walk_on"] as const;
+type OfferType = (typeof OFFER_TYPES)[number];
+
+function isOfferType(value: string): value is OfferType {
+  return (OFFER_TYPES as readonly string[]).includes(value);
+}
+
+export function targetOfferToSignal(row: TargetOfferRow): RecruitingSignals["offer"] {
+  if (!row.offer_type || !isOfferType(row.offer_type)) return undefined;
+  return {
+    offerType: row.offer_type,
+    scholarshipPercent: row.offer_scholarship_percent ?? undefined,
+  };
 }

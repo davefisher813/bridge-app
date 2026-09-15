@@ -36,4 +36,27 @@ describe("parseTargetForm", () => {
     expect(r.ok).toBe(true);
     expect(r.values).toMatchObject({ status: "Visit", coachName: "T. Reilly", notes: "Great call", visitDate: "2026-10-01" });
   });
+
+  it("accepts a scholarship offer with a percent", () => {
+    const r = parseTargetForm(
+      fd({ athleteId: ATHLETE_ID, schoolId: SCHOOL_ID, status: "Offer", offerType: "scholarship", offerScholarshipPercent: "75" })
+    );
+    expect(r.ok).toBe(true);
+    expect(r.values).toMatchObject({ offerType: "scholarship", offerScholarshipPercent: 75 });
+  });
+
+  it("accepts a non-scholarship offer with no percent", () => {
+    const r = parseTargetForm(fd({ athleteId: ATHLETE_ID, schoolId: SCHOOL_ID, status: "Offer", offerType: "verbal" }));
+    expect(r.ok).toBe(true);
+    expect(r.values?.offerType).toBe("verbal");
+    expect(r.values?.offerScholarshipPercent).toBeUndefined();
+  });
+
+  it("rejects an out-of-range scholarship percent", () => {
+    const r = parseTargetForm(
+      fd({ athleteId: ATHLETE_ID, schoolId: SCHOOL_ID, offerType: "scholarship", offerScholarshipPercent: "150" })
+    );
+    expect(r.ok).toBe(false);
+    expect(r.errors.offerScholarshipPercent).toBeTruthy();
+  });
 });

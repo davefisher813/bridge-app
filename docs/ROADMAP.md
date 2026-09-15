@@ -62,6 +62,14 @@ Ordered by what naturally follows what's already built.
    also bumps the parent target's `updated_at`, which is what actually
    makes Today's "needs follow-up" staleness mean something day to day,
    not just react to someone opening the full edit form.
+10. ~~A real `offer` signal~~ - `recruiting_targets.offer_type` and
+    `.offer_scholarship_percent` (migration `0005`), set from the target
+    add/edit form and fed into `RecruitingSignals.offer` on the board
+    (`src/lib/data/fitAdapters.ts`'s `targetOfferToSignal`). This was the
+    last of the three `RecruitingSignals` fields that had nothing real
+    behind it - `commCount`/`visitCount` were fixed by item 9 above.
+    Deliberately independent of `status = 'Offer'`, which is a pipeline
+    stage, not an offer record.
 
 ## Next up
 
@@ -76,17 +84,12 @@ Ordered by what naturally follows what's already built.
    `schools` yet (see above). Likely Doc AI ingest once that's ported,
    or a deliberate decision to open a service-role-gated admin path -
    not decided.
-3. **A real `offer` signal.** `RecruitingSignals.offer` (offer type,
-   scholarship percent) still isn't captured anywhere -
-   `recruiting_targets.status = 'Offer'` is a coarser thing and isn't
-   substituted for it. Needs its own fields, likely on
-   `recruiting_targets` alongside `visit_date`.
-4. **Doc AI file ingest**, ported from Bridge's `Engine.ingest`, once
+3. **Doc AI file ingest**, ported from Bridge's `Engine.ingest`, once
    there's a browser available to actually exercise
    `File`/`Image`/`canvas`/`FileReader` code against - not worth porting
    blind with no way to verify it. Likely bundled with the first real
    upload screen rather than built standalone.
-5. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
+4. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
    key (none exists in this environment) and a persistent per-org budget
    table, since Bridge's localStorage-based daily budget tracking has no
    multi-tenant, server-side equivalent yet.

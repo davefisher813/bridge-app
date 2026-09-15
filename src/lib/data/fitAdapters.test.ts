@@ -3,6 +3,7 @@ import {
   athleteRowToFitAthlete,
   communicationsToSignals,
   schoolRowToFitSchool,
+  targetOfferToSignal,
   transferWindowRowToFit,
   type AthleteRow,
   type SchoolRow,
@@ -125,5 +126,29 @@ describe("communicationsToSignals", () => {
 
   it("returns zero counts for an empty log", () => {
     expect(communicationsToSignals([])).toEqual({ visitCount: 0, commCount: 0 });
+  });
+});
+
+describe("targetOfferToSignal", () => {
+  it("returns undefined when no offer is on file", () => {
+    expect(targetOfferToSignal({ offer_type: null, offer_scholarship_percent: null })).toBeUndefined();
+  });
+
+  it("carries the scholarship percent through for a scholarship offer", () => {
+    expect(targetOfferToSignal({ offer_type: "scholarship", offer_scholarship_percent: 75 })).toEqual({
+      offerType: "scholarship",
+      scholarshipPercent: 75,
+    });
+  });
+
+  it("omits the percent for a non-scholarship offer", () => {
+    expect(targetOfferToSignal({ offer_type: "verbal", offer_scholarship_percent: null })).toEqual({
+      offerType: "verbal",
+      scholarshipPercent: undefined,
+    });
+  });
+
+  it("degrades an unrecognized offer_type to undefined instead of throwing", () => {
+    expect(targetOfferToSignal({ offer_type: "not_a_real_type", offer_scholarship_percent: null })).toBeUndefined();
   });
 });

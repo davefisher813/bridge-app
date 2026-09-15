@@ -18,7 +18,12 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
 
   const supabase = await createClient();
   const [{ data: target }, { data: athleteRows }, { data: schoolRows }, { data: commRows }] = await Promise.all([
-    supabase.from("recruiting_targets").select("id, athlete_id, school_id, status, coach_name, notes, visit_date").eq("id", id).eq("org_id", org.id).single(),
+    supabase
+      .from("recruiting_targets")
+      .select("id, athlete_id, school_id, status, coach_name, notes, visit_date, offer_type, offer_scholarship_percent")
+      .eq("id", id)
+      .eq("org_id", org.id)
+      .single(),
     supabase.from("athletes").select("id, name").eq("org_id", org.id).is("deleted_at", null).order("name"),
     supabase.from("schools").select("id, name, division").order("name"),
     supabase
@@ -58,6 +63,8 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
           coachName: target.coach_name ?? undefined,
           notes: target.notes ?? undefined,
           visitDate: target.visit_date ?? undefined,
+          offerType: target.offer_type ?? undefined,
+          offerScholarshipPercent: target.offer_scholarship_percent ?? undefined,
         }}
       />
 
