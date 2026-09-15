@@ -6,6 +6,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { OrgRole } from "@/lib/auth/guard";
+import { parseOrgModules, type OrgModules } from "@/lib/org/modules";
 
 export interface OrgMembership {
   orgId: string;
@@ -38,11 +39,12 @@ export interface OrgSummary {
   id: string;
   name: string;
   slug: string;
+  modules: OrgModules;
 }
 
 export async function getOrgBySlug(slug: string): Promise<OrgSummary | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("orgs").select("id, name, slug").eq("slug", slug).single();
+  const { data, error } = await supabase.from("orgs").select("id, name, slug, modules").eq("slug", slug).single();
   if (error || !data) return null;
-  return data;
+  return { id: data.id, name: data.name, slug: data.slug, modules: parseOrgModules(data.modules) };
 }

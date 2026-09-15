@@ -2,6 +2,12 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
+import { StatusPill } from "@/components/StatusPill";
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase();
+}
 
 interface AthleteRow {
   id: string;
@@ -57,16 +63,21 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
           <div className="divide-y divide-line border-y border-line">
             {rows.map((a) => (
               <div key={a.id} className="flex items-center justify-between py-3">
-                <div>
-                  <div className="text-[15px] font-semibold text-ink">{a.name}</div>
-                  <div className="text-[12px] text-muted">
-                    {a.sport}
-                    {a.position ? ` · ${a.position}` : ""} · {RECRUIT_TYPE_LABEL[a.recruit_type] ?? a.recruit_type}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-info text-[12px] font-extrabold text-white">
+                    {initials(a.name)}
+                  </div>
+                  <div>
+                    <div className="text-[15px] font-semibold text-ink">{a.name}</div>
+                    <div className="text-[12px] text-muted">
+                      {a.sport}
+                      {a.position ? ` · ${a.position}` : ""} · {RECRUIT_TYPE_LABEL[a.recruit_type] ?? a.recruit_type}
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="flex flex-col items-end gap-1">
                   <div className="text-[13px] font-semibold tabular-nums text-ink">{a.gpa != null ? a.gpa.toFixed(2) : "–"}</div>
-                  <div className="text-[11px] text-muted">{a.status}</div>
+                  <StatusPill status={a.status} />
                 </div>
               </div>
             ))}

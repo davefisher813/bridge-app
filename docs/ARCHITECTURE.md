@@ -45,6 +45,14 @@ before any write. This means a new recruit_type, or a new field on an
 existing one, is a code change and a Zod schema update, never a
 migration.
 
+Same pattern for `orgs.modules` (`src/lib/org/modules.ts`): a jsonb
+feature-toggle map, parsed with a Zod schema whose every field has a
+`.catch()` default, so a malformed or missing key degrades to the safe
+default (recruiting/doc_ai on, board_governance/donor_fundraising off)
+instead of throwing. `getOrgBySlug` returns the parsed `OrgModules`
+alongside the org, so a page checks `org.modules.donor_fundraising`
+rather than reading raw jsonb itself.
+
 ## The fit-scoring module: a walled-off module, not a Bridge feature
 
 `src/lib/fit/` is the rebuilt replacement for Bridge's
@@ -235,7 +243,9 @@ function, not a pipeline redesign.
 ## What isn't built yet
 
 Doc AI's file-ingest pipeline and its actual Anthropic API wiring (see
-above), athlete/target add and edit, communication tracking, calendar,
-board/governance and donor/fundraising modules, and any deployment/
-hosting setup. Roster and the recruiting board exist as read-only
-screens. See docs/ROADMAP.md.
+above), athlete/target add and edit, communication tracking, an
+athlete detail/profile screen (the journey stepper logic exists but
+nothing renders it yet), board/governance module, a real fundraising
+data model behind `donor_fundraising`, and any deployment/hosting
+setup. Today, roster, the recruiting board, and a placeholder More
+screen exist as real UI. See docs/ROADMAP.md.

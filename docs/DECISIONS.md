@@ -304,3 +304,112 @@ hardcoded the old hex, so nothing else needed to change; `npm run
 typecheck` still clean. bffsa-site's own red is unaffected - this only
 changes the recruiting platform's shared default token, not
 `orgs.branding` for any individual org.
+
+## 2026-09 - Today dashboard rebuilt around org/recruiting management, not tasks/events
+
+**Decision:** The home screen (`src/app/org/[slug]/page.tsx`, previously
+just a redirect to roster) shows a pipeline snapshot, a "needs
+follow-up" list, and "upcoming" visits/transfer-window dates - no
+add-a-task or add-an-event widgets, even though Dave's ChatGPT redesign
+had both on its home screen.
+
+**Reason:** Dave's explicit correction after seeing the redesign's
+home screen: "I don't know if add tasks and events should be there.
+That's more for Jarvis purposes because it's a life management tool.
+This is an organizational management and recruiting tool. So let's
+make sure that's the central focus." The redesign's formatting and
+component language carried over; its specific choice of home-screen
+content did not.
+
+**Alternatives considered:** Keep the redesign's task/event widgets and
+just relabel them as recruiting-specific. Rejected - Dave's point was
+about the pattern itself (JARVIS-shaped life management), not the
+labels, and there's no task or event data model in this schema anyway.
+
+**Consequences:** Every number on the Today screen is a real query
+(athlete count, target-status counts, `updated_at`-sorted follow-ups,
+`visit_date`/`transfer_windows`-sourced upcoming dates) - none are
+placeholder stats, which meant adding `recruiting_targets.updated_at`
+and `.visit_date` (migration `0003`) since neither existed. The
+`donor_fundraising`-gated section renders as an honest "coming soon"
+placeholder rather than inventing a dollar figure, since no fundraising
+table exists yet.
+
+## 2026-09 - Bottom tab bar replaces top nav; no standalone Tasks/Calendar tabs
+
+**Decision:** `src/app/org/[slug]/layout.tsx`'s nav is now a bottom tab
+bar - Today / Athletes / Board / More - replacing the old top-of-page
+text links (Roster / Board). Tasks and Calendar, both present in Dave's
+redesign's 5-tab nav, are not tabs here.
+
+**Reason:** Matches the redesign's actual navigation pattern (bottom
+tabs, not a top link row) while following the same "recruiting tool,
+not life management" correction above - Tasks and Calendar aren't
+built features in this schema at all, so tabs for them would either be
+dead ends or invite building JARVIS-shaped scope creep into a different
+product. Confirmed with Dave via multiple choice before building
+(recommended option chosen: drop both).
+
+**Alternatives considered:** A Calendar tab kept for visits/transfer
+windows, since that data is real. Not chosen this round - Dave picked
+the simpler 4-tab nav; revisit if a real calendar view is wanted later.
+
+**Consequences:** Sign out moved off the top bar (no room / no reason
+to keep it always visible) onto a new `more/page.tsx`, which is
+otherwise a placeholder. `BottomTabBar.tsx` is a client component
+(`usePathname` for the active-tab state) - the only client component
+this app has needed so far.
+
+## 2026-09 - Journey stepper logic built and tested; not yet wired to a screen
+
+**Decision:** `src/lib/journey.ts` (pure, tested) and
+`src/components/JourneyStepper.tsx` (presentational) implement the
+4-stage Profile/In Contact/Visits/Committed indicator from Dave's
+redesign, deriving the athlete's furthest stage live from their
+`recruiting_targets.status` values. Nothing renders it yet - there's no
+athlete detail route for it to live on.
+
+**Reason:** Dave's answer when asked how the stepper should work:
+"Derive it automatically" - confirmed, not a new stored field. Building
+the derivation logic and proving it with tests was in scope for this
+pass; building the screen it belongs on was not, since that screen
+also implies Contacts and a real Visits log (per the full-preview
+mock's Colleges/Contacts/Visits tabs), and neither has a table yet.
+
+**Alternatives considered:** Build a minimal athlete detail route just
+to host the stepper, without the Contacts/Visits tabs. Deferred - would
+ship a screen that looks more complete than it is; better to scope the
+whole athlete-profile screen with Dave at once. See docs/ROADMAP.md.
+
+**Consequences:** `deriveJourneyStage` treats "Not Interested" targets
+as non-progress (excluded from the "furthest stage" calculation
+entirely, so an athlete isn't credited with contact they explicitly
+lost), and "Offer" is tier-equivalent to "Visit" since the stepper only
+has 4 labeled stages, not 6. 7 unit tests cover both.
+
+## 2026-09 - Inter self-hosted instead of next/font/google
+
+**Decision:** The heavy-weight Inter typeface Dave chose for headlines
+is loaded via `next/font/local` from a woff2 vendored into
+`src/app/fonts/InterVariable.woff2` (sourced from the
+`@fontsource-variable/inter` npm package), not `next/font/google`.
+
+**Reason:** `next/font/google` fetches from `fonts.googleapis.com` at
+build time; this sandbox's network policy blocks that domain outright
+(`npm run build` failed with a fetch error until this changed). Rather
+than leave a build that only works on an unrestricted network, self-
+hosting removes the external dependency entirely - it also means no
+runtime CDN dependency or extra DNS/TLS round-trip in production,
+which is a real improvement independent of this sandbox's restrictions.
+
+**Alternatives considered:** Leave `next/font/google` in place since it
+would work fine on Vercel's actual network. Rejected - `npm run build`
+is one of the commands CLAUDE.md requires actually running and passing
+before calling something done; shipping code whose build only works
+under different network conditions than the ones actually available to
+verify it isn't verifying it.
+
+**Consequences:** One vendored binary file in the repo (47KB). The
+variable font covers weight 100-900 in a single file, so Tailwind's
+`font-extrabold`/`font-black` utilities render real heavy weights
+rather than faux-bolding a single static weight.

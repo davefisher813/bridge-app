@@ -64,6 +64,29 @@ adopted here:
    statically belongs in `src/laws/`, not only in this document. See
    docs/DECISIONS.md and `src/laws/README.md`.
 
+## Redesign pass, 2026-09
+
+Dave built his own mockup of this app in ChatGPT and asked to match its
+formatting/functionality/styling. After resolving conflicts with him
+(docs/DECISIONS.md has the full history):
+
+- **Typography**: Inter, self-hosted (`src/app/fonts/`, not
+  `next/font/google`). Headlines use heavy weight -
+  `font-extrabold`/`font-black` in Tailwind.
+- **Navigation**: bottom tab bar (Today / Athletes / Board / More),
+  not a top link row. No Tasks or Calendar tab - neither is a built
+  feature and that pattern is JARVIS's life-management shape, not this
+  product's.
+- **Theme**: every `/org/[slug]/*` screen is forced dark
+  (`data-theme="dark"` on the layout) - no light/dark toggle exists yet.
+- **Status color language**: green = active/on-track, blue-indigo
+  (new `--info` token) = in contact, accent = committed/primary, muted
+  = everything else. `src/components/StatusPill.tsx` is the shared
+  implementation - use it, don't re-style status text inline.
+- **Home screen content is Dave's call, not the redesign's**: pipeline
+  snapshot, needs-follow-up, upcoming - see docs/DECISIONS.md for why
+  the redesign's own task/event widgets didn't carry over.
+
 ## What does NOT carry over
 
 JARVIS's specific screens and features (Email, Schedule, Reminders,

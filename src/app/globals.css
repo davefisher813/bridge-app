@@ -16,6 +16,7 @@
   --accent: #ff3b30;
   --success: #10b981;
   --danger: #dc2626;
+  --info: #6366f1;
 }
 
 [data-theme="dark"] {

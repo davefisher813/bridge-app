@@ -16,6 +16,10 @@ const config: Config = {
         accent: "var(--accent)",
         success: "var(--success)",
         danger: "var(--danger)",
+        info: "var(--info)",
+      },
+      fontFamily: {
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
     },
   },

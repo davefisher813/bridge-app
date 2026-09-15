@@ -19,6 +19,7 @@ su postgres -c "psql -d $DB -f scripts/local_auth_stub.sql"
 echo "==> Applying schema migrations"
 su postgres -c "psql -d $DB -f migrations/0001_core_schema.sql"
 su postgres -c "psql -d $DB -f migrations/0002_athlete_intl_eligibility_fields.sql"
+su postgres -c "psql -d $DB -f migrations/0003_recruiting_target_tracking_fields.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
