@@ -14,6 +14,10 @@ Owner: Dave Fisher, personally. Explicitly not built with Bridge/BFFSA resources
 
 Dave wants to see and adjust a screen before it's built, not after ("I would like visual previews at some point too so we can adjust before anything gets built" - Dave, 2026-09). For any new screen (not a small edit to one that already exists and was already previewed): publish a static HTML mockup via the Artifact tool first, built from the real tokens in `src/app/globals.css` and the real markup patterns already in use, and let Dave react before writing the actual page. Roster and Board were built before this was said explicitly, so they got a retroactive preview instead - don't let that happen again for a screen that doesn't exist yet.
 
+## Standing autonomy: keep building without per-step check-ins
+
+"I would like to push through code moving forward unless I say otherwise" - Dave, 2026-09 (clarified: means keep implementing without stopping for confirmation each step, not git push - no GitHub remote exists for this repo, see the top of this file). Default to proceeding through implementation - migrations, components, pages, docs, tests - the same way "Keep going" worked earlier in this project, rather than pausing to ask before each piece. Still applies: the visual-preview rule above before a new screen's real code, running the verification commands before calling something done, and never touching the actual "push"/"go" git rule without Dave using one of those words himself.
+
 ## Repo-specific hard rules
 
 - Multi-tenant from day one. Every org-scoped table carries `org_id` and an RLS policy keyed off `org_members`. Never add a table that assumes a single org, even if only Bridge uses it today - see docs/DECISIONS.md for why this wasn't deferred the way JARVIS deferred its own membership table.
