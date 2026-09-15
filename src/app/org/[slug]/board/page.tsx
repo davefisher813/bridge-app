@@ -9,6 +9,7 @@ import {
   schoolRowToFitSchool,
   targetOfferToSignal,
   transferWindowRowToFit,
+  visitsToVisitCount,
   type AthleteRow,
   type SchoolRow,
   type TransferWindowRow,
@@ -59,7 +60,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
 
   const supabase = await createClient();
 
-  const [{ data: targets }, { data: windowRows }, { data: commRows }] = await Promise.all([
+  const [{ data: targets }, { data: windowRows }, { data: commRows }, { data: visitRows }] = await Promise.all([
     supabase
       .from("recruiting_targets")
       .select(
@@ -69,6 +70,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
       .order("created_at", { ascending: false }),
     supabase.from("transfer_windows").select("sport, division, season_year, window_label, opens_on, closes_on"),
     supabase.from("target_communications").select("target_id, kind").eq("org_id", org.id),
+    supabase.from("target_visits").select("target_id").eq("org_id", org.id),
   ]);
 
   const transferWindows = ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit);
@@ -84,6 +86,13 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
     commsByTarget.set(row.target_id, list);
   }
 
+  const visitsByTarget = new Map<string, { target_id: string }[]>();
+  for (const row of visitRows ?? []) {
+    const list = visitsByTarget.get(row.target_id) ?? [];
+    list.push(row);
+    visitsByTarget.set(row.target_id, list);
+  }
+
   const rows = ((targets ?? []) as TargetRow[])
     .map((t) => {
       const athleteRow = unwrap(t.athletes);
@@ -92,7 +101,11 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
 
       const athlete = athleteRowToFitAthlete(athleteRow);
       const school = schoolRowToFitSchool(schoolRow);
-      const signals = { ...communicationsToSignals(commsByTarget.get(t.id) ?? []), offer: targetOfferToSignal(t) };
+      const signals = {
+        ...communicationsToSignals(commsByTarget.get(t.id) ?? []),
+        visitCount: visitsToVisitCount(visitsByTarget.get(t.id) ?? []),
+        offer: targetOfferToSignal(t),
+      };
       const fit = scoreFit(athlete, school, { isPlaced: t.status === "Committed", transferWindows, signals });
 
       return { id: t.id, status: t.status, coachName: t.coach_name, athleteName: athlete.name, athleteSport: athlete.sport, schoolName: school.name, schoolDivision: school.division, fit };

@@ -102,24 +102,31 @@ export function transferWindowRowToFit(row: TransferWindowRow): TransferWindow {
   };
 }
 
-// migrations/0004_target_communications.sql. score.ts's RecruitingSignals
-// splits "visits completed" from "communications" (see its comment: a
-// visit is worth more as a demonstrated-interest signal than a call or
-// text) - a logged 'visit' kind counts toward visitCount, everything
-// else (call/text/email/other) toward commCount.
+// migrations/0004_target_communications.sql. Originally this also split
+// out a 'visit' kind toward RecruitingSignals.visitCount, but migration
+// 0006 added target_visits - a purpose-built log with a visit type,
+// impression, and next step, versus a bare kind='visit' log entry with
+// none of that. visitCount is now sourced from target_visits
+// (visitsToVisitCount, below) instead, so every target_communications
+// row - 'visit' kind included, for anyone who logged one before the
+// richer Visits tab existed - counts toward commCount. See docs/DECISIONS.md.
 export interface TargetCommunicationRow {
   target_id: string;
   kind: string;
 }
 
 export function communicationsToSignals(rows: TargetCommunicationRow[]): RecruitingSignals {
-  let visitCount = 0;
-  let commCount = 0;
-  for (const row of rows) {
-    if (row.kind === "visit") visitCount += 1;
-    else commCount += 1;
-  }
-  return { visitCount, commCount };
+  return { commCount: rows.length };
+}
+
+// migrations/0006_contacts_and_target_visits.sql. The sole source of
+// RecruitingSignals.visitCount - see the comment above.
+export interface TargetVisitRow {
+  target_id: string;
+}
+
+export function visitsToVisitCount(rows: TargetVisitRow[]): number {
+  return rows.length;
 }
 
 // migrations/0005_recruiting_target_offer_fields.sql. Deliberately not

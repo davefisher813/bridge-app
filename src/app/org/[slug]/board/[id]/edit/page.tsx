@@ -5,10 +5,13 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { updateTarget } from "@/lib/actions/targets";
 import { logCommunication } from "@/lib/actions/communications";
+import { logVisit } from "@/lib/actions/visits";
 import { TargetForm } from "@/components/TargetForm";
 import { CommunicationForm } from "@/components/CommunicationForm";
+import { VisitForm } from "@/components/VisitForm";
 
 const KIND_LABEL: Record<string, string> = { call: "Call", text: "Text", email: "Email", visit: "Visit", other: "Other" };
+const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior day", camp: "Camp", other: "Other" };
 
 export default async function EditTargetPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
@@ -17,7 +20,7 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const [{ data: target }, { data: athleteRows }, { data: schoolRows }, { data: commRows }] = await Promise.all([
+  const [{ data: target }, { data: athleteRows }, { data: schoolRows }, { data: commRows }, { data: visitRows }] = await Promise.all([
     supabase
       .from("recruiting_targets")
       .select("id, athlete_id, school_id, status, coach_name, notes, visit_date, offer_type, offer_scholarship_percent")
@@ -32,6 +35,12 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
       .eq("target_id", id)
       .eq("org_id", org.id)
       .order("occurred_on", { ascending: false }),
+    supabase
+      .from("target_visits")
+      .select("id, visit_type, visit_date, impression, next_step, notes")
+      .eq("target_id", id)
+      .eq("org_id", org.id)
+      .order("visit_date", { ascending: false }),
   ]);
 
   if (!target) notFound();
@@ -41,7 +50,9 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
 
   const action = updateTarget.bind(null, slug, target.id);
   const commAction = logCommunication.bind(null, slug, target.id);
+  const visitAction = logVisit.bind(null, slug, target.id);
   const comms = commRows ?? [];
+  const visits = visitRows ?? [];
 
   return (
     <main className="px-4 pt-2 pb-6">
@@ -84,6 +95,30 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
                   </span>
                 </div>
                 {c.notes && <p className="mt-1 text-[12.5px] text-muted">{c.notes}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-8 flex flex-col gap-3">
+        <h2 className="text-[15px] font-extrabold text-ink">Visits</h2>
+        <VisitForm action={visitAction} />
+        {visits.length === 0 ? (
+          <p className="text-[12.5px] text-muted">No visits logged yet.</p>
+        ) : (
+          <div className="rounded-[16px] border border-line bg-paper">
+            {visits.map((v, i) => (
+              <div key={v.id} className={`px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-bold text-ink">{VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}</span>
+                  <span className="text-[11.5px] text-muted tabular-nums">
+                    {new Date(v.visit_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </div>
+                {v.impression && <p className="mt-1 text-[12.5px] text-ink">{v.impression}</p>}
+                {v.next_step && <p className="mt-0.5 text-[12px] text-muted">Next: {v.next_step}</p>}
+                {v.notes && <p className="mt-0.5 text-[12px] text-muted">{v.notes}</p>}
               </div>
             ))}
           </div>

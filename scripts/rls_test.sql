@@ -43,6 +43,12 @@ insert into recruiting_targets (id, org_id, athlete_id, school_id, status) value
 insert into target_communications (org_id, target_id, kind, notes) values
   ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000210', 'call', 'Bridge call log'),
   ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000220', 'call', 'Elite Squad call log');
+insert into contacts (org_id, athlete_id, name, role) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Bridge HS Coach', 'hs_coach'),
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Elite Squad HS Coach', 'hs_coach');
+insert into target_visits (org_id, target_id, visit_type) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000210', 'unofficial'),
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000220', 'unofficial');
 insert into benchmark_sets (org_id, sport, tiers, positions) values
   (null, 'baseball', '[]'::jsonb, '[]'::jsonb),
   ('00000000-0000-0000-0000-000000000010', 'baseball', '[]'::jsonb, '[]'::jsonb),
@@ -118,6 +124,44 @@ end $$;
 do $$
 declare n int;
 begin
+  select count(*) into n from contacts;
+  if n <> 1 then raise exception 'FAIL: user1 saw % contacts rows, expected 1 (Bridge''s only)', n; end if;
+  raise notice 'PASS: user1 sees only Bridge''s contact, not Elite Squad''s';
+end $$;
+
+do $$
+begin
+  begin
+    insert into contacts (org_id, athlete_id, name, role)
+      values ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Sneaky Contact', 'other');
+    raise exception 'FAIL: user1 was able to insert a contact into Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org contact insert correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+declare n int;
+begin
+  select count(*) into n from target_visits;
+  if n <> 1 then raise exception 'FAIL: user1 saw % target_visits rows, expected 1 (Bridge''s only)', n; end if;
+  raise notice 'PASS: user1 sees only Bridge''s visit, not Elite Squad''s';
+end $$;
+
+do $$
+begin
+  begin
+    insert into target_visits (org_id, target_id, visit_type)
+      values ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000220', 'other');
+    raise exception 'FAIL: user1 was able to insert a visit into Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org visit insert correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+declare n int;
+begin
   select count(*) into n from benchmark_sets;
   if n <> 2 then raise exception 'FAIL: user1 saw % benchmark_sets, expected 2 (Bridge''s + the global default)', n; end if;
   raise notice 'PASS: user1 sees Bridge''s benchmark set plus the shared/global one, not Elite Squad''s';
@@ -137,6 +181,21 @@ begin
   select count(*) into n from schools;
   if n <> 1 then raise exception 'FAIL: user1 saw % schools, expected 1 (shared reference data)', n; end if;
   raise notice 'PASS: shared reference data (schools) is visible regardless of org';
+end $$;
+
+do $$
+begin
+  -- schools has no INSERT policy at all - deliberately (migration 0001's
+  -- comment, docs/DECISIONS.md). src/lib/actions/schools.ts's createSchool
+  -- is the one door in, and it goes through the service-role client after
+  -- its own requireOwner() check, never through a normal RLS-scoped
+  -- insert like this one - this proves that door stays the only one.
+  begin
+    insert into schools (name, division) values ('Sneaky School', 'D1');
+    raise exception 'FAIL: an ordinary authenticated user was able to insert a school';
+  exception when insufficient_privilege then
+    raise notice 'PASS: schools insert correctly rejected by RLS for an ordinary user (%.)', sqlerrm;
+  end;
 end $$;
 
 do $$
@@ -177,6 +236,22 @@ begin
   select count(*) into n from target_communications;
   if n <> 0 then raise exception 'FAIL: an anonymous session saw % target_communications rows, expected 0', n; end if;
   raise notice 'PASS: anonymous session sees zero communication-log rows';
+end $$;
+
+do $$
+declare n int;
+begin
+  select count(*) into n from contacts;
+  if n <> 0 then raise exception 'FAIL: an anonymous session saw % contacts rows, expected 0', n; end if;
+  raise notice 'PASS: anonymous session sees zero contacts rows';
+end $$;
+
+do $$
+declare n int;
+begin
+  select count(*) into n from target_visits;
+  if n <> 0 then raise exception 'FAIL: an anonymous session saw % target_visits rows, expected 0', n; end if;
+  raise notice 'PASS: anonymous session sees zero target_visits rows';
 end $$;
 
 reset role;

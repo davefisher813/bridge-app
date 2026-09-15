@@ -70,29 +70,34 @@ Ordered by what naturally follows what's already built.
     behind it - `commCount`/`visitCount` were fixed by item 9 above.
     Deliberately independent of `status = 'Offer'`, which is a pipeline
     stage, not an offer record.
+11. ~~Athlete profile / detail screen~~ - `src/app/org/[slug]/roster/[id]`,
+    with `JourneyStepper` finally wired to a real screen (it only ever
+    needed `recruiting_targets.status`, no changes needed there). Two new
+    tables (migration `0006`): `contacts` (athlete-scoped people - HS/travel
+    coach, parent/guardian, advisor, college coach - distinct from
+    `recruiting_targets.coach_name`'s single free-text field) and
+    `target_visits` (a real visit log with type/impression/next-step,
+    replacing `target_communications kind='visit'` as the source of
+    `RecruitingSignals.visitCount` - see docs/DECISIONS.md). Roster rows
+    now link to this detail page for everyone; staff/owner get an Edit
+    link from there instead of the list linking straight to the edit form.
+12. ~~A real way to get schools into the system~~ - `src/app/org/[slug]/schools/new`,
+    owner-only, writes through the service-role client
+    (`src/lib/supabase/admin.ts`'s previously-unused `createAdminClient`)
+    since `schools` still has no INSERT policy for ordinary users -
+    `requireOwner()` is the actual gate here, not RLS. Linked from the
+    target-add form's empty state and header for owners. See docs/DECISIONS.md.
 
 ## Next up
 
-1. **Athlete profile / detail screen**, including the recruiting-journey
-   stepper (`src/components/JourneyStepper.tsx` is built and tested but
-   unused - nothing links to a per-athlete route yet). This is what the
-   full-preview artifact mocked but deliberately wasn't built as real
-   code, since it also implies Contacts and a real Visits log, neither
-   of which has a table yet - scope that with Dave before building.
-2. **A real way to get schools into the system** - the target-add form
-   can only pick from schools that already exist, and nothing writes to
-   `schools` yet (see above). Likely Doc AI ingest once that's ported,
-   or a deliberate decision to open a service-role-gated admin path -
-   not decided.
-3. **Doc AI file ingest**, ported from Bridge's `Engine.ingest`, once
-   there's a browser available to actually exercise
-   `File`/`Image`/`canvas`/`FileReader` code against - not worth porting
-   blind with no way to verify it. Likely bundled with the first real
-   upload screen rather than built standalone.
-4. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
-   key (none exists in this environment) and a persistent per-org budget
-   table, since Bridge's localStorage-based daily budget tracking has no
-   multi-tenant, server-side equivalent yet.
+1. **Doc AI file ingest**, ported from Bridge's `Engine.ingest`, tested
+   with the sandbox's headless Chromium via Playwright rather than
+   blind - see below, in progress.
+2. **Wire a real `ModelCaller`** against the Anthropic API: needs an API
+   key (Dave doesn't have one to provide yet) and a persistent per-org
+   budget table, since Bridge's localStorage-based daily budget tracking
+   has no multi-tenant, server-side equivalent yet. On hold until a key
+   exists.
 
 ## After that
 - A real fundraising/donation data model for the `donor_fundraising`

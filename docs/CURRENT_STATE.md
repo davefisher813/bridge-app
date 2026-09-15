@@ -37,13 +37,24 @@ this changes meaningfully, not appended to.
   not an invented dollar figure - no fundraising data model exists yet.
 - **Roster screen** (`src/app/org/[slug]/roster/page.tsx`), now with
   add/edit. Full-bleed list per DESIGN_SYSTEM.md's chassis rule, initials
-  avatar and color-coded `StatusPill` per row. Staff/owner see "+ Add"
-  and rows link to `roster/new` / `roster/[id]/edit`
+  avatar and color-coded `StatusPill` per row. Staff/owner see "+ Add";
+  every row (everyone, not just staff/owner) links to the athlete detail
+  screen (`roster/[id]`, below) rather than straight to the edit form
   (`src/lib/actions/athletes.ts`, `src/lib/validation/athlete.ts`,
   `src/components/AthleteForm.tsx`) - HS-vs-transfer conditional detail
   fields, international-athlete fields, server-side re-validation
-  through the same `athleteDetailSchema` the fit engine reads. Members
-  still get the read-only view. Gated through `requireRole`.
+  through the same `athleteDetailSchema` the fit engine reads. Gated
+  through `requireRole`.
+- **Athlete detail screen** (`src/app/org/[slug]/roster/[id]/page.tsx`):
+  `JourneyStepper` finally wired to a real screen (see below), the
+  athlete's own recruiting targets ("Colleges", reusing the same data
+  the board shows), Contacts (new `contacts` table - athlete-scoped
+  people: HS/travel coach, parent/guardian, advisor, college coach, with
+  email/phone/notes and an optional linked school), and Visits (new
+  `target_visits` table, aggregated across every target this athlete
+  has). Staff/owner get an Edit link and can add/remove contacts;
+  visits are logged from a target's edit page, not here (a visit is
+  tied to one specific school). Migration `0006`.
 - **Recruiting board screen** (`src/app/org/[slug]/board/page.tsx`), now
   with add/edit. Every `recruiting_targets` row for the org, grouped by
   status (Target/In Contact/Visit/Offer/Committed/Not Interested, in
@@ -51,20 +62,30 @@ this changes meaningfully, not appended to.
   `src/lib/fit/` rather than stored. Staff/owner see "+ Add target" and
   rows link to `board/new` / `board/[id]/edit`
   (`src/lib/actions/targets.ts`, `src/lib/validation/target.ts`,
-  `src/components/TargetForm.tsx`). Target-add can only pick an
-  *existing* school - `schools` stays writable only via the service role
-  by design (see docs/ARCHITECTURE.md), so an org with none seeded gets
-  an honest empty state, not a workaround. The action also re-checks
-  that a submitted `athleteId` actually belongs to the org before
-  writing, since RLS alone doesn't catch a cross-org mismatch here.
+  `src/components/TargetForm.tsx`). The action re-checks that a
+  submitted `athleteId` actually belongs to the org before writing,
+  since RLS alone doesn't catch a cross-org mismatch here.
+- **Schools admin form** (`src/app/org/[slug]/schools/new`), owner-only.
+  `schools` is shared reference data with no INSERT policy for ordinary
+  users by design, so this writes through the service-role client
+  (`src/lib/supabase/admin.ts`) after `requireOwner()` - the actual
+  authorization happens in the app, not RLS. Linked from the target-add
+  form's header and its "no schools yet" empty state, for owners only;
+  non-owners still see an honest "ask an owner" message.
 - **Communication log** (`target_communications` table, logged from the
   target-edit page). Every entry feeds `src/lib/fit/score.ts`'s
-  `RecruitingSignals.commCount`/`visitCount` on the board's live
-  `scoreFit()` call (`src/lib/data/fitAdapters.ts`'s
-  `communicationsToSignals`), computed fresh on every page load like the
-  fit tag itself - not stored or cached. Logging one also bumps the
-  parent target's `updated_at`, so Today's "needs follow-up" staleness
-  reflects real engagement day to day, not just full-form edits.
+  `RecruitingSignals.commCount` on the board's live `scoreFit()` call
+  (`src/lib/data/fitAdapters.ts`'s `communicationsToSignals`), computed
+  fresh on every page load like the fit tag itself - not stored or
+  cached. Logging one also bumps the parent target's `updated_at`, so
+  Today's "needs follow-up" staleness reflects real engagement day to
+  day, not just full-form edits.
+- **Visit log** (`target_visits` table, migration `0006`, logged from
+  the target-edit page and shown aggregated on the athlete detail
+  screen). The sole source of `RecruitingSignals.visitCount`
+  (`fitAdapters.ts`'s `visitsToVisitCount`) - richer than a bare
+  `target_communications kind='visit'` entry: visit type, impression,
+  next step. See docs/DECISIONS.md for why `visitCount` moved here.
 - **Offer tracking** (`recruiting_targets.offer_type` /
   `.offer_scholarship_percent`, set from the target add/edit form,
   scholarship-percent field only shown for a scholarship offer). Feeds
@@ -85,9 +106,8 @@ this changes meaningfully, not appended to.
   `src/components/JourneyStepper.tsx`): the 4-stage Profile/In
   Contact/Visits/Committed indicator from Dave's redesign, derived live
   from an athlete's `recruiting_targets.status` values (never stored) -
-  his call when asked. Pure logic is unit-tested (7 tests); no screen
-  renders it yet since there's no per-athlete detail route (see Known
-  gaps).
+  his call when asked. Pure logic is unit-tested (7 tests); now rendered
+  on the athlete detail screen above.
 - **Visual redesign applied**: Dave built his own mockup in ChatGPT and
   asked to match its styling. Accent color is now Apple's `systemRed`
   (`#ff3b30`/`#ff453a` light/dark, his final call over both the old
@@ -104,13 +124,14 @@ this changes meaningfully, not appended to.
   engine itself stays walled off from anything DB-specific. A malformed
   jsonb field (bad `detail`, bad `academics`/`financials`/`athletics`)
   degrades to "not on file" rather than throwing and taking a page down;
-  covered by `fitAdapters.test.ts` (6 tests).
+  covered by `fitAdapters.test.ts` (14 tests).
 - **Database schema** (`migrations/0001_core_schema.sql` through
-  `0005_recruiting_target_offer_fields.sql`): `orgs`, `users`,
+  `0006_contacts_and_target_visits.sql`): `orgs`, `users`,
   `org_members`, `athletes`, `schools`, `recruiting_targets`,
-  `benchmark_sets`, `transfer_windows`, `target_communications`, with
-  RLS policies on all 9 tables, plus a `_member_org_ids()` SECURITY
-  DEFINER helper (see below). `0002` adds five athlete columns
+  `benchmark_sets`, `transfer_windows`, `target_communications`,
+  `contacts`, `target_visits`, with RLS policies on all 11 tables
+  (`schools` has read-only RLS - see below), plus a `_member_org_ids()`
+  SECURITY DEFINER helper (see below). `0002` adds five athlete columns
   (`is_international`, `toefl_score`, `ielts_score`, `f1_visa_status`,
   `ncaa_eligibility_status`) that the fit engine's `Athlete` type always
   declared but no migration had actually created - found building the
@@ -119,15 +140,17 @@ this changes meaningfully, not appended to.
   and "upcoming" sections, which otherwise had no honest way to say how
   stale a target was or when a visit is scheduled. `0004` adds
   `target_communications` (call/text/email/visit/other, per-target),
-  feeding `RecruitingSignals.commCount`/`visitCount` into the board's
-  `scoreFit()` call for the first time - it had been running with none.
-  `0005` adds `recruiting_targets.offer_type` /
-  `.offer_scholarship_percent`, the third and last `RecruitingSignals`
-  field that had nothing real behind it. Tested twice: schema/relationship
-  correctness as superuser, and real RLS enforcement as a non-superuser
-  role (`scripts/run_rls_test.sh`, 15/15 assertions pass, all five
-  migrations applied) - cross-org reads and writes are actually denied,
-  not just that the relationships insert correctly.
+  feeding `RecruitingSignals.commCount` into the board's `scoreFit()`
+  call for the first time - it had been running with none. `0005` adds
+  `recruiting_targets.offer_type` / `.offer_scholarship_percent`, the
+  third `RecruitingSignals` field that had nothing real behind it. `0006`
+  adds `contacts` and `target_visits` for the athlete detail screen;
+  `RecruitingSignals.visitCount` moved from `target_communications` to
+  `target_visits` here (see docs/DECISIONS.md). Tested twice:
+  schema/relationship correctness as superuser, and real RLS enforcement
+  as a non-superuser role (`scripts/run_rls_test.sh`, 22/22 assertions
+  pass, all six migrations applied) - cross-org reads and writes are
+  actually denied, not just that the relationships insert correctly.
   **Not yet applied to any real Supabase project.**
 - **Fit-scoring engine** (`src/lib/fit/`): complete first pass.
   `types.ts`, `bands.ts`, `benchmarks.ts` (ported baseball/softball
@@ -166,21 +189,14 @@ this changes meaningfully, not appended to.
   do that before this schema goes anywhere near production, since a
   hosted project's exact role/grant setup can differ from this local
   approximation.
-- **Today, roster (+ add/edit), board (+ add/edit), and More exist as UI
-  screens.** No communication tracking, no per-athlete detail route, and
-  no way to add a *school* (see the target-add note above). The
-  recruiting-journey stepper
-  (`JourneyStepper.tsx`) is built and tested but nothing renders it yet
-  - it belongs on an athlete profile screen that doesn't exist. That
-  screen is mocked in the full-preview artifact Dave approved but was
-  deliberately not built as real code this pass: it needs its own
-  routing and, for the Colleges/Contacts/Visits tabs shown in the mock,
-  data this schema doesn't fully back yet (contacts has no table; visits
-  has only the new `visit_date` on a target, not a real log). Confirm
-  scope with Dave before building it. docs/DESIGN_SYSTEM.md documents
-  the rules to build against.
-- **Auth flow and all four screens are structurally verified only, not
-  runtime-verified.** `npx tsc --noEmit`, `npm test` (85/85), and
+- **Today, roster (+ add/edit + detail), board (+ add/edit), schools
+  add, and More exist as UI screens.** Communication tracking, a
+  per-athlete detail route, contacts, a real visit log, and an
+  owner-gated way to add a school are all built now (see above) - this
+  gap is closed. Remaining known-missing pieces: Doc AI ingest (in
+  progress) and a real `ModelCaller`.
+- **Auth flow and all screens are structurally verified only, not
+  runtime-verified.** `npx tsc --noEmit`, `npm test` (108/108), and
   `npm run build` all pass clean, but there is no real Supabase project
   or env vars yet, so actual sign-in, session refresh, RLS-backed org
   resolution, and the board's/Today's live queries have never run

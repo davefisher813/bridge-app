@@ -98,12 +98,10 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
                   </div>
                 </div>
               );
-              return canEdit ? (
-                <Link key={a.id} href={`/org/${slug}/roster/${a.id}/edit`} className="block">
+              return (
+                <Link key={a.id} href={`/org/${slug}/roster/${a.id}`} className="block">
                   {row}
                 </Link>
-              ) : (
-                <div key={a.id}>{row}</div>
               );
             })}
           </div>

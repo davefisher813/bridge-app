@@ -518,3 +518,88 @@ board's missing-signals gap was.
 constraint (0-100) as a second line of defense. 15/15 RLS assertions
 still pass; no new assertions were needed since these are plain
 columns on an already-tested table, not a new org-scoped relationship.
+
+## 2026-09 - Athlete profile screen: real Contacts and Visits tables, visitCount re-sourced
+
+**Decision:** Two new tables (migration `0006`): `contacts`
+(athlete-scoped: name, role enum, optional linked `school_id`, email,
+phone, notes) and `target_visits` (target-scoped: visit type enum,
+date, impression, next step, notes). New screen at
+`src/app/org/[slug]/roster/[id]` shows both plus the athlete's
+recruiting targets and `JourneyStepper` (built earlier, unused until
+now). `RecruitingSignals.visitCount` is now sourced from
+`target_visits` (`fitAdapters.ts`'s `visitsToVisitCount`) instead of
+counting `target_communications kind='visit'` rows;
+`communicationsToSignals` now folds every communication-log row,
+'visit' kind included, into `commCount`.
+
+**Reason:** Dave approved the full build (Contacts + Visits tabs) from
+the ChatGPT full-preview mock. That mock's Contacts tab is a real
+person directory (name, role, email, phone) shared across an athlete's
+targets, not the single free-text `recruiting_targets.coach_name`
+field. Its Visits tab is a richer per-visit record (official/unofficial/
+junior day/camp, impression, next step) than a bare `kind='visit'` log
+entry ever captured. Re-sourcing `visitCount` from the new table
+avoids two different definitions of "a visit happened" feeding the fit
+score depending on which surface logged it.
+
+**Alternatives considered:** Keep `visitCount` derived from
+`target_communications kind='visit'` and add the richer fields there
+instead of a new table. Rejected - `target_communications` is a flat
+log (kind/date/notes) shared across five very different kinds of
+contact; bolting visit-specific columns (impression, next step) onto
+every row regardless of kind would leave them null for four out of
+five kinds and blur the table's purpose. A dedicated table matches how
+`target_visits` and `target_communications` are actually used
+downstream (`fitAdapters.ts`, the two different forms on the target
+edit page).
+
+**Consequences:** No real production data exists yet (repo not on
+GitHub, no live Supabase project), so this re-sourcing has no migration
+cost - if it did, any historical `kind='visit'` rows would need
+backfilling into `target_visits` to avoid silently changing past fit
+scores. The 'visit' option stays in `target_communications_kind`'s enum
+and `CommunicationForm`'s picker (harmless, just no longer counted
+separately) rather than forcing an enum-recreation migration for a
+cosmetic cleanup. 21/21 RLS assertions pass with `contacts` and
+`target_visits` added, including their own cross-org isolation and
+insert-rejection checks.
+
+## 2026-09 - Schools admin form: owner-gated, through the service-role client
+
+**Decision:** `src/app/org/[slug]/schools/new`, gated by `requireOwner()`
+(not `requireRole(..., STAFF_ROLES)` - Dave's ask was specifically
+"owners"), writes through `createAdminClient()`
+(`src/lib/supabase/admin.ts`, previously written but never called).
+Linked from the target-add form's header and its "no schools yet"
+empty state, for owners only.
+
+**Reason:** `schools` has no INSERT policy for any authenticated role
+by design (migration `0001`'s comment) - it's shared reference data
+across every org, and letting RLS authorize writes to it would mean
+authorizing every org's owners to write rows every other org also
+reads, which RLS's per-row `org_id` model can't express (there's no
+`org_id` column on `schools` to scope against). The authorization has
+to happen in the app layer instead: `requireOwner()` is the actual
+gate, and the write goes through the service-role client specifically
+because no RLS policy would allow it otherwise. Dave asked for this
+alongside a future Doc AI-ingest path for schools, not instead of it -
+both are legitimate ways to add a school, this is just the one that
+doesn't need Doc AI ingest to exist first.
+
+**Alternatives considered:** Add a real INSERT policy scoped somehow
+(e.g. any `owner`-role member of any org can insert). Rejected - this
+would make the authorization rule itself part of the schema, so
+tightening it later (e.g. requiring admin review before a new school
+goes live platform-wide) becomes a migration instead of an app-layer
+change, and `_member_org_ids()`-style policies are already the thing
+this repo works hard to keep simple.
+
+**Consequences:** No duplicate-school prevention was added (no unique
+constraint, no dedup check in the action) - same open item flagged in
+the original target-add decision, still worth revisiting deliberately
+rather than as a side effect of this. Added an explicit RLS assertion
+proving an ordinary authenticated user's direct insert into `schools`
+is still rejected, so this door staying "owner-gated app code, not an
+RLS policy" is actually verified, not just asserted in a comment.
+22/22 RLS assertions pass.

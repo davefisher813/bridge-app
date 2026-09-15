@@ -10,7 +10,8 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
+  const isOwner = user.role === "owner";
 
   const supabase = await createClient();
   const [{ data: athleteRows }, { data: schoolRows }] = await Promise.all([
@@ -30,7 +31,14 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
           &larr; Board
         </Link>
       </div>
-      <h1 className="mb-4 text-[20px] font-extrabold text-ink">Add target</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-[20px] font-extrabold text-ink">Add target</h1>
+        {isOwner && (
+          <Link href={`/org/${slug}/schools/new`} className="text-[12px] font-bold text-accent">
+            + Add a school
+          </Link>
+        )}
+      </div>
 
       {athletes.length === 0 ? (
         <div className="rounded-[16px] border border-line bg-paper px-4 py-6 text-center text-[13px] text-muted">
@@ -42,8 +50,14 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
         </div>
       ) : schools.length === 0 ? (
         <div className="rounded-[16px] border border-line bg-paper px-4 py-6 text-center text-[13px] text-muted">
-          No schools in the reference database yet. Schools are shared across every org and aren't editable from this screen -
-          see docs/ARCHITECTURE.md for why. Ask Dave how school data should get in.
+          No schools in the reference database yet. Schools are shared across every org, so only an owner can add one.{" "}
+          {isOwner ? (
+            <Link href={`/org/${slug}/schools/new`} className="font-bold text-accent">
+              Add the first school &rarr;
+            </Link>
+          ) : (
+            "Ask an owner to add one."
+          )}
         </div>
       ) : (
         <TargetForm action={action} athletes={athletes} schools={schools} submitLabel="Add target" />

@@ -5,6 +5,7 @@ import {
   schoolRowToFitSchool,
   targetOfferToSignal,
   transferWindowRowToFit,
+  visitsToVisitCount,
   type AthleteRow,
   type SchoolRow,
   type TransferWindowRow,
@@ -112,7 +113,10 @@ describe("transferWindowRowToFit", () => {
 });
 
 describe("communicationsToSignals", () => {
-  it("splits visit-kind rows from every other kind", () => {
+  it("counts every logged communication toward commCount, regardless of kind", () => {
+    // 'visit' kind is included here too - visitCount is sourced from the
+    // dedicated target_visits table (visitsToVisitCount) since migration
+    // 0006, not from this log. See the comment in fitAdapters.ts.
     const signals = communicationsToSignals([
       { target_id: "t1", kind: "call" },
       { target_id: "t1", kind: "text" },
@@ -121,11 +125,21 @@ describe("communicationsToSignals", () => {
       { target_id: "t1", kind: "visit" },
       { target_id: "t1", kind: "other" },
     ]);
-    expect(signals).toEqual({ visitCount: 2, commCount: 4 });
+    expect(signals).toEqual({ commCount: 6 });
   });
 
   it("returns zero counts for an empty log", () => {
-    expect(communicationsToSignals([])).toEqual({ visitCount: 0, commCount: 0 });
+    expect(communicationsToSignals([])).toEqual({ commCount: 0 });
+  });
+});
+
+describe("visitsToVisitCount", () => {
+  it("counts every logged visit", () => {
+    expect(visitsToVisitCount([{ target_id: "t1" }, { target_id: "t1" }, { target_id: "t1" }])).toBe(3);
+  });
+
+  it("returns zero for an empty log", () => {
+    expect(visitsToVisitCount([])).toBe(0);
   });
 });
 
