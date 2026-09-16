@@ -14,6 +14,7 @@ const state = {
   params: {},
   stack: [],
   toast: null,
+  theme: "light",
 };
 
 const db = JSON.parse(JSON.stringify(DATA));
@@ -215,6 +216,19 @@ function toast(message) {
   }, 3200);
 }
 
+// Light and dark, driven by one attribute. The app's own tokens key off
+// [data-theme] in globals.css, and the prototype page frame keys off the
+// same attribute, so one tap moves both rather than leaving a dark page
+// wrapped around a light app.
+function setTheme(next) {
+  state.theme = next;
+  document.documentElement.setAttribute("data-theme", next);
+  render();
+}
+function toggleTheme() {
+  setTheme(state.theme === "dark" ? "light" : "dark");
+}
+
 // ── Engine wrappers ──────────────────────────────────────────────────
 // One place per engine, so no screen computes anything itself.
 
@@ -321,11 +335,46 @@ function header(label, count, role = "accent") {
     <span class="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">${esc(label)}</span>
     <span class="h-px flex-1 border-b-2 border-dotted border-line"></span>${c}</div>`;
 }
-function tile(label, value, sub) {
+function tile(label, value, sub, onclick) {
   const s = sub ? `<div class="mt-0.5 text-[10.5px] leading-tight text-muted">${esc(sub)}</div>` : "";
-  return `<div class="rounded-[12px] bg-paper p-3.5">
+  const click = onclick ? ` onclick="${onclick}" style="cursor:pointer"` : "";
+  return `<div class="rounded-[12px] bg-paper p-3.5"${click}>
     <div class="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">${esc(label)}</div>
     <div class="mt-1 text-[24px] font-black tabular-nums leading-tight text-ink">${esc(value)}</div>${s}</div>`;
+}
+
+// One horizontal strip instead of a stack of cards. Dave flagged the
+// stacked scorecards twice: they took the whole first screen and did
+// nothing when tapped. Every figure in here goes somewhere.
+function statRow(items) {
+  return `<div class="flex items-stretch overflow-hidden rounded-[12px] bg-paper">
+    ${items
+      .map(
+        (it, i) =>
+          `<div onclick="${it.go}" style="cursor:pointer"
+            class="flex-1 px-2 py-3 text-center ${i ? "border-l border-line" : ""}">
+            <div class="text-[22px] font-black tabular-nums leading-none text-ink">${esc(String(it.value))}</div>
+            <div class="mt-1.5 text-[10px] font-bold uppercase tracking-[0.03em] text-muted">${esc(it.label)}</div>
+          </div>`,
+      )
+      .join("")}
+  </div>`;
+}
+
+// A row that reads as tappable. Everything in a list is one of these now,
+// so nothing looks live and then does nothing.
+function row(role, main, meta, right, onclick) {
+  return rail(
+    role,
+    `<div class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <div class="text-[13px] font-bold leading-tight text-ink">${main}</div>
+        ${meta ? `<div class="mt-0.5 text-[11.5px] leading-tight text-muted">${meta}</div>` : ""}
+      </div>
+      ${right || ""}
+    </div>`,
+    onclick,
+  );
 }
 function bar(pct, role) {
   const w = Math.min(100, Math.max(0, pct || 0));
@@ -390,31 +439,33 @@ SCREENS.today = () => {
   const visits = targets.filter((t) => t.visitDate && t.visitDate >= TODAY).sort((a, b) => a.visitDate.localeCompare(b.visitDate));
   const f = org().modules.donor_fundraising ? fundraising() : null;
 
-  return `
-    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Today</h1>
-    <p class="mb-5 text-[12.5px] text-muted">${esc(org().shortName)} &middot; ${esc(new Date(TODAY).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" }))}</p>
+  const committed = targets.filter((t) => t.status === "Committed").length;
+  const docsPending = byOrg(db.documents).filter((d) => d.status === "pending").length;
 
-    <div class="mb-5 grid grid-cols-3 gap-2">
-      ${tile("Athletes", String(roster.length))}
-      ${tile("Open", String(open.length), "in the pipeline")}
-      ${tile("Committed", String(targets.filter((t) => t.status === "Committed").length))}
+  return `
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">Today</h1>
+      <span class="text-[12px] font-bold text-muted">${esc(new Date(TODAY).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }))}</span>
     </div>
 
-    <div class="mb-2">${header("Needs follow-up", stale.length, "offer")}</div>
+    ${statRow([
+      { label: "Athletes", value: roster.length, go: "tab('athletes')" },
+      { label: "Open", value: open.length, go: "tab('board')" },
+      { label: "Committed", value: committed, go: "tab('board')" },
+      { label: "Inbox", value: docsPending, go: "go('documents')" },
+    ])}
+
+    <div class="mb-2 mt-5">${header("Needs follow-up", stale.length, "offer")}</div>
     <div class="flex flex-col gap-2">
       ${stale
         .map((t) => {
           const a = athlete(t.athleteId);
           const s = school(t.schoolId);
-          return rail(
+          return row(
             "offer",
-            `<div class="flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <div class="text-[13px] font-bold text-ink">${esc(a.name)}</div>
-                <div class="text-[11.5px] text-muted">${esc(s.name)} &middot; ${daysSince(t.updatedAt)} days quiet</div>
-              </div>
-              ${pill(t.status, STATUS_ROLE[t.status])}
-            </div>`,
+            esc(a.name),
+            `${esc(s.name)} &middot; ${daysSince(t.updatedAt)}d quiet`,
+            pill(t.status, STATUS_ROLE[t.status]),
             `go('target',{id:'${t.id}'})`,
           );
         })
@@ -425,34 +476,30 @@ SCREENS.today = () => {
       visits.length
         ? `<div class="mb-2 mt-5">${header("Upcoming visits", visits.length, "visit")}</div>
       <div class="flex flex-col gap-2">${visits
-        .map((t) => {
-          const a = athlete(t.athleteId);
-          const s = school(t.schoolId);
-          return rail(
+        .map((t) =>
+          row(
             "visit",
-            `<div class="min-w-0">
-              <div class="text-[13px] font-bold text-ink">${esc(a.name)} at ${esc(s.name)}</div>
-              <div class="text-[11.5px] text-muted">${esc(new Date(t.visitDate).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" }))}</div>
-            </div>`,
+            `${esc(athlete(t.athleteId).name)} at ${esc(school(t.schoolId).name)}`,
+            esc(new Date(t.visitDate).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" })),
+            "",
             `go('target',{id:'${t.id}'})`,
-          );
-        })
+          ),
+        )
         .join("")}</div>`
         : ""
     }
 
     ${
       f
-        ? `<div class="mb-2 mt-5">${header("Program overview", null, "committed")}</div>
-      ${rail(
+        ? `<div class="mb-2 mt-5">${header("Fundraising", null, "committed")}</div>
+      ${row(
         "committed",
-        `<div class="min-w-0">
-          <div class="text-[14px] font-semibold text-ink">${money(f.totalCashCents)} raised this year</div>
-          <div class="mt-0.5 text-[12px] leading-tight text-muted">${
-            f.totalBudgetCents > 0 ? Math.round((f.totalCashCents / f.totalBudgetCents) * 100) + "% of the year's target" : "No budget set"
-          }${f.outstandingPledgeCents > 0 ? ` &middot; ${money(f.outstandingPledgeCents)} promised and not received` : ""}</div>
-        </div>`,
-        "tab('fundraising')",
+        `${money(f.totalCashCents)} raised`,
+        `${f.totalBudgetCents > 0 ? Math.round((f.totalCashCents / f.totalBudgetCents) * 100) + "% of target" : "No budget set"}${
+          f.outstandingPledgeCents > 0 ? ` &middot; ${money(f.outstandingPledgeCents)} promised` : ""
+        }`,
+        "",
+        "go('fundraising')",
       )}`
         : ""
     }
@@ -462,8 +509,10 @@ SCREENS.today = () => {
 SCREENS.athletes = () => {
   const roster = byOrg(db.athletes);
   return `
-    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Athletes</h1>
-    <p class="mb-5 text-[12.5px] text-muted">${roster.length} on the roster.</p>
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">Athletes</h1>
+      <span class="text-[12px] font-bold text-muted">${roster.length}</span>
+    </div>
     <div class="flex flex-col gap-2">
       ${roster
         .map((a) => {
@@ -475,7 +524,7 @@ SCREENS.athletes = () => {
               ${avatar(a.name)}
               <div class="min-w-0 flex-1">
                 <div class="text-[13px] font-bold text-ink">${esc(a.name)}</div>
-                <div class="text-[11.5px] text-muted">${esc(a.position)} &middot; ${esc(a.school)} &middot; ${ts.length} ${ts.length === 1 ? "school" : "schools"}</div>
+                <div class="text-[11.5px] text-muted">${esc(a.position)} &middot; ${ts.length} ${ts.length === 1 ? "school" : "schools"}</div>
               </div>
               ${committed ? pill("Committed", "committed") : ""}
             </div>`,
@@ -516,16 +565,18 @@ SCREENS.athlete = () => {
       }).join("")}
     </div>
 
-    <div class="mb-4 grid grid-cols-2 gap-2">
-      ${tile("School GPA", a.gpa.toFixed(2), a.gpaVerified ? "verified" : "unverified")}
-      ${tile("NCAA core", el.view.eligibility.coreGpa?.gpa != null ? el.view.eligibility.coreGpa.gpa.toFixed(2) : "None yet", el.division ? "vs " + el.division : "no division yet")}
+    <div class="mb-4 grid grid-cols-3 gap-2">
+      ${tile("School GPA", a.gpa.toFixed(2), a.gpaVerified ? "verified" : "unverified", `go('courses',{id:'${a.id}'})`)}
+      ${tile("NCAA core", el.view.eligibility.coreGpa?.gpa != null ? el.view.eligibility.coreGpa.gpa.toFixed(2) : "None", el.division ? "vs " + el.division : "no division", `go('eligibility',{id:'${a.id}'})`)}
+      ${tile("Courses", String(db.courses.filter((c) => c.athleteId === a.id).length), "on file", `go('courses',{id:'${a.id}'})`)}
     </div>
 
-    ${rail("contact", `<div class="text-[12.5px] leading-tight text-ink">These are different numbers on purpose. The core GPA counts only NCAA core courses, with no plus or minus.</div>`)}
+    <div class="mb-5 grid grid-cols-2 gap-2">
+      ${button("NCAA eligibility", `go('eligibility',{id:'${a.id}'})`, "secondary")}
+      ${button("Transcript", `go('courses',{id:'${a.id}'})`, "secondary")}
+    </div>
 
-    <div class="mt-4">${button("NCAA eligibility", `go('eligibility',{id:'${a.id}'})`, "secondary")}</div>
-
-    <div class="mb-2 mt-5">${header("Schools", ts.length, "contact")}</div>
+    <div class="mb-2">${header("Schools", ts.length, "contact")}</div>
     <div class="flex flex-col gap-2">
       ${
         ts.length
@@ -580,13 +631,9 @@ SCREENS.eligibility = () => {
   return `
     ${backLink(a.name)}
     <h1 class="mb-1 text-[20px] font-extrabold text-ink">NCAA eligibility</h1>
-    <p class="mb-5 text-[12.5px] leading-tight text-muted">${
-      !division
-        ? "Nothing to judge against yet."
-        : division === "D3"
-          ? "Target school is Division III."
-          : `Division ${division === "D1" ? "I" : "II"} standard. Calculated from ${std?.coreCredits ?? 16} approved core courses, not from the transcript average.`
-    }</p>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">${
+      !division ? "No division to judge against" : division === "D3" ? "Division III" : `Division ${division === "D1" ? "I" : "II"} standard`
+    }</div>
 
     <div class="mb-4 rounded-[16px] bg-paper p-4">
       <div class="mb-2">${chip(e.status.replace(/_/g, " "), verdictRole[e.status] || "low")}</div>
@@ -607,7 +654,6 @@ SCREENS.eligibility = () => {
         ? `<div class="mb-3">${rail(
             "offer",
             `<div class="text-[12.5px] font-bold leading-tight text-ink">${esc(view.schoolsMissingScale.join(" and "))} ${view.schoolsMissingScale.length > 1 ? "have" : "has"} no grading scale on file</div>
-             <div class="mt-1 text-[12px] leading-tight text-muted">Those grades are numbers, and the figure above assumes the standard ten-point scale. Enter the real table and this recalculates.</div>
              <div class="mt-2 text-[12px] font-extrabold text-solid-accent" onclick="event.stopPropagation();go('scales')">Enter the grading scale</div>`,
           )}</div>`
         : ""
@@ -680,7 +726,6 @@ SCREENS.eligibility = () => {
         : ""
     }
 
-    <p class="mt-5 text-[11px] leading-relaxed text-muted">A projection until every core credit is final. Confirm with the NCAA Eligibility Center before anyone signs anything.</p>
   `;
 };
 
@@ -688,8 +733,10 @@ SCREENS.board = () => {
   const ts = byOrg(db.targets);
   const GROUPS = ["Target", "In Contact", "Visit", "Offer", "Committed"];
   return `
-    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Board</h1>
-    <p class="mb-5 text-[12.5px] text-muted">${ts.length} schools across the roster. Fit is calculated live, never stored.</p>
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">Board</h1>
+      <span class="text-[12px] font-bold text-muted">${ts.length}</span>
+    </div>
     ${GROUPS.map((g) => {
       const inGroup = ts.filter((t) => t.status === g);
       if (!inGroup.length) return "";
@@ -723,30 +770,35 @@ SCREENS.target = () => {
   const fit = fitFor(t);
   const STAGES = ["Target", "In Contact", "Visit", "Offer", "Committed"];
 
-  const dim = (label, d) =>
+  // One line per dimension, the score on the right. The reason text used
+  // to sit under every one of these in grey; it is on the detail screen
+  // now instead of four times over on this one.
+  const dim = (label, d, key) =>
     d
-      ? rail(
+      ? row(
           d.veto ? "offer" : scoreRole(d.score) === "high" ? "committed" : "contact",
-          `<div class="flex items-center justify-between gap-3">
-            <div class="min-w-0"><div class="text-[13px] font-bold text-ink">${esc(label)}</div>
-            <div class="text-[11.5px] leading-tight text-muted">${esc(d.reasons[0] || d.warnings[0] || "No signal")}</div></div>
-            <span class="text-[13px] font-extrabold tabular-nums text-ink">${d.score}</span>
-          </div>`,
+          esc(label),
+          "",
+          `<span class="text-[14px] font-extrabold tabular-nums text-ink">${d.score}</span>`,
+          `go('dimension',{id:'${t.id}',dim:'${key}'})`,
         )
       : "";
 
   return `
     ${backLink(a.name)}
-    <h1 class="mb-1 text-[20px] font-extrabold text-ink">${esc(s.name)}</h1>
-    <p class="mb-4 text-[12.5px] text-muted">${esc(s.division)} &middot; ${esc(s.conference || "")} &middot; ${esc(a.name)}</p>
-
-    <div class="mb-4 rounded-[16px] bg-paper p-4">
-      <div class="mb-2 flex items-center gap-2">${chip(fit.tag, scoreRole(fit.score))}<span class="text-[24px] font-black tabular-nums text-ink">${fit.score}</span></div>
-      <div class="text-[12.5px] leading-tight text-ink">${esc(fit.reasons[0] || "No reasons recorded")}</div>
+    <div class="mb-4 flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h1 class="text-[20px] font-extrabold leading-tight text-ink">${esc(s.name)}</h1>
+        <div class="text-[12.5px] font-bold text-muted">${esc(s.division)} &middot; ${esc(a.name)}</div>
+      </div>
+      <div class="flex-shrink-0 text-right">
+        <div class="text-[28px] font-black leading-none tabular-nums text-ink">${fit.score}</div>
+        <div class="mt-1">${chip(fit.tag, scoreRole(fit.score))}</div>
+      </div>
     </div>
 
-    <div class="mb-2">${header("Change the stage", null, "accent")}</div>
-    <div class="mb-4 flex flex-wrap gap-2">
+    <div class="mb-2">${header("Stage", null, "accent")}</div>
+    <div class="mb-5 flex flex-wrap gap-2">
       ${STAGES.map(
         (g) =>
           `<button onclick="setStatus('${t.id}','${g}')" class="rounded-full px-3 py-1.5 text-[11.5px] font-bold ${
@@ -754,14 +806,13 @@ SCREENS.target = () => {
           }">${esc(g)}</button>`,
       ).join("")}
     </div>
-    ${rail("contact", `<div class="text-[12.5px] leading-tight text-ink">Try it. The fit score above recalculates through the real engine, because a stage change moves the offer and contact signals.</div>`)}
 
-    <div class="mb-2 mt-5">${header("How the score is built", null, "contact")}</div>
+    <div class="mb-2">${header("How the score is built", null, "contact")}</div>
     <div class="flex flex-col gap-2">
-      ${dim("Academic", fit.academic)}
-      ${dim("Athletic", fit.athletic)}
-      ${dim("Financial", fit.financial)}
-      ${fit.eligibility ? dim("Eligibility", fit.eligibility) : ""}
+      ${dim("Academic", fit.academic, "academic")}
+      ${dim("Athletic", fit.athletic, "athletic")}
+      ${dim("Financial", fit.financial, "financial")}
+      ${fit.eligibility ? dim("Eligibility", fit.eligibility, "eligibility") : ""}
     </div>
 
     ${
@@ -770,12 +821,199 @@ SCREENS.target = () => {
         : ""
     }
 
+    <div class="mb-2 mt-5">${header("More", null, "people")}</div>
+    <div class="flex flex-col gap-2">
+      ${row("place", esc(s.name), "Division, money, depth chart", "", `go('school',{id:'${s.id}'})`)}
+      ${row("people", esc(t.coachName || "No coach on file"), `${t.commCount || 0} messages &middot; ${t.visitCount || 0} visits`, "", `go('comms',{id:'${t.id}'})`)}
+      ${row("contact", esc(a.name), "Back to the athlete", "", `go('athlete',{id:'${a.id}'})`)}
+    </div>
+  `;
+};
+
+// The reasons the engine gave, in full, on their own screen. They used to
+// be four lines of grey under the four dimension rows.
+SCREENS.dimension = () => {
+  const t = byOrg(db.targets).find((x) => x.id === state.params.id);
+  const fit = fitFor(t);
+  const key = state.params.dim;
+  const d = fit[key];
+  const LABEL = { academic: "Academic", athletic: "Athletic", financial: "Financial", eligibility: "Eligibility" };
+
+  return `
+    ${backLink(school(t.schoolId).name)}
+    <div class="mb-4 flex items-center justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">${esc(LABEL[key] || key)}</h1>
+      <span class="text-[28px] font-black leading-none tabular-nums text-ink">${d.score}</span>
+    </div>
+
+    ${d.veto ? `<div class="mb-4">${rail("offer", `<div class="text-[13px] font-bold leading-tight text-ink">Veto: ${esc(d.veto)}</div>`)}</div>` : ""}
+
+    <div class="mb-2">${header("Reasons", d.reasons.length, "committed")}</div>
+    <div class="flex flex-col gap-2">
+      ${
+        d.reasons.length
+          ? d.reasons.map((r) => rail("committed", `<div class="text-[12.5px] leading-tight text-ink">${esc(r)}</div>`)).join("")
+          : emptyState("No reasons", "The engine returned a score without a stated reason.")
+      }
+    </div>
+
     ${
-      t.coachName
-        ? `<div class="mb-2 mt-5">${header("Contact", null, "people")}</div>
-           ${rail("people", `<div class="text-[13px] font-bold text-ink">${esc(t.coachName)}</div><div class="text-[11.5px] text-muted">${t.commCount || 0} communications &middot; ${t.visitCount || 0} visits</div>`)}`
+      d.warnings.length
+        ? `<div class="mb-2 mt-5">${header("Warnings", d.warnings.length, "offer")}</div>
+           <div class="flex flex-col gap-2">${d.warnings
+             .map((w) => rail("offer", `<div class="text-[12.5px] leading-tight text-ink">${esc(w)}</div>`))
+             .join("")}</div>`
         : ""
     }
+
+    <div class="mb-2 mt-5">${header("Confidence", null, "contact")}</div>
+    ${rail(
+      "contact",
+      `<div class="flex items-center justify-between gap-3">
+        <span class="text-[13px] font-bold text-ink">${esc(String(d.confidence))}</span>
+      </div>`,
+    )}
+  `;
+};
+
+SCREENS.school = () => {
+  const s = school(state.params.id);
+  const here = byOrg(db.targets).filter((t) => t.schoolId === s.id);
+  const fin = s.financials || {};
+  const ac = s.academics || {};
+  const at = s.athletics || {};
+  // A D3 school never shows a scholarship claim, whatever the record says.
+  const showsAid = s.division !== "D3";
+
+  return `
+    ${backLink("Back")}
+    <h1 class="mb-1 text-[20px] font-extrabold leading-tight text-ink">${esc(s.name)}</h1>
+    <div class="mb-4 text-[12.5px] font-bold text-muted">${esc(s.division)}${s.conference ? " &middot; " + esc(s.conference) : ""}</div>
+
+    <div class="mb-5 grid grid-cols-3 gap-2">
+      ${tile("Avg GPA", ac.gpaAvg != null ? ac.gpaAvg.toFixed(2) : "None")}
+      ${tile("Min GPA", ac.gpaMin != null ? ac.gpaMin.toFixed(2) : "None")}
+      ${tile("Open spots", fin.rosterSpotsOpen != null ? String(fin.rosterSpotsOpen) : "None")}
+    </div>
+
+    <div class="mb-2">${header("Money", null, "committed")}</div>
+    <div class="flex flex-col gap-2">
+      ${row("committed", "Athletic aid", "", `<span class="text-[12.5px] font-bold text-ink">${showsAid ? esc(String(fin.athleticScholarship || "none")) : "Not offered at D3"}</span>`)}
+      ${showsAid && fin.avgAthleticAid ? row("committed", "Average award", "", `<span class="text-[12.5px] font-bold tabular-nums text-ink">${money(fin.avgAthleticAid * 100)}</span>`) : ""}
+      ${fin.instateTotal ? row("contact", "In state", "", `<span class="text-[12.5px] font-bold tabular-nums text-ink">${money(fin.instateTotal * 100)}</span>`) : ""}
+      ${fin.outstateTotal ? row("contact", "Out of state", "", `<span class="text-[12.5px] font-bold tabular-nums text-ink">${money(fin.outstateTotal * 100)}</span>`) : ""}
+    </div>
+
+    ${
+      at.positionDepth
+        ? `<div class="mb-2 mt-5">${header("Depth chart", null, "visit")}</div>
+           ${rail("visit", `<div class="text-[12.5px] leading-tight text-ink">${esc(at.positionDepth)}</div>`)}`
+        : ""
+    }
+
+    <div class="mb-2 mt-5">${header("Your athletes here", here.length, "contact")}</div>
+    <div class="flex flex-col gap-2">
+      ${
+        here.length
+          ? here
+              .map((t) =>
+                row(
+                  STATUS_ROLE[t.status],
+                  esc(athlete(t.athleteId).name),
+                  esc(t.status),
+                  chip(String(fitFor(t).score), scoreRole(fitFor(t).score)),
+                  `go('target',{id:'${t.id}'})`,
+                ),
+              )
+              .join("")
+          : emptyState("Nobody here yet", "No athlete on this roster is targeting this school.")
+      }
+    </div>
+  `;
+};
+
+// The contact log. The target screen used to show a count and stop there.
+SCREENS.comms = () => {
+  const t = byOrg(db.targets).find((x) => x.id === state.params.id);
+  const s = school(t.schoolId);
+  const a = athlete(t.athleteId);
+  const log = db.communications.filter((c) => c.targetId === t.id).sort((x, y) => y.at.localeCompare(x.at));
+  const KIND = { email: "people", call: "contact", text: "contact", visit: "visit", camp: "visit" };
+
+  return `
+    ${backLink(s.name)}
+    <h1 class="mb-1 text-[20px] font-extrabold text-ink">${esc(t.coachName || "Contact")}</h1>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">${esc(s.name)} &middot; ${esc(a.name)}</div>
+
+    <div class="mb-2">${header("History", log.length, "people")}</div>
+    <div class="flex flex-col gap-2">
+      ${
+        log.length
+          ? log
+              .map((c) =>
+                rail(
+                  KIND[c.kind] || "people",
+                  `<div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <div class="text-[13px] font-bold leading-tight text-ink">${esc(c.summary)}</div>
+                      <div class="mt-0.5 text-[11.5px] text-muted">${esc(c.direction === "in" ? "From them" : "From us")}</div>
+                    </div>
+                    <span class="flex-shrink-0 text-[11.5px] font-bold text-muted">${esc(new Date(c.at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))}</span>
+                  </div>`,
+                ),
+              )
+              .join("")
+          : emptyState("Nothing logged", "No calls, emails or visits recorded against this school yet.")
+      }
+    </div>
+  `;
+};
+
+// Every course on file, which is where a wrong core GPA actually gets
+// traced back to. Counted and not counted are the engine's own verdict.
+SCREENS.courses = () => {
+  const a = athlete(state.params.id);
+  const { view } = eligibilityFor(a.id);
+  const e = view.eligibility;
+  const counted = new Map((e.coreGpa?.counted || []).map((c) => [c.course.title + c.course.term, c]));
+  const excluded = new Map((e.coreGpa?.excluded || []).map((x) => [x.course.title + x.course.term, x]));
+  const all = db.courses.filter((c) => c.athleteId === a.id);
+  const SUBJECT = { english: "English", math: "Math", science: "Science", social_science: "Social science", other_academic: "Other academic", elective: "Elective" };
+
+  const byTerm = {};
+  for (const c of all) (byTerm[c.term] = byTerm[c.term] || []).push(c);
+  const terms = Object.keys(byTerm).sort().reverse();
+
+  return `
+    ${backLink(a.name)}
+    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Transcript</h1>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">${all.length} courses &middot; ${counted.size} counted by the NCAA</div>
+
+    ${terms
+      .map((term) => {
+        const rows = byTerm[term];
+        return `<div class="mb-2 mt-4">${header(term, rows.length, "contact")}</div>
+          <div class="flex flex-col gap-2">${rows
+            .map((c) => {
+              const key = c.title + c.term;
+              const hit = counted.get(key);
+              const miss = excluded.get(key);
+              return row(
+                hit ? "committed" : miss ? "target" : "contact",
+                esc(c.title),
+                `${esc(SUBJECT[c.subject] || c.subject)} &middot; ${c.credit} credit${c.weighted ? " &middot; weighted" : ""}${
+                  miss ? " &middot; " + esc(miss.reason) : ""
+                }`,
+                `<div class="flex-shrink-0 text-right">
+                  <div class="text-[14px] font-extrabold tabular-nums text-ink">${esc(c.grade)}</div>
+                  ${hit ? `<div class="text-[10.5px] font-bold text-muted">${hit.points.toFixed(1)} pts</div>` : ""}
+                </div>`,
+                `go('scaleEdit',{school:'${esc(c.school_name)}'})`,
+              );
+            })
+            .join("")}</div>`;
+      })
+      .join("")}
   `;
 };
 
@@ -789,13 +1027,14 @@ SCREENS.more = () => {
   return `
     <div class="mb-3">${header("More")}</div>
     <div class="flex flex-col gap-2">
-      ${item("Documents", "Read a transcript or an offer letter into a record", "documents", "place")}
-      ${m.donor_fundraising ? item("Fundraising", "Donors, gifts, pledges and the year against budget", "fundraising", "committed") : ""}
-      ${m.board_governance ? item("Board", "Seats and give/get progress across every tier", "governance", "people") : ""}
-      ${item("Grading scales", "How each high school's numbers become letters", "scales", "contact")}
+      ${item("Documents", `${byOrg(db.documents).filter((d) => d.status === "pending").length} need review`, "documents", "place")}
+      ${m.donor_fundraising ? item("Fundraising", "Donors, gifts, pledges, grants", "fundraising", "committed") : ""}
+      ${m.board_governance ? item("Board", "Seats and give/get", "governance", "people") : ""}
+      ${item("Grading scales", `${db.gradingScales.length} on file`, "scales", "contact")}
+      ${item("Schools", `${db.schools.length} in the database`, "schools", "place")}
       ${item(
         bugs.local.length ? `Flagged bugs (${bugs.local.length})` : "Flagged bugs",
-        "Everything you have flagged while clicking through",
+        bugs.local.length ? "Tap to read them back" : "Nothing flagged yet",
         "bugs",
         bugs.local.length ? "offer" : "neutral",
       )}
@@ -818,7 +1057,30 @@ SCREENS.more = () => {
         )
         .join("")}
     </div>
-    ${rail("contact", `<div class="mt-2 text-[12.5px] leading-tight text-ink">Switch to Elite Squad and the fundraising and board sections disappear, the role labels change, and the roster is different. Same code, no branching on which org it is.</div>`)}
+  `;
+};
+
+SCREENS.schools = () => {
+  const list = db.schools;
+  const ts = byOrg(db.targets);
+  return `
+    ${backLink("More")}
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">Schools</h1>
+      <span class="text-[12px] font-bold text-muted">${list.length}</span>
+    </div>
+    <div class="flex flex-col gap-2">${list
+      .map((s) => {
+        const mine = ts.filter((t) => t.schoolId === s.id);
+        return row(
+          mine.length ? "contact" : "target",
+          esc(s.name),
+          `${esc(s.division)}${s.conference ? " &middot; " + esc(s.conference) : ""}`,
+          mine.length ? chip(`${mine.length} here`, "contact") : "",
+          `go('school',{id:'${s.id}'})`,
+        );
+      })
+      .join("")}</div>
   `;
 };
 
@@ -829,8 +1091,10 @@ SCREENS.documents = () => {
   const STATUS = { applied: ["Applied", "committed"], pending: ["Needs review", "offer"], failed: ["Not used", "target"] };
 
   return `
-    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Documents</h1>
-    <p class="mb-5 text-[12.5px] leading-tight text-muted">Transcripts and letters, read and routed. No model is connected in this prototype, so every reading is simulated.</p>
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">Documents</h1>
+      <span class="text-[12px] font-bold text-muted">${docs.length}</span>
+    </div>
 
     ${pending.length ? `<div class="mb-2">${header("Needs review", pending.length, "offer")}</div>
       <div class="mb-5 flex flex-col gap-2">${pending
@@ -864,7 +1128,7 @@ SCREENS.document = () => {
     }</h1>
     <p class="mb-4 text-[12.5px] text-muted">${esc(d.fileName)} &middot; from ${esc(d.sourceRole)}</p>
 
-    ${rail("time", `<div class="text-[13px] font-bold text-ink">Simulated reading</div><div class="mt-0.5 text-[11.5px] leading-tight text-muted">No AI model is connected in this prototype. Nothing below was read off a page.</div>`)}
+    ${rail("time", `<div class="text-[13px] font-bold text-ink">Simulated reading. No model is connected.</div>`)}
 
     ${
       d.failureReason
@@ -885,18 +1149,16 @@ SCREENS.document = () => {
       d.candidates
         ? `<div class="mb-2 mt-5">${header("Who is this?", d.candidates.length, "people")}</div>
            <div class="flex flex-col gap-2">${d.candidates
-             .map(
-               (c) =>
-                 rail(
-                   "people",
-                   `<div class="flex items-center justify-between gap-3">
-                     <div class="text-[13px] font-bold text-ink">${esc(c.name)}</div>
-                     <span class="text-[12px] font-extrabold tabular-nums text-muted">${Math.round(c.score * 100)}% match</span>
-                   </div>`,
-                 ),
+             .map((c) =>
+               row(
+                 "people",
+                 esc(c.name),
+                 "Tap to attach this document",
+                 `<span class="flex-shrink-0 text-[12px] font-extrabold tabular-nums text-muted">${Math.round(c.score * 100)}%</span>`,
+                 `matchDocument('${d.id}','${c.athleteId}')`,
+               ),
              )
-             .join("")}</div>
-           <div class="mt-3">${rail("contact", `<div class="text-[12.5px] leading-tight text-ink">Below the auto-apply bar, so it waits for a person. A name alone is never enough to change an athlete's record.</div>`)}</div>`
+             .join("")}</div>`
         : ""
     }
 
@@ -920,8 +1182,10 @@ SCREENS.scales = () => {
   const missing = [...numericSchools].filter((n) => !covered.has(n.toLowerCase()));
 
   return `
-    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Grading scales</h1>
-    <p class="mb-5 text-[12.5px] leading-tight text-muted">How each high school's numbers become letters. The NCAA converts using the school's own published table, never a generic curve.</p>
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">Grading scales</h1>
+      <span class="text-[12px] font-bold text-muted">${scales.length}</span>
+    </div>
 
     ${
       missing.length
@@ -959,7 +1223,6 @@ SCREENS.scales = () => {
       )
       .join("")}</div>
 
-    <div class="mt-4">${rail("contact", `<div class="text-[12.5px] leading-tight text-ink">Only this org uses these. Another organization with an athlete at the same school keeps its own, so a mistake here cannot change anyone else's eligibility verdict.</div>`)}</div>
   `;
 };
 
@@ -972,10 +1235,7 @@ SCREENS.scaleEdit = () => {
   return `
     ${backLink("Grading scales")}
     <h1 class="mb-1 text-[20px] font-extrabold text-ink">${esc(name)}</h1>
-    <p class="mb-5 text-[12.5px] leading-tight text-muted">Copy the table exactly as the school publishes it. Saving recalculates every athlete there immediately.</p>
-
-    <div class="mb-1 text-[11px] font-bold text-muted">THE TABLE</div>
-    <p class="mb-3 text-[11.5px] leading-tight text-muted">Five rows, not twelve. The NCAA does not recognise plus or minus, so A+, A and A- are all four points.</p>
+    <div class="mb-3 text-[12.5px] font-bold text-muted">The table, as the school publishes it</div>
     <div class="mb-4 flex flex-col gap-2">
       ${["A", "B", "C", "D", "F"]
         .map((L) => {
@@ -1004,7 +1264,6 @@ SCREENS.scaleEdit = () => {
 
     <div id="scale-error" class="mb-3"></div>
     ${button("Save and recalculate", `saveScale('${esc(name)}')`)}
-    <p class="mt-3 text-[11px] leading-relaxed text-muted">Try widening the A band down to 85 and watch the core GPA move on the eligibility screen. The calculation is the real shipped engine.</p>
   `;
 };
 
@@ -1014,27 +1273,19 @@ SCREENS.fundraising = () => {
   const budgetPct = f.totalBudgetCents > 0 ? Math.round((f.totalCashCents / f.totalBudgetCents) * 100) : null;
 
   return `
-    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Fundraising</h1>
-    <p class="mb-5 text-[12.5px] leading-tight text-muted">${FISCAL_YEAR}, against the board budget. Cash received only.</p>
-
-    <div class="mb-3 grid grid-cols-2 gap-2">
-      ${tile("Raised", money(f.totalCashCents), "cash in the door")}
-      ${tile("Budget", money(f.totalBudgetCents), budgetPct == null ? "no budget set" : budgetPct + "% of the year's target")}
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">Fundraising</h1>
+      <span class="text-[12px] font-bold text-muted">${FISCAL_YEAR}</span>
     </div>
 
-    ${
-      f.outstandingPledgeCents > 0
-        ? `<div class="mb-4">${rail(
-            "offer",
-            `<div class="text-[13px] font-bold text-ink">${E.formatMoney(f.outstandingPledgeCents)} promised, not received</div>
-             <div class="mt-1 text-[12px] leading-tight text-muted">Not counted in the ${money(f.totalCashCents)} above.${
-               f.overduePledgeCents > 0 ? ` ${E.formatMoney(f.overduePledgeCents)} of it is past its due date.` : ""
-             }</div>`,
-          )}</div>`
-        : ""
-    }
+    ${statRow([
+      { label: "Raised", value: money(f.totalCashCents), go: "go('gifts')" },
+      { label: "Budget", value: money(f.totalBudgetCents), go: "go('gifts')" },
+      { label: "Pledged", value: money(f.outstandingPledgeCents), go: "go('pledges')" },
+      { label: "In kind", value: money(f.totalInKindCents), go: "go('gifts',{method:'in_kind'})" },
+    ])}
 
-    <div class="mb-2">${header("By category", null, "committed")}</div>
+    <div class="mb-2 mt-5">${header("By category", budgetPct == null ? null : budgetPct + "%", "committed")}</div>
     <div class="flex flex-col gap-2">${f.byCategory
       .map((c) => {
         const role = pctRole(c.percentOfBudget);
@@ -1050,20 +1301,10 @@ SCREENS.fundraising = () => {
             }</div>
             ${bar(c.percentOfBudget || 0, role)}
           </div>`,
+          `go('gifts',{category:'${c.category}'})`,
         );
       })
       .join("")}</div>
-
-    ${
-      f.totalInKindCents > 0
-        ? `<div class="mb-2 mt-5">${header("In kind", null, "place")}</div>
-           ${rail(
-             "place",
-             `<div class="text-[13px] font-bold text-ink">${E.formatMoney(f.totalInKindCents)} donated in goods and services</div>
-              <div class="mt-0.5 text-[11.5px] leading-tight text-muted">Counted as support, never as cash. Total support is ${money(f.totalSupportCents)}.</div>`,
-           )}`
-        : ""
-    }
 
     ${
       campaigns.length
@@ -1079,24 +1320,275 @@ SCREENS.fundraising = () => {
                      <div class="text-[13px] font-bold text-ink">${esc(c.name)}</div>
                      <span class="flex-shrink-0 text-[12px] font-extrabold tabular-nums text-ink">${p.percentOfGoal == null ? "no goal" : p.percentOfGoal + "%"}</span>
                    </div>
-                   <div class="mt-0.5 text-[11.5px] text-muted">${money(p.raisedCents)} raised of a ${money(p.goalCents)} goal${
+                   <div class="mt-0.5 text-[11.5px] text-muted">${money(p.raisedCents)} of ${money(p.goalCents)}${
                      p.pledgedCents > 0 ? " · " + money(p.pledgedCents) + " pledged" : ""
                    }</div>
                    ${bar(p.percentOfGoal || 0, role)}
                  </div>`,
+                 `go('campaign',{id:'${c.id}'})`,
                );
              })
              .join("")}</div>`
         : ""
     }
 
-    <div class="mb-2 mt-5">${header("This year", null, "contact")}</div>
-    ${rail("contact", `<div class="text-[12.5px] leading-tight text-ink">${f.giftCount} gifts from ${f.donorCount} supporters. Anonymous gifts count in the total and not in the supporter number, so the figure means people.</div>`)}
-
-    <div class="mt-5 flex flex-col gap-2">
-      ${button("Record a gift", "go('giftNew')")}
-      ${button("Donors", "go('donors')", "secondary")}
+    <div class="mb-2 mt-5">${header("Go to", null, "contact")}</div>
+    <div class="flex flex-col gap-2">
+      ${row("committed", "Donors", `${f.donorCount} supporters`, "", "go('donors')")}
+      ${row("contact", "All gifts", `${f.giftCount} this year`, "", "go('gifts')")}
+      ${row("offer", "Pledges", `${money(f.outstandingPledgeCents)} outstanding`, "", "go('pledges')")}
+      ${row("place", "Grants", `${byOrg(db.grants).length} tracked`, "", "go('grants')")}
     </div>
+
+    <div class="mt-5">${button("Record a gift", "go('giftNew')")}</div>
+  `;
+};
+
+SCREENS.gifts = () => {
+  const all = byOrg(db.gifts).sort((a, b) => b.receivedOn.localeCompare(a.receivedOn));
+  const cat = state.params.category || null;
+  const method = state.params.method || null;
+  const rows = all.filter((g) => (!cat || g.category === cat) && (!method || g.method === method));
+  const label = cat ? E.CATEGORY_LABEL[cat] : method === "in_kind" ? "In kind" : "All gifts";
+  const cash = rows.filter((g) => g.method !== "in_kind").reduce((s, g) => s + g.amountCents, 0);
+
+  return `
+    ${backLink("Fundraising")}
+    <h1 class="mb-1 text-[20px] font-extrabold text-ink">${esc(label)}</h1>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">${rows.length} gifts &middot; ${money(cash)} cash</div>
+
+    <div class="flex flex-col gap-2">${
+      rows.length
+        ? rows
+            .map((g) =>
+              row(
+                g.method === "in_kind" ? "place" : "committed",
+                esc(g.donorId ? donor(g.donorId).name : "Anonymous"),
+                `${esc(new Date(g.receivedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))} &middot; ${esc(
+                  g.method === "in_kind" ? "in kind" : g.method,
+                )}${g.campaignId ? " &middot; " + esc(byOrg(db.campaigns).find((c) => c.id === g.campaignId).name) : ""}`,
+                `<span class="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">${E.formatMoney(g.amountCents)}</span>`,
+                g.donorId ? `go('donor',{id:'${g.donorId}'})` : null,
+              ),
+            )
+            .join("")
+        : emptyState("Nothing here", "No gift matches this filter yet.")
+    }</div>
+  `;
+};
+
+SCREENS.pledges = () => {
+  const rows = byOrg(db.pledges).sort((a, b) => (a.dueOn || "").localeCompare(b.dueOn || ""));
+  return `
+    ${backLink("Fundraising")}
+    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Pledges</h1>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">Promised, not received. None of this is in the raised figure.</div>
+
+    <div class="flex flex-col gap-2">${
+      rows.length
+        ? rows
+            .map((p) => {
+              const outstanding = E.outstandingOn(p, byOrg(db.gifts));
+              const overdue = p.dueOn && p.dueOn < TODAY && outstanding > 0;
+              return row(
+                outstanding === 0 ? "committed" : overdue ? "offer" : "target",
+                esc(p.donorId ? donor(p.donorId).name : "Anonymous"),
+                `${E.formatMoney(p.amountCents)} promised${p.dueOn ? " &middot; due " + esc(new Date(p.dueOn).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })) : ""}${
+                  overdue ? " &middot; overdue" : ""
+                }`,
+                `<span class="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">${outstanding === 0 ? "Paid" : E.formatMoney(outstanding)}</span>`,
+                p.donorId ? `go('donor',{id:'${p.donorId}'})` : null,
+              );
+            })
+            .join("")
+        : emptyState("No pledges", "Nothing promised and unpaid.")
+    }</div>
+  `;
+};
+
+SCREENS.grants = () => {
+  const rows = byOrg(db.grants);
+  const ROLE = { awarded: "committed", submitted: "visit", researching: "target", declined: "offer" };
+  return `
+    ${backLink("Fundraising")}
+    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Grants</h1>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">${rows.length} tracked</div>
+
+    <div class="flex flex-col gap-2">${
+      rows.length
+        ? rows
+            .map((g) =>
+              row(
+                ROLE[g.status] || "target",
+                esc(g.funderName),
+                `${esc(g.status)}${g.deadlineOn ? " &middot; due " + esc(new Date(g.deadlineOn).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })) : ""}`,
+                `<div class="flex-shrink-0 text-right">
+                  <div class="text-[14px] font-extrabold tabular-nums text-ink">${E.formatMoney(g.amountAwarded ?? g.amountRequested)}</div>
+                  <div class="text-[10.5px] font-bold text-muted">${g.amountAwarded ? "awarded" : "requested"}</div>
+                </div>`,
+              ),
+            )
+            .join("")
+        : emptyState("No grants", "Nothing tracked yet.")
+    }</div>
+  `;
+};
+
+SCREENS.campaign = () => {
+  const c = byOrg(db.campaigns).find((x) => x.id === state.params.id);
+  const p = E.campaignProgress(c.id, c.goalCents, byOrg(db.gifts), byOrg(db.pledges));
+  const gifts = byOrg(db.gifts).filter((g) => g.campaignId === c.id).sort((a, b) => b.receivedOn.localeCompare(a.receivedOn));
+  const role = pctRole(p.percentOfGoal);
+
+  return `
+    ${backLink("Fundraising")}
+    <h1 class="mb-1 text-[20px] font-extrabold text-ink">${esc(c.name)}</h1>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">${esc(c.kind)}${c.endsOn ? " &middot; ends " + esc(new Date(c.endsOn).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" })) : ""}</div>
+
+    <div class="mb-5">${rail(
+      role,
+      `<div class="flex items-start justify-between gap-3">
+        <div class="text-[15px] font-extrabold tabular-nums text-ink">${money(p.raisedCents)} of ${money(p.goalCents)}</div>
+        <span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">${p.percentOfGoal == null ? "no goal" : p.percentOfGoal + "%"}</span>
+      </div>
+      ${bar(p.percentOfGoal || 0, role)}`,
+    )}</div>
+
+    <div class="mb-2">${header("Gifts", gifts.length, "committed")}</div>
+    <div class="flex flex-col gap-2">${
+      gifts.length
+        ? gifts
+            .map((g) =>
+              row(
+                g.method === "in_kind" ? "place" : "committed",
+                esc(g.donorId ? donor(g.donorId).name : "Anonymous"),
+                esc(new Date(g.receivedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })),
+                `<span class="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">${E.formatMoney(g.amountCents)}</span>`,
+                g.donorId ? `go('donor',{id:'${g.donorId}'})` : null,
+              ),
+            )
+            .join("")
+        : emptyState("No gifts yet", "Nothing has come in against this campaign.")
+    }</div>
+  `;
+};
+
+SCREENS.donor = () => {
+  const d = donor(state.params.id);
+  const totals = E.donorTotals(d.id, byOrg(db.gifts), byOrg(db.pledges), FISCAL_YEAR);
+  const gifts = byOrg(db.gifts).filter((g) => g.donorId === d.id).sort((a, b) => b.receivedOn.localeCompare(a.receivedOn));
+  const pledges = byOrg(db.pledges).filter((p) => p.donorId === d.id);
+  const seat = byOrg(db.boardMembers).find((m) => m.donorId === d.id);
+
+  return `
+    ${backLink("Donors")}
+    <h1 class="mb-1 text-[20px] font-extrabold leading-tight text-ink">${esc(d.name)}</h1>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">${esc(d.donor_type.replace(/_/g, " "))}${d.email ? " &middot; " + esc(d.email) : ""}</div>
+
+    ${statRow([
+      { label: "Lifetime", value: money(totals.lifetimeCashCents), go: "" },
+      { label: "This year", value: money(totals.thisYearCashCents), go: "" },
+      { label: "Gifts", value: totals.giftCount, go: "" },
+    ])}
+
+    ${
+      seat
+        ? `<div class="mt-5">${row("people", esc(seat.name) + " sits on a board", esc(seat.roleTitle || seat.status), "", `go('member',{id:'${seat.id}'})`)}</div>`
+        : ""
+    }
+
+    ${
+      pledges.length
+        ? `<div class="mb-2 mt-5">${header("Pledges", pledges.length, "offer")}</div>
+           <div class="flex flex-col gap-2">${pledges
+             .map((p) => {
+               const out = E.outstandingOn(p, byOrg(db.gifts));
+               return row(
+                 out > 0 ? "offer" : "committed",
+                 E.formatMoney(p.amountCents) + " promised",
+                 p.dueOn ? "due " + esc(new Date(p.dueOn).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })) : "",
+                 `<span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">${out === 0 ? "Paid" : E.formatMoney(out) + " left"}</span>`,
+               );
+             })
+             .join("")}</div>`
+        : ""
+    }
+
+    <div class="mb-2 mt-5">${header("Gifts", gifts.length, "committed")}</div>
+    <div class="flex flex-col gap-2">${
+      gifts.length
+        ? gifts
+            .map((g) =>
+              row(
+                g.method === "in_kind" ? "place" : "committed",
+                esc(E.CATEGORY_LABEL[g.category] || g.category),
+                `${esc(new Date(g.receivedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))} &middot; ${esc(g.method === "in_kind" ? "in kind" : g.method)}`,
+                `<span class="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">${E.formatMoney(g.amountCents)}</span>`,
+              ),
+            )
+            .join("")
+        : emptyState("No gifts yet", "This supporter has not given.")
+    }</div>
+  `;
+};
+
+SCREENS.member = () => {
+  const m = byOrg(db.boardMembers).find((x) => x.id === state.params.id);
+  const b = byOrg(db.boards).find((x) => x.id === m.boardId);
+  const p = giveGetFor(m.id);
+  const gifts = byOrg(db.gifts).filter((g) => g.solicitedBy === m.id || (m.donorId && g.donorId === m.donorId));
+  const role = m.status === "active" ? pctRole(p.percent) : "target";
+
+  return `
+    ${backLink(b.name)}
+    <h1 class="mb-1 text-[20px] font-extrabold leading-tight text-ink">${esc(m.name)}</h1>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">${esc(m.roleTitle || "No role set")} &middot; ${esc(m.status)}</div>
+
+    ${statRow([
+      { label: "Given", value: money(p.givenCents), go: m.donorId ? `go('donor',{id:'${m.donorId}'})` : "" },
+      { label: "Brought in", value: money(p.raisedCents), go: "" },
+      { label: "Committed", value: money(p.commitmentCents), go: "" },
+    ])}
+
+    ${
+      m.status === "active"
+        ? `<div class="mt-4">${rail(
+            role,
+            `<div class="flex items-start justify-between gap-3">
+              <div class="text-[13px] font-bold text-ink">${p.met ? "Commitment met" : "Still short"}</div>
+              <span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">${p.percent == null ? "no target" : p.percent + "%"}</span>
+            </div>
+            ${bar(p.percent || 0, role)}`,
+          )}</div>`
+        : ""
+    }
+
+    ${
+      m.termStart
+        ? `<div class="mb-2 mt-5">${header("Term", null, "time")}</div>
+           ${row("time", esc(m.termStart) + " to " + esc(m.termEnd || "open"), "")}`
+        : ""
+    }
+
+    <div class="mb-2 mt-5">${header("Gifts counted", gifts.length, "committed")}</div>
+    <div class="flex flex-col gap-2">${
+      gifts.length
+        ? gifts
+            .map((g) => {
+              const theirs = m.donorId && g.donorId === m.donorId;
+              return row(
+                theirs ? "committed" : "visit",
+                theirs ? "Given" : "Brought in",
+                `${esc(new Date(g.receivedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))} &middot; ${esc(
+                  g.donorId ? donor(g.donorId).name : "Anonymous",
+                )}`,
+                `<span class="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">${E.formatMoney(g.amountCents)}</span>`,
+                g.donorId ? `go('donor',{id:'${g.donorId}'})` : null,
+              );
+            })
+            .join("")
+        : emptyState("Nothing counted", "No gift is credited to this seat yet.")
+    }</div>
   `;
 };
 
@@ -1108,21 +1600,22 @@ SCREENS.donors = () => {
 
   return `
     ${backLink("Fundraising")}
-    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Donors</h1>
-    <p class="mb-5 text-[12.5px] leading-tight text-muted">${rows.length} supporters. Totals are calculated from the gifts, not typed in, so they cannot go stale.</p>
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">Donors</h1>
+      <span class="text-[12px] font-bold text-muted">${rows.length}</span>
+    </div>
 
     ${
       owing.length
         ? `<div class="mb-2">${header("Owes a pledge", owing.length, "target")}</div>
            <div class="mb-5 flex flex-col gap-2">${owing
              .map((r) =>
-               rail(
+               row(
                  "target",
-                 `<div class="flex items-center justify-between gap-3">
-                   <div class="min-w-0"><div class="text-[13px] font-bold text-ink">${esc(r.donor.name)}</div>
-                   <div class="text-[11.5px] text-muted">Promised and not yet received</div></div>
-                   <span class="text-[13px] font-extrabold tabular-nums text-ink">${E.formatMoney(r.totals.outstandingPledgeCents)}</span>
-                 </div>`,
+                 esc(r.donor.name),
+                 "",
+                 `<span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">${E.formatMoney(r.totals.outstandingPledgeCents)}</span>`,
+                 `go('donor',{id:'${r.donor.id}'})`,
                ),
              )
              .join("")}</div>`
@@ -1132,21 +1625,15 @@ SCREENS.donors = () => {
     <div class="mb-2">${header("All donors", rows.length, "contact")}</div>
     <div class="flex flex-col gap-2">${rows
       .map(({ donor, totals }) =>
-        rail(
+        row(
           "contact",
-          `<div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <div class="text-[13px] font-bold text-ink">${esc(donor.name)}</div>
-              <div class="mt-0.5 text-[11.5px] text-muted">${totals.giftCount} ${totals.giftCount === 1 ? "gift" : "gifts"}${
-                totals.lastGiftOn ? " · last " + new Date(totals.lastGiftOn).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" }) : ""
-              }</div>
-              <div class="mt-1.5">${chip(donor.donor_type.replace(/_/g, " "), "contact")}</div>
-            </div>
-            <div class="flex-shrink-0 text-right">
-              <div class="text-[13px] font-extrabold tabular-nums ${totals.lifetimeCashCents === 0 ? "text-muted" : "text-ink"}">${money(totals.lifetimeCashCents)}</div>
-              <div class="text-[10.5px] text-muted">${totals.lifetimeInKindCents > 0 ? money(totals.lifetimeInKindCents) + " in kind" : "lifetime"}</div>
-            </div>
+          esc(donor.name),
+          `${totals.giftCount} ${totals.giftCount === 1 ? "gift" : "gifts"} &middot; ${esc(donor.donor_type.replace(/_/g, " "))}`,
+          `<div class="flex-shrink-0 text-right">
+            <div class="text-[13px] font-extrabold tabular-nums ${totals.lifetimeCashCents === 0 ? "text-muted" : "text-ink"}">${money(totals.lifetimeCashCents)}</div>
+            ${totals.lifetimeInKindCents > 0 ? `<div class="text-[10.5px] text-muted">${money(totals.lifetimeInKindCents)} in kind</div>` : ""}
           </div>`,
+          `go('donor',{id:'${donor.id}'})`,
         ),
       )
       .join("")}</div>
@@ -1161,19 +1648,17 @@ SCREENS.giftNew = () => {
   return `
     ${backLink("Fundraising")}
     <h1 class="mb-1 text-[20px] font-extrabold text-ink">Record a gift</h1>
-    <p class="mb-5 text-[12.5px] leading-tight text-muted">Money that has actually arrived. A promise goes in as a pledge instead.</p>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">Money that has actually arrived</div>
 
     ${field("Amount", `<input id="g_amount" inputmode="decimal" placeholder="$0.00" class="${INPUT} text-[18px] font-bold tabular-nums" />`)}
     ${field(
       "Donor",
       `<select id="g_donor" class="${INPUT}"><option value="">Anonymous</option>${donors.map((d) => `<option value="${d.id}">${esc(d.name)}</option>`).join("")}</select>`,
-      "Anonymous still counts in the total and not in the supporter count.",
     )}
     ${field("Received", `<input id="g_date" type="date" value="${TODAY}" class="${INPUT} tabular-nums" />`)}
     ${field(
       "How",
       `<select id="g_method" class="${INPUT}">${["check", "stripe", "cash", "in_kind", "other"].map((m) => `<option value="${m}">${m === "in_kind" ? "In kind" : m[0].toUpperCase() + m.slice(1)}</option>`).join("")}</select>`,
-      "In kind is counted as support, never as cash.",
     )}
     ${field(
       "Category",
@@ -1190,14 +1675,12 @@ SCREENS.giftNew = () => {
             `<select id="g_solicited" class="${INPUT}"><option value="">Nobody in particular</option>${members
               .map((m) => `<option value="${m.id}">${esc(m.name)}</option>`)
               .join("")}</select>`,
-            "Credits this toward their give/get. If they are also the donor, it still counts once.",
           )
         : ""
     }
 
     <div id="gift-error" class="mb-3"></div>
     ${button("Record it", "saveGift()")}
-    <p class="mt-3 text-[11px] leading-relaxed text-muted">The totals on the previous screen recalculate through the real rollup. Try an in-kind gift and watch it stay out of the cash figure.</p>
   `;
 };
 
@@ -1213,15 +1696,17 @@ SCREENS.governance = () => {
   const pct = totals.committed > 0 ? Math.round((totals.raised / totals.committed) * 100) : null;
 
   return `
-    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Board</h1>
-    <p class="mb-5 text-[12.5px] leading-tight text-muted">${FISCAL_YEAR}. Each tier carries a give/get commitment, and progress is cash in the door, given or brought in.</p>
-
-    <div class="mb-3 grid grid-cols-2 gap-2">
-      ${tile("Committed", money(totals.committed), `across ${totals.seats} active seats`)}
-      ${tile("Delivered", money(totals.raised), `${pct == null ? "no commitments" : pct + "%"} · ${totals.meeting} of ${totals.seats} met`)}
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">Board</h1>
+      <span class="text-[12px] font-bold text-muted">${FISCAL_YEAR}</span>
     </div>
 
-    ${rail("contact", `<div class="text-[12.5px] leading-tight text-ink">Give/get counts both halves. A member meets their number by giving it or by bringing it in, and a gift is never counted twice when they did both.</div>`)}
+    ${statRow([
+      { label: "Committed", value: money(totals.committed), go: "go('members')" },
+      { label: "Delivered", value: money(totals.raised), go: "go('members')" },
+      { label: "Seats met", value: `${totals.meeting}/${totals.seats}`, go: "go('members')" },
+      { label: "Percent", value: pct == null ? "None" : pct + "%", go: "go('members')" },
+    ])}
 
     <div class="mb-2 mt-5">${header("Boards", boards.length, "committed")}</div>
     <div class="flex flex-col gap-2">${boards
@@ -1257,7 +1742,7 @@ SCREENS.boardDetail = () => {
   return `
     ${backLink("Board")}
     <h1 class="mb-1 text-[20px] font-extrabold text-ink">${esc(b.name)}</h1>
-    <p class="mb-5 text-[12.5px] leading-tight text-muted">${money(b.giveGetCents)} give/get per seat. ${esc(E.BOARD_KIND_PURPOSE[b.kind])}</p>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">${money(b.giveGetCents)} give/get per seat</div>
 
     <div class="mb-4">${rail(
       role,
@@ -1286,19 +1771,48 @@ SCREENS.boardDetail = () => {
             </div>
             ${
               m.status === "active"
-                ? `<div class="mt-1.5 text-[11.5px] text-muted">${money(p.givenCents)} given &middot; ${money(p.raisedCents)} brought in${
-                    m.donorId == null ? " · no donor record linked" : ""
-                  }</div>
-                   ${p.pledgedCents > 0 ? `<div class="mt-0.5 text-[11.5px] leading-tight text-muted">${E.formatMoney(p.pledgedCents)} pledged, not yet received.</div>` : ""}
+                ? `<div class="mt-1.5 text-[11.5px] text-muted">${money(p.givenCents)} given &middot; ${money(p.raisedCents)} brought in</div>
                    ${bar(p.percent || 0, mRole)}`
                 : ""
             }
           </div>`,
+          `go('member',{id:'${m.id}'})`,
         );
       })
       .join("")}</div>
+  `;
+};
 
-    <div class="mt-4">${rail("contact", `<div class="text-[12.5px] leading-tight text-ink">Only an active seat counts toward the board's total. A prospect has not joined and an emeritus member is not on the hook, so counting either would make the board look further behind than it is.</div>`)}</div>
+// Every seat on every board in one list, which is what the give/get
+// numbers on the overview are actually made of.
+SCREENS.members = () => {
+  const members = byOrg(db.boardMembers);
+  const rank = { active: 0, prospect: 1, emeritus: 2, resigned: 3 };
+  const ordered = [...members].sort((a, b) => rank[a.status] - rank[b.status] || a.name.localeCompare(b.name));
+
+  return `
+    ${backLink("Board")}
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">Every seat</h1>
+      <span class="text-[12px] font-bold text-muted">${ordered.length}</span>
+    </div>
+
+    <div class="flex flex-col gap-2">${ordered
+      .map((m) => {
+        const p = giveGetFor(m.id);
+        const b = byOrg(db.boards).find((x) => x.id === m.boardId);
+        const mRole = m.status === "active" ? pctRole(p.percent) : "target";
+        return row(
+          mRole,
+          esc(m.name),
+          `${esc(b.name)}${m.roleTitle ? " &middot; " + esc(m.roleTitle) : ""}`,
+          m.status === "active"
+            ? `<span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">${p.percent == null ? "no target" : p.percent + "%"}</span>`
+            : chip(m.status, "low"),
+          `go('member',{id:'${m.id}'})`,
+        );
+      })
+      .join("")}</div>
   `;
 };
 
@@ -1327,6 +1841,7 @@ SCREENS.bugs = () => {
                     <div class="mt-1 text-[11.5px] leading-tight text-muted">${esc(b.screen)}${
                       b.params && b.params !== "{}" ? " " + esc(b.params) : ""
                     } &middot; ${esc(b.org)} &middot; ${esc(new Date(b.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}</div>
+                    ${b.fixed ? `<div class="mt-1.5">${chip("fixed: " + b.fixed, "committed")}</div>` : ""}
                     ${b.localOnly ? `<div class="mt-1.5">${chip("this device only", "target")}</div>` : ""}
                   </div>
                   <button onclick="deleteBug('${b.id}')" class="flex-shrink-0 text-[11.5px] font-bold text-muted">Remove</button>
@@ -1389,7 +1904,8 @@ function saveScale(name) {
   }
 
   const existing = db.gradingScales.find((s) => s.school_name === name);
-  const row = {
+  // Named entry, not row: row() is the shared list-row renderer now.
+  const entry = {
     school_name: name,
     bands,
     reports_weighted_grades: document.getElementById("weighted").checked,
@@ -1398,8 +1914,8 @@ function saveScale(name) {
     origin: "org",
     source_note: note,
   };
-  if (existing) Object.assign(existing, row);
-  else db.gradingScales.push(row);
+  if (existing) Object.assign(existing, entry);
+  else db.gradingScales.push(entry);
 
   back();
   toast("Saved. Every athlete at " + name + " recalculated.");
@@ -1434,6 +1950,19 @@ function saveGift() {
       ? `${E.formatMoney(cents)} recorded as in-kind support, not cash.`
       : `${E.formatMoney(cents)} recorded. Totals recalculated.`,
   );
+}
+
+// Attaching a pending document to the athlete it belongs to. The
+// candidate list used to render a match percentage and do nothing.
+function matchDocument(docId, athleteId) {
+  const d = byOrg(db.documents).find((x) => x.id === docId);
+  if (!d) return;
+  d.athleteId = athleteId;
+  d.status = "applied";
+  d.route = "manual_apply";
+  delete d.candidates;
+  render();
+  toast("Attached to " + athlete(athleteId).name + ".");
 }
 
 function showError(id, message) {
@@ -1483,15 +2012,24 @@ function bugLayer() {
     </div>`;
 }
 
+// Which tab lights up on a screen that is not itself a tab. Listed by
+// tab rather than by screen, so adding a screen means adding it to one
+// list instead of remembering a fallthrough.
+const TAB_OF = {
+  athletes: ["athlete", "eligibility", "courses"],
+  board: ["target", "dimension", "school", "comms"],
+  more: [
+    "fundraising", "donors", "donor", "gifts", "pledges", "grants", "campaign", "giftNew",
+    "governance", "boardDetail", "member", "members",
+    "documents", "document", "scales", "scaleEdit", "schools", "bugs",
+  ],
+};
+
 function render() {
   const body = SCREENS[state.screen] ? SCREENS[state.screen]() : `<div class="p-8 text-center text-muted">Not built in this prototype.</div>`;
   const activeTab = ["today", "athletes", "board", "more"].includes(state.screen)
     ? state.screen
-    : ["fundraising", "donors", "giftNew", "governance", "boardDetail", "documents", "document", "scales", "scaleEdit", "bugs"].includes(state.screen)
-      ? "more"
-      : ["athlete", "eligibility"].includes(state.screen)
-        ? "athletes"
-        : "board";
+    : Object.keys(TAB_OF).find((k) => TAB_OF[k].includes(state.screen)) || "today";
 
   document.getElementById("screen").innerHTML = `<main class="px-4 pt-3 pb-24">${body}</main>`;
 
@@ -1503,7 +2041,9 @@ function render() {
   ).join("");
 
   document.getElementById("buglayer").innerHTML = bugLayer();
-  document.getElementById("orgbadge").textContent = org().shortName;
+  document.getElementById("orgbadge").innerHTML = `<span class="text-[10.5px] font-extrabold uppercase tracking-[0.04em] text-muted">${esc(org().shortName)}</span>
+    <button onclick="toggleTheme()" aria-label="Switch theme" id="themebtn"
+      class="ml-2 rounded-full bg-paper px-2.5 py-1 text-[11px] font-bold text-ink">${state.theme === "dark" ? "Dark" : "Light"}</button>`;
   document.getElementById("toast").innerHTML = state.toast
     ? `<div class="mx-auto mb-2 w-fit max-w-[340px] rounded-full bg-ink px-4 py-2 text-center text-[12px] font-bold text-paper">${esc(state.toast)}</div>`
     : "";
@@ -1520,7 +2060,9 @@ window.tab = tab;
 window.switchOrg = switchOrg;
 window.setStatus = setStatus;
 window.saveScale = saveScale;
+window.toggleTheme = toggleTheme;
+window.matchDocument = matchDocument;
 window.saveGift = saveGift;
 
-render();
+setTheme(state.theme);
 initBugs();

@@ -275,10 +275,10 @@ const DATA = {
 
   documents: [
     { id: "doc-1", orgId: "org-bridge", fileName: "ellery-transcript-2025.pdf", category: "transcript", sourceRole: "coordinator", status: "applied", route: "auto_apply", athleteId: "ath-1", confidence: 0.91, createdAt: "2026-09-08" },
-    { id: "doc-2", orgId: "org-bridge", fileName: "IMG_4471.jpeg", category: "transcript", sourceRole: "parent", status: "pending", route: "review", athleteId: null, confidence: 0.63, createdAt: "2026-09-14", candidates: [{ name: "Andre Whitlock", score: 0.74 }, { name: "Marcus Ellery", score: 0.31 }] },
+    { id: "doc-2", orgId: "org-bridge", fileName: "IMG_4471.jpeg", category: "transcript", sourceRole: "parent", status: "pending", route: "review", athleteId: null, confidence: 0.63, createdAt: "2026-09-14", candidates: [{ athleteId: "ath-2", name: "Andre Whitlock", score: 0.74 }, { athleteId: "ath-1", name: "Marcus Ellery", score: 0.31 }] },
     { id: "doc-3", orgId: "org-bridge", fileName: "corville-offer.pdf", category: "offer_letter", sourceRole: "email", status: "applied", route: "auto_apply", athleteId: "ath-3", confidence: 0.88, createdAt: "2026-09-14" },
     { id: "doc-4", orgId: "org-bridge", fileName: "scan0032.pdf", category: null, sourceRole: "parent", status: "failed", route: "reject", athleteId: null, confidence: 0.22, createdAt: "2026-09-15", failureReason: "The scan was too dark to read. Ask for a photo taken in daylight." },
-    { id: "doc-5", orgId: "org-elite", fileName: "petrakis-transcript.pdf", category: "transcript", sourceRole: "coordinator", status: "pending", route: "review", athleteId: null, confidence: 0.71, createdAt: "2026-09-13", candidates: [{ name: "Jonah Petrakis", score: 0.82 }] },
+    { id: "doc-5", orgId: "org-elite", fileName: "petrakis-transcript.pdf", category: "transcript", sourceRole: "coordinator", status: "pending", route: "review", athleteId: null, confidence: 0.71, createdAt: "2026-09-13", candidates: [{ athleteId: "ath-5", name: "Jonah Petrakis", score: 0.82 }] },
   ],
 
   donors: [
@@ -342,5 +342,28 @@ const DATA = {
     { id: "bm-6", orgId: "org-bridge", boardId: "bd-3", name: "Jules Anfield", donorId: null, roleTitle: "Recruiting Lead", status: "prospect", termStart: null, termEnd: null, commitmentCents: 500000 },
     { id: "bm-7", orgId: "org-bridge", boardId: "bd-2", name: "Marisol Vega", donorId: "dn-5", roleTitle: null, status: "active", termStart: "2026-01-01", termEnd: null, commitmentCents: 500000 },
     { id: "bm-8", orgId: "org-bridge", boardId: "bd-4", name: "Tam Oyelaran", donorId: null, roleTitle: null, status: "active", termStart: "2026-01-01", termEnd: null, commitmentCents: 100000 },
+  ],
+
+  // The contact log behind each target's message count. Every coach and
+  // every line of it is invented.
+  communications: [
+    { id: "cm1", targetId: "tg-1", kind: "email", direction: "in", at: "2026-09-10", summary: "Wants updated velo before the October visit" },
+    { id: "cm2", targetId: "tg-1", kind: "call", direction: "out", at: "2026-09-02", summary: "Walked through the 35 percent athletic offer" },
+    { id: "cm3", targetId: "tg-1", kind: "visit", direction: "out", at: "2026-08-19", summary: "Unofficial visit, met the pitching staff" },
+    { id: "cm4", targetId: "tg-1", kind: "email", direction: "out", at: "2026-07-30", summary: "Sent summer showcase schedule" },
+    { id: "cm5", targetId: "tg-1", kind: "email", direction: "in", at: "2026-06-11", summary: "Asked for a transcript through junior year" },
+    { id: "cm6", targetId: "tg-1", kind: "camp", direction: "out", at: "2026-05-24", summary: "Attended the prospect camp on campus" },
+    { id: "cm7", targetId: "tg-2", kind: "email", direction: "out", at: "2026-08-02", summary: "Introduction and highlight link" },
+    { id: "cm8", targetId: "tg-2", kind: "email", direction: "in", at: "2026-08-09", summary: "Acknowledged, no roster need until next cycle" },
+    { id: "cm9", targetId: "tg-3", kind: "visit", direction: "out", at: "2026-09-12", summary: "Official visit scheduled for the 27th" },
+    { id: "cm10", targetId: "tg-3", kind: "call", direction: "in", at: "2026-09-04", summary: "Coach asked about the second AP science course" },
+    { id: "cm11", targetId: "tg-3", kind: "email", direction: "out", at: "2026-08-15", summary: "Sent fall schedule and academic update" },
+    { id: "cm12", targetId: "tg-3", kind: "text", direction: "in", at: "2026-07-28", summary: "Quick check in after the summer tournament" },
+    { id: "cm13", targetId: "tg-5", kind: "call", direction: "out", at: "2026-09-14", summary: "Verbal commitment confirmed" },
+    { id: "cm14", targetId: "tg-5", kind: "email", direction: "in", at: "2026-09-08", summary: "Academic award letter attached" },
+    { id: "cm15", targetId: "tg-5", kind: "visit", direction: "out", at: "2026-08-22", summary: "Second visit with family" },
+    { id: "cm16", targetId: "tg-6", kind: "email", direction: "out", at: "2026-07-21", summary: "Sent transfer portal timeline questions" },
+    { id: "cm17", targetId: "tg-7", kind: "call", direction: "in", at: "2026-09-11", summary: "Offer extended, decision by November" },
+    { id: "cm18", targetId: "tg-8", kind: "email", direction: "out", at: "2026-05-30", summary: "First contact, no reply yet" },
   ],
 };

@@ -53,9 +53,11 @@ HTML = f"""<title>Recruiting Platform Prototype</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
 {CSS}
+/* The page frame follows the same [data-theme] the app's own tokens key
+   off in globals.css, and nothing else. It used to follow the browser's
+   preference separately, which put a dark frame around a light app on a
+   dark phone. One switch, both layers. */
 :root {{ --page-bg:#e8e8ec; --page-fg:#1c1c1e; --page-muted:#6e6e73; --page-line:#d8d8dc; }}
-@media (prefers-color-scheme: dark) {{ :root:not([data-theme="light"]) {{
-  --page-bg:#08080a; --page-fg:#f2f2f4; --page-muted:#9a9aa2; --page-line:#2a2a2e; }} }}
 :root[data-theme="dark"] {{ --page-bg:#08080a; --page-fg:#f2f2f4; --page-muted:#9a9aa2; --page-line:#2a2a2e; }}
 
 * {{ -webkit-tap-highlight-color: transparent; }}
@@ -74,8 +76,11 @@ body {{ background:var(--page-bg); color:var(--page-fg);
   justify-content:space-between; gap:10px; padding:10px 16px;
   background:var(--bg); border-bottom:1px solid var(--line); }}
 .topbar .name {{ font-size:13px; font-weight:800; color:var(--ink); }}
-.topbar .badge {{ font-size:10.5px; font-weight:800; text-transform:uppercase;
-  letter-spacing:.04em; color:var(--muted); }}
+.topbar .badge {{ display:flex; align-items:center; }}
+/* font-family only, never the font shorthand: the shorthand resets
+   font-size too, and this selector outranks the utility class that was
+   setting it, which rendered the toggle at body size. */
+.topbar .badge button {{ border:0; cursor:pointer; font-family:inherit; }}
 
 #tabbar {{ position:fixed; bottom:0; left:50%; transform:translateX(-50%);
   width:100%; max-width:430px; display:flex; z-index:30;
@@ -84,7 +89,7 @@ body {{ background:var(--page-bg); color:var(--page-fg);
 @media (min-width:520px) {{
   #tabbar {{ position:absolute; bottom:0; left:0; transform:none; }}
 }}
-#tabbar button {{ border:0; background:none; cursor:pointer; font:inherit; }}
+#tabbar button {{ border:0; background:none; cursor:pointer; font-family:inherit; }}
 
 #toast {{ position:fixed; bottom:110px; left:0; right:0; z-index:60; pointer-events:none; }}
 @media (min-width:520px) {{ #toast {{ position:absolute; }} }}
@@ -94,7 +99,7 @@ body {{ background:var(--page-bg); color:var(--page-fg);
    means navigating away first. */
 .flagwrap {{ position:fixed; bottom:60px; right:16px; z-index:35; }}
 @media (min-width:520px) {{ .flagwrap {{ position:absolute; }} }}
-.flagwrap button {{ border:0; cursor:pointer; font:inherit; }}
+.flagwrap button {{ border:0; cursor:pointer; font-family:inherit; }}
 
 .sheetbackdrop {{ position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.35); }}
 .sheet {{ position:fixed; bottom:0; left:50%; transform:translateX(-50%);
@@ -126,15 +131,8 @@ select {{ appearance:none; }}
 </div>
 
 <p class="hintbar">
-  Prototype on invented data. Every number is computed by the app's real shipped code, so it
-  responds the way the app does. Things worth trying: change a target's stage and watch the fit
-  score move, edit the Cardinal Ridge grading scale and watch a core GPA move with it, record an
-  in-kind gift and watch it stay out of the cash total, and switch to Elite Squad under More to
-  see the fundraising and board sections disappear.
-  <br><br>
-  Spot something wrong? Tap <b>Flag a bug</b> on any screen. It records which screen you were on
-  and what was showing, so all you have to write is what looked wrong. Everything flagged is listed
-  under More.
+  Invented data, real engines. <b>Light</b> in the top right switches to dark and back.
+  Tap <b>Flag a bug</b> on any screen to send me one; it records where you were.
 </p>
 
 <script>
