@@ -42,4 +42,14 @@ python3 scripts/build_testbench.py
 echo "==> Checking the bench's own assertions actually pass in a browser"
 node scripts/verify_testbench.mjs
 
+echo "==> Bundling the real modules for the click-through prototype"
+npx esbuild scripts/prototype_entry.ts --bundle --format=iife --target=es2020 --minify \
+  --outfile=/tmp/prototype.min.js 2>&1 | tail -1
+
+echo "==> Click-through prototype"
+python3 scripts/build_prototype.py
+
+echo "==> Tapping through the prototype in a real browser"
+node scripts/verify_prototype.mjs
+
 echo "==> Done. Publish the HTML files above as artifacts."

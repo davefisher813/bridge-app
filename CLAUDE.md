@@ -30,6 +30,8 @@ Two different things, and both are required:
 - **Previews** (`scripts/build_preview.py`, `build_docai_preview.py`) show what a screen looks like. They use the app's own compiled Tailwind output and parse the colour maps out of `src/components/statusHue.ts` rather than keeping copies. A wrong class renders as nothing rather than quietly looking fine. Copies drifted three times in one sitting before the parsing was added; do not reintroduce them.
 - **The test bench** (`scripts/build_testbench.py` + `testbench_entry.ts`) is not a mockup. It bundles the SHIPPED `src/lib/fit/` and `src/lib/docai/` with esbuild and runs them in the page, so Dave can change an input and watch the real code respond, and the check list is the repo's own laws executing in his browser. This only works because both modules are walled off from Next/Supabase/DOM - that is the practical payoff of the rule, so do not weaken it for convenience.
 
+- **The click-through prototype** (`scripts/build_prototype.py` + `prototype_entry.ts`, `prototype_data.js`, `prototype_app.js`) is the whole app, tappable, on invented data. It bundles the same shipped modules the bench does, so every number in it is computed rather than written into the mock data: change a grading scale and a core GPA moves, record an in-kind gift and it stays out of the cash total. `scripts/verify_prototype.mjs` taps through every screen in headless Chromium and fails the build if anything throws or a number does not move when it should. Mock data is invented, always: no real athlete, donor or board member goes in a prototype.
+
 Anything new that is pure logic belongs in the bench too, with real assertions, not a screenshot of it working.
 
 ## Standing autonomy: keep building without per-step check-ins
