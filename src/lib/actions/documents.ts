@@ -456,6 +456,9 @@ interface ExtractedCourse {
   grade: string;
   weighted?: boolean;
   term?: string | null;
+  // Null or absent on an ordinary single-school transcript, where the
+  // header school covers every row.
+  school?: string | null;
 }
 
 // Replaces this document's own course rows, rather than appending to
@@ -478,7 +481,10 @@ async function replaceCoursesFromDocument(
   if (!Array.isArray(raw) || raw.length === 0) return { warnings, superseded: 0 };
   const supabase = await createClient();
 
-  const school = typeof extracted.school === "string" ? extracted.school.trim().slice(0, 200) : null;
+  // The school printed in the transcript header. Used for any course
+  // row that does not name its own, which is every row on the ordinary
+  // single-school transcript.
+  const headerSchool = typeof extracted.school === "string" ? extracted.school.trim().slice(0, 200) : null;
   // Every value is clamped to what its column can hold. credit is
   // numeric(4,2), so anything at or above 100 raised a numeric overflow
   // that rejected the WHOLE batch after the delete had already
@@ -500,7 +506,13 @@ async function replaceCoursesFromDocument(
       credit: Number.isFinite(c.credit) ? Math.max(0, Math.min(99.99, Number(c.credit))) : 0,
       grade: String(c.grade ?? "").slice(0, 20),
       term: c.term ? String(c.term).slice(0, 40) : null,
-      school_name: school,
+      // Per course, falling back to the header. A transfer student's
+      // transcript covers two schools that convert numeric grades
+      // differently, so one school's 85 is a B and another's is a C.
+      // Until the extraction schema carried this, every row took the
+      // header school and half a transfer transcript converted through
+      // the wrong table.
+      school_name: (typeof c.school === "string" && c.school.trim() !== "" ? c.school.trim().slice(0, 200) : null) ?? headerSchool,
       weighted: c.weighted === true,
       // Deliberately left null: nobody has checked this course against
       // the school's NCAA-approved list, and the engine reports unchecked
@@ -512,42 +524,36 @@ async function replaceCoursesFromDocument(
   if (dropped > 0) warnings.push(`${dropped} course row(s) were unusable and left out.`);
   if (!rows.length) return { warnings, superseded: 0 };
 
+  // Supersede per SCHOOL, once per distinct school in this batch. A
+  // single delete against the header school was wrong the moment a
+  // transcript could name two: the second school's existing rows
+  // survived alongside the new ones and every credit at that school
+  // doubled.
+  const schools = [...new Set(rows.map((r) => r.school_name))];
+
   // Counted before the delete, so an undo can say honestly that these
   // rows are gone and are not coming back. Discarding this document
   // removes what it wrote; it cannot resurrect what it replaced.
-  const { count: supersededCount } = school
-    ? await supabase
-        .from("athlete_courses")
-        .select("id", { count: "exact", head: true })
-        .eq("athlete_id", athleteId)
-        .eq("org_id", orgId)
-        .eq("school_name", school)
-    : await supabase
-        .from("athlete_courses")
-        .select("id", { count: "exact", head: true })
-        .eq("athlete_id", athleteId)
-        .eq("org_id", orgId)
-        .is("school_name", null);
-  const superseded = supersededCount ?? 0;
+  let superseded = 0;
+  for (const name of schools) {
+    const base = supabase
+      .from("athlete_courses")
+      .select("id", { count: "exact", head: true })
+      .eq("athlete_id", athleteId)
+      .eq("org_id", orgId);
+    const { count } = await (name ? base.eq("school_name", name) : base.is("school_name", null));
+    superseded += count ?? 0;
+  }
 
-  // Supersede by SCHOOL, not by document.
-  //
-  // Keying on document_id looked right and was not: re-uploading a
-  // corrected scan always creates a new documents row, so the old rows
-  // survived and the athlete ended up with 32 credits where 16 exist.
-  // The headline GPA hid it, because the best-16 selection caps the
-  // count, but every per-subject credit total on screen doubled.
-  //
-  // School is the honest key. A second transcript from the same school
-  // is a correction and replaces; a transcript from a different school
-  // is a transfer student's other half and is added. Rows with no school
-  // recorded are replaced only by another school-less upload.
-  const { error: deleteError } = school
-    ? await supabase.from("athlete_courses").delete().eq("athlete_id", athleteId).eq("org_id", orgId).eq("school_name", school)
-    : await supabase.from("athlete_courses").delete().eq("athlete_id", athleteId).eq("org_id", orgId).is("school_name", null);
-  if (deleteError) {
-    warnings.push(`Could not clear the previous courses for this school, so they were left as they were: ${deleteError.message}`);
-    return { warnings, superseded: 0 };
+  for (const name of schools) {
+    const base = supabase.from("athlete_courses").delete().eq("athlete_id", athleteId).eq("org_id", orgId);
+    const { error: deleteError } = await (name ? base.eq("school_name", name) : base.is("school_name", null));
+    if (deleteError) {
+      warnings.push(
+        `Could not clear the previous courses for ${name ?? "this athlete"}, so they were left as they were: ${deleteError.message}`,
+      );
+      return { warnings, superseded: 0 };
+    }
   }
 
   const { error } = await supabase.from("athlete_courses").insert(rows);

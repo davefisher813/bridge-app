@@ -70,6 +70,22 @@ export const transcriptSchema = z.object({
         grade: z.string(),
         weighted: z.boolean().optional().default(false),
         term: z.string().nullable().optional(),
+        // The school this course was taken at, when the transcript says
+        // so per row rather than only in the header.
+        //
+        // A transfer student's transcript legitimately covers two
+        // schools, and two schools convert numeric grades differently:
+        // one school's 85 is a B and another's is a C. The storage
+        // (athlete_courses.school_name) and the adapter have supported
+        // that since the core-GPA work, but the extractor could not
+        // express it, so every course from one document took that
+        // document's single header school and half a transfer student's
+        // transcript converted against the wrong table.
+        //
+        // Null, not absent, when the row does not say: the caller falls
+        // back to the document's header school, which is right for the
+        // ordinary single-school transcript.
+        school: z.string().nullable().optional(),
       })
     )
     .optional()

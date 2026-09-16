@@ -50,7 +50,8 @@ const REGISTRY: Record<DocCategoryId, DocCategory> = {
       '      "credit": number,\n' +
       '      "grade": "letter or numeric grade exactly as printed",\n' +
       '      "weighted": true only if the title says honors, AP, IB or advanced,\n' +
-      '      "term": "school year or term as printed, or null"\n' +
+      '      "term": "school year or term as printed, or null",\n' +
+      '      "school": "the school this course was taken at, or null if the row does not say"\n' +
       '    }\n' +
       '  ],\n' +
       '  "confidence": number 0-1,\n' +
@@ -64,7 +65,8 @@ const REGISTRY: Record<DocCategoryId, DocCategory> = {
       "- Copy `grade` and `credit` exactly as printed. Keep pluses and minuses. Keep a numeric grade numeric. If a course has no grade (in progress, withdrawn, pass/fail, credit only) put the printed marker and leave it at that.\n" +
       "- If the same course title appears in two terms, list it twice. Do not merge them and do not decide whether it is a repeat or a year-long course split across terms.\n" +
       "- Set `weighted` from the course TITLE only. Do not infer it from the grade or the school's scale.\n" +
-      "- If the transcript covers more than one school, still list every course, and say so in `warnings`.\n" +
+      "- If the transcript covers more than one school, still list every course, and set `school` on every row to the school that course was taken at. This matters: two schools convert numeric grades differently, so one school's 85 is a B and another's is a C, and getting it wrong changes the eligibility answer. Say so in `warnings` as well.\n" +
+      "- If every course is from one school, leave `school` null on every row. Do not repeat the header school on each line.\n" +
       "- If the courses are not legible, return an empty array and say so in `warnings`. Never invent a course list.\n\n" +
       "Rules for `gradingScale`:\n" +
       "- Only fill this in if the transcript itself prints the school's numeric-to-letter conversion table. Copy it exactly.\n" +

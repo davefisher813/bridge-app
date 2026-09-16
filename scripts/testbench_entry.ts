@@ -24,6 +24,7 @@ import { calculateCoreGpa, gradePoints, MAX_WEIGHT_BONUS, type CoreCourse } from
 import { DIVISION_STANDARDS, evaluateInitialEligibility } from "../src/lib/fit/ncaa/initialEligibility";
 import { evaluateAgeClock } from "../src/lib/fit/ncaa/ageClock";
 import { gradingScaleProblem, resolveScale, TEN_POINT_STARTING_POINT } from "../src/lib/fit/ncaa/gradingScale";
+import { letterFromScale } from "../src/lib/fit/ncaa/fromTranscript";
 import { checkIngestedRecord } from "../src/lib/docai/acceptance";
 import { MAX_INGEST_BYTES } from "../src/lib/docai/limits";
 
@@ -384,6 +385,30 @@ function runSuite(): Check[] {
       header: new Uint8Array([0x50, 0x4b, 0x03, 0x04]),
     });
     return r.ok ? "accepted a zip archive named transcript.pdf" : null;
+  });
+
+  check("Grading scales", "an 85 is a different grade at two different schools", () => {
+    // The transfer-student case, which is why a course carries its own
+    // school rather than taking the transcript header's. Converting both
+    // halves against one table is wrong and completely invisible: the
+    // GPA looks ordinary either way.
+    const strict = [
+      { letter: "A", min: 93, max: 100 },
+      { letter: "B", min: 86, max: 92 },
+      { letter: "C", min: 78, max: 85 },
+      { letter: "F", min: 0, max: 77 },
+    ];
+    const lenient = [
+      { letter: "A", min: 90, max: 100 },
+      { letter: "B", min: 80, max: 89 },
+      { letter: "C", min: 70, max: 79 },
+      { letter: "F", min: 0, max: 69 },
+    ];
+    const atStrict = letterFromScale(85, strict);
+    const atLenient = letterFromScale(85, lenient);
+    if (atStrict === atLenient) return `both schools called an 85 a ${atStrict}`;
+    if (atStrict !== "C" || atLenient !== "B") return `got ${atStrict} and ${atLenient}, expected C and B`;
+    return null;
   });
 
   check("Uploads", "HEIC is refused rather than stored unreadable", () => {

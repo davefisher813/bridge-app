@@ -1000,3 +1000,33 @@ A document applied before this existed has no record to work from. Its
 course rows are still removed, because they carry `document_id` and are
 found by query, but the undo says plainly that any GPA or date of birth
 it wrote is still there.
+
+---
+
+## 2026-09-16 - A course carries its own school
+
+**Decision:** `courses[].school` added to the transcript extraction
+schema and prompt, null when the row does not say. The write resolves
+per course, falling back to the transcript header, and supersedes once
+per distinct school in the batch.
+
+**Reason:** `athlete_courses.school_name` and `buildEligibilityView` had
+supported two schools since the core-GPA work, but the extractor could
+not express it, so every course from one document took that document's
+single header school. A transfer student's transcript legitimately
+covers two schools that convert numeric grades differently: an 85 is a C
+at one and a B at the other. Half the transcript converted through the
+wrong table, and the error is invisible, because the resulting GPA looks
+perfectly ordinary either way.
+
+**Consequences:** A second bug was sitting behind the first. The course
+write deleted existing rows for the header school only, so as soon as a
+document could name two, the second school's existing rows would have
+survived alongside the new ones and every credit at that school would
+have doubled. That delete now runs once per distinct school in the
+batch, which also feeds the undo's superseded count correctly.
+
+The stub caller produces a transfer transcript above a seed threshold,
+so the path is reachable without an API key, the same way the three
+eligibility outcomes already were. Not on every seed, or every stubbed
+athlete would look like a transfer student.

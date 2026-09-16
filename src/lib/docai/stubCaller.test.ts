@@ -77,3 +77,40 @@ describe("the stub caller drives the real pipeline", () => {
     expect(comparisons).toBeGreaterThan(0);
   });
 });
+
+describe("the stub can produce a transfer transcript", () => {
+  // Two schools on one transcript is the case per-course school exists
+  // for, and it needs to be reachable without an API key the same way
+  // the three eligibility outcomes are.
+  it("some seeds produce courses from a second school, tagged per row", async () => {
+    const seeds = Array.from({ length: 30 }, (_, i) => `transfer-${i}.pdf`);
+    let withSecondSchool = 0;
+
+    for (const seedText of seeds) {
+      const call = createStubCaller({ category: "transcript", seedText });
+      const raw = await call({
+        model: "stub",
+        maxTokens: 1000,
+        system: "",
+        userText: "",
+        records: [],
+        requestId: `${seedText}_extract`,
+      });
+      const parsed = JSON.parse(raw) as { courses?: Array<{ school?: string | null }> };
+      const courses = parsed.courses ?? [];
+      if (courses.some((c) => typeof c.school === "string" && c.school.length > 0)) withSecondSchool += 1;
+
+      // Whatever the seed, a row either names its own school or leaves
+      // it null for the header to cover. An empty string would be
+      // neither and would create a third, nameless school.
+      for (const c of courses) {
+        if (c.school !== undefined && c.school !== null) expect(String(c.school).trim().length).toBeGreaterThan(0);
+      }
+    }
+
+    expect(withSecondSchool).toBeGreaterThan(0);
+    // And not every one, or every stubbed athlete would look like a
+    // transfer student.
+    expect(withSecondSchool).toBeLessThan(seeds.length);
+  });
+});

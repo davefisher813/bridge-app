@@ -46,7 +46,9 @@ type Band = "unreadable" | "marginal" | "clean";
 // A simulated course table. Grades slide with the seed so a "better"
 // file produces a better core GPA, which is what makes the eligibility
 // screen's three outcomes reachable from the bench without an API key.
-function buildStubCourses(seed: number): Array<{ title: string; subject: string; credit: number; grade: string; weighted: boolean; term: string }> {
+function buildStubCourses(
+  seed: number
+): Array<{ title: string; subject: string; credit: number; grade: string; weighted: boolean; term: string; school?: string | null }> {
   // seed 0 -> mostly C, seed 1 -> mostly A. The bands are chosen so the
   // middle of the range lands in the academic-redshirt window rather
   // than skipping straight from nonqualifier to qualifier.
@@ -75,12 +77,13 @@ function buildStubCourses(seed: number): Array<{ title: string; subject: string;
     ["Computer Science", "other_academic", 1, 0.15, false],
     ["Psychology", "other_academic", 0.5, 0.05, false],
   ];
-  const rows = core.map(([title, subject, credit, offset, weighted]) => ({
-    title,
-    subject,
-    credit,
-    grade: pick(offset),
-    weighted,
+  type StubCourse = { title: string; subject: string; credit: number; grade: string; weighted: boolean; term: string; school?: string | null };
+  const rows: StubCourse[] = core.map(([title, subject, credit, offset, weighted]) => ({
+    title: title as string,
+    subject: subject as string,
+    credit: credit as number,
+    grade: pick(offset as number),
+    weighted: weighted as boolean,
     term: "24-25",
   }));
 
@@ -99,6 +102,19 @@ function buildStubCourses(seed: number): Array<{ title: string; subject: string;
   // year-long course split across two terms look identical from here and
   // the engine asks a human rather than guessing.
   rows.push({ title: "Algebra 2", subject: "math", credit: 1, grade: pick(0.2), weighted: false, term: "25-26" });
+
+  // Above this seed the stub produces a TRANSFER transcript: two rows
+  // from a different school, tagged per row. Two schools convert numeric
+  // grades differently, so one school's 85 is a B and another's is a C,
+  // and the whole per-course school field exists for this case. Making
+  // it reachable from the stub is what lets the flow be exercised
+  // without an API key, the same way the three eligibility outcomes are.
+  if (seed > 0.7) {
+    rows.push(
+      { title: "English 9", subject: "english", credit: 1, grade: pick(0.1), weighted: false, term: "22-23", school: "Previous High School" },
+      { title: "Biology", subject: "science", credit: 1, grade: pick(0.15), weighted: false, term: "22-23", school: "Previous High School" }
+    );
+  }
 
   return rows;
 }

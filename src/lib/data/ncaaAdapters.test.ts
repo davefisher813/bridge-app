@@ -275,3 +275,87 @@ describe("parseBands", () => {
     expect(parseBands([{ letter: "B", min: 83, max: 86 }])).toHaveLength(1);
   });
 });
+
+describe("a transfer student's two schools convert through their own tables", () => {
+  // The case per-course school exists for. Both schools print an 85.
+  // One calls it a B, the other calls it a C. Converting the whole
+  // transcript against one table gets half of it wrong, and the error is
+  // invisible: the GPA looks perfectly ordinary either way.
+  const strict = scale({
+    school_name: "Strict Prep",
+    bands: [
+      { letter: "A", min: 93, max: 100 },
+      { letter: "B", min: 86, max: 92 },
+      { letter: "C", min: 78, max: 85 },
+      { letter: "F", min: 0, max: 77 },
+    ],
+  });
+  const lenient = scale({
+    school_name: "Lenient High",
+    bands: [
+      { letter: "A", min: 90, max: 100 },
+      { letter: "B", min: 80, max: 89 },
+      { letter: "C", min: 70, max: 79 },
+      { letter: "F", min: 0, max: 69 },
+    ],
+  });
+
+  it("scores the same number differently at each school", () => {
+    const view = buildEligibilityView({
+      courses: [
+        course({ id: "1", grade: "85", school_name: "Strict Prep", title: "English 11" }),
+        course({ id: "2", grade: "85", school_name: "Lenient High", subject: "math", title: "Algebra 2" }),
+      ],
+      scales: [strict, lenient],
+      division: "D1",
+      athlete,
+      today: TODAY,
+    });
+
+    const counted = view.eligibility.coreGpa!.counted;
+    const byTitle = (t: string) => counted.find((c) => c.course.title === t)!;
+    // 85 at Strict Prep is a C, worth two points.
+    expect(byTitle("English 11").qualityPoints).toBe(2);
+    // The same 85 at Lenient High is a B, worth three.
+    expect(byTitle("Algebra 2").qualityPoints).toBe(3);
+    expect(view.eligibility.coreGpa!.gpa).toBe(2.5);
+  });
+
+  it("is not what happens when both rows take one school", () => {
+    // The pre-fix behaviour, kept as a comparison so the difference is
+    // on the record rather than asserted in a comment.
+    const view = buildEligibilityView({
+      courses: [
+        course({ id: "1", grade: "85", school_name: "Lenient High", title: "English 11" }),
+        course({ id: "2", grade: "85", school_name: "Lenient High", subject: "math", title: "Algebra 2" }),
+      ],
+      scales: [strict, lenient],
+      division: "D1",
+      athlete,
+      today: TODAY,
+    });
+    expect(view.eligibility.coreGpa!.gpa).toBe(3);
+  });
+
+  it("falls back per school, so one missing table does not spoil the other", () => {
+    const view = buildEligibilityView({
+      courses: [
+        course({ id: "1", grade: "85", school_name: "Strict Prep", title: "English 11" }),
+        course({ id: "2", grade: "85", school_name: "Nowhere HS", subject: "math", title: "Algebra 2" }),
+      ],
+      scales: [strict],
+      division: "D1",
+      athlete,
+      today: TODAY,
+    });
+
+    // Strict Prep still converts through its own table.
+    const counted = view.eligibility.coreGpa!.counted;
+    expect(counted.find((c) => c.course.title === "English 11")!.qualityPoints).toBe(2);
+    // Only the school with nothing on file is flagged and attributed as
+    // an assumption.
+    expect(view.schoolsMissingScale).toEqual(["Nowhere HS"]);
+    expect(view.scalesUsed.filter((s) => s.origin === "assumed").map((s) => s.school)).toEqual(["Nowhere HS"]);
+    expect(view.scalesUsed.filter((s) => s.origin === "org").map((s) => s.school)).toEqual(["Strict Prep"]);
+  });
+});

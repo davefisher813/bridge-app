@@ -144,12 +144,13 @@ down because each needs a decision, not because they were missed.
 - ~~**The weighted-grade bonus is unreachable in practice.**~~ Fixed
   2026-09-16. The grading-scale entry form asks both NCAA conditions and
   the school's real bonus amount, and the adapter passes it through.
-- **Per-course school name.** Every course from one document gets that
-  document's single school, because the extraction schema has no
-  per-course school field. A transcript covering two schools therefore
-  converts entirely against one school's table. The transfer-student
-  design is in the storage and the adapter but cannot be expressed by
-  the extractor yet.
+- ~~**Per-course school name.**~~ Fixed 2026-09-16. `courses[].school`
+  is on the extraction schema and in the prompt, null when the row does
+  not say so the header school covers the ordinary single-school
+  transcript. The write now supersedes once per distinct school in the
+  batch rather than once against the header, which was a second bug
+  waiting behind the first: a two-school transcript would have left the
+  second school's existing rows in place and doubled its credits.
 - ~~**No server-side file validation.**~~ Fixed 2026-09-16.
   `src/lib/docai/acceptance.ts` re-checks size, format and the HEIC
   refusal from the bytes that actually arrived, before the document row
