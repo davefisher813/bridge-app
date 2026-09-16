@@ -22,6 +22,23 @@ function check(name, ok, detail = "") {
   results.push({ name, ok, detail });
 }
 
+// When a check breaks the app, the next tap usually cannot find what it
+// is looking for and Playwright throws a timeout thirty seconds later.
+// Left alone that hides every check already recorded and every check
+// after it. So the report prints either way, and the crash itself is
+// recorded as the failure it is.
+function report(err) {
+  if (err) check("the walkthrough ran to the end", false, String(err).split("\n")[0]);
+  const passed = results.filter((r) => r.ok).length;
+  for (const r of results) {
+    if (!r.ok) console.log(`FAIL  ${r.name}${r.detail ? "  (" + r.detail + ")" : ""}`);
+  }
+  console.log(`${passed}/${results.length} prototype checks pass`);
+  process.exit(passed === results.length ? 0 : 1);
+}
+process.on("unhandledRejection", report);
+process.on("uncaughtException", report);
+
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 
@@ -235,14 +252,65 @@ await tap("button:has-text('Today')");
 t = await text();
 check("Today hides the fundraising block for that org", !/raised this year/.test(t));
 
+// ── Flagging a bug ───────────────────────────────────────────────────
+// Under setContent there is no artifact host, so claude.use("db")
+// resolves null and this exercises the on-device fallback: the path
+// that has to work when the capability is absent, which is also the
+// path a published page falls back to if the store ever fails.
+check("the flag button is on screen", await page.locator("#flagbtn").isVisible());
+
+await tap("#flagbtn");
+check("the sheet opens", await page.locator("#bug_note").isVisible());
+// Read through a helper: when a check below breaks the sheet, the run
+// should report that check as a failure, not time out and take the
+// remaining checks down with it.
+const sheetText = async () => ((await page.locator(".sheet").count()) ? page.locator(".sheet").innerText() : "");
+const sheet = await sheetText();
+check("the sheet names the screen it will record", has(sheet, "today"), sheet.slice(0, 80));
+check("the sheet names the org it will record", has(sheet, "Elite"), sheet.slice(0, 80));
+
+// An empty note is refused rather than filed as a blank report.
+await tap("button:has-text('Flag it')");
+check("an empty report is refused", has(await sheetText(), "What went wrong"));
+check("the sheet stays open after a refusal", await page.locator("#bug_note").isVisible());
+
+await page.locator("#bug_note").fill("The roster count looks off on Today.");
+await tap("button:has-text('Flag it')");
+await page.waitForTimeout(80);
+check("the sheet closes once the report is filed", (await page.locator("#bug_note").count()) === 0);
+check("filing it confirms on screen", has(await page.locator("#toast").innerText(), "Flagged"));
+
+// It has to survive navigating away, which is the whole point.
+await tap("button:has-text('More')");
+t = await text();
+check("More shows the count", has(t, "Flagged bugs (1)"), t.slice(0, 60));
+
+await tap("text=Flagged bugs (1)");
+t = await text();
+check("the report is listed with what was written", has(t, "The roster count looks off"));
+check("the report carries the screen it was flagged on", has(t, "today"));
+check("the report carries the org it was flagged on", has(t, "elite-squad-ny") || has(t, "elite"));
+check("a device-only report offers a way to copy it out", has(t, "Copy them all"));
+
+// Flagged from a different screen, the context has to be that screen.
+await tap("button:has-text('Athletes')");
+await tap("#flagbtn");
+await page.locator("#bug_note").fill("Second one, from the roster.");
+await tap("button:has-text('Flag it')");
+await page.waitForTimeout(80);
+await tap("button:has-text('More')");
+await tap("text=Flagged bugs (2)");
+t = await text();
+check("a second report records its own screen", has(t, "athletes") && has(t, "Second one"), t.slice(0, 200));
+
+// And removing one removes only that one.
+await tap("button:has-text('Remove')");
+await page.waitForTimeout(60);
+t = await text();
+check("removing a report leaves the others", !has(t, "Second one") && has(t, "The roster count looks off"));
+
 // ── Nothing threw anywhere in all of that ────────────────────────────
 check("no page errors during the whole walkthrough", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 await browser.close();
-
-const passed = results.filter((r) => r.ok).length;
-for (const r of results) {
-  if (!r.ok) console.log(`FAIL  ${r.name}${r.detail ? "  (" + r.detail + ")" : ""}`);
-}
-console.log(`${passed}/${results.length} prototype checks pass`);
-process.exit(passed === results.length ? 0 : 1);
+report();

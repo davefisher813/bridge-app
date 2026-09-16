@@ -20,6 +20,139 @@ const db = JSON.parse(JSON.stringify(DATA));
 const TODAY = "2026-09-16";
 const FISCAL_YEAR = 2026;
 
+// ── Bug reports ──────────────────────────────────────────────────────
+// Dave taps through this on a phone, so a bug he spots has to be one
+// tap to record and has to carry its own context: which screen, which
+// org, and what was actually on screen when he saw it. Typing all that
+// on a phone is the reason bugs go unreported.
+//
+// They go to the artifact's own store when the page has one, so they
+// reach me rather than sitting in his browser. When it does not (the
+// capability is not granted, or the page is opened from a file), the
+// same reports are kept in memory and shown with a copy button, so the
+// feature degrades instead of disappearing.
+const bugs = {
+  store: null, // the db namespace, once resolved
+  local: [], // always kept, so the list renders the same either way
+  ready: false,
+  sheetOpen: false,
+  error: null,
+};
+
+async function initBugs() {
+  try {
+    if (typeof window.claude?.use !== "function") return;
+    const store = await window.claude.use("db");
+    if (!store) return;
+    bugs.store = store;
+    // Subscribed once, here, never from render.
+    store
+      .collection("bugs")
+      .orderBy("at", "desc")
+      .limit(100)
+      .onSnapshot(
+        (snap) => {
+          bugs.local = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          bugs.ready = true;
+          // More carries the count, so it has to repaint too when a
+          // report arrives from another view of this prototype.
+          if (state.screen === "bugs" || state.screen === "more") render();
+        },
+        () => {
+          // A dead subscription is not worth a dialog. The in-memory
+          // list still works.
+          bugs.store = null;
+        },
+      );
+  } catch {
+    bugs.store = null;
+  }
+}
+
+// What was on screen, captured automatically. This is the part worth
+// having: "the GPA looks wrong" is hard to act on, the screen it was
+// wrong on is not.
+function captureContext() {
+  const el = document.getElementById("screen");
+  const seen = el ? el.innerText.replace(/\n{2,}/g, "\n").slice(0, 1200) : "";
+  return {
+    screen: state.screen,
+    params: JSON.stringify(state.params || {}),
+    org: state.org,
+    at: new Date().toISOString(),
+    seen,
+  };
+}
+
+async function saveBug() {
+  const noteEl = document.getElementById("bug_note");
+  const note = noteEl ? noteEl.value.trim() : "";
+  if (!note) {
+    showError("bug-error", "What went wrong? A sentence is plenty.");
+    return;
+  }
+
+  const report = { note, ...captureContext() };
+
+  if (bugs.store) {
+    try {
+      await bugs.store.collection("bugs").add(report);
+      bugs.sheetOpen = false;
+      render();
+      toast("Flagged. It will reach Claude with the screen you were on.");
+      return;
+    } catch (e) {
+      // Fall through to the local list rather than losing what he typed.
+      bugs.error = e && e.code === "quota_exceeded" ? "The report store is full." : null;
+    }
+  }
+
+  bugs.local.unshift({ id: "local-" + Math.random().toString(36).slice(2, 8), ...report, localOnly: true });
+  bugs.sheetOpen = false;
+  render();
+  toast("Flagged on this device. Open the Bugs list to copy it over.");
+}
+
+async function deleteBug(id) {
+  const row = bugs.local.find((b) => b.id === id);
+  if (bugs.store && row && !row.localOnly) {
+    try {
+      await bugs.store.collection("bugs").doc(id).delete();
+    } catch {
+      /* the snapshot will not change; the local removal below still applies */
+    }
+  }
+  bugs.local = bugs.local.filter((b) => b.id !== id);
+  render();
+}
+
+function openBugSheet() {
+  bugs.sheetOpen = true;
+  render();
+  const el = document.getElementById("bug_note");
+  if (el) el.focus();
+}
+function closeBugSheet() {
+  bugs.sheetOpen = false;
+  render();
+}
+
+function bugsAsText() {
+  return bugs.local
+    .map((b, i) => `${i + 1}. ${b.note}\n   screen: ${b.screen} ${b.params} \u00b7 org: ${b.org} \u00b7 ${b.at}`)
+    .join("\n\n");
+}
+
+function copyBugs() {
+  const text = bugsAsText();
+  if (navigator.clipboard && text) {
+    navigator.clipboard.writeText(text).then(
+      () => toast("Copied. Paste it into the chat."),
+      () => toast("Could not copy. Select the text below instead."),
+    );
+  }
+}
+
 function org() {
   return db.orgs[state.org];
 }
@@ -660,6 +793,12 @@ SCREENS.more = () => {
       ${m.donor_fundraising ? item("Fundraising", "Donors, gifts, pledges and the year against budget", "fundraising", "committed") : ""}
       ${m.board_governance ? item("Board", "Seats and give/get progress across every tier", "governance", "people") : ""}
       ${item("Grading scales", "How each high school's numbers become letters", "scales", "contact")}
+      ${item(
+        bugs.local.length ? `Flagged bugs (${bugs.local.length})` : "Flagged bugs",
+        "Everything you have flagged while clicking through",
+        "bugs",
+        bugs.local.length ? "offer" : "neutral",
+      )}
       ${rail("neutral", `<div class="text-[14px] font-semibold text-ink">${esc(you.name)}</div><div class="text-[12px] text-muted">${esc(label)} at ${esc(org().name)}</div>`)}
     </div>
 
@@ -1163,6 +1302,51 @@ SCREENS.boardDetail = () => {
   `;
 };
 
+SCREENS.bugs = () => {
+  const list = bugs.local;
+  const anyLocalOnly = list.some((b) => b.localOnly) || !bugs.store;
+
+  return `
+    ${backLink("More")}
+    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Flagged bugs</h1>
+    <p class="mb-5 text-[12.5px] leading-tight text-muted">${
+      bugs.store
+        ? "Saved with this prototype, so they reach Claude without you copying anything."
+        : "Saved on this device only, because this copy of the prototype has no report store. Copy them over when you are done."
+    }</p>
+
+    ${
+      list.length === 0
+        ? emptyState("Nothing flagged yet", "Tap the flag button on any screen when something looks wrong. It records the screen you were on, so you only have to describe the problem.")
+        : `<div class="flex flex-col gap-2">${list
+            .map(
+              (b) => `<div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL.offer}">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="text-[13px] font-bold leading-tight text-ink">${esc(b.note)}</div>
+                    <div class="mt-1 text-[11.5px] leading-tight text-muted">${esc(b.screen)}${
+                      b.params && b.params !== "{}" ? " " + esc(b.params) : ""
+                    } &middot; ${esc(b.org)} &middot; ${esc(new Date(b.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}</div>
+                    ${b.localOnly ? `<div class="mt-1.5">${chip("this device only", "target")}</div>` : ""}
+                  </div>
+                  <button onclick="deleteBug('${b.id}')" class="flex-shrink-0 text-[11.5px] font-bold text-muted">Remove</button>
+                </div>
+              </div>`,
+            )
+            .join("")}</div>`
+    }
+
+    ${
+      list.length && anyLocalOnly
+        ? `<div class="mt-5">${button("Copy them all", "copyBugs()", "secondary")}</div>
+           <div class="mt-3 rounded-[10px] bg-paper px-3.5 py-3">
+             <div class="text-[11px] leading-relaxed text-muted" style="white-space:pre-wrap">${esc(bugsAsText())}</div>
+           </div>`
+        : ""
+    }
+  `;
+};
+
 // ── Actions ──────────────────────────────────────────────────────────
 function setStatus(targetId, status) {
   const t = db.targets.find((x) => x.id === targetId);
@@ -1264,11 +1448,46 @@ const TABS = [
   { key: "more", label: "More" },
 ];
 
+// The flag button sits above the tab bar on every screen, and the sheet
+// it opens shows the context it is about to record, so nothing is
+// captured invisibly.
+function bugLayer() {
+  const ctx = bugs.sheetOpen ? captureContext() : null;
+
+  const fab = `<button id="flagbtn" onclick="openBugSheet()" aria-label="Flag a bug"
+    class="flex h-[44px] items-center gap-2 rounded-full bg-solid-danger px-4 text-[12.5px] font-bold text-solid-danger-on shadow-lg">
+    <span aria-hidden="true">&#9873;</span> Flag a bug</button>`;
+
+  if (!bugs.sheetOpen) return `<div class="flagwrap">${fab}</div>`;
+
+  return `<div class="sheetbackdrop" onclick="closeBugSheet()"></div>
+    <div class="sheet">
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <div class="text-[15px] font-extrabold text-ink">Flag a bug</div>
+        <button onclick="closeBugSheet()" class="text-[12.5px] font-bold text-muted">Cancel</button>
+      </div>
+      <textarea id="bug_note" rows="3" placeholder="What looks wrong?" class="${INPUT}"></textarea>
+      <div id="bug-error" class="mt-2"></div>
+      <div class="mt-3 rounded-[10px] bg-bg px-3 py-2.5">
+        <div class="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">Recorded with it</div>
+        <div class="mt-1 text-[11.5px] leading-tight text-muted">${esc(ctx.screen)}${
+          ctx.params !== "{}" ? " " + esc(ctx.params) : ""
+        } &middot; ${esc(db.orgs[ctx.org].shortName)} &middot; what is on screen right now</div>
+      </div>
+      <div class="mt-3">${button("Flag it", "saveBug()")}</div>
+      <p class="mt-2 text-[11px] leading-relaxed text-muted">${
+        bugs.store
+          ? "Goes straight to Claude with the screen you were on, so you do not have to describe where you were."
+          : "Kept on this device. The Bugs list under More has a copy button."
+      }</p>
+    </div>`;
+}
+
 function render() {
   const body = SCREENS[state.screen] ? SCREENS[state.screen]() : `<div class="p-8 text-center text-muted">Not built in this prototype.</div>`;
   const activeTab = ["today", "athletes", "board", "more"].includes(state.screen)
     ? state.screen
-    : ["fundraising", "donors", "giftNew", "governance", "boardDetail", "documents", "document", "scales", "scaleEdit"].includes(state.screen)
+    : ["fundraising", "donors", "giftNew", "governance", "boardDetail", "documents", "document", "scales", "scaleEdit", "bugs"].includes(state.screen)
       ? "more"
       : ["athlete", "eligibility"].includes(state.screen)
         ? "athletes"
@@ -1283,12 +1502,18 @@ function render() {
       }">${t.label}</button>`,
   ).join("");
 
+  document.getElementById("buglayer").innerHTML = bugLayer();
   document.getElementById("orgbadge").textContent = org().shortName;
   document.getElementById("toast").innerHTML = state.toast
     ? `<div class="mx-auto mb-2 w-fit max-w-[340px] rounded-full bg-ink px-4 py-2 text-center text-[12px] font-bold text-paper">${esc(state.toast)}</div>`
     : "";
 }
 
+window.openBugSheet = openBugSheet;
+window.closeBugSheet = closeBugSheet;
+window.saveBug = saveBug;
+window.deleteBug = deleteBug;
+window.copyBugs = copyBugs;
 window.go = go;
 window.back = back;
 window.tab = tab;
@@ -1298,3 +1523,4 @@ window.saveScale = saveScale;
 window.saveGift = saveGift;
 
 render();
+initBugs();

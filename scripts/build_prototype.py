@@ -86,8 +86,27 @@ body {{ background:var(--page-bg); color:var(--page-fg);
 }}
 #tabbar button {{ border:0; background:none; cursor:pointer; font:inherit; }}
 
-#toast {{ position:fixed; bottom:64px; left:0; right:0; z-index:40; pointer-events:none; }}
+#toast {{ position:fixed; bottom:110px; left:0; right:0; z-index:60; pointer-events:none; }}
 @media (min-width:520px) {{ #toast {{ position:absolute; }} }}
+
+/* The flag button rides above the tab bar on every screen, because a
+   bug spotted three taps deep is one nobody reports if reporting it
+   means navigating away first. */
+.flagwrap {{ position:fixed; bottom:60px; right:16px; z-index:35; }}
+@media (min-width:520px) {{ .flagwrap {{ position:absolute; }} }}
+.flagwrap button {{ border:0; cursor:pointer; font:inherit; }}
+
+.sheetbackdrop {{ position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.35); }}
+.sheet {{ position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+  width:100%; max-width:430px; z-index:55; background:var(--paper);
+  border-top-left-radius:18px; border-top-right-radius:18px;
+  padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 32px rgba(0,0,0,.18); }}
+@media (min-width:520px) {{
+  .sheetbackdrop {{ position:absolute; }}
+  .sheet {{ position:absolute; left:0; transform:none; }}
+}}
+.sheet textarea {{ resize:none; }}
 
 input, select, textarea, button {{ font-family:inherit; }}
 select {{ appearance:none; }}
@@ -101,6 +120,7 @@ select {{ appearance:none; }}
     <div class="badge" id="orgbadge"></div>
   </div>
   <div id="screen"></div>
+  <div id="buglayer"></div>
   <div id="toast"></div>
   <div id="tabbar"></div>
 </div>
@@ -111,6 +131,10 @@ select {{ appearance:none; }}
   score move, edit the Cardinal Ridge grading scale and watch a core GPA move with it, record an
   in-kind gift and watch it stay out of the cash total, and switch to Elite Squad under More to
   see the fundraising and board sections disappear.
+  <br><br>
+  Spot something wrong? Tap <b>Flag a bug</b> on any screen. It records which screen you were on
+  and what was showing, so all you have to write is what looked wrong. Everything flagged is listed
+  under More.
 </p>
 
 <script>
