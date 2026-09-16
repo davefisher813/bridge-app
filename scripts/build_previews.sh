@@ -20,6 +20,9 @@ python3 scripts/build_preview.py
 echo "==> Doc AI upload preview"
 python3 scripts/build_docai_preview.py
 
+echo "==> Eligibility screen preview"
+python3 scripts/build_eligibility_preview.py
+
 echo "==> Bundling the real modules for the test bench"
 npx esbuild scripts/testbench_entry.ts --bundle --format=iife --target=es2020 --minify \
   --outfile=/tmp/testbench.min.js 2>&1 | tail -1

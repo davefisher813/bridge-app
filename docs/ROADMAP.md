@@ -106,9 +106,37 @@ Ordered by what naturally follows what's already built.
     flow is usable before an API key exists, and every screen showing a
     stubbed result says so. Only the injected caller changes when a real
     key arrives.
+## Done since
+
+10. ~~NCAA eligibility, researched and then built~~ - the rules were
+    verified against NCAA-published documents (cited in
+    docs/BUSINESS_RULES.md) rather than recalled, which found that the
+    app's GPA maths was wrong in five ways at once. Now: a real
+    core-course GPA engine (`src/lib/fit/ncaa/`), qualifier / academic
+    redshirt / nonqualifier status, the D1 10/7 rule, the age-based
+    five-year clock adopted mid-2026, per-course storage
+    (`migrations/0008_core_courses.sql`) and the eligibility screen at
+    `/org/[slug]/roster/[id]/eligibility`. Ten laws in
+    `src/laws/ncaaLaws.test.ts`.
+
 ## Next up
 
-1. **Wire a real `ModelCaller`** (the last piece of Doc AI) against the Anthropic API: needs an API
+1. **Check courses against each school's NCAA-approved list.** The
+   engine reports an unchecked course as unchecked, which is honest but
+   means most core GPAs read as estimates. The Eligibility Center
+   publishes each high school's approved list at
+   `web3.ncaa.org/hsportal`, keyed by CEEB code, and the transcripts
+   already carry that code. Nothing is built for this yet.
+
+2. **Grading-scale entry.** `high_school_grading_scales` is written by
+   the service role only, on purpose: a wrong conversion table silently
+   changes every eligibility verdict for every athlete at that school,
+   in every org. So there is no UI for it, and a school whose
+   transcripts are numeric currently cannot be scored at all. Needs a
+   decision on who is allowed to enter one and what verification looks
+   like before the screen is built.
+
+3. **Wire a real `ModelCaller`** (the last piece of Doc AI) against the Anthropic API: needs an API
    key (Dave doesn't have one to provide yet) and a persistent per-org
    budget table, since Bridge's localStorage-based daily budget tracking
    has no multi-tenant, server-side equivalent yet. On hold until a key

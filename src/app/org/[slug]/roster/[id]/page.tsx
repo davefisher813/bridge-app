@@ -150,12 +150,28 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
       <div className="mt-1 text-[13px] text-muted">
         {athlete.sport}
         {athlete.position ? ` · ${athlete.position}` : ""} · {RECRUIT_TYPE_LABEL[athlete.recruit_type] ?? athlete.recruit_type}
-        {athlete.gpa != null ? ` · ${athlete.gpa.toFixed(2)} GPA` : ""}
+        {athlete.gpa != null ? ` · ${Number(athlete.gpa).toFixed(2)} school GPA` : ""}
       </div>
 
       <div className="mt-6 rounded-[12px] bg-paper p-4">
         <JourneyStepper result={journey} />
       </div>
+
+      {/* The GPA above is the school's own number and is deliberately
+          labelled as such. An NCAA core GPA is a different figure,
+          routinely a point apart, and lives behind this link rather than
+          being implied by the one on this line. */}
+      <Link href={`/org/${slug}/roster/${id}/eligibility`} className="mt-3 block">
+        <RailCard role="contact">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[14px] font-semibold text-ink">NCAA eligibility</div>
+              <div className="text-[11.5px] text-muted">Core-course GPA, qualifier status and the five-year clock</div>
+            </div>
+            <span className="text-[13px] font-bold text-muted">&rsaquo;</span>
+          </div>
+        </RailCard>
+      </Link>
 
       <div className="mt-8">
         <div className="mb-2">

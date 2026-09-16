@@ -166,3 +166,49 @@ describe("LAW: the age clock can start before an athlete enrolls anywhere", () =
     expect(new Date(r.clockEnd!).getUTCFullYear() - new Date(r.clockStart!).getUTCFullYear()).toBe(5);
   });
 });
+
+describe("LAW: the eligibility screen never dresses a status in red", () => {
+  // Locked catalog: red is the primary action colour and "red is not a
+  // status". A verdict banner reaching for accent/danger would read as
+  // an NCAA severity signal the contract does not have.
+  it("the verdict component uses Score-axis tints only", () => {
+    const source = readFileSync(join(SRC, "components", "EligibilityVerdict.tsx"), "utf8");
+    const code = source
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("//"))
+      .join("\n");
+    expect(code).not.toMatch(/TINT\[\s*["']accent["']\s*\]|TINT\[\s*["']danger["']\s*\]/);
+    expect(code).not.toMatch(/bg-solid-accent|bg-tint-accent|bg-solid-danger|bg-tint-danger|border-l-ios-red|border-l-ios-pink/);
+  });
+
+  it("maps every status onto high, mid or low and nothing else", () => {
+    const source = readFileSync(join(SRC, "components", "EligibilityVerdict.tsx"), "utf8");
+    const block = source.match(/STATUS_ROLE[^=]*=\s*\{([\s\S]*?)\n\};/);
+    expect(block).not.toBeNull();
+    const roles = [...block![1]!.matchAll(/:\s*"([a-z_]+)"/g)].map((m) => m[1]);
+    expect(roles.length).toBeGreaterThan(0);
+    for (const r of roles) expect(["high", "mid", "low"]).toContain(r);
+  });
+});
+
+describe("LAW: a transcript GPA is never presented as an NCAA number", () => {
+  // The two figures are routinely a point apart. The athlete page shows
+  // the school's own GPA, so it has to say so; an unlabelled "GPA" beside
+  // an NCAA-looking screen is the exact confusion this work exists to end.
+  it("the athlete page labels its GPA as the school's", () => {
+    const source = readFileSync(join(SRC, "app", "org", "[slug]", "roster", "[id]", "page.tsx"), "utf8");
+    expect(source).toMatch(/school GPA/);
+    expect(source).not.toMatch(/\$\{[^}]*\}\s*GPA`/);
+  });
+
+  it("the eligibility page never shows a core GPA without the transcript beside it", () => {
+    const source = readFileSync(join(SRC, "app", "org", "[slug]", "roster", "[id]", "eligibility", "page.tsx"), "utf8");
+    // GpaPair is the only component that renders the core figure, and it
+    // takes both numbers, so the pairing cannot be broken by omission.
+    expect(source).toMatch(/<GpaPair\b/);
+    const pair = source.match(/<GpaPair[\s\S]*?\/>/);
+    expect(pair).not.toBeNull();
+    expect(pair![0]).toMatch(/coreGpa=/);
+    expect(pair![0]).toMatch(/transcriptGpa=/);
+  });
+});

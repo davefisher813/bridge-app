@@ -52,6 +52,11 @@ insert into target_visits (org_id, target_id, visit_type) values
 insert into documents (org_id, file_name, file_size, media_type, source_role, status) values
   ('00000000-0000-0000-0000-000000000010', 'bridge-transcript.pdf', 1000, 'application/pdf', 'coordinator', 'pending'),
   ('00000000-0000-0000-0000-000000000020', 'elite-transcript.pdf', 1000, 'application/pdf', 'coordinator', 'pending');
+insert into athlete_courses (org_id, athlete_id, title, subject, credit, grade, school_name) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'English 11', 'english', 1.00, 'B', 'Bridge HS'),
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'English 11', 'english', 1.00, 'A', 'Elite HS');
+insert into high_school_grading_scales (school_name, bands) values
+  ('Bridge HS', '[{"letter":"B","min":83,"max":86}]'::jsonb);
 insert into benchmark_sets (org_id, sport, tiers, positions) values
   (null, 'baseball', '[]'::jsonb, '[]'::jsonb),
   ('00000000-0000-0000-0000-000000000010', 'baseball', '[]'::jsonb, '[]'::jsonb),
@@ -184,6 +189,45 @@ end $$;
 do $$
 declare n int;
 begin
+  select count(*) into n from athlete_courses;
+  if n <> 1 then raise exception 'FAIL: user1 saw % athlete_courses rows, expected 1 (Bridge''s only)', n; end if;
+  raise notice 'PASS: user1 sees only Bridge''s course rows, not Elite Squad''s';
+end $$;
+
+do $$
+begin
+  begin
+    insert into athlete_courses (org_id, athlete_id, title, subject, credit, grade)
+      values ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Sneaky', 'math', 1.00, 'A');
+    raise exception 'FAIL: user1 was able to insert a course into Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org course insert correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+-- Grading scales are shared reference data: readable by any signed-in
+-- member, writable only by the service role.
+do $$
+declare n int;
+begin
+  select count(*) into n from high_school_grading_scales;
+  if n <> 1 then raise exception 'FAIL: user1 saw % grading scales, expected 1 (shared reference data)', n; end if;
+  raise notice 'PASS: user1 can read the shared grading scale';
+end $$;
+
+do $$
+begin
+  begin
+    insert into high_school_grading_scales (school_name, bands) values ('Made Up HS', '[]'::jsonb);
+    raise exception 'FAIL: user1 was able to write a grading scale, which would change every org''s eligibility verdicts';
+  exception when insufficient_privilege then
+    raise notice 'PASS: grading-scale write correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+declare n int;
+begin
   select count(*) into n from benchmark_sets;
   if n <> 2 then raise exception 'FAIL: user1 saw % benchmark_sets, expected 2 (Bridge''s + the global default)', n; end if;
   raise notice 'PASS: user1 sees Bridge''s benchmark set plus the shared/global one, not Elite Squad''s';
@@ -282,6 +326,22 @@ begin
   select count(*) into n from documents;
   if n <> 0 then raise exception 'FAIL: an anonymous session saw % documents rows, expected 0', n; end if;
   raise notice 'PASS: anonymous session sees zero documents rows';
+end $$;
+
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_courses;
+  if n <> 0 then raise exception 'FAIL: an anonymous session saw % athlete_courses rows, expected 0', n; end if;
+  raise notice 'PASS: anonymous session sees zero course rows';
+end $$;
+
+do $$
+declare n int;
+begin
+  select count(*) into n from high_school_grading_scales;
+  if n <> 0 then raise exception 'FAIL: an anonymous session saw % grading scales, expected 0', n; end if;
+  raise notice 'PASS: anonymous session sees zero grading scales';
 end $$;
 
 reset role;
