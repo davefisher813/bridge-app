@@ -4,6 +4,7 @@ import Link from "next/link";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { signout } from "@/lib/auth/actions";
 import { RailCard, SectionHeader } from "@/components/catalog";
+import { labelForRole } from "@/lib/org/roleLabels";
 
 // Placeholder catch-all for anything that isn't Today/Athletes/Board yet:
 // account, org switching, settings. Real content per docs/ROADMAP.md;
@@ -39,7 +40,12 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
         </Link>
         <RailCard role="neutral">
           <div className="text-[14px] font-semibold text-ink">{user.full_name || user.email}</div>
-          <div className="text-[12px] text-muted">{org.name}</div>
+          {/* The org's own word for the role, not the enum value.
+              Bridge says Executive Director, Elite Squad says Coach, and
+              the permission underneath is the same either way. */}
+          <div className="text-[12px] text-muted">
+            {labelForRole(org.roleLabels, user.role)} at {org.name}
+          </div>
         </RailCard>
         <form action={signout}>
           <button type="submit" className="w-full rounded-[10px] bg-paper px-3.5 py-3 text-left text-[14px] font-semibold text-danger">

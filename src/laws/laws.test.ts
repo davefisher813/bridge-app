@@ -178,3 +178,37 @@ describe("LAW: discarding an applied document undoes what it wrote", () => {
     expect(undo).toMatch(/!row\.verified_at/);
   });
 });
+
+describe("LAW: an org's own words for its roles are actually used", () => {
+  // org_role is generic on purpose (owner | staff | member) and what a
+  // person is CALLED is org config. That has been in CLAUDE.md and in
+  // the schema since day one, and orgs.role_labels was never read
+  // anywhere until 2026-09-16: the query did not even select the column,
+  // so every screen showed the enum value or nothing. Standing up a
+  // second real organization is what surfaced it.
+
+  it("getOrgBySlug selects and parses the column", () => {
+    const source = readFileSync(join(SRC, "lib", "org", "membership.ts"), "utf8");
+    // The SELECT itself, not just a mention of the column elsewhere in
+    // the file: dropping it from the query while leaving `data.role_labels`
+    // in the return is exactly how this silently became undefined.
+    const select = source.match(/from\("orgs"\)\s*\.select\("([^"]*)"\)/);
+    expect(select).not.toBeNull();
+    expect(select![1]).toMatch(/role_labels/);
+    expect(source).toMatch(/parseRoleLabels\(/);
+  });
+
+  it("at least one screen renders the org's label rather than the enum value", () => {
+    const files = walk(SRC).filter((f) => f.endsWith(".tsx"));
+    const users = files.filter((f) => read(f).includes("labelForRole("));
+    expect(users.length).toBeGreaterThan(0);
+  });
+
+  it("no screen prints a raw role value as if it were a title", () => {
+    // {user.role} on screen says "staff", which is a database word and
+    // not what anybody at either organization calls themselves.
+    const files = walk(SRC).filter((f) => f.endsWith(".tsx"));
+    const offenders = files.filter((f) => /\{\s*user\.role\s*\}/.test(read(f))).map(rel);
+    expect(offenders).toEqual([]);
+  });
+});

@@ -1090,3 +1090,41 @@ The unique index on `(org_id, external_ref)` is what stops a replayed
 Stripe webhook booking the same donation twice, which would be wrong in
 the direction nobody questions. Bridge takes donations through Stripe
 payment links today, so that path is real and not hypothetical.
+
+---
+
+## 2026-09-16 - Two orgs on one database, and what that found
+
+**Decision:** `scripts/seed_two_orgs.sql` stands up Bridge and Elite
+Squad as real organizations on one database and asserts the claims the
+architecture has been making since day one. `scripts/run_two_org_test.sh`
+applies every migration in order and runs it.
+
+**Reason:** Multi-tenancy has been a rule in CLAUDE.md, a column on every
+table and a policy on every table, all on the strength of an intention.
+Nothing had ever run two actual organizations side by side. The point of
+doing it now rather than later is that there is still nothing to migrate
+when it turns out to be wrong.
+
+**Consequences:** The seed asserts that the two orgs differ in exactly
+three jsonb columns and nowhere else. If anything but `role_labels`,
+`modules` and `branding` has to differ for both to work, the claim is
+not true, and the test says so.
+
+It found one real gap immediately. `orgs.role_labels` has existed since
+migration `0001` and was never read anywhere: `getOrgBySlug` did not even
+select the column. The whole reason `org_role` is generic
+(owner | staff | member) is that what a person is CALLED is org config,
+Bridge saying Executive Director and Coordinator while Elite Squad says
+Owner and Coach. Every screen was showing the enum value or nothing.
+`src/lib/org/roleLabels.ts` parses it the same way `modules` is parsed,
+and three laws now hold it: the query selects the column, at least one
+screen renders the label, and no screen prints a raw role value as if it
+were a title.
+
+The seed contains no real athlete, donor or member data. Every name in
+it is invented, because real student and donor records do not belong in
+a repo.
+
+What this does not yet prove: signing in as a member of each org and
+using the app. That needs a Supabase project, which does not exist.

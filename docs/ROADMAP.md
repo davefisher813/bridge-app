@@ -192,9 +192,14 @@ down because each needs a decision, not because they were missed.
   for it ready for when he does.
 - Board/governance module, gated behind `orgs.modules`, built only once
   the core product works for both Bridge and Elite Squad.
-- Elite Squad onboarding as the second real org - this is the actual
-  test of whether "generic from day one" held up, not just a design
-  intention.
+- ~~Elite Squad onboarding as the second real org~~ Done 2026-09-16 at
+  the data layer. `scripts/seed_two_orgs.sql` stands up Bridge and Elite
+  Squad on one database and asserts they differ only in `role_labels`,
+  `modules` and `branding`, share `schools`, and cannot see or write each
+  other's rows. Run with `scripts/run_two_org_test.sh`. It found a real
+  gap: `orgs.role_labels` had never been read anywhere, not even
+  selected, so every screen showed the enum value. Still to come once a
+  Supabase project exists: signing in as both and using them.
 - Create a real GitHub repo (name TBD - "recruiting-platform" is a
   placeholder) with write access, once Dave wants to push.
 
