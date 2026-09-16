@@ -27,6 +27,7 @@ import { gradingScaleProblem, resolveScale, TEN_POINT_STARTING_POINT } from "../
 import { letterFromScale } from "../src/lib/fit/ncaa/fromTranscript";
 import { checkIngestedRecord } from "../src/lib/docai/acceptance";
 import { summarize as summarizeFundraising, toCents as moneyToCents, campaignProgress } from "../src/lib/fundraising/rollup";
+import { giveGetProgress, summarizeBoard } from "../src/lib/governance/giveGet";
 import { MAX_INGEST_BYTES } from "../src/lib/docai/limits";
 
 // ---------------------------------------------------------------- assertions
@@ -360,6 +361,47 @@ function runSuite(): Check[] {
     if (withOrg?.origin !== "org") return `preferred the assumption over a real table (${withOrg?.origin})`;
     const alone = resolveScale([{ origin: "assumed" as const }]);
     return alone?.origin === "assumed" ? null : "did not fall back at all";
+  });
+
+  check("Board give/get", "money brought in counts, not just money given", () => {
+    // The half most board software drops, which understates everyone
+    // who is good at fundraising.
+    const p = giveGetProgress({
+      member: { id: "m1", boardId: "b1", name: "X", donorId: "d1", roleTitle: null, status: "active", termStart: null, termEnd: null, commitmentCents: 1000000 },
+      gifts: [{ id: "g1", amountCents: 600000, receivedOn: "2026-05-01", category: "board", method: "check", donorId: "someone-else", campaignId: null, pledgeId: null }],
+      pledges: [],
+      solicitedBy: { g1: "m1" },
+      periodStart: "2026-01-01",
+      periodEnd: "2026-12-31",
+    });
+    if (p.raisedCents !== 600000) return `credited ${p.raisedCents} instead of 600000`;
+    return null;
+  });
+
+  check("Board give/get", "a gift both made and solicited counts once", () => {
+    // Otherwise somebody clears a $10,000 commitment with $5,000.
+    const p = giveGetProgress({
+      member: { id: "m1", boardId: "b1", name: "X", donorId: "d1", roleTitle: null, status: "active", termStart: null, termEnd: null, commitmentCents: 1000000 },
+      gifts: [{ id: "g1", amountCents: 500000, receivedOn: "2026-05-01", category: "board", method: "check", donorId: "d1", campaignId: null, pledgeId: null }],
+      pledges: [],
+      solicitedBy: { g1: "m1" },
+      periodStart: "2026-01-01",
+      periodEnd: "2026-12-31",
+    });
+    if (p.totalCents !== 500000) return `counted ${p.totalCents} for a single $5,000 gift`;
+    if (p.met) return "a $5,000 gift cleared a $10,000 commitment";
+    return null;
+  });
+
+  check("Board give/get", "only active seats count against a board", () => {
+    const board = { id: "b1", kind: "sport" as const, name: "B", sport: "baseball", giveGetCents: 500000, minSeats: 3, maxSeats: 5 };
+    const seat = (id: string, status: "active" | "prospect" | "emeritus") => ({
+      id, boardId: "b1", name: id, donorId: null, roleTitle: null, status, termStart: null, termEnd: null, commitmentCents: 500000,
+    });
+    const s = summarizeBoard(board, [seat("m1", "active"), seat("m2", "prospect"), seat("m3", "emeritus")], []);
+    if (s.seatsFilled !== 1) return `counted ${s.seatsFilled} filled seats, expected 1`;
+    if (s.committedCents !== 500000) return `committed ${s.committedCents}, expected 500000`;
+    return null;
   });
 
   check("Uploads", "the server measures the file rather than believing it", () => {

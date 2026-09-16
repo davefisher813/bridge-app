@@ -4,7 +4,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { recordGift } from "@/lib/actions/fundraising";
-import { GiftForm, type OpenPledge } from "@/components/GiftForm";
+import { GiftForm, type BoardMemberOption, type OpenPledge } from "@/components/GiftForm";
 import { outstandingOn } from "@/lib/fundraising/rollup";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 
@@ -50,6 +50,22 @@ export default async function NewGiftPage({ params }: { params: Promise<{ slug: 
     }))
     .filter((p) => p.outstandingCents > 0);
 
+  // Only when the board module is on. An org without boards never sees
+  // the field, and never pays for the query.
+  let boardMembers: BoardMemberOption[] = [];
+  if (org.modules.board_governance) {
+    const { data } = await supabase
+      .from("board_members")
+      .select("id, name, boards(name)")
+      .eq("org_id", org.id)
+      .eq("status", "active")
+      .order("name");
+    boardMembers = ((data ?? []) as Array<{ id: string; name: string; boards: { name: string } | { name: string }[] | null }>).map((m) => {
+      const board = Array.isArray(m.boards) ? m.boards[0] : m.boards;
+      return { id: m.id, name: m.name, boardName: board?.name ?? "Board" };
+    });
+  }
+
   const action = recordGift.bind(null, slug);
 
   return (
@@ -69,6 +85,7 @@ export default async function NewGiftPage({ params }: { params: Promise<{ slug: 
         donors={donors}
         campaigns={(campaignRows ?? []) as Array<{ id: string; name: string }>}
         openPledges={openPledges}
+        boardMembers={boardMembers}
         today={new Date().toISOString().slice(0, 10)}
       />
     </main>

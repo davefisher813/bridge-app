@@ -32,6 +32,22 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
             </RailCard>
           </Link>
         )}
+        {org.modules.donor_fundraising && (
+          <Link href={`/org/${slug}/fundraising`} className="block">
+            <RailCard role="committed">
+              <div className="text-[14px] font-semibold text-ink">Fundraising</div>
+              <div className="text-[12px] text-muted">Donors, gifts, pledges and the year against budget</div>
+            </RailCard>
+          </Link>
+        )}
+        {org.modules.board_governance && (
+          <Link href={`/org/${slug}/board-governance`} className="block">
+            <RailCard role="people">
+              <div className="text-[14px] font-semibold text-ink">Board</div>
+              <div className="text-[12px] text-muted">Seats and give/get progress across every tier</div>
+            </RailCard>
+          </Link>
+        )}
         <Link href={`/org/${slug}/grading-scales`} className="block">
           <RailCard role="contact">
             <div className="text-[14px] font-semibold text-ink">Grading scales</div>

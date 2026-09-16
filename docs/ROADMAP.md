@@ -190,8 +190,14 @@ down because each needs a decision, not because they were missed.
   donors, and entry for gifts, donors, pledges, campaigns, the budget
   and grants. Grants are built but empty: Dave has none yet and asked
   for it ready for when he does.
-- Board/governance module, gated behind `orgs.modules`, built only once
-  the core product works for both Bridge and Elite Squad.
+- ~~Board/governance module~~ Done 2026-09-16, migration `0013`. Built
+  from Bridge's own governance structure document: five tiers with a
+  give/get amount each, sport boards starting at three seats and growing
+  to five with a Sport Director, Board Chair and Recruiting Lead. The
+  feature is give/get progress per seat, which required `gifts` and
+  `pledges` to gain a `solicited_by` column: give/get counts money
+  brought in as well as money given, and nothing could record the first
+  half before. Four screens, gated on `board_governance`.
 - ~~Elite Squad onboarding as the second real org~~ Done 2026-09-16 at
   the data layer. `scripts/seed_two_orgs.sql` stands up Bridge and Elite
   Squad on one database and asserts they differ only in `role_labels`,

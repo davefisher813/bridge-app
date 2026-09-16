@@ -10,6 +10,12 @@ type ServerAction = (prevState: FundraisingActionState, formData: FormData) => P
 
 const EMPTY_STATE: FundraisingActionState = { errors: {} };
 
+export interface BoardMemberOption {
+  id: string;
+  name: string;
+  boardName: string;
+}
+
 export interface OpenPledge {
   id: string;
   donorId: string | null;
@@ -22,12 +28,16 @@ export function GiftForm({
   donors,
   campaigns,
   openPledges,
+  boardMembers,
   today,
 }: {
   action: ServerAction;
   donors: Array<{ id: string; name: string }>;
   campaigns: Array<{ id: string; name: string }>;
   openPledges: OpenPledge[];
+  // Empty when the board module is off, which is what keeps the field
+  // off the screen for an org that has no boards.
+  boardMembers: BoardMemberOption[];
   today: string;
 }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
@@ -179,6 +189,25 @@ export function GiftForm({
           </select>
           <p className="mt-1 text-[11.5px] leading-tight text-muted">
             Linking it reduces what is outstanding instead of leaving the promise open alongside the payment.
+          </p>
+        </div>
+      )}
+
+      {boardMembers.length > 0 && (
+        <div>
+          <label className={labelClass} htmlFor="solicitedBy">
+            Brought in by
+          </label>
+          <select className={inputClass} id="solicitedBy" name="solicitedBy" defaultValue="">
+            <option value="">Nobody in particular</option>
+            {boardMembers.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}, {m.boardName}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-[11.5px] leading-tight text-muted">
+            Credits this toward their give/get. If they are also the donor, it still counts once.
           </p>
         </div>
       )}

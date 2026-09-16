@@ -46,6 +46,9 @@ export async function recordGift(
     ["donors", v.donorId, "donor"],
     ["campaigns", v.campaignId, "campaign"],
     ["pledges", v.pledgeId, "pledge"],
+    // A board member from another org would credit somebody else's
+    // give/get, which RLS on the gift alone does not prevent.
+    ["board_members", v.solicitedBy, "board member"],
   ] as const) {
     if (!id) continue;
     const { data } = await supabase.from(table).select("id").eq("id", id).eq("org_id", org.id).maybeSingle();
@@ -57,6 +60,7 @@ export async function recordGift(
     donor_id: v.donorId,
     campaign_id: v.campaignId,
     pledge_id: v.pledgeId,
+    solicited_by: v.solicitedBy,
     // Back to a decimal string built from integers, so nothing picks up
     // a floating-point tail between the form and the column.
     amount: centsToDecimalString(v.amountCents),

@@ -20,6 +20,11 @@ export interface GiftFormValues {
   donorId: string | null;
   campaignId: string | null;
   pledgeId: string | null;
+  // The board member credited with bringing this in, when it was not
+  // their own money. The "get" half of give/get, and the thing most
+  // board software cannot record at all. Null when the board module is
+  // off or nobody solicited it.
+  solicitedBy: string | null;
   inKindDescription: string | null;
   externalRef: string | null;
   notes: string | null;
@@ -94,6 +99,7 @@ export function parseGiftForm(formData: FormData): GiftFormResult {
       donorId: strOrNull(formData.get("donorId")),
       campaignId: strOrNull(formData.get("campaignId")),
       pledgeId: strOrNull(formData.get("pledgeId")),
+      solicitedBy: strOrNull(formData.get("solicitedBy")),
       inKindDescription: method === "in_kind" ? inKindDescription : null,
       externalRef: strOrNull(formData.get("externalRef")),
       notes: strOrNull(formData.get("notes")),

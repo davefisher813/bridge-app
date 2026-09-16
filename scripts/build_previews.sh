@@ -29,6 +29,9 @@ python3 scripts/build_gradingscale_preview.py
 echo "==> Fundraising preview"
 python3 scripts/build_fundraising_preview.py
 
+echo "==> Board governance preview"
+python3 scripts/build_governance_preview.py
+
 echo "==> Bundling the real modules for the test bench"
 npx esbuild scripts/testbench_entry.ts --bundle --format=iife --target=es2020 --minify \
   --outfile=/tmp/testbench.min.js 2>&1 | tail -1

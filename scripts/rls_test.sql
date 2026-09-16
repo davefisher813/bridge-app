@@ -102,6 +102,16 @@ insert into benchmark_sets (org_id, sport, tiers, positions) values
   ('00000000-0000-0000-0000-000000000010', 'baseball', '[]'::jsonb, '[]'::jsonb),
   ('00000000-0000-0000-0000-000000000020', 'baseball', '[]'::jsonb, '[]'::jsonb);
 
+-- Board governance. Only Bridge has the module, but the tables are
+-- org-scoped like everything else and the isolation is asserted the same
+-- way.
+insert into boards (id, org_id, name, kind, give_get_amount, min_seats, max_seats) values
+  ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000010', 'Executive Board', 'executive', 10000.00, 1, 15),
+  ('00000000-0000-0000-0000-000000000420', '00000000-0000-0000-0000-000000000020', 'Elite Board', 'general', 1000.00, 1, 10);
+insert into board_members (id, org_id, board_id, name, donor_id, status, commitment_amount) values
+  ('00000000-0000-0000-0000-000000000430', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000410', 'Example Board Member', '00000000-0000-0000-0000-000000000310', 'active', 10000.00),
+  ('00000000-0000-0000-0000-000000000440', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000420', 'Elite Board Member', '00000000-0000-0000-0000-000000000320', 'active', 1000.00);
+
 -- ── Assertions, run as app_user impersonating user1 (Bridge only). ──
 set role app_user;
 select set_test_user('00000000-0000-0000-0000-000000000001');
@@ -449,6 +459,64 @@ begin
   insert into gifts (org_id, amount, received_on, category, method, external_ref)
     values ('00000000-0000-0000-0000-000000000010', 50.00, '2026-08-13', 'individual', 'stripe', null);
   raise notice 'PASS: two gifts with no external reference do not collide';
+end $$;
+
+-- ── Board governance, same isolation as everything else. ──
+do $$
+declare n int;
+begin
+  select count(*) into n from boards;
+  if n <> 1 then raise exception 'FAIL: user1 saw % boards, expected 1 (Bridge''s)', n; end if;
+  select count(*) into n from board_members;
+  if n <> 1 then raise exception 'FAIL: user1 saw % board members, expected 1', n; end if;
+  raise notice 'PASS: user1 sees only Bridge''s boards and board members';
+end $$;
+
+do $$
+declare n int;
+begin
+  update board_members set name = 'Tampered' where org_id = '00000000-0000-0000-0000-000000000020';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: user1 rewrote % of Elite Squad''s board records', n; end if;
+  raise notice 'PASS: user1 cannot touch the other org''s board';
+end $$;
+
+-- A sport board's seat range has to make sense. max below min would let
+-- a board be simultaneously full and below its floor.
+do $$
+begin
+  begin
+    insert into boards (org_id, name, kind, min_seats, max_seats)
+      values ('00000000-0000-0000-0000-000000000010', 'Impossible Board', 'sport', 5, 3);
+    raise exception 'FAIL: a board with max_seats below min_seats was accepted';
+  exception when check_violation then
+    raise notice 'PASS: a board cannot have fewer maximum seats than minimum';
+  end;
+end $$;
+
+-- A term that ends before it starts is a typo that would make every
+-- date calculation downstream wrong.
+do $$
+begin
+  begin
+    insert into board_members (org_id, board_id, name, term_start, term_end)
+      values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000410', 'Backwards Term', '2026-12-31', '2026-01-01');
+    raise exception 'FAIL: a term ending before it starts was accepted';
+  exception when check_violation then
+    raise notice 'PASS: a board term cannot end before it starts';
+  end;
+end $$;
+
+-- The get half: a gift can be credited to the board member who brought
+-- it in, and that credit is org-scoped like the gift itself.
+do $$
+declare n int;
+begin
+  update gifts set solicited_by = '00000000-0000-0000-0000-000000000430'
+    where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n < 1 then raise exception 'FAIL: could not credit a gift to a board member'; end if;
+  raise notice 'PASS: a gift can be credited to the member who brought it in';
 end $$;
 
 -- ── The member pass. user3 belongs to Bridge with role `member`, which

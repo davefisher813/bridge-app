@@ -1128,3 +1128,53 @@ a repo.
 
 What this does not yet prove: signing in as a member of each org and
 using the app. That needs a Supabase project, which does not exist.
+
+---
+
+## 2026-09-16 - Board governance, and what "give/get" actually requires
+
+**Decision:** Migration `0013` adds `boards` and `board_members`, and
+adds a `solicited_by` column to both `gifts` and `pledges`. The give/get
+rollup is pure and tested (`src/lib/governance/giveGet.ts`). Four screens
+under `/org/[slug]/board-governance`, gated on
+`orgs.modules.board_governance` in the pages and in the actions.
+
+**Reason:** The last module still gated off with nothing behind it, and
+Bridge is actively restructuring its board. The structure is not
+invented: it comes from Bridge's own governance document, which sets five
+tiers with an amount each (Executive $10K, General $5K, Sport $5K,
+Development $1K, Junior $500) and says a sport board starts at three
+seats and can grow to five with a Sport Director, a Board Chair and a
+Recruiting Lead.
+
+**Consequences:** The phrase is "give/get" and both halves count. A
+member meets their commitment by giving the money themselves or by
+bringing it in from somebody else. That is a schema requirement, not a
+display choice: without a column recording who brought a gift in, the
+app can only ever report personal giving. Most board software gets this
+wrong, and the effect is that every member who is good at fundraising
+looks like they are behind.
+
+Four rules are held as laws, each proven to fail against code without
+it:
+
+1. Money brought in counts. Dropping the "get" half is the default
+   failure mode of this whole feature.
+2. A gift somebody both made and is credited with soliciting counts
+   once, or a $10,000 commitment clears on $5,000.
+3. A pledge sits beside progress and never inside it, and an in-kind
+   gift does not discharge a cash commitment. Both carried over from the
+   fundraising rollup, which this module reuses rather than duplicating.
+4. Only an active seat carries a commitment. A prospect has not joined
+   and an emeritus member is not on the hook, so counting either makes
+   the board look further behind than it is, which is the mirror of
+   overstating and just as wrong.
+
+A seat's commitment is copied from the board rather than referenced, so
+changing a tier's amount later does not silently rewrite what a sitting
+member agreed to. A founding member on a reduced commitment is a real
+thing, and the alternative is somebody keeping a spreadsheet.
+
+The tier amounts and seat ranges ship as defaults to edit, stored per
+board. Bridge's numbers are Bridge's; another organization with a board
+sets its own and no code changes.
