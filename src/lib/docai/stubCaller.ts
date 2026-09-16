@@ -43,6 +43,66 @@ const TRIAGE_TYPE: Record<DocCategoryId, string> = {
 // threshold in provenance.ts. The Applied screen was unreachable.
 type Band = "unreadable" | "marginal" | "clean";
 
+// A simulated course table. Grades slide with the seed so a "better"
+// file produces a better core GPA, which is what makes the eligibility
+// screen's three outcomes reachable from the bench without an API key.
+function buildStubCourses(seed: number): Array<{ title: string; subject: string; credit: number; grade: string; weighted: boolean; term: string }> {
+  // seed 0 -> mostly C, seed 1 -> mostly A. The bands are chosen so the
+  // middle of the range lands in the academic-redshirt window rather
+  // than skipping straight from nonqualifier to qualifier.
+  const pick = (offset: number): string => {
+    const v = seed + offset;
+    if (v >= 0.75) return "A";
+    if (v >= 0.45) return "B";
+    if (v >= 0.2) return "C";
+    return "D";
+  };
+  const core: Array<[string, string, number, number, boolean]> = [
+    ["English 9", "english", 1, 0, false],
+    ["English 10", "english", 1, 0.05, false],
+    ["English 11", "english", 1, 0.1, false],
+    ["AP Literature", "english", 1, 0.15, true],
+    ["Algebra 1", "math", 1, -0.05, false],
+    ["Geometry", "math", 1, 0, false],
+    ["Algebra 2", "math", 1, 0.05, false],
+    ["Biology", "science", 1, 0, false],
+    ["Chemistry", "science", 1, -0.05, false],
+    ["Global History", "social_science", 1, 0.1, false],
+    ["US History", "social_science", 1, 0.05, false],
+    ["Spanish 1", "other_academic", 1, 0.1, false],
+    ["Spanish 2", "other_academic", 1, 0.1, false],
+    ["Economics", "other_academic", 0.5, 0.05, false],
+    ["Computer Science", "other_academic", 1, 0.15, false],
+    ["Psychology", "other_academic", 0.5, 0.05, false],
+  ];
+  const rows = core.map(([title, subject, credit, offset, weighted]) => ({
+    title,
+    subject,
+    credit,
+    grade: pick(offset),
+    weighted,
+    term: "24-25",
+  }));
+
+  // Not core courses. These are the A grades that lift a transcript
+  // average and are excluded from the NCAA one, which is the single
+  // thing the screen exists to show.
+  rows.push(
+    { title: "Phys. Ed. 11", subject: "non_academic", credit: 0.5, grade: "A", weighted: false, term: "24-25" },
+    { title: "Art 1", subject: "non_academic", credit: 0.5, grade: "A", weighted: false, term: "23-24" }
+  );
+
+  // A withdrawn course, which carries no quality points at all.
+  rows.push({ title: "Physics", subject: "science", credit: 0, grade: "W", weighted: false, term: "25-26" });
+
+  // A repeated title. Deliberately left untagged, because a repeat and a
+  // year-long course split across two terms look identical from here and
+  // the engine asks a human rather than guessing.
+  rows.push({ title: "Algebra 2", subject: "math", credit: 1, grade: pick(0.2), weighted: false, term: "25-26" });
+
+  return rows;
+}
+
 function bandOf(seed: number): Band {
   if (seed < 0.15) return "unreadable";
   if (seed < 0.45) return "marginal";
@@ -106,6 +166,18 @@ function stubExtraction(seed: number, category: DocCategoryId): string {
         ibCount: 0,
         dualCount: 0,
         courseRigorNotes: "Simulated. No course data was read from the file.",
+        dateOfBirth: "2008-03-15",
+        // A real transcript's course table, simulated, because without
+        // one the eligibility screen has nothing to compute from and the
+        // whole feature is undemonstrable with no API key wired up. The
+        // shape is what matters: a mix of subjects, a weighted course, a
+        // withdrawn one, PE that must not count, and one repeated title
+        // that a human has to resolve.
+        courses: buildStubCourses(seed),
+        // Numeric grades need the school's own table, which real
+        // transcripts sometimes print. This stub returns letters, so it
+        // returns no scale rather than a made-up one.
+        gradingScale: null,
       });
     case "test_scores":
       return JSON.stringify({

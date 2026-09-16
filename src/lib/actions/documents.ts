@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { detectCategory, runExtractionPipeline } from "@/lib/docai/pipeline";
@@ -63,6 +64,13 @@ export async function processDocument(
     sourceRole: SourceRole;
     // Null means "work out what this is". Dave wanted both ways in.
     requestedCategory: DocCategoryId | null;
+    // Set when the upload started from a particular athlete's page, so
+    // there is no question whose document this is. Goes to the
+    // pipeline's resolver override, which pins the match rather than
+    // guessing from the name printed on the page. This is what makes a
+    // nameless portal transcript usable: the name is missing from the
+    // document, and the person uploading it already told us.
+    athleteOverride?: string;
   }
 ): Promise<ProcessResult> {
   const org = await getOrgBySlug(slug);
@@ -179,6 +187,7 @@ export async function processDocument(
     rosterContext: context,
     priorVersions,
     callModel,
+    override: input.athleteOverride,
   });
 
   if (!result.ok) {
@@ -228,7 +237,7 @@ export async function processDocument(
     .eq("org_id", org.id);
 
   if (canAutoApply) {
-    await applyExtractionToAthlete(org.id, topCandidate!.athlete.id, categoryId, result.extracted);
+    await applyExtractionToAthlete(org.id, topCandidate!.athlete.id, categoryId, result.extracted, documentId);
   }
 
   revalidatePath(`/org/${slug}/documents`);
@@ -239,11 +248,19 @@ export async function processDocument(
 // Writes the extracted fields onto the athlete. Only the fields this app
 // actually stores are touched; everything else stays on the document row
 // rather than being dropped into a column that does not exist.
+//
+// For a transcript this is more than a GPA patch. The transcript GPA is
+// the school's own number and is NOT an NCAA core GPA; the core one is
+// computed from the course list, which is why the courses are stored as
+// rows rather than summarised into a column. Writing only the GPA, which
+// is what this did until 2026-09-16, left the eligibility screen with
+// nothing to read and every athlete stuck on "cannot be calculated yet".
 async function applyExtractionToAthlete(
   orgId: string,
   athleteId: string,
   categoryId: DocCategoryId,
-  extracted: Record<string, unknown>
+  extracted: Record<string, unknown>,
+  documentId: string | null
 ): Promise<void> {
   const supabase = await createClient();
   const patch: Record<string, unknown> = {};
@@ -253,10 +270,105 @@ async function applyExtractionToAthlete(
       patch.gpa = extracted.gpa;
       patch.gpa_verified = extracted.gpaVerified === true;
     }
+    // Needed by the age-based eligibility clock, which can start before
+    // an athlete enrols anywhere. Only set when it is missing, so a
+    // re-read of an older transcript never overwrites a corrected one.
+    if (typeof extracted.dateOfBirth === "string" && /^\d{4}-\d{2}-\d{2}$/.test(extracted.dateOfBirth)) {
+      const { data: current } = await supabase.from("athletes").select("date_of_birth").eq("id", athleteId).eq("org_id", orgId).single();
+      if (current && !current.date_of_birth) patch.date_of_birth = extracted.dateOfBirth;
+    }
+
+    await replaceCoursesFromDocument(orgId, athleteId, documentId, extracted);
+    await recordGradingScale(extracted, documentId);
   }
 
   if (Object.keys(patch).length === 0) return;
   await supabase.from("athletes").update(patch).eq("id", athleteId).eq("org_id", orgId);
+}
+
+interface ExtractedCourse {
+  title: string;
+  subject: string;
+  credit: number;
+  grade: string;
+  weighted?: boolean;
+  term?: string | null;
+}
+
+// Replaces this document's own course rows, rather than appending to
+// whatever is already there. Applying the same transcript twice is a
+// normal thing to do (a re-read after fixing the category, a corrected
+// scan), and appending would silently double every credit and leave the
+// core GPA unchanged while the credit totals went to 32 of 16.
+//
+// Rows from OTHER documents are left alone on purpose: a transfer
+// student legitimately has two transcripts, and the second one must not
+// delete the first one's courses.
+async function replaceCoursesFromDocument(
+  orgId: string,
+  athleteId: string,
+  documentId: string | null,
+  extracted: Record<string, unknown>
+): Promise<void> {
+  const raw = extracted.courses;
+  if (!Array.isArray(raw) || raw.length === 0) return;
+  const supabase = await createClient();
+
+  if (documentId) {
+    await supabase.from("athlete_courses").delete().eq("document_id", documentId).eq("org_id", orgId);
+  }
+
+  const school = typeof extracted.school === "string" ? extracted.school : null;
+  const rows = (raw as ExtractedCourse[])
+    .filter((c) => c && typeof c.title === "string" && c.title.trim() !== "")
+    .map((c) => ({
+      org_id: orgId,
+      athlete_id: athleteId,
+      document_id: documentId,
+      title: c.title,
+      subject: c.subject,
+      credit: Number.isFinite(c.credit) ? c.credit : 0,
+      grade: String(c.grade ?? ""),
+      term: c.term ?? null,
+      school_name: school,
+      weighted: c.weighted === true,
+      // Deliberately left null: nobody has checked this course against
+      // the school's NCAA-approved list, and the engine reports unchecked
+      // as unchecked rather than treating it as approved.
+      ncaa_approved: null,
+    }));
+
+  if (!rows.length) return;
+  await supabase.from("athlete_courses").insert(rows);
+}
+
+// A transcript that prints its school's own numeric-to-letter table is
+// the only way most of these grades become scorable, because the NCAA
+// converts numerics using the school's published scale and refuses to
+// guess. So when the model reads that table off the page, it is worth
+// keeping.
+//
+// Written through the service role because the table is shared reference
+// data that ordinary members cannot write (migrations/0008), and left
+// UNVERIFIED with a note saying which document it came from. An existing
+// row is never overwritten: a scale someone has actually confirmed
+// outranks one read off a scan, and two orgs' athletes at the same
+// school share this row.
+async function recordGradingScale(extracted: Record<string, unknown>, documentId: string | null): Promise<void> {
+  const bands = extracted.gradingScale;
+  const school = typeof extracted.school === "string" ? extracted.school.trim() : "";
+  if (!school || !Array.isArray(bands) || bands.length === 0) return;
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin.from("high_school_grading_scales").select("id").eq("school_name", school).maybeSingle();
+  if (existing) return;
+
+  await admin.from("high_school_grading_scales").insert({
+    school_name: school,
+    bands,
+    source_note: documentId ? `Read off the transcript uploaded as document ${documentId}. Not confirmed with the school.` : "Read off a transcript. Not confirmed with the school.",
+    verified_at: null,
+  });
 }
 
 export async function applyDocument(slug: string, documentId: string, athleteId: string): Promise<{ ok: boolean; error?: string }> {
@@ -287,7 +399,7 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
     .single();
   if (!athlete) return { ok: false, error: "That athlete isn't on this org's roster." };
 
-  await applyExtractionToAthlete(org.id, athleteId, doc.category, doc.extracted);
+  await applyExtractionToAthlete(org.id, athleteId, doc.category, doc.extracted, doc.id);
 
   await supabase
     .from("documents")

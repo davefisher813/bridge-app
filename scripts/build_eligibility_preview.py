@@ -256,6 +256,13 @@ SCREENS["cannot"] = ("Not enough yet", f"""
     <button class="rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Add the school's grading scale</button>
     <button class="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">Review the 18 courses</button>
   </div>
+
+  <div class="mb-2 mt-6">{header("Add another transcript", None, "contact")}</div>
+  <p class="mb-3 text-[12px] leading-tight text-muted">Goes straight onto Johan's record. A transfer student legitimately has two, and the second does not replace the first.</p>
+  <div class="rounded-[12px] border-2 border-dashed border-line bg-paper px-4 py-8 text-center">
+    <div class="text-[13px] font-extrabold text-ink">Take a photo or choose a file</div>
+    <div class="mt-1 text-[11.5px] text-muted">PDF, JPEG or PNG &middot; read for its course list</div>
+  </div>
 </main>
 """)
 

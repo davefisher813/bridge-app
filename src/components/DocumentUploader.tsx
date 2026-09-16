@@ -36,10 +36,19 @@ function newRequestId(): string {
   return `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function DocumentUploader({ slug }: { slug: string }) {
+export interface DocumentUploaderProps {
+  slug: string;
+  // Bound to one athlete: the category is fixed, the athlete is pinned
+  // rather than matched by name, and the user goes back where they
+  // started instead of to the documents list. Used by the eligibility
+  // screen, where the only useful upload is this athlete's transcript.
+  boundTo?: { athleteId: string; athleteName: string; category: DocCategoryId; returnTo: string };
+}
+
+export function DocumentUploader({ slug, boundTo }: DocumentUploaderProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [category, setCategory] = useState<DocCategoryId | null>(null);
+  const [category, setCategory] = useState<DocCategoryId | null>(boundTo?.category ?? null);
   const [sourceRole, setSourceRole] = useState<SourceRole>("coordinator");
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -68,7 +77,12 @@ export function DocumentUploader({ slug }: { slug: string }) {
       }
 
       setStage(category ? "Reading it" : "Working out what it is");
-      const result = await processDocument(slug, { records, sourceRole, requestedCategory: category });
+      const result = await processDocument(slug, {
+        records,
+        sourceRole,
+        requestedCategory: category,
+        athleteOverride: boundTo?.athleteName,
+      });
 
       if (!result.ok || !result.documentId) {
         setError(result.error ?? "Something went wrong reading that document.");
@@ -76,7 +90,11 @@ export function DocumentUploader({ slug }: { slug: string }) {
         setStage(null);
         return;
       }
-      router.push(`/org/${slug}/documents/${result.documentId}`);
+      // A bound upload goes back to the page it started from, because
+      // the point there is the verdict that changed, not the document
+      // row. The document is still reachable from the documents list.
+      router.push(boundTo ? boundTo.returnTo : `/org/${slug}/documents/${result.documentId}`);
+      router.refresh();
     } catch (e) {
       setError((e as Error).message || "Something went wrong reading that document.");
       setBusy(false);
@@ -86,6 +104,7 @@ export function DocumentUploader({ slug }: { slug: string }) {
 
   return (
     <div className="flex flex-col gap-5">
+      {!boundTo && (
       <div>
         <label className={labelClass}>What is it</label>
         <div className="flex flex-wrap gap-1.5">
@@ -109,6 +128,7 @@ export function DocumentUploader({ slug }: { slug: string }) {
             : "Forced. It will be read as this even if it looks like something else."}
         </p>
       </div>
+      )}
 
       <div>
         <label className={labelClass} htmlFor="sourceRole">

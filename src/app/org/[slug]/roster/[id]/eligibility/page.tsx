@@ -15,10 +15,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { SectionHeader, EmptyState } from "@/components/catalog";
 import { GpaPair, NoteRail, SubjectRow, VerdictCard } from "@/components/EligibilityVerdict";
+import { DocumentUploader } from "@/components/DocumentUploader";
 import { buildEligibilityView, type AthleteCourseRow, type GradingScaleRow } from "@/lib/data/ncaaAdapters";
 import { DIVISION_STANDARDS } from "@/lib/fit/ncaa/initialEligibility";
 import type { SubjectArea } from "@/lib/fit/ncaa/coreGpa";
@@ -74,7 +75,10 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireRole(org.id, ["owner", "staff", "member"]);
+  // Uploading a document is a staff action, same as everywhere else.
+  // A member can read the verdict and cannot change what it is built on.
+  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const canUpload = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
   const [{ data: athlete }, { data: courseRows }, { data: targetRows }] = await Promise.all([
@@ -146,6 +150,24 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           Initial eligibility depends on where an athlete is going, not on the athlete. Add a target school and this starts calculating
           against that division.
         </EmptyState>
+        {/* Still worth loading the transcript now: the courses are what
+            any future verdict is built from, and reading them does not
+            depend on a target existing yet. */}
+        {canUpload && (
+          <>
+            <div className="mb-2 mt-6">
+              <SectionHeader label="Add a transcript anyway" role="contact" />
+            </div>
+            <p className="mb-3 text-[12px] leading-tight text-muted">
+              The course list is what a core GPA is calculated from. Loading it now means the verdict is ready the moment a school goes on
+              the board.
+            </p>
+            <DocumentUploader
+              slug={slug}
+              boundTo={{ athleteId: id, athleteName: athlete.name, category: "transcript", returnTo: `/org/${slug}/roster/${id}/eligibility` }}
+            />
+          </>
+        )}
       </main>
     );
   }
@@ -293,6 +315,30 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
               </div>
             </>
           )}
+        </>
+      )}
+
+      {/* The upload lives here rather than only on the documents screen
+          because this page is where someone notices the courses are
+          missing. Bound to this athlete: the category is fixed to a
+          transcript, the athlete is pinned rather than matched by the
+          name printed on the page, and it comes back here. That pinning
+          is also what makes a nameless portal export usable, since the
+          person uploading it has already said whose it is. */}
+      {canUpload && (
+        <>
+          <div className="mb-2 mt-6">
+            <SectionHeader label={courses.length ? "Add another transcript" : "Add a transcript"} role="contact" />
+          </div>
+          <p className="mb-3 text-[12px] leading-tight text-muted">
+            {courses.length
+              ? `Goes straight onto ${athlete.name.split(" ")[0]}'s record. A transfer student legitimately has two, and the second does not replace the first.`
+              : `Read for its course list, not just its GPA. That course list is the only thing an NCAA core GPA can be calculated from, so nothing above works until one is on file.`}
+          </p>
+          <DocumentUploader
+            slug={slug}
+            boundTo={{ athleteId: id, athleteName: athlete.name, category: "transcript", returnTo: `/org/${slug}/roster/${id}/eligibility` }}
+          />
         </>
       )}
 
