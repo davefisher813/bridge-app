@@ -133,9 +133,14 @@ down because each needs a decision, not because they were missed.
   pass, which is what it had been missing: every assertion in it used
   to run as an owner, so it could never have caught this. 55 assertions,
   up from 35.
-- **`discardDocument` does not undo an apply.** It sets a status and
-  leaves the course rows, the GPA and the date of birth it wrote in
-  place. There is no path in the app to remove them.
+- ~~**`discardDocument` does not undo an apply.**~~ Fixed 2026-09-16,
+  migration `0011`. An apply now records what it changed on
+  `documents.applied_changes`, and discarding an applied document
+  removes its course rows, puts back the athlete's previous values and
+  deletes a grading scale that only existed because of it. A field
+  corrected by hand since the apply is deliberately left alone, and the
+  screen says what was and was not undone. The Discard button now
+  appears on applied documents at all, which it never did before.
 - ~~**The weighted-grade bonus is unreachable in practice.**~~ Fixed
   2026-09-16. The grading-scale entry form asks both NCAA conditions and
   the school's real bonus amount, and the adapter passes it through.

@@ -20,6 +20,7 @@ import {
   MAX_RECORDS_PER_UPLOAD,
 } from "@/lib/docai/acceptance";
 import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
+import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
 import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole } from "@/lib/docai/types";
 
 // The caller side of src/lib/docai. The pipeline deliberately returns a
@@ -44,6 +45,30 @@ export interface ProcessResult {
   ok: boolean;
   documentId?: string;
   error?: string;
+}
+
+// What applying a document changed, stored on documents.applied_changes
+// so discarding it can put things back. See migrations/0011.
+interface AppliedChanges {
+  athleteId: string;
+  // Column name to the value before this apply and the value it wrote.
+  // Both are needed: the undo restores a field only when its current
+  // value still matches `after`, so a correction made by hand after the
+  // apply is left alone rather than reverted.
+  athleteFields: Record<string, { before: unknown; after: unknown }>;
+  // Set only when this document CREATED a shared grading-scale row.
+  // Never set when it found one already there, because first writer wins
+  // and undoing this document must not delete somebody else's table.
+  gradingScaleId: string | null;
+  // Course rows from OTHER documents that this apply superseded. They
+  // are gone and an undo cannot bring them back, so it says so rather
+  // than implying a clean reversal.
+  coursesSuperseded: number;
+}
+
+interface ApplyOutcome {
+  warnings: string[];
+  changes: AppliedChanges;
 }
 
 // Returns the reason to refuse, or null to proceed. Decoding happens
@@ -305,14 +330,19 @@ export async function processDocument(
     .eq("org_id", org.id);
 
   if (canAutoApply) {
-    const autoWarnings = await applyExtractionToAthlete(org.id, topCandidate!.athlete.id, categoryId, result.extracted, documentId);
-    if (autoWarnings.length) {
-      await supabase
-        .from("documents")
-        .update({ failure_reason: autoWarnings.join(" "), updated_at: new Date().toISOString() })
-        .eq("id", documentId)
-        .eq("org_id", org.id);
-    }
+    const outcome = await applyExtractionToAthlete(org.id, topCandidate!.athlete.id, categoryId, result.extracted, documentId);
+    // applied_changes is written whether or not there were warnings. An
+    // apply that half succeeded is exactly the one somebody will want to
+    // undo, so it must not be the one with nothing recorded.
+    await supabase
+      .from("documents")
+      .update({
+        applied_changes: outcome.changes,
+        ...(outcome.warnings.length ? { failure_reason: outcome.warnings.join(" ") } : {}),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", documentId)
+      .eq("org_id", org.id);
   }
 
   revalidatePath(`/org/${slug}/documents`);
@@ -336,10 +366,31 @@ async function applyExtractionToAthlete(
   categoryId: DocCategoryId,
   extracted: Record<string, unknown>,
   documentId: string | null
-): Promise<string[]> {
+): Promise<ApplyOutcome> {
   const supabase = await createClient();
   const patch: Record<string, unknown> = {};
   const warnings: string[] = [];
+  // What this apply changed, so discarding it can put things back. Each
+  // field records both the value before and the value written: the undo
+  // restores a field only when its current value still matches what this
+  // document put there, so a correction made by hand afterwards is never
+  // reverted to a number from before the document existed.
+  const changes: AppliedChanges = {
+    athleteId,
+    athleteFields: {},
+    gradingScaleId: null,
+    coursesSuperseded: 0,
+  };
+
+  // Read once up front rather than per field. The date-of-birth branch
+  // used to run its own query for exactly this.
+  const { data: currentAthlete } = await supabase
+    .from("athletes")
+    .select("gpa, gpa_verified, date_of_birth")
+    .eq("id", athleteId)
+    .eq("org_id", orgId)
+    .single();
+  const before = (currentAthlete ?? {}) as Record<string, unknown>;
 
   if (categoryId === "transcript") {
     if (typeof extracted.gpa === "number") {
@@ -363,18 +414,31 @@ async function applyExtractionToAthlete(
     // an athlete enrols anywhere. Only set when it is missing, so a
     // re-read of an older transcript never overwrites a corrected one.
     if (typeof extracted.dateOfBirth === "string" && isRealDate(extracted.dateOfBirth)) {
-      const { data: current } = await supabase.from("athletes").select("date_of_birth").eq("id", athleteId).eq("org_id", orgId).single();
-      if (current && !current.date_of_birth) patch.date_of_birth = extracted.dateOfBirth;
+      if (currentAthlete && !currentAthlete.date_of_birth) patch.date_of_birth = extracted.dateOfBirth;
     }
 
-    warnings.push(...(await replaceCoursesFromDocument(orgId, athleteId, documentId, extracted)));
-    warnings.push(...(await recordGradingScale(extracted, documentId)));
+    const courseOutcome = await replaceCoursesFromDocument(orgId, athleteId, documentId, extracted);
+    warnings.push(...courseOutcome.warnings);
+    changes.coursesSuperseded = courseOutcome.superseded;
+
+    const scaleOutcome = await recordGradingScale(extracted, documentId);
+    warnings.push(...scaleOutcome.warnings);
+    changes.gradingScaleId = scaleOutcome.createdId;
   }
 
-  if (Object.keys(patch).length === 0) return warnings;
+  if (Object.keys(patch).length === 0) return { warnings, changes };
+
+  for (const [column, after] of Object.entries(patch)) {
+    changes.athleteFields[column] = { before: before[column] ?? null, after };
+  }
+
   const { error } = await supabase.from("athletes").update(patch).eq("id", athleteId).eq("org_id", orgId);
-  if (error) warnings.push(`Could not update the athlete's record: ${error.message}`);
-  return warnings;
+  if (error) {
+    warnings.push(`Could not update the athlete's record: ${error.message}`);
+    // Nothing was written, so nothing is recorded as needing an undo.
+    changes.athleteFields = {};
+  }
+  return { warnings, changes };
 }
 
 // A regex says 2026-02-30 looks like a date. Postgres disagrees, and the
@@ -408,10 +472,10 @@ async function replaceCoursesFromDocument(
   athleteId: string,
   documentId: string | null,
   extracted: Record<string, unknown>
-): Promise<string[]> {
+): Promise<{ warnings: string[]; superseded: number }> {
   const warnings: string[] = [];
   const raw = extracted.courses;
-  if (!Array.isArray(raw) || raw.length === 0) return warnings;
+  if (!Array.isArray(raw) || raw.length === 0) return { warnings, superseded: 0 };
   const supabase = await createClient();
 
   const school = typeof extracted.school === "string" ? extracted.school.trim().slice(0, 200) : null;
@@ -446,7 +510,25 @@ async function replaceCoursesFromDocument(
 
   const dropped = (raw as ExtractedCourse[]).length - rows.length;
   if (dropped > 0) warnings.push(`${dropped} course row(s) were unusable and left out.`);
-  if (!rows.length) return warnings;
+  if (!rows.length) return { warnings, superseded: 0 };
+
+  // Counted before the delete, so an undo can say honestly that these
+  // rows are gone and are not coming back. Discarding this document
+  // removes what it wrote; it cannot resurrect what it replaced.
+  const { count: supersededCount } = school
+    ? await supabase
+        .from("athlete_courses")
+        .select("id", { count: "exact", head: true })
+        .eq("athlete_id", athleteId)
+        .eq("org_id", orgId)
+        .eq("school_name", school)
+    : await supabase
+        .from("athlete_courses")
+        .select("id", { count: "exact", head: true })
+        .eq("athlete_id", athleteId)
+        .eq("org_id", orgId)
+        .is("school_name", null);
+  const superseded = supersededCount ?? 0;
 
   // Supersede by SCHOOL, not by document.
   //
@@ -465,12 +547,12 @@ async function replaceCoursesFromDocument(
     : await supabase.from("athlete_courses").delete().eq("athlete_id", athleteId).eq("org_id", orgId).is("school_name", null);
   if (deleteError) {
     warnings.push(`Could not clear the previous courses for this school, so they were left as they were: ${deleteError.message}`);
-    return warnings;
+    return { warnings, superseded: 0 };
   }
 
   const { error } = await supabase.from("athlete_courses").insert(rows);
   if (error) warnings.push(`Could not save the course list: ${error.message}`);
-  return warnings;
+  return { warnings, superseded };
 }
 
 // A transcript has tens of courses, not thousands. The cap stops a
@@ -489,11 +571,14 @@ const MAX_COURSES_PER_DOCUMENT = 200;
 // row is never overwritten: a scale someone has actually confirmed
 // outranks one read off a scan, and two orgs' athletes at the same
 // school share this row.
-async function recordGradingScale(extracted: Record<string, unknown>, documentId: string | null): Promise<string[]> {
+async function recordGradingScale(
+  extracted: Record<string, unknown>,
+  documentId: string | null
+): Promise<{ warnings: string[]; createdId: string | null }> {
   const warnings: string[] = [];
   const bands = extracted.gradingScale;
   const school = typeof extracted.school === "string" ? extracted.school.trim() : "";
-  if (!school || !Array.isArray(bands) || bands.length === 0) return warnings;
+  if (!school || !Array.isArray(bands) || bands.length === 0) return { warnings, createdId: null };
 
   // This row is SHARED reference data. Every org with an athlete at this
   // school converts every numeric grade through it, so a wrong table
@@ -510,7 +595,7 @@ async function recordGradingScale(extracted: Record<string, unknown>, documentId
   const problem = gradingScaleProblem(bands);
   if (problem) {
     warnings.push(`The grading table read off this transcript was not saved: ${problem} Ask the school for its conversion table.`);
-    return warnings;
+    return { warnings, createdId: null };
   }
 
   const admin = createAdminClient();
@@ -521,23 +606,28 @@ async function recordGradingScale(extracted: Record<string, unknown>, documentId
     .maybeSingle();
   if (readError) {
     warnings.push(`Could not check whether a grading scale already exists for ${school}.`);
-    return warnings;
+    return { warnings, createdId: null };
   }
   // First writer wins, on purpose: a scale someone has confirmed
   // outranks one read off a scan, and silently replacing another org's
   // verified table would be the worst version of this.
-  if (existing) return warnings;
+  if (existing) return { warnings, createdId: null };
 
-  const { error } = await admin.from("high_school_grading_scales").insert({
+  const { data: inserted, error } = await admin.from("high_school_grading_scales").insert({
     school_name: school,
     bands,
     source_note: documentId
       ? `Read off the transcript uploaded as document ${documentId}. Not confirmed with the school.`
       : "Read off a transcript. Not confirmed with the school.",
     verified_at: null,
-  });
-  if (error) warnings.push(`Could not save the grading scale read off this transcript: ${error.message}`);
-  return warnings;
+  })
+    .select("id")
+    .single();
+  if (error) {
+    warnings.push(`Could not save the grading scale read off this transcript: ${error.message}`);
+    return { warnings, createdId: null };
+  }
+  return { warnings, createdId: (inserted as { id: string } | null)?.id ?? null };
 }
 
 export async function applyDocument(slug: string, documentId: string, athleteId: string): Promise<{ ok: boolean; error?: string }> {
@@ -580,7 +670,8 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
     .single();
   if (!athlete) return { ok: false, error: "That athlete isn't on this org's roster." };
 
-  const applyWarnings = await applyExtractionToAthlete(org.id, athleteId, doc.category, doc.extracted, doc.id);
+  const outcome = await applyExtractionToAthlete(org.id, athleteId, doc.category, doc.extracted, doc.id);
+  const applyWarnings = outcome.warnings;
 
   const { error: statusError } = await supabase
     .from("documents")
@@ -589,6 +680,8 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
       athlete_id: athleteId,
       applied_at: new Date().toISOString(),
       applied_by: user.id,
+      // What to put back if this is discarded later. See migrations/0011.
+      applied_changes: outcome.changes,
       updated_at: new Date().toISOString(),
     })
     .eq("id", documentId)
@@ -604,18 +697,143 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
   return { ok: true };
 }
 
-export async function discardDocument(slug: string, documentId: string): Promise<{ ok: boolean; error?: string }> {
+// Discarding is now an undo, not just a status change.
+//
+// Until 2026-09-16 this set a status and left everything the apply had
+// written in place: the course rows, the GPA, the gpa_verified flag, the
+// date of birth and any shared grading scale. Nothing in the app could
+// remove them, so a transcript applied to the wrong athlete stayed on
+// that athlete's record permanently and looked exactly like data someone
+// had typed in. A discarded document that leaves its data behind is
+// worse than one that cannot be discarded at all, because the screen
+// says it is gone.
+//
+// The returned `undone` sentences are shown to whoever pressed the
+// button, because "discarded" is not a complete account of what just
+// happened to an athlete's record.
+export async function discardDocument(
+  slug: string,
+  documentId: string
+): Promise<{ ok: boolean; error?: string; undone?: string[] }> {
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Org not found." };
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  await supabase
+  const { data } = await supabase
     .from("documents")
-    .update({ status: "discarded", updated_at: new Date().toISOString() })
+    .select("id, status, applied_changes")
+    .eq("id", documentId)
+    .eq("org_id", org.id)
+    .single();
+
+  const doc = data as { id: string; status: string; applied_changes: AppliedChanges | null } | null;
+  if (!doc) return { ok: false, error: "Document not found." };
+  if (doc.status === "discarded") return { ok: false, error: "That document was already discarded." };
+
+  const undone = doc.status === "applied" ? await undoApply(org.id, doc.id, doc.applied_changes) : [];
+
+  const { error } = await supabase
+    .from("documents")
+    .update({
+      status: "discarded",
+      // The record is consumed. Leaving it would let a second discard,
+      // or a later bug, try to restore values a second time.
+      applied_changes: null,
+      // Kept on the row rather than only returned, so the screen still
+      // says what happened after a reload.
+      undo_note: undone.length ? undone.join(" ") : null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", documentId)
     .eq("org_id", org.id);
+  if (error) return { ok: false, error: `Undid the changes, but the document status could not be updated: ${error.message}` };
 
   revalidatePath(`/org/${slug}/documents`);
-  return { ok: true };
+  revalidatePath(`/org/${slug}/roster`);
+  return { ok: true, undone };
+}
+
+// Puts back what an apply changed. Returns a plain-language account of
+// what it did, including what it could not undo.
+async function undoApply(orgId: string, documentId: string, changes: AppliedChanges | null): Promise<string[]> {
+  const supabase = await createClient();
+  const done: string[] = [];
+
+  // Course rows are found by query rather than from the record, so they
+  // are removed even for a document applied before applied_changes
+  // existed.
+  const { count } = await supabase
+    .from("athlete_courses")
+    .select("id", { count: "exact", head: true })
+    .eq("document_id", documentId)
+    .eq("org_id", orgId);
+  if (count && count > 0) {
+    const { error } = await supabase.from("athlete_courses").delete().eq("document_id", documentId).eq("org_id", orgId);
+    if (error) done.push(`Could not remove the ${count} course rows this document added: ${error.message}`);
+    else done.push(`Removed ${count} course ${count === 1 ? "row" : "rows"} this document added.`);
+  }
+
+  if (!changes) {
+    // Applied before this was recorded. Say so rather than implying a
+    // clean reversal: the GPA and date of birth it wrote are still there
+    // and there is no way to know what they replaced.
+    done.push("This was applied before undo was available, so any GPA or date of birth it wrote is still on the record.");
+    return done;
+  }
+
+  if (changes.coursesSuperseded > 0) {
+    done.push(
+      `${changes.coursesSuperseded} course ${changes.coursesSuperseded === 1 ? "row" : "rows"} from an earlier transcript for the same school were replaced when this was applied and cannot be brought back.`,
+    );
+  }
+
+  const fields = Object.entries(changes.athleteFields ?? {});
+  if (fields.length > 0 && changes.athleteId) {
+    const { data: current } = await supabase
+      .from("athletes")
+      .select("gpa, gpa_verified, date_of_birth")
+      .eq("id", changes.athleteId)
+      .eq("org_id", orgId)
+      .single();
+
+    // The decision itself lives in src/lib/data/undoPlan.ts, where it
+    // can be tested: this file is "use server", so nothing in it can be
+    // exported to a test.
+    const { restore, kept } = planFieldRestore(current as Record<string, unknown> | null, changes.athleteFields ?? {});
+
+    if (Object.keys(restore).length > 0) {
+      const { error } = await supabase.from("athletes").update(restore).eq("id", changes.athleteId).eq("org_id", orgId);
+      if (error) done.push(`Could not restore the athlete's previous values: ${error.message}`);
+      else done.push(`Put back the athlete's previous ${Object.keys(restore).map(readableColumn).join(" and ")}.`);
+    }
+    if (kept.length > 0) {
+      // Somebody corrected it by hand after the apply. Their value is
+      // the current truth and reverting it to something from before the
+      // document existed would be the worse mistake.
+      done.push(`Left the ${kept.map(readableColumn).join(" and ")} alone, because it has been changed since this was applied.`);
+    }
+  }
+
+  // Only a scale this document CREATED, and only while nobody has
+  // confirmed it since. A shared table another org may now be relying on
+  // is not this document's to delete once somebody has vouched for it.
+  if (changes.gradingScaleId) {
+    const admin = createAdminClient();
+    const { data: scale } = await admin
+      .from("high_school_grading_scales")
+      .select("id, school_name, verified_at")
+      .eq("id", changes.gradingScaleId)
+      .maybeSingle();
+    const row = scale as { id: string; school_name: string; verified_at: string | null } | null;
+    if (row && !row.verified_at) {
+      const { error } = await admin.from("high_school_grading_scales").delete().eq("id", row.id);
+      if (error) done.push(`Could not remove the grading scale this document created: ${error.message}`);
+      else done.push(`Removed the ${row.school_name} grading scale, which only existed because of this document.`);
+    } else if (row) {
+      done.push(`Kept the ${row.school_name} grading scale: somebody has confirmed it since, so it is no longer just this document's reading.`);
+    }
+  }
+
+  return done;
 }

@@ -952,3 +952,51 @@ The acceptance check compares the decoded byte length, never
 refuses a PDF sent as an image and an image sent as a PDF, because that
 mismatch makes the pipeline send the wrong content block type and fails
 downstream in a way nobody can diagnose from the error.
+
+---
+
+## 2026-09-16 - Discarding a document undoes it, and says what it could not undo
+
+**Decision:** An apply records what it changed on
+`documents.applied_changes` (migration `0011`), and `discardDocument`
+reverses it: course rows removed, the athlete's previous GPA, verified
+flag and date of birth restored, and a shared grading scale deleted if
+this document is the only reason it exists. The plain-language account of
+what happened is stored in `documents.undo_note` and shown on the screen.
+
+**Reason:** Discarding set a status and left everything in place, with no
+path anywhere in the app to remove it. A transcript applied to the wrong
+athlete stayed on that athlete's record permanently, indistinguishable
+from data somebody had typed in, while the screen said it had been
+discarded. That is worse than not being able to discard at all.
+
+The Discard button also only appeared on `pending` documents, so an
+applied one could not be undone even in principle. It now appears on
+applied documents and says "Undo and discard".
+
+**Consequences:** The undo is deliberately conditional. Each field is
+restored only when its current value still matches what the document
+wrote, because somebody may have corrected the GPA by hand afterwards,
+and reverting their correction to a number from before the document
+existed would be the worse mistake. That comparison is the subtle part:
+`numeric(3,2)` comes back from Supabase as a string, so `===` would have
+refused every GPA undo and the feature would have silently done nothing.
+The rule lives in `src/lib/data/undoPlan.ts` rather than in the server
+action, because a `"use server"` module can export nothing but async
+actions and therefore cannot be unit tested.
+
+Three things an undo honestly cannot do, all of which it says out loud
+rather than papering over:
+
+- Course rows from an earlier transcript for the same school were
+  already deleted when this document superseded them. They are gone. The
+  count is recorded at apply time so the undo can report it.
+- A field changed since the apply is left as it is.
+- A grading scale somebody has confirmed since is kept. The shared table
+  is read by every org, and removing a row another organization may now
+  rely on is not this document's call once somebody has vouched for it.
+
+A document applied before this existed has no record to work from. Its
+course rows are still removed, because they carry `document_id` and are
+found by query, but the undo says plainly that any GPA or date of birth
+it wrote is still there.

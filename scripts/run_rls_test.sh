@@ -27,6 +27,7 @@ su postgres -c "psql -d $DB -f migrations/0007_documents.sql"
 su postgres -c "psql -d $DB -f migrations/0008_core_courses.sql"
 su postgres -c "psql -d $DB -f migrations/0009_org_grading_scales.sql"
 su postgres -c "psql -d $DB -f migrations/0010_role_aware_rls.sql"
+su postgres -c "psql -d $DB -f migrations/0011_document_undo.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

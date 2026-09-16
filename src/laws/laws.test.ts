@@ -119,3 +119,62 @@ describe("LAW: the server never trusts the client's account of an uploaded file"
     expect(ingest).toMatch(/from "\.\/limits"/);
   });
 });
+
+describe("LAW: discarding an applied document undoes what it wrote", () => {
+  // Until 2026-09-16 discardDocument set a status and left the course
+  // rows, the GPA, the verified flag and the date of birth in place,
+  // with no path in the app to remove them. A transcript applied to the
+  // wrong athlete stayed on that athlete's record permanently while the
+  // screen said it had been discarded.
+
+  it("discardDocument actually removes what the apply added", () => {
+    const source = readFileSync(join(SRC, "lib", "actions", "documents.ts"), "utf8");
+    // Bounded to the function's own body. Slicing to the end of the file
+    // passed even with the call removed, because undoApply's own
+    // definition sits below it.
+    const start = source.indexOf("export async function discardDocument");
+    const end = source.indexOf("async function undoApply", start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const discard = source.slice(start, end);
+    expect(discard).toMatch(/await undoApply\(/);
+
+    const undo = source.slice(source.indexOf("async function undoApply"));
+    // The course rows are the part that cannot be reconstructed later,
+    // so they are found by query and deleted rather than trusted to a
+    // record that may predate the feature.
+    expect(undo).toMatch(/from\("athlete_courses"\)[\s\S]{0,200}\.delete\(\)/);
+  });
+
+  it("an apply records what it changed, or the undo has nothing to work from", () => {
+    const source = readFileSync(join(SRC, "lib", "actions", "documents.ts"), "utf8");
+    // Both apply paths: the automatic one inside processDocument and the
+    // human one in applyDocument. Missing it on either leaves half the
+    // documents in the system un-undoable.
+    const matches = source.match(/applied_changes: outcome\.changes/g) ?? [];
+    expect(matches.length).toBe(2);
+  });
+
+  it("a field changed by hand since the apply is never reverted", () => {
+    const plan = readFileSync(join(SRC, "lib", "data", "undoPlan.ts"), "utf8");
+    const code = plan
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("//") && !line.trim().startsWith("*"))
+      .join("\n");
+    // The guard is the comparison against what this document wrote. An
+    // undo that restores unconditionally would throw away somebody's
+    // correction, which is worse than not undoing at all.
+    expect(code).toMatch(/sameStoredValue\(now, change\.after\)/);
+    expect(code).toMatch(/kept\.push\(column\)/);
+  });
+
+  it("the undo never deletes a grading scale somebody has confirmed", () => {
+    const source = readFileSync(join(SRC, "lib", "actions", "documents.ts"), "utf8");
+    const undo = source.slice(source.indexOf("async function undoApply"));
+    // The shared table is read by every org. Removing a row another org
+    // may now rely on, because this document happened to create it and
+    // this org changed its mind, is not this document's call once
+    // somebody has vouched for it.
+    expect(undo).toMatch(/!row\.verified_at/);
+  });
+});

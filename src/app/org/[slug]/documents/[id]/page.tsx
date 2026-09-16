@@ -33,6 +33,7 @@ interface DocDetail {
   candidates: { athleteId: string; name: string; score: number; reasons: string[] }[] | null;
   athlete_id: string | null;
   athletes: { name: string } | { name: string }[] | null;
+  undo_note: string | null;
   created_at: string;
 }
 
@@ -105,7 +106,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   const { data } = await supabase
     .from("documents")
     .select(
-      "id, file_name, file_size, page_count, category, requested_category, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes(name), created_at"
+      "id, file_name, file_size, page_count, category, requested_category, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes(name), undo_note, created_at"
     )
     .eq("id", id)
     .eq("org_id", org.id)
@@ -124,6 +125,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   const isApplied = doc.status === "applied";
   const isPending = doc.status === "pending";
   const isFailed = doc.status === "failed";
+  const isDiscarded = doc.status === "discarded";
 
   // Both wrappers exist to return void: a form action's return value has
   // to be void, and applyDocument/discardDocument return a result object
@@ -311,14 +313,42 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
             </>
           )}
 
+          {/* What discarding actually did, kept on the row so it
+              survives a reload. A discard that silently leaves an
+              athlete's GPA rewritten is the bug this replaced. */}
+          {isDiscarded && doc.undo_note && (
+            <div className="mt-5">
+              <RailCard role="target">
+                <div className="text-[13px] font-bold text-ink">What was undone</div>
+                <div className="mt-1 text-[12px] leading-tight text-muted">{doc.undo_note}</div>
+              </RailCard>
+            </div>
+          )}
+
+          {/* Discarding an APPLIED document is an undo, so the button
+              says so. It did not exist at all before: an applied
+              document could only ever be left as it was, however wrong
+              it turned out to be. */}
+          {isApplied && (
+            <div className="mt-5">
+              <RailCard role="offer">
+                <div className="text-[13px] font-bold text-ink">Applied to the wrong athlete, or read wrong?</div>
+                <div className="mt-1 text-[12px] leading-tight text-muted">
+                  Discarding this now removes the courses it added and puts back the athlete&apos;s previous GPA and date of birth. Anything
+                  corrected by hand since is left alone.
+                </div>
+              </RailCard>
+            </div>
+          )}
+
           <div className="mt-6 flex gap-2">
             <Link href={`/org/${slug}/documents`} className={`${submitClass} flex-1`}>
               Done
             </Link>
-            {isPending && (
+            {(isPending || isApplied) && (
               <form action={discardAction} className="flex-1">
                 <button type="submit" className="w-full rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
-                  Discard
+                  {isApplied ? "Undo and discard" : "Discard"}
                 </button>
               </form>
             )}
