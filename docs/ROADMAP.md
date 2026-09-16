@@ -137,11 +137,9 @@ down because each needs a decision, not because they were missed.
 - **`discardDocument` does not undo an apply.** It sets a status and
   leaves the course rows, the GPA and the date of birth it wrote in
   place. There is no path in the app to remove them.
-- **The weighted-grade bonus is unreachable in practice.**
-  `reports_weighted_grades` defaults false and nothing ever sets it,
-  so every AP athlete gets an understated core GPA and a warning that
-  the school "is not on record", which nobody was ever asked about. It
-  needs the grading-scale entry screen below.
+- ~~**The weighted-grade bonus is unreachable in practice.**~~ Fixed
+  2026-09-16. The grading-scale entry form asks both NCAA conditions and
+  the school's real bonus amount, and the adapter passes it through.
 - **Per-course school name.** Every course from one document gets that
   document's single school, because the extraction schema has no
   per-course school field. A transcript covering two schools therefore
@@ -161,13 +159,13 @@ down because each needs a decision, not because they were missed.
    `web3.ncaa.org/hsportal`, keyed by CEEB code, and the transcripts
    already carry that code. Nothing is built for this yet.
 
-2. **Grading-scale entry.** `high_school_grading_scales` is written by
-   the service role only, on purpose: a wrong conversion table silently
-   changes every eligibility verdict for every athlete at that school,
-   in every org. So there is no UI for it, and a school whose
-   transcripts are numeric currently cannot be scored at all. Needs a
-   decision on who is allowed to enter one and what verification looks
-   like before the screen is built.
+2. ~~**Grading-scale entry.**~~ Done 2026-09-16. Resolved by splitting
+   the shared verified table from a new org-scoped one
+   (`migrations/0009`), so staff can enter a scale that affects only
+   their org. Screens at `/org/[slug]/grading-scales`. A school with no
+   table at all now converts on the ten-point default with the
+   assumption labelled everywhere, rather than producing nothing. See
+   docs/DECISIONS.md.
 
 3. **Wire a real `ModelCaller`** (the last piece of Doc AI) against the Anthropic API: needs an API
    key (Dave doesn't have one to provide yet) and a persistent per-org

@@ -25,6 +25,9 @@ const scale = (over: Partial<GradingScaleRow> = {}): GradingScaleRow => ({
   reports_weighted_grades: false,
   weighting_is_class_rank_only: false,
   weight_bonus: 1,
+  // A table this org entered, which is what these fixtures represent.
+  // Override to "verified" to exercise the precedence rules.
+  origin: "org",
   ...over,
 });
 
@@ -48,8 +51,13 @@ describe("numeric credits that arrive as strings", () => {
   });
 });
 
-describe("a missing grading scale is reported, never guessed around", () => {
-  it("drops numeric grades and names the school that needs a table", () => {
+describe("a missing grading scale falls back to the default, and says so", () => {
+  // This used to drop every numeric grade and return no GPA at all.
+  // Changed on Dave's call (2026-09): a number with the assumption
+  // attached beats a blank screen. The assertions below are the terms of
+  // that trade, and dropping any one of them is what would make it
+  // dishonest rather than useful.
+  it("converts on the ten-point default and names the school that still needs a table", () => {
     const view = buildEligibilityView({
       courses: [course({ grade: "88" }), course({ grade: "91", subject: "math", title: "Algebra" })],
       scales: [],
@@ -57,10 +65,31 @@ describe("a missing grading scale is reported, never guessed around", () => {
       athlete,
       today: TODAY,
     });
-    expect(view.eligibility.coreGpa).toBeNull();
+    // 88 is a B and 91 an A on the ten-point default.
+    expect(view.eligibility.coreGpa?.gpa).toBe(3.5);
+    expect(view.skipped).toHaveLength(0);
+    // The real table is still the thing to go get.
     expect(view.schoolsMissingScale).toEqual(["Bridge HS"]);
-    expect(view.skipped).toHaveLength(2);
-    expect(view.skipped[0]?.reason).toMatch(/conversion table is not on file/i);
+    expect(view.scalesUsed).toEqual([{ school: "Bridge HS", origin: "assumed", sourceNote: null }]);
+    expect(view.adapterWarnings.join(" ")).toMatch(/estimate/);
+  });
+
+  it("still refuses a grade the default cannot convert either", () => {
+    // The fallback is a conversion table, not a licence to invent a
+    // grade. A marker like W or CR has no numeric value on any scale.
+    const view = buildEligibilityView({
+      courses: [course({ grade: "W" })],
+      scales: [],
+      division: "D1",
+      athlete,
+      today: TODAY,
+    });
+    // Refused by the engine rather than the adapter, since the adapter
+    // hands a non-numeric grade straight through and the calculator is
+    // what knows a W carries no quality points. Either way it is never
+    // scored, and it never lands in the GPA.
+    expect(view.eligibility.coreGpa?.gpa ?? null).toBeNull();
+    expect(view.eligibility.coreGpa?.excluded.map((e) => e.reason).join(" ")).toMatch(/no quality points/);
   });
 
   it("converts numeric grades once the school's own table is supplied", () => {

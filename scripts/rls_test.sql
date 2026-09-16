@@ -57,6 +57,13 @@ insert into athlete_courses (org_id, athlete_id, title, subject, credit, grade, 
   ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'English 11', 'english', 1.00, 'A', 'Elite HS');
 insert into high_school_grading_scales (school_name, bands) values
   ('Bridge HS', '[{"letter":"B","min":83,"max":86}]'::jsonb);
+-- Both orgs enter their own scale for the SAME school name. That is the
+-- case the org-scoped table exists to make safe: the unique constraint
+-- is on (org_id, school_name_key), not on the name alone, so neither
+-- org's entry can collide with or overwrite the other's.
+insert into org_grading_scales (org_id, school_name, bands, source_note) values
+  ('00000000-0000-0000-0000-000000000010', 'Contested HS', '[{"letter":"A","min":90,"max":100}]'::jsonb, 'Bridge typed this'),
+  ('00000000-0000-0000-0000-000000000020', 'Contested HS', '[{"letter":"A","min":95,"max":100}]'::jsonb, 'Elite Squad typed this');
 insert into benchmark_sets (org_id, sport, tiers, positions) values
   (null, 'baseball', '[]'::jsonb, '[]'::jsonb),
   ('00000000-0000-0000-0000-000000000010', 'baseball', '[]'::jsonb, '[]'::jsonb),
@@ -225,6 +232,47 @@ begin
   end;
 end $$;
 
+-- An org's OWN grading scale is the opposite case: writable by its
+-- members, invisible to every other org. This is what makes the entry
+-- screen safe to build when the shared table stays locked.
+do $$
+declare n int;
+declare bandmin numeric;
+begin
+  select count(*) into n from org_grading_scales;
+  if n <> 1 then raise exception 'FAIL: user1 saw % org grading scales, expected 1 (Bridge''s only)', n; end if;
+  select (bands->0->>'min')::numeric into bandmin from org_grading_scales;
+  if bandmin <> 90 then raise exception 'FAIL: user1 saw Elite Squad''s bands for Contested HS, not Bridge''s'; end if;
+  raise notice 'PASS: user1 sees only Bridge''s own scale for a school both orgs entered';
+end $$;
+
+do $$
+begin
+  insert into org_grading_scales (org_id, school_name, bands, source_note)
+    values ('00000000-0000-0000-0000-000000000010', 'Bridge HS', '[{"letter":"A","min":90,"max":100}]'::jsonb, 'typed by a coordinator');
+  raise notice 'PASS: user1 can enter a grading scale for their own org';
+end $$;
+
+do $$
+begin
+  begin
+    insert into org_grading_scales (org_id, school_name, bands)
+      values ('00000000-0000-0000-0000-000000000020', 'Sneaky HS', '[]'::jsonb);
+    raise exception 'FAIL: user1 was able to write a grading scale into Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org grading-scale insert correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+declare n int;
+begin
+  update org_grading_scales set source_note = 'tampered' where org_id = '00000000-0000-0000-0000-000000000020';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: user1 updated % of Elite Squad''s grading-scale rows', n; end if;
+  raise notice 'PASS: user1 cannot update Elite Squad''s grading scale';
+end $$;
+
 do $$
 declare n int;
 begin
@@ -342,6 +390,14 @@ begin
   select count(*) into n from high_school_grading_scales;
   if n <> 0 then raise exception 'FAIL: an anonymous session saw % grading scales, expected 0', n; end if;
   raise notice 'PASS: anonymous session sees zero grading scales';
+end $$;
+
+do $$
+declare n int;
+begin
+  select count(*) into n from org_grading_scales;
+  if n <> 0 then raise exception 'FAIL: an anonymous session saw % org grading scales, expected 0', n; end if;
+  raise notice 'PASS: anonymous session sees zero org grading scales';
 end $$;
 
 reset role;

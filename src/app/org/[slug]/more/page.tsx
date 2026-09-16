@@ -31,6 +31,12 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
             </RailCard>
           </Link>
         )}
+        <Link href={`/org/${slug}/grading-scales`} className="block">
+          <RailCard role="contact">
+            <div className="text-[14px] font-semibold text-ink">Grading scales</div>
+            <div className="text-[12px] text-muted">How each high school&apos;s numbers become letters for an NCAA core GPA</div>
+          </RailCard>
+        </Link>
         <RailCard role="neutral">
           <div className="text-[14px] font-semibold text-ink">{user.full_name || user.email}</div>
           <div className="text-[12px] text-muted">{org.name}</div>

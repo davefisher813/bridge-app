@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { gradePoints, calculateCoreGpa, MAX_WEIGHT_BONUS, type CoreCourse } from "../lib/fit/ncaa/coreGpa";
 import { DIVISION_STANDARDS, evaluateInitialEligibility } from "../lib/fit/ncaa/initialEligibility";
 import { evaluateAgeClock } from "../lib/fit/ncaa/ageClock";
+import { buildEligibilityView } from "../lib/data/ncaaAdapters";
 
 const SRC = join(process.cwd(), "src");
 
@@ -229,5 +230,117 @@ describe("LAW: a transcript GPA is never presented as an NCAA number", () => {
     expect(pair).not.toBeNull();
     expect(pair![0]).toMatch(/coreGpa=/);
     expect(pair![0]).toMatch(/transcriptGpa=/);
+  });
+});
+
+describe("LAW: an assumed grading scale is never presented as the school's own", () => {
+  // Dave's call, 2026-09: show a number rather than a blank when a
+  // school's conversion table is missing. That is only safe while the
+  // assumption travels with the number, so these are the conditions of
+  // that decision, not decoration on it.
+
+  it("a fallback conversion produces a warning and an attribution, every time", () => {
+    const view = buildEligibilityView({
+      courses: [
+        { id: "1", title: "English 11", subject: "english", credit: 1, grade: "91", term: null, school_name: "Nowhere HS", weighted: false, ncaa_approved: true, duplicate_of: null },
+      ],
+      scales: [],
+      division: "D1",
+      athlete: { dateOfBirth: null, firstFullTimeEnrollment: null, intendedEnrollment: null },
+      today: "2026-09-16",
+    });
+
+    // The number appears rather than the course being dropped.
+    expect(view.skipped).toHaveLength(0);
+    expect(view.eligibility.coreGpa?.totalCredits).toBe(1);
+
+    // And it never appears unattributed.
+    expect(view.scalesUsed.some((s) => s.origin === "assumed")).toBe(true);
+    expect(view.schoolsMissingScale.length).toBeGreaterThan(0);
+    expect(view.adapterWarnings.join(" ")).toMatch(/ten-point/);
+    expect(view.adapterWarnings.join(" ")).toMatch(/estimate/);
+  });
+
+  it("an assumed scale never earns the weighted bonus", () => {
+    // Both conditions on the +1.00 are claims about what the school told
+    // the Eligibility Center. Nobody has made either claim here, so an
+    // AP course converted on a guess must score exactly like any other.
+    const withAp = buildEligibilityView({
+      courses: [
+        { id: "1", title: "AP English 11", subject: "english", credit: 1, grade: "91", term: null, school_name: "Nowhere HS", weighted: true, ncaa_approved: true, duplicate_of: null },
+      ],
+      scales: [],
+      division: "D1",
+      athlete: { dateOfBirth: null, firstFullTimeEnrollment: null, intendedEnrollment: null },
+      today: "2026-09-16",
+    });
+    // 91 on the ten-point default is an A, four points, no bonus.
+    expect(withAp.eligibility.coreGpa?.gpa).toBe(4);
+  });
+
+  it("a real table on file always beats the assumption", () => {
+    const view = buildEligibilityView({
+      courses: [
+        { id: "1", title: "English 11", subject: "english", credit: 1, grade: "91", term: null, school_name: "Nowhere HS", weighted: false, ncaa_approved: true, duplicate_of: null },
+      ],
+      // This school calls 91 a B. The default would call it an A.
+      scales: [
+        {
+          school_name: "Nowhere HS",
+          bands: [
+            { letter: "A", min: 93, max: 100 },
+            { letter: "B", min: 85, max: 92 },
+            { letter: "C", min: 77, max: 84 },
+            { letter: "F", min: 0, max: 76 },
+          ],
+          reports_weighted_grades: false,
+          weighting_is_class_rank_only: false,
+          weight_bonus: 0,
+          origin: "org",
+        },
+      ],
+      division: "D1",
+      athlete: { dateOfBirth: null, firstFullTimeEnrollment: null, intendedEnrollment: null },
+      today: "2026-09-16",
+    });
+    expect(view.eligibility.coreGpa?.gpa).toBe(3);
+    expect(view.scalesUsed.every((s) => s.origin !== "assumed")).toBe(true);
+    expect(view.schoolsMissingScale).toHaveLength(0);
+  });
+
+  it("the eligibility page renders the attribution the adapter produces", () => {
+    // The warning existing in the adapter is worth nothing if the screen
+    // drops it, which is exactly what happened to adapterWarnings once
+    // before.
+    const source = readFileSync(join(SRC, "app", "org", "[slug]", "roster", "[id]", "eligibility", "page.tsx"), "utf8");
+    expect(source).toMatch(/view\.scalesUsed/);
+    expect(source).toMatch(/view\.adapterWarnings/);
+  });
+});
+
+describe("LAW: a grading scale entered by an org stays inside that org", () => {
+  it("the entry action writes the org-scoped table, never the shared one", () => {
+    const source = readFileSync(join(SRC, "lib", "actions", "gradingScales.ts"), "utf8");
+    // Comments stripped: the file explains at length why it does NOT
+    // touch the shared table, and naming it there is the explanation,
+    // not a violation.
+    const code = source
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("//"))
+      .join("\n");
+    expect(code).toMatch(/org_grading_scales/);
+    // The shared table is service-role only. A write to it from here
+    // would silently change other organizations' eligibility verdicts.
+    expect(code).not.toMatch(/high_school_grading_scales/);
+    expect(code).not.toMatch(/createAdminClient/);
+  });
+
+  it("every entered table passes the same sanity check as one read off a scan", () => {
+    const shared = readFileSync(join(SRC, "lib", "validation", "gradingScale.ts"), "utf8");
+    const docs = readFileSync(join(SRC, "lib", "actions", "documents.ts"), "utf8");
+    expect(shared).toMatch(/gradingScaleProblem/);
+    expect(docs).toMatch(/gradingScaleProblem/);
+    // One implementation, imported by both. Two copies is how they drift.
+    expect(docs).toMatch(/from "@\/lib\/fit\/ncaa\/gradingScale"/);
   });
 });

@@ -25,6 +25,7 @@ su postgres -c "psql -d $DB -f migrations/0005_recruiting_target_offer_fields.sq
 su postgres -c "psql -d $DB -f migrations/0006_contacts_and_target_visits.sql"
 su postgres -c "psql -d $DB -f migrations/0007_documents.sql"
 su postgres -c "psql -d $DB -f migrations/0008_core_courses.sql"
+su postgres -c "psql -d $DB -f migrations/0009_org_grading_scales.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

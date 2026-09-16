@@ -243,16 +243,60 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
 
           {view.schoolsMissingScale.length > 0 && (
             <div className="mt-3">
-              <NoteRail role="target">
+              <NoteRail role="offer">
                 <div className="text-[12.5px] font-bold leading-tight text-ink">
                   {view.schoolsMissingScale.join(" and ")} {view.schoolsMissingScale.length > 1 ? "have" : "has"} no grading scale on file
                 </div>
                 <div className="mt-1 text-[12px] leading-tight text-muted">
-                  Those grades are numbers, not letters. The NCAA converts them using the school&apos;s own published table, so an 85 is not
-                  automatically a B. Ask the counselor for the conversion table, or upload a transcript that prints it.
+                  Those grades are numbers, and the number above was produced by assuming the standard ten-point scale. The NCAA uses the
+                  school&apos;s own published table, so an 85 is not automatically a B. Enter the real table and this recalculates.
                 </div>
+                {canUpload && (
+                  <Link
+                    href={`/org/${slug}/grading-scales/new?school=${encodeURIComponent(view.schoolsMissingScale[0] ?? "")}&returnTo=${encodeURIComponent(`/org/${slug}/roster/${id}/eligibility`)}`}
+                    className="mt-2 inline-block text-[12px] font-extrabold text-solid-accent"
+                  >
+                    Enter the grading scale
+                  </Link>
+                )}
               </NoteRail>
             </div>
+          )}
+
+          {/* Which table each school's numbers ran through. Only appears
+              when a numeric grade actually used one: a transcript that
+              prints letters converts the same either way, and a caveat
+              that applies to nothing is worse than no caveat. */}
+          {view.scalesUsed.length > 0 && (
+            <>
+              <div className="mb-2 mt-5">
+                <SectionHeader label="How the grades were converted" role="people" />
+              </div>
+              <div className="flex flex-col gap-2">
+                {/* NoteRail's roles are fixed by the locked catalog, so
+                    the escalation runs inside them: blue for a confirmed
+                    table, gray for one this org typed, orange for a
+                    conversion nobody supplied at all. */}
+                {view.scalesUsed.map((s, i) => (
+                  <NoteRail key={i} role={s.origin === "verified" ? "contact" : s.origin === "org" ? "target" : "offer"}>
+                    <div className="text-[12.5px] leading-tight text-ink">
+                      {s.origin === "verified"
+                        ? `${s.school} numbers converted through a confirmed table`
+                        : s.origin === "org"
+                          ? `${s.school} numbers converted through a table your org entered`
+                          : `${s.school} numbers converted on an assumed ten-point scale`}
+                    </div>
+                    <div className="mt-1 text-[11.5px] leading-tight text-muted">
+                      {s.origin === "verified"
+                        ? "Verified and shared across the platform. Your org cannot change this one."
+                        : s.origin === "org"
+                          ? `${s.sourceNote ? `"${s.sourceNote}." ` : ""}Nobody has confirmed it with the school, so this core GPA is only as right as that table.`
+                          : "Nothing from this school is on file. This is a placeholder conversion, not what the NCAA will use."}
+                    </div>
+                  </NoteRail>
+                ))}
+              </div>
+            </>
           )}
 
           {/* adapterWarnings carries the grade-conversion problems, which

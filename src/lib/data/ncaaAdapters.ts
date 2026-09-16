@@ -13,6 +13,12 @@ import { z } from "zod";
 import { coursesFromTranscript, type GradingBand, type TranscriptCourseRow } from "@/lib/fit/ncaa/fromTranscript";
 import { evaluateInitialEligibility, type InitialEligibilityResult } from "@/lib/fit/ncaa/initialEligibility";
 import { evaluateAgeClock, type AgeClockResult } from "@/lib/fit/ncaa/ageClock";
+import {
+  assumedScaleWarning,
+  resolveScale,
+  TEN_POINT_STARTING_POINT,
+  type ScaleOrigin,
+} from "@/lib/fit/ncaa/gradingScale";
 import type { CoreCourse } from "@/lib/fit/ncaa/coreGpa";
 
 export interface AthleteCourseRow {
@@ -38,6 +44,12 @@ export interface GradingScaleRow {
   // would overstate the core GPA of every AP student at a school that
   // adds less. The engine clamps whatever arrives here.
   weight_bonus: number | string;
+  // Which table this is: one confirmed with the school and shared across
+  // every org, or one this org entered for itself. A verified row wins,
+  // and the screen says which one the number came from, because "we
+  // checked" and "someone here typed it" are different claims.
+  origin: ScaleOrigin;
+  source_note?: string | null;
 }
 
 const bandsSchema = z
@@ -78,14 +90,31 @@ export interface EligibilityView {
   // Schools on this athlete's transcript with no conversion table on
   // file. Drives the "add the school's grading scale" action.
   schoolsMissingScale: string[];
+  // Which table each school's grades were converted through, so the
+  // screen can attribute the number instead of presenting every core GPA
+  // as equally confirmed.
+  scalesUsed: Array<{ school: string; origin: ScaleOrigin; sourceNote: string | null }>;
   adapterWarnings: string[];
 }
 
 export function buildEligibilityView(input: EligibilityInput): EligibilityView {
-  const scaleByName = new Map<string, GradingScaleRow>();
-  for (const s of input.scales) scaleByName.set(s.school_name.trim().toLowerCase(), s);
+  // Every table on file for a school, then the one that governs. A
+  // verified shared row beats an org's own entry; an org only ever
+  // receives its own entries, so no ordering lets one org's typing
+  // displace another's.
+  const candidatesByName = new Map<string, GradingScaleRow[]>();
+  for (const s of input.scales) {
+    const key = s.school_name.trim().toLowerCase();
+    const list = candidatesByName.get(key);
+    if (list) list.push(s);
+    else candidatesByName.set(key, [s]);
+  }
 
-  const lookup = (school: string | null) => (school ? scaleByName.get(school.trim().toLowerCase()) ?? null : null);
+  const lookup = (school: string | null) => {
+    if (!school) return null;
+    const candidates = candidatesByName.get(school.trim().toLowerCase());
+    return candidates ? resolveScale(candidates) : null;
+  };
 
   // Courses are grouped by the school they were taken at, because a
   // transfer student's transcript legitimately carries two schools and
@@ -103,6 +132,7 @@ export function buildEligibilityView(input: EligibilityInput): EligibilityView {
   const skipped: EligibilityView["skipped"] = [];
   const adapterWarnings: string[] = [];
   const schoolsMissingScale = new Set<string>();
+  const scalesUsed: EligibilityView["scalesUsed"] = [];
   // The weighted-bonus conditions are a property of the school, and the
   // engine takes one set of options for the whole calculation. Applying
   // the bonus requires every school on the transcript to qualify for it,
@@ -111,15 +141,53 @@ export function buildEligibilityView(input: EligibilityInput): EligibilityView {
   let anySchoolIsClassRankOnly = false;
 
   for (const [schoolName, rows] of bySchool) {
-    const scale = lookup(schoolName);
+    const onFile = lookup(schoolName);
+    const hasNumericGrades = rows.some((r) => /^\d{1,3}(\.\d+)?$/.test(r.grade.trim()));
+
+    // No table on file. Rather than drop every numeric grade and show
+    // nothing, fall back to the common ten-point scale so a number
+    // appears, and carry the assumption with it everywhere. The school
+    // still shows up in schoolsMissingScale, because the real table is
+    // still the thing to go get: the fallback changes what the screen
+    // can show, not what is actually known.
+    const scale: GradingScaleRow | null =
+      onFile ??
+      (hasNumericGrades
+        ? {
+            school_name: schoolName,
+            bands: TEN_POINT_STARTING_POINT,
+            // An assumed conversion never earns the weighted bonus. Both
+            // conditions on it are claims about what the school told the
+            // NCAA, and nobody has made either claim here.
+            reports_weighted_grades: false,
+            weighting_is_class_rank_only: false,
+            weight_bonus: 0,
+            origin: "assumed",
+            source_note: null,
+          }
+        : null);
+
     if (!scale) {
       everySchoolReportsWeighted = false;
-      if (rows.some((r) => /^\d{1,3}(\.\d+)?$/.test(r.grade.trim()))) {
-        schoolsMissingScale.add(schoolName || "this athlete's school");
-      }
+    } else if (scale.origin === "assumed") {
+      everySchoolReportsWeighted = false;
+      schoolsMissingScale.add(schoolName || "this athlete's school");
+      adapterWarnings.push(assumedScaleWarning(schoolName));
+      scalesUsed.push({ school: schoolName || "this athlete's school", origin: "assumed", sourceNote: null });
     } else {
       if (!scale.reports_weighted_grades) everySchoolReportsWeighted = false;
       if (scale.weighting_is_class_rank_only) anySchoolIsClassRankOnly = true;
+      // Reported only when a numeric grade actually ran through the
+      // table. A school whose transcript prints letters converts the
+      // same either way, and attributing a table nothing used would put
+      // a caveat on screen that means nothing.
+      if (rows.some((r) => /^\d{1,3}(\.\d+)?$/.test(r.grade.trim()))) {
+        scalesUsed.push({
+          school: schoolName || "this athlete's school",
+          origin: scale.origin,
+          sourceNote: scale.source_note ?? null,
+        });
+      }
     }
 
     const transcriptRows: TranscriptCourseRow[] = rows.map((r) => ({
@@ -181,5 +249,5 @@ export function buildEligibilityView(input: EligibilityInput): EligibilityView {
     today: input.today,
   });
 
-  return { eligibility, ageClock, skipped, schoolsMissingScale: [...schoolsMissingScale], adapterWarnings };
+  return { eligibility, ageClock, skipped, schoolsMissingScale: [...schoolsMissingScale], scalesUsed, adapterWarnings };
 }

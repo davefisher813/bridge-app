@@ -9,6 +9,10 @@ import { detectCategory, runExtractionPipeline } from "@/lib/docai/pipeline";
 import { createStubCaller } from "@/lib/docai/stubCaller";
 import { getCategory } from "@/lib/docai/categories";
 import { normalizeGpa } from "@/lib/docai/gpa";
+// Shared with the grading-scale entry screen on purpose. A table typed
+// in by a coordinator and one read off a scan need the same check, and
+// keeping two copies is how they drift.
+import { gradingScaleProblem } from "@/lib/fit/ncaa/gradingScale";
 import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole } from "@/lib/docai/types";
 
 // The caller side of src/lib/docai. The pipeline deliberately returns a
@@ -479,35 +483,6 @@ async function recordGradingScale(extracted: Record<string, unknown>, documentId
   });
   if (error) warnings.push(`Could not save the grading scale read off this transcript: ${error.message}`);
   return warnings;
-}
-
-// Rejects a table that cannot be a real high school grading scale.
-// A single band covering 0 to 100 maps every grade to one letter, which
-// turns every athlete at that school into a 4.00 or a 0.00 depending on
-// the letter, and reads on screen as a confident verdict.
-function gradingScaleProblem(bands: unknown[]): string | null {
-  const parsed = bands as Array<{ letter?: unknown; min?: unknown; max?: unknown }>;
-  const rows: Array<{ letter: string; min: number; max: number }> = [];
-  for (const b of parsed) {
-    const letter = typeof b.letter === "string" ? b.letter.trim().toUpperCase() : "";
-    const min = typeof b.min === "number" ? b.min : NaN;
-    const max = typeof b.max === "number" ? b.max : NaN;
-    if (!letter || !Number.isFinite(min) || !Number.isFinite(max)) return "one of its rows is not a letter and a numeric range.";
-    if (min > max) return `its ${letter} band runs from ${min} down to ${max}.`;
-    if (min < 0 || max > 130) return `its ${letter} band falls outside any plausible grade range.`;
-    if (!/^[A-F]/.test(letter)) return `"${letter}" is not a grade this can score.`;
-    rows.push({ letter, min, max });
-  }
-  if (rows.length < 3) return "it has fewer than three grade bands.";
-
-  const sorted = [...rows].sort((a, b) => a.min - b.min);
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i]!.min <= sorted[i - 1]!.max) return `its ${sorted[i - 1]!.letter} and ${sorted[i]!.letter} bands overlap.`;
-  }
-  // A band wider than 40 points is not a grade band; it is a catch-all.
-  const widest = sorted.reduce((w, b) => Math.max(w, b.max - b.min), 0);
-  if (widest > 40) return "one band spans more than 40 points, which is not a grade band.";
-  return null;
 }
 
 export async function applyDocument(slug: string, documentId: string, athleteId: string): Promise<{ ok: boolean; error?: string }> {

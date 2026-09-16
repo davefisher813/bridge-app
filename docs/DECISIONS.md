@@ -831,3 +831,67 @@ had nothing enforcing it: the fit engine and Doc AI must not import
 Next, Supabase, components, or read the environment. The stub was written
 with a `process.env` check in it and that was caught by hand. It is now
 caught by `src/laws/laws.test.ts`.
+
+---
+
+## 2026-09-16 - Grading scales: an org-scoped table, plus a labelled default
+
+**Decision:** Two changes that together unblock the NCAA core GPA for
+real athletes.
+
+First, a new `org_grading_scales` table (migration `0009`), org-scoped
+with ordinary RLS, writable by staff through the normal client. The
+shared `high_school_grading_scales` table is unchanged and still
+service-role only. Precedence, resolved in
+`src/lib/fit/ncaa/gradingScale.ts`: a verified shared row wins, an org's
+own entry is next, an assumed default is last, and the eligibility screen
+says which one produced the number.
+
+Second, when no table exists at all, numeric grades convert on the common
+ten-point scale rather than being dropped. Dave's call: "we need a
+default if the school isnt on file its not that big of a deal."
+
+**Reason:** Migration 0008 locked the shared table behind the service
+role because a wrong conversion table silently rewrites every eligibility
+verdict for every athlete at that school, in every org. That was right
+for shared data and wrong as a final answer, because it left the flagship
+feature unusable: Dave's real transcripts print numbers, so no Bridge
+athlete could be scored and there was no way to supply the missing table.
+
+The objection was entirely about blast radius, and an org-scoped table
+has the blast radius of one org. That is the same blast radius as an
+athlete's GPA or a course grade that staff already type in, so ordinary
+RLS is the boundary and staff is the right role. No owner gate and no
+service role, unlike `createSchool`.
+
+**Consequences:** The engine no longer refuses to produce a number, which
+was a deliberate property before this. That trade is only honest while
+the assumption travels with the number, so it does, in four places: the
+GPA carries an adapter warning naming the school, the verdict screen
+shows a "How the grades were converted" attribution per school, the
+missing-scale note links straight to the entry form, and an assumed
+conversion never earns the weighted-grade bonus. Three laws in
+`src/laws/ncaaLaws.test.ts` hold those conditions, each proven to fail
+against code without them.
+
+Two real defects fell out of the work:
+
+- `gradingScaleProblem()` rejected every band wider than 40 points,
+  which is every complete grading table there is, because an F band runs
+  0 to 64. The Doc AI path would therefore have refused any transcript
+  legend that printed an F row and reported that the table "was not
+  saved" without anyone understanding why. The span check now skips the
+  lowest band, which is open-ended by nature.
+- That check lived inside `src/lib/actions/documents.ts`, so only the
+  Doc AI path could reach it and it could not run in the test bench. It
+  moved to `src/lib/fit/ncaa/gradingScale.ts` and both paths import the
+  one copy. It also gained an ordering check: a table whose A band sits
+  below its C band passed every previous check and produced a core GPA
+  that looked perfectly ordinary.
+
+This also closes the "weighted bonus is unreachable" gap recorded in
+ROADMAP.md. `reports_weighted_grades` had defaulted false with nothing
+ever setting it, so every AP athlete got an understated core GPA and a
+warning about their school not being on record that nobody had been
+asked about. The entry form asks both conditions and the real bonus
+amount, because the NCAA's 1.00 is a cap and not the value.
