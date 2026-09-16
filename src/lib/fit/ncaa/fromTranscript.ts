@@ -35,6 +35,12 @@ export interface GradingBand {
 
 export interface FromTranscriptResult {
   courses: CoreCourse[];
+  // The index in the input `rows` that each entry of `courses` came
+  // from, in the same order. Callers need this to carry per-row data
+  // across. Matching back by title instead collapses the two halves of a
+  // year-long course onto whichever row came first, which is exactly the
+  // case a caller is trying to keep distinct.
+  sourceIndex: number[];
   // Rows that could not be turned into a scorable course, with the
   // reason, so nothing disappears silently.
   skipped: Array<{ row: TranscriptCourseRow; reason: string }>;
@@ -66,6 +72,7 @@ export function coursesFromTranscript(
   options: { gradingScale?: GradingBand[] | null; schoolName?: string } = {}
 ): FromTranscriptResult {
   const courses: CoreCourse[] = [];
+  const sourceIndex: number[] = [];
   const skipped: Array<{ row: TranscriptCourseRow; reason: string }> = [];
   const warnings: string[] = [];
   const scale = options.gradingScale ?? null;
@@ -73,7 +80,8 @@ export function coursesFromTranscript(
   let numericSeen = 0;
   let numericUnconverted = 0;
 
-  for (const row of rows) {
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index]!;
     if (row.subject === "non_academic") {
       // PE, most electives. Not core courses, and the transcript GPA's
       // main source of lift.
@@ -110,14 +118,24 @@ export function coursesFromTranscript(
       // reported as unchecked rather than treated as approved.
       ncaaApproved: undefined,
     });
+    sourceIndex.push(index);
   }
 
+  const where = options.schoolName ? `${options.schoolName}'s` : "this school's";
   if (numericUnconverted > 0 && !scale) {
-    const where = options.schoolName ? `${options.schoolName}'s` : "this school's";
     warnings.push(
       `${numericUnconverted} of ${numericSeen} numeric grades could not be scored because ${where} numeric-to-letter table is not on file. The NCAA uses the school's own published scale, so this needs the school's scale rather than an assumed one before an eligibility answer means anything.`
     );
+  } else if (numericUnconverted > 0) {
+    // A grade below the lowest band, which is what a failing grade looks
+    // like on a table that only lists passing ones, used to vanish with
+    // no warning at all. Dropping the failures and keeping the passes
+    // raises the core GPA, so silence here is the worst possible
+    // behaviour.
+    warnings.push(
+      `${numericUnconverted} of ${numericSeen} numeric grades fall outside every band of ${where} grading table on file and were left out. If those are failing grades the table is incomplete, and this GPA is higher than the real one.`
+    );
   }
 
-  return { courses, skipped, warnings };
+  return { courses, sourceIndex, skipped, warnings };
 }

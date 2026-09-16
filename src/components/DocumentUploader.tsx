@@ -81,7 +81,7 @@ export function DocumentUploader({ slug, boundTo }: DocumentUploaderProps) {
         records,
         sourceRole,
         requestedCategory: category,
-        athleteOverride: boundTo?.athleteName,
+        athleteId: boundTo?.athleteId,
       });
 
       if (!result.ok || !result.documentId) {

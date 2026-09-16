@@ -74,7 +74,18 @@ export interface CoreCourse {
   duplicateOf?: string;
 }
 
+// Per-subject credit minimums for the division being evaluated. Passed
+// in because this module does not know about divisions; that is
+// initialEligibility.ts's job.
+export type SubjectMinimums = Partial<Record<SubjectArea, number>>;
+
 export interface CoreGpaOptions {
+  // Without this the selection is subject-blind, which produced a 4.00
+  // core GPA out of sixteen electives while four English credits sat on
+  // the transcript unused. "Only your best grades from approved courses
+  // IN THE REQUIRED SUBJECT AREAS will be used": the subject areas are
+  // half the rule and were being ignored.
+  subjectMinimums?: SubjectMinimums;
   // The high school has told the Eligibility Center it awards weighted
   // grades. Without this the bonus is not applied at all, however the
   // courses are titled: "the high school must notify the Eligibility
@@ -95,8 +106,13 @@ export interface CountedCourse {
 
 export interface CoreGpaResult {
   // Null when there is nothing legitimate to compute from. The caller
-  // must never substitute the transcript GPA for this.
+  // must never substitute the transcript GPA for this. Rounded to three
+  // decimals for display.
   gpa: number | null;
+  // The unrounded value. Threshold comparisons use this, because
+  // rounding first crosses the 2.3 and 2.0 lines in the optimistic
+  // direction.
+  exactGpa: number | null;
   totalQualityPoints: number;
   totalCredits: number;
   counted: CountedCourse[];
@@ -133,12 +149,26 @@ function dedupe(courses: CoreCourse[], opts: CoreGpaOptions): { kept: CoreCourse
   const warnings: string[] = [];
   const untagged: CoreCourse[] = [];
 
+  // Tagging is routinely one-sided: a coordinator marks the RETAKE as a
+  // duplicate and leaves the original alone, which is the natural thing
+  // to do. Keying only on the tagged row then left the failed original
+  // counting and the retake beside it, so the F that was supposed to be
+  // replaced still dragged the average down and nothing warned. Any
+  // untagged row sharing a title and subject with a tagged one joins
+  // that group.
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const taggedTitles = new Map<string, string>();
   for (const course of courses) {
-    if (!course.duplicateOf) {
+    if (course.duplicateOf) taggedTitles.set(`${course.subject}::${norm(course.title)}`, norm(course.duplicateOf));
+  }
+
+  for (const course of courses) {
+    const sibling = taggedTitles.get(`${course.subject}::${norm(course.title)}`);
+    if (!course.duplicateOf && !sibling) {
       untagged.push(course);
       continue;
     }
-    const key = course.duplicateOf.trim().toLowerCase().replace(/\s+/g, " ");
+    const key = course.duplicateOf ? norm(course.duplicateOf) : sibling!;
     const existing = best.get(key);
     if (!existing) {
       best.set(key, course);
@@ -167,6 +197,17 @@ function dedupe(courses: CoreCourse[], opts: CoreGpaOptions): { kept: CoreCourse
   }
 
   return { kept: [...best.values(), ...untagged], dropped, warnings };
+}
+
+// Fractional credits accumulate float error: eighty 0.2-credit courses
+// sum to 15.999999999999975, which fails a >= 16 check and pulls in an
+// extra failing grade. Every credit total is rounded at each step.
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
 }
 
 const EMPTY_BY_SUBJECT = (): Record<SubjectArea, number> => ({ english: 0, math: 0, science: 0, social_science: 0, other_academic: 0 });
@@ -218,8 +259,6 @@ export function calculateCoreGpa(courses: CoreCourse[], requiredCredits: number,
   excluded.push(...dropped);
   warnings.push(...dupWarnings);
 
-  // Rank by grade points, then prefer the larger credit so a full-year
-  // A is taken ahead of a semester A when only one can fit.
   const scored: CountedCourse[] = kept
     .map((course) => {
       const bonusApplied = bonusFor(course, opts);
@@ -228,26 +267,73 @@ export function calculateCoreGpa(courses: CoreCourse[], requiredCredits: number,
     })
     .sort((a, b) => b.points - a.points || b.course.credit - a.course.credit);
 
+  // Selection happens in two passes, because the NCAA's sixteen are not
+  // simply the sixteen best grades. Each subject area has a credit
+  // minimum that must be filled from that subject, and only what is left
+  // over is a free choice. Ranking the whole pool by grade and taking
+  // the top sixteen, which is what this did first, hands back a 4.00
+  // built from electives while the English requirement goes unmet and
+  // the English credits sit on the transcript unused.
   const counted: CountedCourse[] = [];
+  const takenCredit = new Map<CoreCourse, number>();
   let totalCredits = 0;
+
+  // A course can be counted in part. The NCAA counts sixteen units, so
+  // when the last course needed would carry the total past the
+  // requirement, only the fraction that fits is taken rather than the
+  // whole thing. Without this, sixteen 0.67-credit courses total 16.08
+  // and the boundary grade is over-weighted.
+  const take = (entry: CountedCourse, maxCredit: number): number => {
+    const remaining = round2(requiredCredits - totalCredits);
+    if (remaining <= 0) return 0;
+    const credit = Math.min(maxCredit, remaining);
+    if (credit <= 0) return 0;
+    const already = takenCredit.get(entry.course) ?? 0;
+    takenCredit.set(entry.course, round2(already + credit));
+    totalCredits = round2(totalCredits + credit);
+    const existing = counted.find((c) => c.course === entry.course);
+    if (existing) {
+      existing.qualityPoints = round3(existing.qualityPoints + entry.points * credit);
+    } else {
+      counted.push({ course: entry.course, points: entry.points, bonusApplied: entry.bonusApplied, qualityPoints: round3(entry.points * credit) });
+    }
+    return credit;
+  };
+
+  const mins = opts.subjectMinimums ?? {};
+  for (const [subject, min] of Object.entries(mins) as Array<[SubjectArea, number]>) {
+    if (!(min > 0)) continue;
+    let filled = 0;
+    for (const entry of scored) {
+      if (filled >= min) break;
+      if (entry.course.subject !== subject) continue;
+      const free = round2(entry.course.credit - (takenCredit.get(entry.course) ?? 0));
+      if (free <= 0) continue;
+      filled = round2(filled + take(entry, Math.min(free, round2(min - filled))));
+    }
+  }
+
   for (const entry of scored) {
+    const free = round2(entry.course.credit - (takenCredit.get(entry.course) ?? 0));
+    if (free <= 0) continue;
     if (totalCredits >= requiredCredits) {
-      excluded.push({ course: entry.course, reason: "Beyond the required core credits; only the best grades are used" });
+      if (!takenCredit.has(entry.course)) {
+        excluded.push({ course: entry.course, reason: "Beyond the required core credits; only the best grades are used" });
+      }
       continue;
     }
-    counted.push(entry);
-    totalCredits += entry.course.credit;
+    take(entry, free);
   }
 
   if (!counted.length) {
-    return { gpa: null, totalQualityPoints: 0, totalCredits: 0, counted, excluded, creditsBySubject: EMPTY_BY_SUBJECT(), warnings };
+    return { gpa: null, exactGpa: null, totalQualityPoints: 0, totalCredits: 0, counted, excluded, creditsBySubject: EMPTY_BY_SUBJECT(), warnings };
   }
 
   const creditsBySubject = EMPTY_BY_SUBJECT();
   let totalQualityPoints = 0;
   for (const entry of counted) {
     totalQualityPoints += entry.qualityPoints;
-    creditsBySubject[entry.course.subject] += entry.course.credit;
+    creditsBySubject[entry.course.subject] = round2(creditsBySubject[entry.course.subject] + (takenCredit.get(entry.course) ?? 0));
   }
 
   if (totalCredits < requiredCredits) {
@@ -256,6 +342,21 @@ export function calculateCoreGpa(courses: CoreCourse[], requiredCredits: number,
 
   // "Divide the total number of quality points for all core courses by
   // the total number of core-course units completed."
-  const gpa = Math.round((totalQualityPoints / totalCredits) * 1000) / 1000;
-  return { gpa, totalQualityPoints: Math.round(totalQualityPoints * 1000) / 1000, totalCredits: Math.round(totalCredits * 100) / 100, counted, excluded, creditsBySubject, warnings };
+  // exactGpa is what the thresholds are compared against. Rounding
+  // first and comparing second lets 2.2996875 report as 2.3 and clear a
+  // 2.3 bar it does not actually meet, and the same at the 2.0 line
+  // between an academic redshirt and a nonqualifier. Round for display
+  // only.
+  const exactGpa = totalQualityPoints / totalCredits;
+  const gpa = round3(exactGpa);
+  return {
+    gpa,
+    exactGpa,
+    totalQualityPoints: round3(totalQualityPoints),
+    totalCredits: round2(totalCredits),
+    counted,
+    excluded,
+    creditsBySubject,
+    warnings,
+  };
 }

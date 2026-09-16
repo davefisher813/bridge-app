@@ -138,8 +138,15 @@ export function buildEligibilityView(input: EligibilityInput): EligibilityView {
 
     // Carry the stored approval flag and repeat tagging across, which
     // the transcript adapter cannot know about.
-    for (const c of converted.courses) {
-      const original = rows.find((r) => r.title === c.title && r.subject === c.subject);
+    for (let i = 0; i < converted.courses.length; i++) {
+      const c = converted.courses[i]!;
+      // Correlated by index, not by title. Matching on title returned
+      // the first row with that name for BOTH halves of a year-long
+      // course, so one row's duplicate tag and approval flag were applied
+      // to the other. Either the human's duplicate resolution was thrown
+      // away, or a legitimate two-term course was merged and half its
+      // credit destroyed.
+      const original = rows[converted.sourceIndex[i]!];
       courses.push({
         ...c,
         ncaaApproved: original?.ncaa_approved ?? undefined,

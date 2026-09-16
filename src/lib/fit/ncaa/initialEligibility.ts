@@ -83,6 +83,13 @@ export interface InitialEligibilityInput {
 
 export interface InitialEligibilityResult {
   status: EligibilityStatus;
+  // True when the core credits are not all finished, so the status is
+  // where the athlete is heading rather than where they have landed.
+  // Without this the screen showed "Qualifier, can compete in year one"
+  // to a student with two core credits on file, because the tier check
+  // looked only at GPA and the credit column of the standards table was
+  // never consulted.
+  projected: boolean;
   division: EligibilityDivision | null;
   coreGpa: CoreGpaResult | null;
   // What the athlete may do in year one, in plain words.
@@ -91,11 +98,15 @@ export interface InitialEligibilityResult {
   warnings: string[];
 }
 
-function normalizeDivision(raw: string): EligibilityDivision | "D3" | null {
+export function normalizeDivision(raw: string): EligibilityDivision | "D3" | null {
   const d = (raw || "").toUpperCase().replace(/\s+/g, " ").trim();
-  if (/\bD3\b|DIVISION 3|DIVISION III/.test(d)) return "D3";
-  if (/\bD1\b|DIVISION 1|DIVISION I\b|FBS|FCS/.test(d)) return "D1";
-  if (/\bD2\b|DIVISION 2|DIVISION II\b/.test(d)) return "D2";
+  // DIII / DII / DI are checked before D3 / D2 / D1 and in that order,
+  // because "DI" is a prefix of "DII" and "DIII". Getting this wrong is
+  // silent: an unmatched spelling returned "not an NCAA division" and
+  // the screen asserted the opposite of the truth.
+  if (/\bD3\b|\bDIII\b|DIVISION 3|DIVISION III/.test(d)) return "D3";
+  if (/\bD2\b|\bDII\b|DIVISION 2|DIVISION II\b/.test(d)) return "D2";
+  if (/\bD1\b|\bDI\b|DIVISION 1|DIVISION I\b|FBS|FCS/.test(d)) return "D1";
   return null;
 }
 
@@ -117,6 +128,7 @@ export function evaluateInitialEligibility(input: InitialEligibilityInput): Init
   if (division === "D3") {
     return {
       status: "not_applicable",
+      projected: false,
       division: null,
       coreGpa: null,
       yearOne: "Division III sets its own academic standards on campus.",
@@ -128,6 +140,7 @@ export function evaluateInitialEligibility(input: InitialEligibilityInput): Init
   if (division === null) {
     return {
       status: "not_applicable",
+      projected: false,
       division: null,
       coreGpa: null,
       yearOne: "Not an NCAA division.",
@@ -143,6 +156,7 @@ export function evaluateInitialEligibility(input: InitialEligibilityInput): Init
   if (!input.courses.length) {
     return {
       status: "insufficient_data",
+      projected: true,
       division,
       coreGpa: null,
       yearOne: "Cannot be determined yet.",
@@ -151,12 +165,14 @@ export function evaluateInitialEligibility(input: InitialEligibilityInput): Init
     };
   }
 
-  const coreGpa = calculateCoreGpa(input.courses, std.coreCredits, input.gpaOptions);
+  const { additionalEms: _additionalEms, ...subjectMinimums } = std.subjectMinimums;
+  const coreGpa = calculateCoreGpa(input.courses, std.coreCredits, { ...input.gpaOptions, subjectMinimums });
   warnings.push(...coreGpa.warnings);
 
   if (coreGpa.gpa === null) {
     return {
       status: "insufficient_data",
+      projected: true,
       division,
       coreGpa,
       yearOne: "Cannot be determined yet.",
@@ -177,48 +193,95 @@ export function evaluateInitialEligibility(input: InitialEligibilityInput): Init
     warnings.push(`Short of the ${division} subject-area minimums: ${shortfalls.join(", ")}.`);
   }
 
+  // Thresholds compare the UNROUNDED value. Comparing the rounded one
+  // lets 2.2996875 display as 2.3 and clear a 2.3 bar it does not meet,
+  // and does the same at the 2.0 line between an academic redshirt (aid
+  // and practice) and a nonqualifier (neither).
+  const gpa = coreGpa.exactGpa!;
+  const shown = coreGpa.gpa!.toFixed(3);
+  const complete = coreGpa.totalCredits >= std.coreCredits;
+  const projected = !complete;
+
+  if (projected) {
+    warnings.push(
+      `This is a projection from ${coreGpa.totalCredits} of the ${std.coreCredits} required core credits. Nothing here is a final status until all ${std.coreCredits} are finished.`
+    );
+  }
+
+  // A projected tier describes where the athlete is heading, not what
+  // they have earned, so it never promises year-one competition. The
+  // first version said "Qualifier, can receive aid, practice and compete
+  // in year one" to a student with two core credits on file.
+  const yearOneFor = (status: EligibilityStatus): string =>
+    projected ? `On track for this with ${coreGpa.totalCredits} of ${std.coreCredits} core credits done. Not a final status yet.` : YEAR_ONE[status]!;
+
+  // The 10/7 rule is a D1 qualifier requirement in its own right, so a
+  // provable failure means the athlete is not a qualifier however good
+  // the GPA is. It used to add a warning and leave the verdict reading
+  // "can compete" directly beside the sentence saying the requirement
+  // was missed and cannot be fixed.
+  let tenSevenFailed = false;
   if (std.tenSevenRule) {
     const pre = input.preSeventhSemester;
     if (!pre) {
       warnings.push("The 10/7 rule has not been checked: ten core credits, seven in English, math or science, must be done before senior year starts. Term dates are needed to verify it.");
     } else if (pre.totalCredits < 10 || pre.emsCredits < 7) {
-      warnings.push(`10/7 rule not met: ${pre.totalCredits} core credits (needs 10) and ${pre.emsCredits} in English/math/science (needs 7) before the seventh semester. This cannot be fixed after senior year begins.`);
+      tenSevenFailed = true;
+      warnings.push(
+        `10/7 rule not met: ${pre.totalCredits} core credits (needs 10) and ${pre.emsCredits} in English/math/science (needs 7) before the seventh semester. This cannot be fixed after senior year begins, so a qualifier result is not available.`
+      );
     } else {
       reasons.push(`10/7 rule met: ${pre.totalCredits} core credits including ${pre.emsCredits} in English, math or science before senior year.`);
     }
   }
 
-  const gpa = coreGpa.gpa;
-  const complete = coreGpa.totalCredits >= std.coreCredits;
+  const done = (status: EligibilityStatus): InitialEligibilityResult => ({
+    status,
+    projected,
+    division,
+    coreGpa,
+    yearOne: status === "insufficient_data" ? "Cannot be determined without the Eligibility Center." : yearOneFor(status),
+    reasons,
+    warnings,
+  });
 
-  if (!complete) {
-    warnings.push("This is a projection. The status can still move either way until all 16 core credits are finished.");
+  // Early academic qualifier is a status for someone who has met the
+  // standard EARLY, on 14 credits, before finishing. Awarding it to a
+  // student with all 16 done relabels an ordinary qualifier as something
+  // else, so it only applies while the core is still incomplete.
+  if (!complete && !tenSevenFailed && gpa >= std.earlyQualifierGpa && coreGpa.totalCredits >= std.earlyQualifierCredits) {
+    reasons.push(`Core GPA ${shown} is at or above the ${division} early academic qualifier standard (${std.earlyQualifierGpa} with ${std.earlyQualifierCredits} credits).`);
+    return done("early_academic_qualifier");
   }
 
-  if (gpa >= std.earlyQualifierGpa && coreGpa.totalCredits >= std.earlyQualifierCredits) {
-    reasons.push(`Core GPA ${gpa.toFixed(3)} is at or above the ${division} early academic qualifier standard (${std.earlyQualifierGpa} with ${std.earlyQualifierCredits} credits).`);
-    return { status: "early_academic_qualifier", division, coreGpa, yearOne: YEAR_ONE.early_academic_qualifier!, reasons, warnings };
+  if (gpa >= std.qualifierGpa && !tenSevenFailed) {
+    reasons.push(`Core GPA ${shown} meets the ${division} qualifier minimum of ${std.qualifierGpa}.`);
+    return done("qualifier");
   }
 
-  if (gpa >= std.qualifierGpa) {
-    reasons.push(`Core GPA ${gpa.toFixed(3)} meets the ${division} qualifier minimum of ${std.qualifierGpa}.`);
-    return { status: "qualifier", division, coreGpa, yearOne: YEAR_ONE.qualifier!, reasons, warnings };
+  if (gpa >= std.qualifierGpa && tenSevenFailed) {
+    // The GPA clears the bar and the timing rule does not. Whether the
+    // second tier is still available without 10/7 is not something the
+    // NCAA sources on file answer, so this stops short of asserting it.
+    reasons.push(`Core GPA ${shown} meets the ${division} qualifier minimum of ${std.qualifierGpa}, but the 10/7 requirement was not met.`);
+    warnings.push("Whether an athlete who missed 10/7 can still be certified as an academic redshirt is not something this can answer from published NCAA sources. Take this one to the Eligibility Center.");
+    return done("insufficient_data");
   }
 
   if (std.secondTierGpa !== null && gpa >= std.secondTierGpa) {
-    reasons.push(`Core GPA ${gpa.toFixed(3)} is below the ${division} qualifier minimum of ${std.qualifierGpa} but at or above ${std.secondTierGpa}.`);
-    return { status: std.secondTierStatus, division, coreGpa, yearOne: YEAR_ONE[std.secondTierStatus]!, reasons, warnings };
+    reasons.push(`Core GPA ${shown} is below the ${division} qualifier minimum of ${std.qualifierGpa} but at or above ${std.secondTierGpa}.`);
+    return done(std.secondTierStatus);
   }
 
   if (std.secondTierGpa === null) {
     // D2. Below the qualifier standard there is a partial-qualifier
     // tier, but the NCAA does not publish its GPA floor, so the honest
     // answer is that this needs the Eligibility Center, not a verdict.
-    reasons.push(`Core GPA ${gpa.toFixed(3)} is below the ${division} qualifier minimum of ${std.qualifierGpa}.`);
+    reasons.push(`Core GPA ${shown} is below the ${division} qualifier minimum of ${std.qualifierGpa}.`);
     warnings.push("Division II has a partial-qualifier status below the qualifier standard, but the NCAA does not publish its GPA floor. Check this athlete with the Eligibility Center rather than assuming a nonqualifier result.");
-    return { status: "insufficient_data", division, coreGpa, yearOne: "Cannot be determined without the Eligibility Center.", reasons, warnings };
+    return done("insufficient_data");
   }
 
-  reasons.push(`Core GPA ${gpa.toFixed(3)} is below the ${division} academic redshirt floor of ${std.secondTierGpa}.`);
-  return { status: "nonqualifier", division, coreGpa, yearOne: YEAR_ONE.nonqualifier!, reasons, warnings };
+  reasons.push(`Core GPA ${shown} is below the ${division} academic redshirt floor of ${std.secondTierGpa}.`);
+  return done("nonqualifier");
 }

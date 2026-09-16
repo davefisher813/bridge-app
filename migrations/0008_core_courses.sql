@@ -65,7 +65,14 @@ create table high_school_grading_scales (
   verified_at     timestamptz,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
-  unique (school_name)
+  -- Lookups and uniqueness both run on this, not on school_name.
+  -- Matching on the raw name is case-sensitive, so "Westminster School"
+  -- and "westminster school" became two rows, and a scale filed under
+  -- one casing was invisible to courses recorded under the other: the
+  -- screen said the school had no grading scale while the row sat in the
+  -- table.
+  school_name_key text generated always as (lower(btrim(school_name))) stored,
+  unique (school_name_key)
 );
 
 -- ── Core courses ─────────────────────────────────────────────────────

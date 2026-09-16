@@ -74,23 +74,51 @@ function iso(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-// The academic year that starts on or after a given date.
-function academicYearStartOnOrAfter(d: Date): Date {
-  const candidate = new Date(Date.UTC(d.getUTCFullYear(), ACADEMIC_YEAR_START_MONTH, ACADEMIC_YEAR_START_DAY));
-  if (candidate >= d) return candidate;
-  return new Date(Date.UTC(d.getUTCFullYear() + 1, ACADEMIC_YEAR_START_MONTH, ACADEMIC_YEAR_START_DAY));
+// The academic year a date belongs to, given the September 1 cutoff.
+//
+// This used to return the next August 1 falling on or AFTER the
+// birthday, which is wrong for every birthday between August 1 and
+// August 31: a 19th birthday on August 15 2027 would be pushed to the
+// academic year starting August 2028, handing the athlete a full extra
+// year of eligibility that does not exist. A one-day change in date of
+// birth moved the answer by a year, in the optimistic direction.
+//
+// The rule has one cutoff, not two. A birthday before September 1 of
+// year Y belongs to the academic year beginning in year Y, whether it
+// falls in March or in August.
+function academicYearStartFor(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), ACADEMIC_YEAR_START_MONTH, ACADEMIC_YEAR_START_DAY));
+}
+
+// Date.UTC rolls February 29 over to March 1 when the target year is not
+// a leap year, which shifted a leap-year athlete's clock by a day.
+function addYears(d: Date, years: number): Date {
+  const year = d.getUTCFullYear() + years;
+  const month = d.getUTCMonth();
+  const day = d.getUTCDate();
+  const lastOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(day, lastOfMonth)));
 }
 
 function isD1OrD2(raw: string): AgeClockDivision | null {
   const d = (raw || "").toUpperCase().replace(/\s+/g, " ").trim();
-  if (/\bD3\b|DIVISION 3|DIVISION III/.test(d)) return null;
-  if (/\bD1\b|DIVISION 1|DIVISION I\b|FBS|FCS/.test(d)) return "D1";
-  if (/\bD2\b|DIVISION 2|DIVISION II\b/.test(d)) return "D2";
+  // Longest spellings first: "DI" is a prefix of "DII" and "DIII".
+  if (/\bD3\b|\bDIII\b|DIVISION 3|DIVISION III/.test(d)) return null;
+  if (/\bD2\b|\bDII\b|DIVISION 2|DIVISION II\b/.test(d)) return "D2";
+  if (/\bD1\b|\bDI\b|DIVISION 1|DIVISION I\b|FBS|FCS/.test(d)) return "D1";
   return null;
 }
 
-function yearsBetween(a: Date, b: Date): number {
-  return Math.round(((b.getTime() - a.getTime()) / (365.2425 * 24 * 60 * 60 * 1000)) * 100) / 100;
+// Measured as a fraction of THIS athlete's own five-year window rather
+// than against an average 365.2425-day year. The two disagreed: a window
+// ending 2032-08-01 reported "already expired" on 2032-07-30, because
+// 1825 days divided by the average year rounds to exactly 5. The module
+// contradicted itself inside one result object.
+function yearsElapsed(start: Date, end: Date, at: Date): number {
+  const span = end.getTime() - start.getTime();
+  if (span <= 0) return ELIGIBILITY_YEARS;
+  const used = (at.getTime() - start.getTime()) / span;
+  return Math.round(Math.max(0, used) * ELIGIBILITY_YEARS * 100) / 100;
 }
 
 export function evaluateAgeClock(input: AgeClockInput): AgeClockResult {
@@ -119,10 +147,10 @@ export function evaluateAgeClock(input: AgeClockInput): AgeClockResult {
   const warnings: string[] = [];
 
   // The age trigger, if there is one.
-  const nineteenth = new Date(Date.UTC(dob.getUTCFullYear() + 19, dob.getUTCMonth(), dob.getUTCDate()));
+  const nineteenth = addYears(dob, 19);
   const cutoffThatYear = new Date(Date.UTC(nineteenth.getUTCFullYear(), AGE_CUTOFF_MONTH, AGE_CUTOFF_DAY));
   const turnsNineteenBeforeCutoff = nineteenth < cutoffThatYear;
-  const ageTrigger = turnsNineteenBeforeCutoff ? academicYearStartOnOrAfter(nineteenth) : null;
+  const ageTrigger = turnsNineteenBeforeCutoff ? academicYearStartFor(nineteenth) : null;
 
   const enrollment = input.firstFullTimeEnrollment ? parse(input.firstFullTimeEnrollment) : null;
 
@@ -152,7 +180,7 @@ export function evaluateAgeClock(input: AgeClockInput): AgeClockResult {
     };
   }
 
-  const clockEnd = new Date(Date.UTC(clockStart.getUTCFullYear() + ELIGIBILITY_YEARS, clockStart.getUTCMonth(), clockStart.getUTCDate()));
+  const clockEnd = addYears(clockStart, ELIGIBILITY_YEARS);
 
   if (startedBy === "age") {
     reasons.push(`Turns 19 on ${iso(nineteenth)}, before the September 1 cutoff, so the five-year clock starts ${iso(clockStart)} whether or not they have enrolled anywhere.`);
@@ -167,7 +195,7 @@ export function evaluateAgeClock(input: AgeClockInput): AgeClockResult {
   let yearsRemainingAtEnrollment: number | null = null;
 
   if (target) {
-    const burned = Math.max(0, yearsBetween(clockStart, target));
+    const burned = yearsElapsed(clockStart, clockEnd, target);
     yearsBurnedAtEnrollment = burned;
     yearsRemainingAtEnrollment = Math.round((ELIGIBILITY_YEARS - burned) * 100) / 100;
     if (burned > 0 && startedBy === "age") {

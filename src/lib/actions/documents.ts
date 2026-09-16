@@ -8,6 +8,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { detectCategory, runExtractionPipeline } from "@/lib/docai/pipeline";
 import { createStubCaller } from "@/lib/docai/stubCaller";
 import { getCategory } from "@/lib/docai/categories";
+import { normalizeGpa } from "@/lib/docai/gpa";
 import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole } from "@/lib/docai/types";
 
 // The caller side of src/lib/docai. The pipeline deliberately returns a
@@ -64,13 +65,14 @@ export async function processDocument(
     sourceRole: SourceRole;
     // Null means "work out what this is". Dave wanted both ways in.
     requestedCategory: DocCategoryId | null;
-    // Set when the upload started from a particular athlete's page, so
-    // there is no question whose document this is. Goes to the
-    // pipeline's resolver override, which pins the match rather than
-    // guessing from the name printed on the page. This is what makes a
-    // nameless portal transcript usable: the name is missing from the
-    // document, and the person uploading it already told us.
-    athleteOverride?: string;
+    // Set when the upload started from a particular athlete's page.
+    // This is an ID, not a name: passing only the name meant the
+    // resolver ran a FUZZY match against the roster, and with "Chris
+    // Johnson" and "Chris Johnson Jr" on the same roster its
+    // longest-name tie-break pinned the document to the wrong brother
+    // while the user stood on the right one's page. Two athletes with
+    // identical names resolved nondeterministically.
+    athleteId?: string;
   }
 ): Promise<ProcessResult> {
   const org = await getOrgBySlug(slug);
@@ -157,6 +159,10 @@ export async function processDocument(
 
   const { roster, context } = await loadRoster(org.id);
 
+  // Resolve the pin to a real athlete in THIS org. An id that is not on
+  // this roster is ignored rather than trusted.
+  const pinnedAthlete = input.athleteId ? roster.find((a) => a.id === input.athleteId) ?? null : null;
+
   // Prior versions of this athlete's data are what let the pipeline say
   // whether an upload is a first, a correction or a stale re-send. Without
   // a matched athlete yet, the lookup is by category across the org.
@@ -187,7 +193,10 @@ export async function processDocument(
     rosterContext: context,
     priorVersions,
     callModel,
-    override: input.athleteOverride,
+    // The resolver's override is still passed, because the extraction
+    // prompt uses it, but the routing decision below does not depend on
+    // it: a pinned upload resolves by ID.
+    override: pinnedAthlete?.name,
   });
 
   if (!result.ok) {
@@ -237,7 +246,14 @@ export async function processDocument(
     .eq("org_id", org.id);
 
   if (canAutoApply) {
-    await applyExtractionToAthlete(org.id, topCandidate!.athlete.id, categoryId, result.extracted, documentId);
+    const autoWarnings = await applyExtractionToAthlete(org.id, topCandidate!.athlete.id, categoryId, result.extracted, documentId);
+    if (autoWarnings.length) {
+      await supabase
+        .from("documents")
+        .update({ failure_reason: autoWarnings.join(" "), updated_at: new Date().toISOString() })
+        .eq("id", documentId)
+        .eq("org_id", org.id);
+    }
   }
 
   revalidatePath(`/org/${slug}/documents`);
@@ -261,29 +277,53 @@ async function applyExtractionToAthlete(
   categoryId: DocCategoryId,
   extracted: Record<string, unknown>,
   documentId: string | null
-): Promise<void> {
+): Promise<string[]> {
   const supabase = await createClient();
   const patch: Record<string, unknown> = {};
+  const warnings: string[] = [];
 
   if (categoryId === "transcript") {
     if (typeof extracted.gpa === "number") {
-      patch.gpa = extracted.gpa;
-      patch.gpa_verified = extracted.gpaVerified === true;
+      // athletes.gpa is numeric(3,2), so it holds 0.00 to 9.99, and the
+      // extraction schema explicitly allows 5.0, 10, 20 and 100 point
+      // scales. A Westminster transcript reporting 86.2 therefore raised
+      // a numeric overflow, the error was discarded, and the whole
+      // patch including date_of_birth was lost in silence. Normalize to
+      // the 4.0 scale the column was built for, and drop anything that
+      // still will not fit rather than writing a number that fails.
+      const scale = typeof extracted.gpaScale === "string" ? extracted.gpaScale : undefined;
+      const normalized = normalizeGpa(extracted.gpa, scale);
+      if (normalized) {
+        patch.gpa = normalized.gpa;
+        patch.gpa_verified = extracted.gpaVerified === true;
+      } else {
+        warnings.push(`Could not place a GPA of ${extracted.gpa} on any known scale, so the athlete's GPA was left alone.`);
+      }
     }
     // Needed by the age-based eligibility clock, which can start before
     // an athlete enrols anywhere. Only set when it is missing, so a
     // re-read of an older transcript never overwrites a corrected one.
-    if (typeof extracted.dateOfBirth === "string" && /^\d{4}-\d{2}-\d{2}$/.test(extracted.dateOfBirth)) {
+    if (typeof extracted.dateOfBirth === "string" && isRealDate(extracted.dateOfBirth)) {
       const { data: current } = await supabase.from("athletes").select("date_of_birth").eq("id", athleteId).eq("org_id", orgId).single();
       if (current && !current.date_of_birth) patch.date_of_birth = extracted.dateOfBirth;
     }
 
-    await replaceCoursesFromDocument(orgId, athleteId, documentId, extracted);
-    await recordGradingScale(extracted, documentId);
+    warnings.push(...(await replaceCoursesFromDocument(orgId, athleteId, documentId, extracted)));
+    warnings.push(...(await recordGradingScale(extracted, documentId)));
   }
 
-  if (Object.keys(patch).length === 0) return;
-  await supabase.from("athletes").update(patch).eq("id", athleteId).eq("org_id", orgId);
+  if (Object.keys(patch).length === 0) return warnings;
+  const { error } = await supabase.from("athletes").update(patch).eq("id", athleteId).eq("org_id", orgId);
+  if (error) warnings.push(`Could not update the athlete's record: ${error.message}`);
+  return warnings;
+}
+
+// A regex says 2026-02-30 looks like a date. Postgres disagrees, and the
+// rejection used to discard the GPA in the same patch.
+function isRealDate(iso: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const d = new Date(`${iso}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso;
 }
 
 interface ExtractedCourse {
@@ -309,27 +349,34 @@ async function replaceCoursesFromDocument(
   athleteId: string,
   documentId: string | null,
   extracted: Record<string, unknown>
-): Promise<void> {
+): Promise<string[]> {
+  const warnings: string[] = [];
   const raw = extracted.courses;
-  if (!Array.isArray(raw) || raw.length === 0) return;
+  if (!Array.isArray(raw) || raw.length === 0) return warnings;
   const supabase = await createClient();
 
-  if (documentId) {
-    await supabase.from("athlete_courses").delete().eq("document_id", documentId).eq("org_id", orgId);
-  }
-
-  const school = typeof extracted.school === "string" ? extracted.school : null;
+  const school = typeof extracted.school === "string" ? extracted.school.trim().slice(0, 200) : null;
+  // Every value is clamped to what its column can hold. credit is
+  // numeric(4,2), so anything at or above 100 raised a numeric overflow
+  // that rejected the WHOLE batch after the delete had already
+  // committed: the athlete's courses vanished and the action still
+  // reported success. The schema has no upper bound on credit, and a
+  // transcript that prints cumulative hours rather than per-course units
+  // is enough to trigger it without any bad intent.
+  const SUBJECTS = new Set(["english", "math", "science", "social_science", "other_academic", "non_academic"]);
   const rows = (raw as ExtractedCourse[])
     .filter((c) => c && typeof c.title === "string" && c.title.trim() !== "")
+    .filter((c) => SUBJECTS.has(String(c.subject)))
+    .slice(0, MAX_COURSES_PER_DOCUMENT)
     .map((c) => ({
       org_id: orgId,
       athlete_id: athleteId,
       document_id: documentId,
-      title: c.title,
+      title: String(c.title).slice(0, 200),
       subject: c.subject,
-      credit: Number.isFinite(c.credit) ? c.credit : 0,
-      grade: String(c.grade ?? ""),
-      term: c.term ?? null,
+      credit: Number.isFinite(c.credit) ? Math.max(0, Math.min(99.99, Number(c.credit))) : 0,
+      grade: String(c.grade ?? "").slice(0, 20),
+      term: c.term ? String(c.term).slice(0, 40) : null,
       school_name: school,
       weighted: c.weighted === true,
       // Deliberately left null: nobody has checked this course against
@@ -338,9 +385,38 @@ async function replaceCoursesFromDocument(
       ncaa_approved: null,
     }));
 
-  if (!rows.length) return;
-  await supabase.from("athlete_courses").insert(rows);
+  const dropped = (raw as ExtractedCourse[]).length - rows.length;
+  if (dropped > 0) warnings.push(`${dropped} course row(s) were unusable and left out.`);
+  if (!rows.length) return warnings;
+
+  // Supersede by SCHOOL, not by document.
+  //
+  // Keying on document_id looked right and was not: re-uploading a
+  // corrected scan always creates a new documents row, so the old rows
+  // survived and the athlete ended up with 32 credits where 16 exist.
+  // The headline GPA hid it, because the best-16 selection caps the
+  // count, but every per-subject credit total on screen doubled.
+  //
+  // School is the honest key. A second transcript from the same school
+  // is a correction and replaces; a transcript from a different school
+  // is a transfer student's other half and is added. Rows with no school
+  // recorded are replaced only by another school-less upload.
+  const { error: deleteError } = school
+    ? await supabase.from("athlete_courses").delete().eq("athlete_id", athleteId).eq("org_id", orgId).eq("school_name", school)
+    : await supabase.from("athlete_courses").delete().eq("athlete_id", athleteId).eq("org_id", orgId).is("school_name", null);
+  if (deleteError) {
+    warnings.push(`Could not clear the previous courses for this school, so they were left as they were: ${deleteError.message}`);
+    return warnings;
+  }
+
+  const { error } = await supabase.from("athlete_courses").insert(rows);
+  if (error) warnings.push(`Could not save the course list: ${error.message}`);
+  return warnings;
 }
+
+// A transcript has tens of courses, not thousands. The cap stops a
+// runaway extraction from writing an unbounded batch.
+const MAX_COURSES_PER_DOCUMENT = 200;
 
 // A transcript that prints its school's own numeric-to-letter table is
 // the only way most of these grades become scorable, because the NCAA
@@ -354,21 +430,84 @@ async function replaceCoursesFromDocument(
 // row is never overwritten: a scale someone has actually confirmed
 // outranks one read off a scan, and two orgs' athletes at the same
 // school share this row.
-async function recordGradingScale(extracted: Record<string, unknown>, documentId: string | null): Promise<void> {
+async function recordGradingScale(extracted: Record<string, unknown>, documentId: string | null): Promise<string[]> {
+  const warnings: string[] = [];
   const bands = extracted.gradingScale;
   const school = typeof extracted.school === "string" ? extracted.school.trim() : "";
-  if (!school || !Array.isArray(bands) || bands.length === 0) return;
+  if (!school || !Array.isArray(bands) || bands.length === 0) return warnings;
+
+  // This row is SHARED reference data. Every org with an athlete at this
+  // school converts every numeric grade through it, so a wrong table
+  // silently rewrites other organizations' eligibility verdicts, and
+  // there is no UI anywhere that can correct one afterwards.
+  //
+  // The migration put this table behind the service role so a
+  // coordinator could not type a bad table in by hand. Writing model
+  // output straight through the same service role hands that exact power
+  // to a PDF supplied by a parent or an email sender, which is worse:
+  // nobody reviewed it at all. So the table is checked for internal
+  // sanity before it is trusted, and a table that fails is reported to
+  // the person who uploaded it rather than stored.
+  const problem = gradingScaleProblem(bands);
+  if (problem) {
+    warnings.push(`The grading table read off this transcript was not saved: ${problem} Ask the school for its conversion table.`);
+    return warnings;
+  }
 
   const admin = createAdminClient();
-  const { data: existing } = await admin.from("high_school_grading_scales").select("id").eq("school_name", school).maybeSingle();
-  if (existing) return;
+  const { data: existing, error: readError } = await admin
+    .from("high_school_grading_scales")
+    .select("id")
+    .ilike("school_name", school)
+    .maybeSingle();
+  if (readError) {
+    warnings.push(`Could not check whether a grading scale already exists for ${school}.`);
+    return warnings;
+  }
+  // First writer wins, on purpose: a scale someone has confirmed
+  // outranks one read off a scan, and silently replacing another org's
+  // verified table would be the worst version of this.
+  if (existing) return warnings;
 
-  await admin.from("high_school_grading_scales").insert({
+  const { error } = await admin.from("high_school_grading_scales").insert({
     school_name: school,
     bands,
-    source_note: documentId ? `Read off the transcript uploaded as document ${documentId}. Not confirmed with the school.` : "Read off a transcript. Not confirmed with the school.",
+    source_note: documentId
+      ? `Read off the transcript uploaded as document ${documentId}. Not confirmed with the school.`
+      : "Read off a transcript. Not confirmed with the school.",
     verified_at: null,
   });
+  if (error) warnings.push(`Could not save the grading scale read off this transcript: ${error.message}`);
+  return warnings;
+}
+
+// Rejects a table that cannot be a real high school grading scale.
+// A single band covering 0 to 100 maps every grade to one letter, which
+// turns every athlete at that school into a 4.00 or a 0.00 depending on
+// the letter, and reads on screen as a confident verdict.
+function gradingScaleProblem(bands: unknown[]): string | null {
+  const parsed = bands as Array<{ letter?: unknown; min?: unknown; max?: unknown }>;
+  const rows: Array<{ letter: string; min: number; max: number }> = [];
+  for (const b of parsed) {
+    const letter = typeof b.letter === "string" ? b.letter.trim().toUpperCase() : "";
+    const min = typeof b.min === "number" ? b.min : NaN;
+    const max = typeof b.max === "number" ? b.max : NaN;
+    if (!letter || !Number.isFinite(min) || !Number.isFinite(max)) return "one of its rows is not a letter and a numeric range.";
+    if (min > max) return `its ${letter} band runs from ${min} down to ${max}.`;
+    if (min < 0 || max > 130) return `its ${letter} band falls outside any plausible grade range.`;
+    if (!/^[A-F]/.test(letter)) return `"${letter}" is not a grade this can score.`;
+    rows.push({ letter, min, max });
+  }
+  if (rows.length < 3) return "it has fewer than three grade bands.";
+
+  const sorted = [...rows].sort((a, b) => a.min - b.min);
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i]!.min <= sorted[i - 1]!.max) return `its ${sorted[i - 1]!.letter} and ${sorted[i]!.letter} bands overlap.`;
+  }
+  // A band wider than 40 points is not a grade band; it is a catch-all.
+  const widest = sorted.reduce((w, b) => Math.max(w, b.max - b.min), 0);
+  if (widest > 40) return "one band spans more than 40 points, which is not a grade band.";
+  return null;
 }
 
 export async function applyDocument(slug: string, documentId: string, athleteId: string): Promise<{ ok: boolean; error?: string }> {
@@ -388,6 +527,18 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
   if (!doc) return { ok: false, error: "Document not found." };
   if (!doc.category || !doc.extracted) return { ok: false, error: "There is nothing extracted to apply." };
 
+  // A server action is a public endpoint; the Apply button is only a
+  // suggestion about when to call it. Without this check a document the
+  // pipeline explicitly REFUSED could still be applied, because a
+  // rejected document keeps its extracted payload alongside its failure
+  // reason. The same call also re-applied an already-applied document,
+  // which inserts a second copy of its courses, and resurrected a
+  // discarded one.
+  if (doc.status === "applied") return { ok: false, error: "That document has already been applied." };
+  if (doc.status === "discarded") return { ok: false, error: "That document was discarded. Process it again if you want to use it." };
+  if (doc.status === "failed") return { ok: false, error: "That document did not pass extraction, so there is nothing safe to apply from it." };
+  if (doc.status === "processing") return { ok: false, error: "That document is still being read." };
+
   // Same cross-org check the other actions make: RLS proves the document
   // belongs to this org, not that the athlete does.
   const { data: athlete } = await supabase
@@ -399,9 +550,9 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
     .single();
   if (!athlete) return { ok: false, error: "That athlete isn't on this org's roster." };
 
-  await applyExtractionToAthlete(org.id, athleteId, doc.category, doc.extracted, doc.id);
+  const applyWarnings = await applyExtractionToAthlete(org.id, athleteId, doc.category, doc.extracted, doc.id);
 
-  await supabase
+  const { error: statusError } = await supabase
     .from("documents")
     .update({
       status: "applied",
@@ -415,6 +566,11 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
 
   revalidatePath(`/org/${slug}/documents`);
   revalidatePath(`/org/${slug}/roster`);
+  if (statusError) return { ok: false, error: `Applied, but the document status could not be updated: ${statusError.message}` };
+  // Partial failures surface instead of being reported as a clean
+  // success. Every write in this path used to be unchecked, so a
+  // rejected insert looked identical to a completed one.
+  if (applyWarnings.length) return { ok: true, error: applyWarnings.join(" ") };
   return { ok: true };
 }
 

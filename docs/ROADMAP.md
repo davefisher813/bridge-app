@@ -119,6 +119,39 @@ Ordered by what naturally follows what's already built.
     `/org/[slug]/roster/[id]/eligibility`. Ten laws in
     `src/laws/ncaaLaws.test.ts`.
 
+## Known gaps, recorded rather than fixed (audit 2026-09-16)
+
+These came out of an adversarial audit and are real. They are written
+down because each needs a decision, not because they were missed.
+
+- **RLS carries no role check.** Every org-scoped policy is
+  `for all using (org_id in (select _member_org_ids()))` and none looks
+  at `org_members.role`. Since the anon key ships to the browser, a
+  `member` can write to any org-scoped table through PostgREST with
+  their own token. `requireRole(..., STAFF_ROLES)` is an app-layer
+  convenience, not a boundary. Cross-org isolation is solid and proven;
+  intra-org role separation does not exist at the database. Fixing it
+  means role-aware policies on every table plus a second pass in
+  `scripts/rls_test.sql`, which currently runs every assertion as an
+  owner and so never tests this.
+- **`discardDocument` does not undo an apply.** It sets a status and
+  leaves the course rows, the GPA and the date of birth it wrote in
+  place. There is no path in the app to remove them.
+- **The weighted-grade bonus is unreachable in practice.**
+  `reports_weighted_grades` defaults false and nothing ever sets it,
+  so every AP athlete gets an understated core GPA and a warning that
+  the school "is not on record", which nobody was ever asked about. It
+  needs the grading-scale entry screen below.
+- **Per-course school name.** Every course from one document gets that
+  document's single school, because the extraction schema has no
+  per-course school field. A transcript covering two schools therefore
+  converts entirely against one school's table. The transfer-student
+  design is in the storage and the adapter but cannot be expressed by
+  the extractor yet.
+- **No server-side file validation.** Size, type sniffing and the HEIC
+  refusal all live in `ingest.ts`, which runs in the browser. A direct
+  call to the server action skips them.
+
 ## Next up
 
 1. **Check courses against each school's NCAA-approved list.** The

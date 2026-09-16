@@ -21,7 +21,7 @@ import { SectionHeader, EmptyState } from "@/components/catalog";
 import { GpaPair, NoteRail, SubjectRow, VerdictCard } from "@/components/EligibilityVerdict";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { buildEligibilityView, type AthleteCourseRow, type GradingScaleRow } from "@/lib/data/ncaaAdapters";
-import { DIVISION_STANDARDS } from "@/lib/fit/ncaa/initialEligibility";
+import { DIVISION_STANDARDS, normalizeDivision } from "@/lib/fit/ncaa/initialEligibility";
 import type { SubjectArea } from "@/lib/fit/ncaa/coreGpa";
 
 export const dynamic = "force-dynamic";
@@ -50,18 +50,15 @@ const SUBJECT_LABEL: Record<SubjectArea, string> = {
 // against the easier D2 bar would be worse than useless.
 const DIVISION_RANK: Record<string, number> = { D1: 3, D2: 2, D3: 1 };
 
+// Reuses the engine's own normalizer rather than keeping a second regex
+// here. The copy that used to live in this file missed the "DI" and
+// "DII" spellings, so a D1 target written that way silently produced no
+// division at all and the page said there was nothing to judge against.
 function pickDivision(divisions: string[]): string {
   let best = "";
   let bestRank = 0;
   for (const raw of divisions) {
-    const d = (raw || "").toUpperCase().replace(/\s+/g, " ").trim();
-    const key = /\bD1\b|DIVISION 1|DIVISION I\b|FBS|FCS/.test(d)
-      ? "D1"
-      : /\bD2\b|DIVISION 2|DIVISION II\b/.test(d)
-        ? "D2"
-        : /\bD3\b|DIVISION 3|DIVISION III/.test(d)
-          ? "D3"
-          : "";
+    const key = normalizeDivision(raw);
     if (!key) continue;
     if (DIVISION_RANK[key]! > bestRank) {
       bestRank = DIVISION_RANK[key]!;
@@ -102,12 +99,16 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
 
   const courses = (courseRows ?? []) as AthleteCourseRow[];
 
-  const schoolNames = [...new Set(courses.map((c) => c.school_name).filter((s): s is string => !!s))];
-  const { data: scaleRows } = schoolNames.length
+  // Matched on the normalized key, because the adapter compares
+  // case-insensitively and an exact-match query here filtered the rows
+  // out before the adapter ever saw them, making its own
+  // case-insensitivity dead code.
+  const schoolKeys = [...new Set(courses.map((c) => c.school_name?.trim().toLowerCase()).filter((s): s is string => !!s))];
+  const { data: scaleRows } = schoolKeys.length
     ? await supabase
         .from("high_school_grading_scales")
         .select("school_name, bands, reports_weighted_grades, weighting_is_class_rank_only, weight_bonus")
-        .in("school_name", schoolNames)
+        .in("school_name_key", schoolKeys)
     : { data: [] };
 
   const divisions = (targetRows ?? []).flatMap((t) => {
@@ -197,6 +198,17 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
         }
       />
 
+      {eligibility.projected && eligibility.coreGpa?.gpa != null && (
+        <div className="mb-4">
+          <NoteRail role="offer">
+            <div className="text-[12.5px] leading-tight text-ink">
+              Not a final status. {eligibility.coreGpa.totalCredits} of {std?.coreCredits ?? 16} core credits are on file, and the rest can
+              move this either way.
+            </div>
+          </NoteRail>
+        </div>
+      )}
+
       {eligibility.status === "not_applicable" ? (
         <div className="flex flex-col gap-2">
           {eligibility.reasons.map((r, i) => (
@@ -243,9 +255,12 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
             </div>
           )}
 
-          {eligibility.warnings.length > 0 && (
+          {/* adapterWarnings carries the grade-conversion problems, which
+              are the ones that can silently inflate a GPA. They were
+              being computed and never rendered. */}
+          {[...view.adapterWarnings, ...eligibility.warnings].length > 0 && (
             <div className="mt-3 flex flex-col gap-2">
-              {eligibility.warnings.map((w, i) => (
+              {[...view.adapterWarnings, ...eligibility.warnings].map((w, i) => (
                 <NoteRail key={i} role="offer">
                   <div className="text-[12.5px] leading-tight text-ink">{w}</div>
                 </NoteRail>

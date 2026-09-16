@@ -130,7 +130,7 @@ describe("LAW: standardized test scores are never an eligibility factor", () => 
   // which is a different question, so this law checks only that the
   // NCAA modules stay clear of them.
   const ncaaDir = join(SRC, "lib", "fit", "ncaa");
-  const files = ["coreGpa.ts", "initialEligibility.ts", "ageClock.ts"];
+  const files = ["coreGpa.ts", "initialEligibility.ts", "ageClock.ts", "fromTranscript.ts"];
 
   it("no NCAA eligibility module reads a test score", () => {
     for (const file of files) {
@@ -161,9 +161,28 @@ describe("LAW: the age clock can start before an athlete enrolls anywhere", () =
     expect(late.startedBy).toBe("age");
   });
 
+  // Subtracting the years of two dates the implementation built by
+  // adding five to one of them proves nothing: it passes for any month
+  // or day error, including a leap-year rollover. Assert the dates.
   it("never pauses: five years from the start, regardless of time away", () => {
     const r = evaluateAgeClock({ dateOfBirth: "2008-03-15", division: "D1", today: "2026-09-15" });
-    expect(new Date(r.clockEnd!).getUTCFullYear() - new Date(r.clockStart!).getUTCFullYear()).toBe(5);
+    expect(r.clockStart).toBe("2027-08-01");
+    expect(r.clockEnd).toBe("2032-08-01");
+
+    // Enrollment has to fall BEFORE the age trigger for the clock to
+    // start on it: born 2010, so the trigger is 2029 and the 2028
+    // enrollment wins. 2033 is not a leap year, so a naive Date.UTC
+    // would roll Feb 29 to Mar 1.
+    const leap = evaluateAgeClock({ dateOfBirth: "2010-01-01", division: "D1", firstFullTimeEnrollment: "2028-02-29", today: "2026-09-15" });
+    expect(leap.clockStart).toBe("2028-02-29");
+    expect(leap.clockEnd).toBe("2033-02-28");
+  });
+
+  it("the early-qualifier standards are the published ones", () => {
+    expect(DIVISION_STANDARDS.D1.earlyQualifierGpa).toBe(3.0);
+    expect(DIVISION_STANDARDS.D1.earlyQualifierCredits).toBe(14);
+    expect(DIVISION_STANDARDS.D2.earlyQualifierGpa).toBe(2.5);
+    expect(DIVISION_STANDARDS.D2.earlyQualifierCredits).toBe(14);
   });
 });
 

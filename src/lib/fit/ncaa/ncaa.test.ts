@@ -201,9 +201,16 @@ describe("initial-eligibility status by division", () => {
     expect(r.status).toBe("early_academic_qualifier");
   });
 
-  it("D2 qualifier uses 2.2, not D1's 2.3", () => {
+  // This used to assert two constants against themselves and never call
+  // the function, so it would have passed even if the D2 branch read the
+  // wrong field entirely.
+  it("D2 qualifier uses 2.2, not D1's 2.3, and the difference is visible in a verdict", () => {
     expect(DIVISION_STANDARDS.D2.qualifierGpa).toBe(2.2);
     expect(DIVISION_STANDARDS.D1.qualifierGpa).toBe(2.3);
+    // 2.25 sits between the two bars.
+    const mixed = [...sixteen("B").slice(0, 4), ...sixteen("C").slice(4)];
+    expect(evaluateInitialEligibility({ division: "D2", courses: mixed }).status).toBe("qualifier");
+    expect(evaluateInitialEligibility({ division: "D1", courses: mixed }).status).toBe("academic_redshirt");
   });
 
   // The NCAA does not publish the D2 partial-qualifier floor, so the
@@ -230,10 +237,17 @@ describe("initial-eligibility status by division", () => {
     expect(r.warnings.join(" ")).toMatch(/cannot be calculated from a transcript GPA alone/i);
   });
 
-  it("flags a 10/7 failure and says it cannot be fixed later", () => {
+  // Asserting only on the warning text let the verdict beside it read
+  // "can compete in year one" while the warning said the requirement was
+  // missed and could not be fixed. The status is the thing the screen
+  // renders, so the status is what this checks.
+  it("flags a 10/7 failure, says it cannot be fixed later, and does not still call them a qualifier", () => {
     const r = evaluateInitialEligibility({ division: "D1", courses: sixteen("B"), preSeventhSemester: { totalCredits: 8, emsCredits: 5 } });
     expect(r.warnings.join(" ")).toMatch(/10\/7 rule not met/i);
     expect(r.warnings.join(" ")).toMatch(/cannot be fixed after senior year/i);
+    expect(r.status).not.toBe("qualifier");
+    expect(r.status).not.toBe("early_academic_qualifier");
+    expect(r.yearOne).not.toMatch(/compete in year one/i);
   });
 
   it("does not apply the 10/7 rule to D2", () => {
@@ -322,8 +336,12 @@ describe("the age-based eligibility clock", () => {
   // The whole reason this module exists.
   it("shows eligibility burned by a post-grad year before the athlete ever enrolls", () => {
     const r = evaluateAgeClock({ dateOfBirth: "2008-03-15", division: "D1", intendedEnrollment: "2029-08-15", today: "2026-09-15" });
-    expect(r.yearsBurnedAtEnrollment).toBeGreaterThan(1.9);
-    expect(r.yearsRemainingAtEnrollment).toBeLessThan(3.1);
+    // Clock starts 2027-08-01 and ends 2032-08-01. Enrolling 2029-08-15
+    // is two years and two weeks in, so the tolerance is tight enough to
+    // catch a real drift rather than accepting any value in a year-wide
+    // window.
+    expect(r.yearsBurnedAtEnrollment).toBeCloseTo(2.04, 1);
+    expect(r.yearsRemainingAtEnrollment).toBeCloseTo(2.96, 1);
     expect(r.warnings.join(" ")).toMatch(/post-grad year, prep year or gap year/i);
   });
 
