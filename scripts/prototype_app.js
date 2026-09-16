@@ -207,13 +207,21 @@ function switchOrg(slug) {
   state.params = {};
   render();
 }
+// One timer, cancelled and replaced. Without the cancel, the previous
+// toast's timeout fires on its own schedule and clears whatever is on
+// screen at that moment, so a second confirmation inside 3.2 seconds
+// flashes and vanishes. Found by the walkthrough, which read an empty
+// toast after an earlier action had set one.
+let toastTimer = null;
 function toast(message) {
   state.toast = message;
-  render();
-  setTimeout(() => {
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toastTimer = null;
     state.toast = null;
     render();
   }, 3200);
+  render();
 }
 
 // Light and dark, driven by one attribute. The app's own tokens key off
@@ -264,12 +272,14 @@ function eligibilityFor(athleteId) {
 
   const schoolNames = new Set(courses.map((c) => (c.school_name || "").toLowerCase()));
   const scales = db.gradingScales.filter((g) => schoolNames.has(g.school_name.toLowerCase()));
+  const approvedLists = db.approvedLists.filter((l) => schoolNames.has(l.schoolName.toLowerCase()));
 
   return {
     division,
     view: E.buildEligibilityView({
       courses,
       scales,
+      approvedLists,
       division,
       athlete: {
         dateOfBirth: a.dateOfBirth || null,
@@ -660,6 +670,45 @@ SCREENS.eligibility = () => {
     }
 
     ${
+      view.schoolsMissingApprovedList.length
+        ? `<div class="mb-3">${rail(
+            "offer",
+            `<div class="text-[12.5px] font-bold leading-tight text-ink">${esc(view.schoolsMissingApprovedList.join(" and "))} ${
+              view.schoolsMissingApprovedList.length > 1 ? "have" : "has"
+            } no NCAA approved-course list on file</div>
+             <div class="mt-2 text-[12px] font-extrabold text-solid-accent" onclick="event.stopPropagation();go('approvedLists')">Enter the approved list</div>`,
+          )}</div>`
+        : ""
+    }
+
+    ${
+      view.approvals.length
+        ? `<div class="mb-2 mt-4">${header("Against the approved list", null, "committed")}</div>
+           ${(() => {
+             const by = (st) => view.approvals.filter((x) => x.match.status === st).length;
+             const ok = by("approved");
+             const no = by("not_approved");
+             const un = by("unknown") + by("ambiguous");
+             return row(
+               un > 0 ? "offer" : "committed",
+               un > 0 ? `${un} still unchecked` : `${ok} confirmed on the list`,
+               `${ok} approved &middot; ${no} not approved${un > 0 ? " &middot; " + un + " unchecked" : ""}`,
+               "",
+               `go('approvals',{id:'${a.id}'})`,
+             );
+           })()}`
+        : ""
+    }
+
+    ${
+      view.approvalNotes.length
+        ? `<div class="mt-2 flex flex-col gap-2">${view.approvalNotes
+            .map((n) => rail("target", `<div class="text-[12.5px] leading-tight text-ink">${esc(n)}</div>`))
+            .join("")}</div>`
+        : ""
+    }
+
+    ${
       view.scalesUsed.length
         ? `<div class="mb-2 mt-4">${header("How the grades were converted", null, "people")}</div>
            <div class="flex flex-col gap-2">${view.scalesUsed
@@ -1017,6 +1066,131 @@ SCREENS.courses = () => {
   `;
 };
 
+// Every course on this athlete's transcript against the school's
+// approved list, with the reason each one got the answer it did. This is
+// where "why is my core GPA lower than my transcript" is answered.
+SCREENS.approvals = () => {
+  const a = athlete(state.params.id);
+  const { view } = eligibilityFor(a.id);
+  const ROLE = { approved: "committed", not_approved: "target", ambiguous: "offer", unknown: "offer" };
+  const LABEL = { approved: "On the list", not_approved: "Not on the list", ambiguous: "Two matches", unknown: "Unchecked" };
+
+  const order = ["not_approved", "ambiguous", "unknown", "approved"];
+  const grouped = order.map((st) => [st, view.approvals.filter((x) => x.match.status === st)]).filter(([, rows]) => rows.length);
+
+  return `
+    ${backLink(a.name)}
+    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Approved courses</h1>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">${view.approvals.length} courses checked</div>
+
+    ${grouped
+      .map(
+        ([st, rows]) => `<div class="mb-2 mt-4">${header(LABEL[st], rows.length, ROLE[st])}</div>
+        <div class="flex flex-col gap-2">${rows
+          .map((x) =>
+            row(
+              ROLE[st],
+              esc(x.title),
+              st === "approved"
+                ? `${esc(x.school)} &middot; ${x.match.how === "exact" ? "exact title" : "matched on the title"}`
+                : st === "ambiguous"
+                  ? `Could be ${esc((x.match.candidates || []).join(" or "))}`
+                  : st === "not_approved"
+                    ? `Does not count toward the core GPA`
+                    : `No list on file for ${esc(x.school)}`,
+              "",
+              `go('approvedList',{school:'${esc(x.school)}'})`,
+            ),
+          )
+          .join("")}</div>`,
+      )
+      .join("")}
+  `;
+};
+
+SCREENS.approvedLists = () => {
+  const courses = byOrg(db.athletes).flatMap((a) => db.courses.filter((c) => c.athleteId === a.id));
+  const schools = [...new Set(courses.map((c) => c.school_name).filter(Boolean))];
+  const listFor = (name) => db.approvedLists.find((l) => l.schoolName.toLowerCase() === name.toLowerCase());
+
+  return `
+    ${backLink("More")}
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h1 class="text-[20px] font-extrabold text-ink">Approved lists</h1>
+      <span class="text-[12px] font-bold text-muted">${schools.length}</span>
+    </div>
+
+    <div class="flex flex-col gap-2">${schools
+      .map((name) => {
+        const l = listFor(name);
+        return row(
+          !l ? "offer" : l.isComplete ? "committed" : "target",
+          esc(name),
+          !l ? "Nothing on file" : `${l.courses.length} courses &middot; ${l.isComplete ? "complete" : "partial"}`,
+          !l ? `<span class="flex-shrink-0 text-[12px] font-extrabold text-solid-accent">Add</span>` : "",
+          `go('approvedList',{school:'${esc(name)}'})`,
+        );
+      })
+      .join("")}</div>
+  `;
+};
+
+SCREENS.approvedList = () => {
+  const name = state.params.school;
+  const l = db.approvedLists.find((x) => x.schoolName.toLowerCase() === (name || "").toLowerCase());
+  const SUBJECT = { english: "English", math: "Math", science: "Science", social_science: "Social science", other_academic: "Other academic" };
+
+  if (!l) {
+    return `
+      ${backLink("Approved lists")}
+      <h1 class="mb-1 text-[20px] font-extrabold leading-tight text-ink">${esc(name)}</h1>
+      <div class="mb-5 text-[12.5px] font-bold text-muted">No approved list on file</div>
+      ${emptyState(
+        "Nothing to check against",
+        "Every course at this school stays unchecked, and the core GPA reports itself as an estimate. The Eligibility Center publishes the list at web3.ncaa.org/hsportal.",
+      )}
+      <div class="mt-4">${button("Mark it partial and start typing", `toast('Entry is not built in this prototype yet.')`, "secondary")}</div>
+    `;
+  }
+
+  const bySubject = {};
+  for (const c of l.courses) (bySubject[c.subject] = bySubject[c.subject] || []).push(c);
+
+  return `
+    ${backLink("Approved lists")}
+    <h1 class="mb-1 text-[20px] font-extrabold leading-tight text-ink">${esc(l.schoolName)}</h1>
+    <div class="mb-4 text-[12.5px] font-bold text-muted">${l.courses.length} courses${l.ceebCode ? " &middot; CEEB " + esc(l.ceebCode) : ""}</div>
+
+    <div class="mb-5">${rail(
+      l.isComplete ? "committed" : "target",
+      `<div class="text-[13px] font-bold leading-tight text-ink">${l.isComplete ? "Complete list" : "Partial list"}</div>
+       <div class="mt-1 text-[12px] leading-tight text-muted">${
+         l.isComplete
+           ? "A course missing from it does not count."
+           : "It can confirm a course. It never rules one out."
+       }</div>
+       ${l.sourceNote ? `<div class="mt-1.5 text-[11.5px] leading-tight text-muted">"${esc(l.sourceNote)}"</div>` : ""}`,
+    )}</div>
+
+    ${Object.keys(SUBJECT)
+      .filter((k) => bySubject[k])
+      .map(
+        (k) => `<div class="mb-2 mt-4">${header(SUBJECT[k], bySubject[k].length, "contact")}</div>
+        <div class="flex flex-col gap-2">${bySubject[k]
+          .map((c) =>
+            row(
+              "contact",
+              esc(c.title),
+              [c.weighted ? "weighted" : "", c.maxCredit != null ? `capped at ${c.maxCredit}` : ""].filter(Boolean).join(" &middot; "),
+              "",
+            ),
+          )
+          .join("")}</div>`,
+      )
+      .join("")}
+  `;
+};
+
 SCREENS.more = () => {
   const m = org().modules;
   const you = org().you;
@@ -1031,6 +1205,7 @@ SCREENS.more = () => {
       ${m.donor_fundraising ? item("Fundraising", "Donors, gifts, pledges, grants", "fundraising", "committed") : ""}
       ${m.board_governance ? item("Board", "Seats and give/get", "governance", "people") : ""}
       ${item("Grading scales", `${db.gradingScales.length} on file`, "scales", "contact")}
+      ${item("Approved lists", `${db.approvedLists.length} on file`, "approvedLists", "visit")}
       ${item("Schools", `${db.schools.length} in the database`, "schools", "place")}
       ${item(
         bugs.local.length ? `Flagged bugs (${bugs.local.length})` : "Flagged bugs",
@@ -2016,12 +2191,13 @@ function bugLayer() {
 // tab rather than by screen, so adding a screen means adding it to one
 // list instead of remembering a fallthrough.
 const TAB_OF = {
-  athletes: ["athlete", "eligibility", "courses"],
+  athletes: ["athlete", "eligibility", "courses", "approvals"],
   board: ["target", "dimension", "school", "comms"],
   more: [
     "fundraising", "donors", "donor", "gifts", "pledges", "grants", "campaign", "giftNew",
     "governance", "boardDetail", "member", "members",
     "documents", "document", "scales", "scaleEdit", "schools", "bugs",
+    "approvedLists", "approvedList",
   ],
 };
 

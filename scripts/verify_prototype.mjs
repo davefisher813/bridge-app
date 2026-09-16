@@ -350,6 +350,83 @@ check("the app surfaces move with the theme", paper !== null && paper !== "rgb(2
 await tap("#themebtn");
 check("the toggle switches back", (await themeOf()) === "light");
 
+// ── The NCAA approved-course list ────────────────────────────────────
+// The roadmap item this exists for: without a list on file, every core
+// GPA carries an "estimate" warning. These check that a list removes the
+// warning, that it excludes an off-list course, and that a partial list
+// is never allowed to exclude anything.
+// Back to Bridge: the multi-tenancy section above left the app on Elite
+// Squad, whose roster does not contain this athlete.
+await tap("button:has-text('More')");
+await tap("text=Bridge Foundation");
+await page.waitForTimeout(80);
+await tap("button:has-text('Athletes')");
+await tap("text=Marcus Ellery");
+await tap("button:has-text('NCAA eligibility')");
+t = await text();
+check("the eligibility screen reports against the approved list", has(t, "Against the approved list"), t.slice(0, 200));
+check("a checked transcript no longer calls itself an estimate", !/is an estimate until/i.test(t));
+check("a subject the list refiles is called out", /counts as social science/i.test(t), t.slice(0, 300));
+
+await tap("text=Against the approved list");
+// The header is the section label; the row under it is what navigates.
+t = await text();
+if (!has(t, "Approved courses")) {
+  await tap("text=confirmed on the list");
+  t = await text();
+}
+check("the per-course breakdown opens", has(t, "Approved courses"), t.slice(0, 120));
+check("an off-list course is named and excluded", has(t, "Journalism") && has(t, "Not on the list"), t.slice(0, 300));
+check("courses on the list are shown as on it", has(t, "On the list") && has(t, "Algebra 2"));
+
+await tap("text=Journalism");
+t = await text();
+check("the school's list opens from a course", has(t, "Cardinal Ridge") && has(t, "Complete list"));
+check("a complete list says absence means no", /does not count/i.test(t));
+check("the list is grouped by the NCAA's subject, not the transcript's", has(t, "Social science") && has(t, "Economics"));
+
+// The engine, not the screen: the number has to actually move.
+const gpas = await page.evaluate(() => {
+  const courses = db.courses.filter((c) => c.athleteId === "ath-1");
+  const scales = db.gradingScales.filter((g) => g.school_name.toLowerCase() === "cardinal ridge high school");
+  const base = {
+    courses,
+    scales,
+    division: "D1",
+    athlete: { dateOfBirth: "2008-11-04", firstFullTimeEnrollment: null, intendedEnrollment: "2027-08-20" },
+    today: "2026-09-16",
+  };
+  const off = E.buildEligibilityView(base);
+  const on = E.buildEligibilityView({ ...base, approvedLists: db.approvedLists });
+  return { off: off.eligibility.coreGpa?.gpa, on: on.eligibility.coreGpa?.gpa };
+});
+check(
+  "applying the approved list moves the core GPA",
+  gpas.off != null && gpas.on != null && gpas.on < gpas.off,
+  `${gpas.off} then ${gpas.on}`,
+);
+
+// A partial list confirms and never denies. Westhaven has no list at
+// all, so its courses stay unchecked rather than being excluded.
+const partial = await page.evaluate(() => {
+  const l = db.approvedLists.find((x) => x.schoolName === "Northbridge High");
+  return {
+    complete: l.isComplete,
+    onList: E.matchApproved ? null : true,
+    courses: l.courses.length,
+  };
+});
+check("the partial list is stored as partial", partial.complete === false, String(partial.complete));
+
+await tap("button:has-text('More')");
+await tap("text=Approved lists");
+t = await text();
+check("the approved-lists screen lists every school on a transcript", has(t, "Cardinal Ridge") && has(t, "Westhaven Prep"));
+check("a school with no list is flagged for entry", has(t, "Nothing on file"));
+await tap("text=Nothing on file");
+t = await text();
+check("a school with no list explains what that costs", /stays unchecked/i.test(t), t.slice(0, 200));
+
 // ── Flagging a bug ───────────────────────────────────────────────────
 // Under setContent there is no artifact host, so claude.use("db")
 // resolves null and this exercises the on-device fallback: the path
@@ -366,7 +443,7 @@ check("the sheet opens", await page.locator("#bug_note").isVisible());
 const sheetText = async () => ((await page.locator(".sheet").count()) ? page.locator(".sheet").innerText() : "");
 const sheet = await sheetText();
 check("the sheet names the screen it will record", has(sheet, "today"), sheet.slice(0, 80));
-check("the sheet names the org it will record", has(sheet, "Elite"), sheet.slice(0, 80));
+check("the sheet names the org it will record", has(sheet, "Bridge"), sheet.slice(0, 80));
 
 // An empty note is refused rather than filed as a blank report.
 await tap("button:has-text('Flag it')");
@@ -377,7 +454,8 @@ await page.locator("#bug_note").fill("The roster count looks off on Today.");
 await tap("button:has-text('Flag it')");
 await page.waitForTimeout(80);
 check("the sheet closes once the report is filed", (await page.locator("#bug_note").count()) === 0);
-check("filing it confirms on screen", has(await page.locator("#toast").innerText(), "Flagged"));
+const toastText = await page.locator("#toast").innerText();
+check("filing it confirms on screen", has(toastText, "Flagged"), JSON.stringify(toastText));
 
 // It has to survive navigating away, which is the whole point.
 await tap("button:has-text('More')");
@@ -388,7 +466,7 @@ await tap("text=Flagged bugs (1)");
 t = await text();
 check("the report is listed with what was written", has(t, "The roster count looks off"));
 check("the report carries the screen it was flagged on", has(t, "today"));
-check("the report carries the org it was flagged on", has(t, "elite-squad-ny") || has(t, "elite"));
+check("the report carries the org it was flagged on", has(t, "bridge"), t.slice(0, 200));
 check("a device-only report offers a way to copy it out", has(t, "Copy them all"));
 
 // Flagged from a different screen, the context has to be that screen.

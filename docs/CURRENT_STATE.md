@@ -1,10 +1,25 @@
 # Current state
 
-Last updated: 2026-09-15 (Doc AI upload, review queue and apply built
-on a stub model caller).
+Last updated: 2026-09-16 (NCAA approved-course lists: the last thing
+making every core GPA an estimate).
 Replaced wholesale when this changes meaningfully, not appended to.
 
 ## What exists
+
+- **NCAA approved-course lists** (migration `0014`,
+  `src/lib/fit/ncaa/approvedCourses.ts`). The Eligibility Center
+  publishes one list per high school, and a course not on it does not
+  count toward the core GPA. `calculateCoreGpa()` has always read a
+  course's approval as three states and warned that an unchecked one
+  makes the GPA an estimate; nothing set the flag, so every core GPA in
+  the product carried that warning. This is the source. Shared portal
+  lists sit behind the service role, an org can enter its own, and a
+  portal list wins. Matching is deliberately conservative: normalized
+  titles, `ambiguous` rather than a guess between two candidates, and a
+  partial list that can confirm but never exclude. The list's subject
+  overrides the transcript's, and its credit cap only reduces. Read-side
+  screens exist in the click-through prototype as the preview; entry and
+  import in the real app are not built.
 
 - **Scaffold**: Next.js 16 / React 19 / TypeScript / Tailwind /
   Supabase, dependency versions matching tucci-admin.

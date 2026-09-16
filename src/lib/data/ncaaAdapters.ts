@@ -20,6 +20,12 @@ import {
   type ScaleOrigin,
 } from "@/lib/fit/ncaa/gradingScale";
 import type { CoreCourse } from "@/lib/fit/ncaa/coreGpa";
+import {
+  applyApprovedLists,
+  normalizeSchoolKey,
+  type ApprovedCourseList,
+  type CourseMatch,
+} from "@/lib/fit/ncaa/approvedCourses";
 
 export interface AthleteCourseRow {
   id: string;
@@ -70,6 +76,11 @@ function toNumber(v: number | string): number {
 export interface EligibilityInput {
   courses: AthleteCourseRow[];
   scales: GradingScaleRow[];
+  // The Eligibility Center's approved-course list per school, when one
+  // is on file. Absent means every course stays unchecked and the core
+  // GPA reports itself as an estimate, which is what happened for every
+  // athlete before these lists existed.
+  approvedLists?: ApprovedCourseList[];
   division: string;
   athlete: {
     dateOfBirth: string | null;
@@ -95,6 +106,17 @@ export interface EligibilityView {
   // as equally confirmed.
   scalesUsed: Array<{ school: string; origin: ScaleOrigin; sourceNote: string | null }>;
   adapterWarnings: string[];
+  // How each course fared against its school's approved list, so the
+  // screen can show why a course was dropped rather than only that the
+  // total moved.
+  approvals: Array<{ title: string; school: string; match: CourseMatch }>;
+  // The corrections the list made to what the transcript said: a subject
+  // reassignment or a credit cap changes the verdict, so neither happens
+  // silently.
+  approvalNotes: string[];
+  // Schools with courses on this transcript and no approved list on
+  // file. Drives the same kind of action schoolsMissingScale does.
+  schoolsMissingApprovedList: string[];
 }
 
 export function buildEligibilityView(input: EligibilityInput): EligibilityView {
@@ -129,6 +151,9 @@ export function buildEligibilityView(input: EligibilityInput): EligibilityView {
   }
 
   const courses: CoreCourse[] = [];
+  // Which school each converted course was taken at. A transfer's
+  // transcript carries two, and each has its own approved list.
+  const schoolOfCourse = new Map<CoreCourse, string>();
   const skipped: EligibilityView["skipped"] = [];
   const adapterWarnings: string[] = [];
   const schoolsMissingScale = new Set<string>();
@@ -215,7 +240,7 @@ export function buildEligibilityView(input: EligibilityInput): EligibilityView {
       // away, or a legitimate two-term course was merged and half its
       // credit destroyed.
       const original = rows[converted.sourceIndex[i]!];
-      courses.push({
+      const built: CoreCourse = {
         ...c,
         ncaaApproved: original?.ncaa_approved ?? undefined,
         duplicateOf: original?.duplicate_of ?? undefined,
@@ -223,7 +248,9 @@ export function buildEligibilityView(input: EligibilityInput): EligibilityView {
         // silently applies zero, so a school that does award weighted
         // grades would still show an unweighted GPA.
         schoolWeightBonus: scale ? toNumber(scale.weight_bonus) : 0,
-      });
+      };
+      courses.push(built);
+      schoolOfCourse.set(built, schoolName);
     }
     for (const s of converted.skipped) {
       skipped.push({ title: s.row.title, grade: s.row.grade, reason: s.reason });
@@ -231,9 +258,47 @@ export function buildEligibilityView(input: EligibilityInput): EligibilityView {
     adapterWarnings.push(...converted.warnings);
   }
 
+  // The approved lists run over the whole converted set, after the
+  // grading scales and before the engine. Order matters: the list can
+  // move a course's subject and cap its credit, and both feed the
+  // per-subject minimums the engine checks.
+  const listsByKey = new Map<string, ApprovedCourseList>();
+  for (const l of input.approvedLists ?? []) {
+    const key = normalizeSchoolKey(l.schoolName);
+    const existing = listsByKey.get(key);
+    // A list transcribed from the portal beats one an org typed, the
+    // same precedence a verified grading scale has over an org's own.
+    if (!existing || (existing.source !== "ncaa_portal" && l.source === "ncaa_portal")) listsByKey.set(key, l);
+  }
+
+  // Which school each converted course came from. The converted array is
+  // built school by school above, so this is recorded as it goes rather
+  // than recovered by matching titles, which is the bug the index
+  // correlation above already exists to avoid.
+  const applied = applyApprovedLists(courses, listsByKey, (c) => schoolOfCourse.get(c) ?? "");
+  // By index, not by looking the returned course up in schoolOfCourse:
+  // applyApprovedLists returns new objects, so the map keyed on the
+  // originals would miss every one and report every course as belonging
+  // to no school. Order is preserved, and that is what is relied on.
+  const approvals = applied.matches.map((m, i) => ({
+    title: m.course.title,
+    school: schoolOfCourse.get(courses[i]!) ?? "",
+    match: m.match,
+  }));
+
+  const schoolsMissingApprovedList = [...bySchool.keys()]
+    .filter((name) => bySchool.get(name)!.length > 0 && !listsByKey.has(normalizeSchoolKey(name)))
+    .map((name) => name || "this athlete's school");
+
+  if (applied.ambiguousCount > 0) {
+    adapterWarnings.push(
+      `${applied.ambiguousCount} course(s) match more than one entry on the school's approved list. Nothing was assumed about them.`,
+    );
+  }
+
   const eligibility = evaluateInitialEligibility({
     division: input.division,
-    courses,
+    courses: applied.courses,
     gpaOptions: {
       schoolReportsWeightedGrades: everySchoolReportsWeighted && bySchool.size > 0,
       weightingIsClassRankOnly: anySchoolIsClassRankOnly,
@@ -249,5 +314,15 @@ export function buildEligibilityView(input: EligibilityInput): EligibilityView {
     today: input.today,
   });
 
-  return { eligibility, ageClock, skipped, schoolsMissingScale: [...schoolsMissingScale], scalesUsed, adapterWarnings };
+  return {
+    eligibility,
+    ageClock,
+    skipped,
+    schoolsMissingScale: [...schoolsMissingScale],
+    scalesUsed,
+    adapterWarnings,
+    approvals,
+    approvalNotes: applied.notes,
+    schoolsMissingApprovedList,
+  };
 }

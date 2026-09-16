@@ -248,9 +248,71 @@ const DATA = {
 
     // Desmond: a transfer transcript covering two schools, which is the
     // case per-course school exists for.
+    // Two courses that look academic on a transcript and are not on the
+    // school's NCAA list. Both carry high grades, so dropping them
+    // LOWERS the core GPA: the quiet way a strong transcript turns into
+    // a weaker core GPA, and the reason the list matters at all.
+    { id: "c19", athleteId: "ath-1", title: "Journalism", subject: "other_academic", credit: 1, grade: "98", term: "24-25", school_name: "Cardinal Ridge High School", weighted: false, ncaa_approved: null, duplicate_of: null },
+    { id: "c20", athleteId: "ath-1", title: "Sports Medicine", subject: "science", credit: 1, grade: "96", term: "23-24", school_name: "Cardinal Ridge High School", weighted: false, ncaa_approved: null, duplicate_of: null },
+
     { id: "f1", athleteId: "ath-4", title: "English 11", subject: "english", credit: 1, grade: "85", term: "22-23", school_name: "Northbridge High", weighted: false, ncaa_approved: true, duplicate_of: null },
     { id: "f2", athleteId: "ath-4", title: "Algebra 2", subject: "math", credit: 1, grade: "85", term: "22-23", school_name: "Westhaven Prep", weighted: false, ncaa_approved: true, duplicate_of: null },
     { id: "f3", athleteId: "ath-4", title: "Biology", subject: "science", credit: 1, grade: "B", term: "22-23", school_name: "Westhaven Prep", weighted: false, ncaa_approved: true, duplicate_of: null },
+  ],
+
+  // The Eligibility Center's approved-course list per school, which is
+  // what turns a transcript average into a core GPA. Three deliberate
+  // states, because the difference between them is the feature:
+  //
+  //   Cardinal Ridge  a complete list. Absence means not approved, so
+  //                   Phys Ed, Studio Art and Health drop out, and
+  //                   Computer Science is refiled as other academic
+  //                   rather than science.
+  //   Northbridge     a partial list. It can confirm English 11 and
+  //                   nothing else, and it never excludes anything.
+  //   Westhaven Prep  no list at all. Every course stays unchecked and
+  //                   the GPA still reports itself as an estimate.
+  //
+  // Titles here are the ordinary ones a US high school prints. The
+  // mismatches are on purpose: the transcript says "Phys. Ed. 11" and
+  // "Algebra 2" where a list would print "Physical Education" and
+  // "Algebra II".
+  approvedLists: [
+    {
+      schoolName: "Cardinal Ridge High School",
+      ceebCode: "070415",
+      isComplete: true,
+      source: "ncaa_portal",
+      sourceNote: "Transcribed from the NCAA high school portal",
+      courses: [
+        { title: "English 9", subject: "english" },
+        { title: "English 10", subject: "english" },
+        { title: "English 11", subject: "english" },
+        { title: "Algebra I", subject: "math" },
+        { title: "Geometry", subject: "math" },
+        { title: "Algebra II", subject: "math" },
+        { title: "Precalculus", subject: "math" },
+        { title: "Biology", subject: "science", weighted: true },
+        { title: "Chemistry", subject: "science" },
+        { title: "Global History", subject: "social_science" },
+        { title: "US History", subject: "social_science" },
+        { title: "Government", subject: "social_science", maxCredit: 0.5 },
+        { title: "Economics", subject: "social_science", maxCredit: 0.5 },
+        { title: "Spanish I", subject: "other_academic" },
+        { title: "Spanish II", subject: "other_academic" },
+        { title: "AP Psychology", subject: "other_academic", weighted: true },
+        // The NCAA files this one as other academic, not science. The
+        // transcript disagrees, and the list wins.
+        { title: "Computer Science", subject: "other_academic" },
+      ],
+    },
+    {
+      schoolName: "Northbridge High",
+      isComplete: false,
+      source: "org",
+      sourceNote: "Counselor confirmed English 11 by email",
+      courses: [{ title: "English 11", subject: "english" }],
+    },
   ],
 
   // Cardinal Ridge is on file and is deliberately NOT a ten-point scale,

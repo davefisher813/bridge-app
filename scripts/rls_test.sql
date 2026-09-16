@@ -76,6 +76,23 @@ insert into high_school_grading_scales (school_name, bands) values
 insert into org_grading_scales (org_id, school_name, bands, source_note) values
   ('00000000-0000-0000-0000-000000000010', 'Contested HS', '[{"letter":"A","min":90,"max":100}]'::jsonb, 'Bridge typed this'),
   ('00000000-0000-0000-0000-000000000020', 'Contested HS', '[{"letter":"A","min":95,"max":100}]'::jsonb, 'Elite Squad typed this');
+
+-- Approved-course lists, one per org for the same contested school, so
+-- the same isolation the grading scales are checked for is checked here.
+-- A wrong approved list does not merely change a number: it drops a
+-- real core course out of the average entirely.
+insert into org_approved_course_lists (id, org_id, school_name, is_complete, source_note) values
+  ('00000000-0000-0000-0000-000000000910', '00000000-0000-0000-0000-000000000010', 'Contested HS', false, 'bridge typed this'),
+  ('00000000-0000-0000-0000-000000000920', '00000000-0000-0000-0000-000000000020', 'Contested HS', false, 'elite typed this');
+
+insert into org_approved_courses (list_id, org_id, title, subject) values
+  ('00000000-0000-0000-0000-000000000910', '00000000-0000-0000-0000-000000000010', 'Bridge Algebra II', 'math'),
+  ('00000000-0000-0000-0000-000000000920', '00000000-0000-0000-0000-000000000020', 'Elite Algebra II', 'math');
+
+insert into ncaa_approved_course_lists (id, school_name, is_complete, source_note) values
+  ('00000000-0000-0000-0000-000000000930', 'Shared HS', true, 'transcribed from the portal');
+insert into ncaa_approved_courses (list_id, title, subject) values
+  ('00000000-0000-0000-0000-000000000930', 'Shared English 11', 'english');
 -- Fundraising. Donor names and giving histories are the most sensitive
 -- rows in this database, so both orgs get one and the assertions below
 -- prove neither can see the other's.
@@ -320,6 +337,70 @@ begin
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: user1 updated % of Elite Squad''s grading-scale rows', n; end if;
   raise notice 'PASS: user1 cannot update Elite Squad''s grading scale';
+end $$;
+
+-- The approved-course list decides whether a course counts at all, so
+-- one org's copy reaching another is a worse failure than a wrong
+-- conversion table: it removes credits rather than re-weighting them.
+do $$
+declare n int;
+declare t text;
+begin
+  select count(*) into n from org_approved_course_lists;
+  if n <> 1 then raise exception 'FAIL: user1 saw % org approved lists, expected 1 (Bridge''s only)', n; end if;
+  select title into t from org_approved_courses;
+  if t <> 'Bridge Algebra II' then raise exception 'FAIL: user1 saw Elite Squad''s approved course "%s", not Bridge''s', t; end if;
+  raise notice 'PASS: user1 sees only Bridge''s own approved list for a school both orgs entered';
+end $$;
+
+do $$
+begin
+  begin
+    insert into org_approved_course_lists (org_id, school_name)
+      values ('00000000-0000-0000-0000-000000000020', 'Sneaky HS');
+    raise exception 'FAIL: user1 was able to write an approved list into Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org approved-list insert correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+declare n int;
+begin
+  update org_approved_courses set title = 'tampered' where org_id = '00000000-0000-0000-0000-000000000020';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: user1 updated % of Elite Squad''s approved courses', n; end if;
+  raise notice 'PASS: user1 cannot update Elite Squad''s approved courses';
+end $$;
+
+-- The shared, verified list is readable by everyone and writable by
+-- nobody through the API: a wrong row on it rewrites every eligibility
+-- verdict at that school in every org at once.
+do $$
+declare n int;
+begin
+  select count(*) into n from ncaa_approved_course_lists;
+  if n <> 1 then raise exception 'FAIL: user1 saw % shared approved lists, expected 1', n; end if;
+  raise notice 'PASS: user1 can read the shared NCAA approved list';
+end $$;
+
+do $$
+begin
+  begin
+    insert into ncaa_approved_course_lists (school_name) values ('Forged HS');
+    raise exception 'FAIL: user1 wrote to the shared NCAA approved-list table';
+  exception when insufficient_privilege then
+    raise notice 'PASS: shared approved-list insert correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+declare n int;
+begin
+  update ncaa_approved_courses set title = 'tampered';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: user1 updated % rows of the shared approved course table', n; end if;
+  raise notice 'PASS: user1 cannot update the shared approved course table';
 end $$;
 
 do $$
@@ -588,7 +669,9 @@ declare
     array['target_visits', 'insert into target_visits (org_id, target_id, visit_type) values (%L, ''00000000-0000-0000-0000-000000000210'', ''unofficial'')'],
     array['documents', 'insert into documents (org_id, file_name, file_size, media_type, source_role, status) values (%L, ''m.pdf'', 10, ''application/pdf'', ''coordinator'', ''pending'')'],
     array['athlete_courses', 'insert into athlete_courses (org_id, athlete_id, title, subject, credit, grade) values (%L, ''00000000-0000-0000-0000-000000000110'', ''Member Course'', ''math'', 1.00, ''A'')'],
-    array['org_grading_scales', 'insert into org_grading_scales (org_id, school_name, bands) values (%L, ''Member HS'', ''[]''::jsonb)']
+    array['org_grading_scales', 'insert into org_grading_scales (org_id, school_name, bands) values (%L, ''Member HS'', ''[]''::jsonb)'],
+    array['org_approved_course_lists', 'insert into org_approved_course_lists (org_id, school_name) values (%L, ''Member HS'')'],
+    array['org_approved_courses', 'insert into org_approved_courses (list_id, org_id, title, subject) values (''00000000-0000-0000-0000-000000000910'', %L, ''Member Course'', ''math'')']
   ];
 begin
   for i in 1 .. array_length(inserts, 1) loop

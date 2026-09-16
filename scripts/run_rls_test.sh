@@ -30,6 +30,7 @@ su postgres -c "psql -d $DB -f migrations/0010_role_aware_rls.sql"
 su postgres -c "psql -d $DB -f migrations/0011_document_undo.sql"
 su postgres -c "psql -d $DB -f migrations/0012_fundraising.sql"
 su postgres -c "psql -d $DB -f migrations/0013_board_governance.sql"
+su postgres -c "psql -d $DB -f migrations/0014_approved_course_lists.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

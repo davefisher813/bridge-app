@@ -159,12 +159,23 @@ down because each needs a decision, not because they were missed.
 
 ## Next up
 
-1. **Check courses against each school's NCAA-approved list.** The
-   engine reports an unchecked course as unchecked, which is honest but
-   means most core GPAs read as estimates. The Eligibility Center
-   publishes each high school's approved list at
-   `web3.ncaa.org/hsportal`, keyed by CEEB code, and the transcripts
-   already carry that code. Nothing is built for this yet.
+1. ~~**Check courses against each school's NCAA-approved list.**~~ Logic
+   and data model done 2026-09-16, migration `0014`. Same shared/org
+   split as the grading scales in `0009`: a list transcribed from the
+   portal is shared reference data behind the service role, an org can
+   enter its own, and a portal list wins. The matching lives in
+   `src/lib/fit/ncaa/approvedCourses.ts` and refuses to guess: it
+   matches on a normalized title, reports ambiguous rather than picking
+   between two candidates, and a list marked partial can confirm a
+   course but never exclude one. The list's subject beats the
+   transcript's, and its credit cap only ever reduces credit. With a
+   list on file the core GPA stops reporting itself as an estimate,
+   which was true of every athlete in the product until now.
+
+   Still to build: the entry and import screens in the real app (the
+   prototype has the read-side screens as the preview), and getting real
+   lists in. The portal is not a public API, so loading one is a
+   transcription or an upload, not a scrape.
 
 2. ~~**Grading-scale entry.**~~ Done 2026-09-16. Resolved by splitting
    the shared verified table from a new org-scoped one

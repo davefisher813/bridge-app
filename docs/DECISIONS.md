@@ -1178,3 +1178,53 @@ thing, and the alternative is somebody keeping a spreadsheet.
 The tier amounts and seat ranges ship as defaults to edit, stored per
 board. Bridge's numbers are Bridge's; another organization with a board
 sets its own and no code changes.
+
+## 2026-09-16 - A partial approved-course list may confirm a course but never exclude one
+
+**Decision.** `ncaa_approved_course_lists` and `org_approved_course_lists`
+each carry an `is_complete` flag, and
+`src/lib/fit/ncaa/approvedCourses.ts` treats a list marked partial as
+able to answer only "yes". A course absent from a partial list stays
+unchecked. A course absent from a complete list is excluded from the
+core GPA.
+
+**Reason.** Absence is only evidence when the list is exhaustive. The
+Eligibility Center's published list for a school is exhaustive; a list
+somebody typed from the three courses in front of them is not. Without
+the distinction, a half-entered list silently drops real core courses
+out of an athlete's average and tells them they are short on credits
+they actually earned. That failure is invisible: the GPA still renders,
+and it renders as confidently as a correct one.
+
+**Alternatives considered.** Treating every list as complete, which is
+simpler and wrong in exactly the direction that costs an athlete a
+season. Treating every list as partial, which makes the feature
+pointless, since excluding off-list courses is the entire mechanism by
+which a transcript average becomes a core GPA.
+
+**Consequences.** `approvedListProblem()` refuses to accept fewer than
+eight courses as a complete list, because a handful of rows is never a
+high school's whole catalog. Entry screens have to ask which kind of
+list is being entered, and say what the answer costs. Two laws in
+`src/laws/ncaaLaws.test.ts` hold the line, both proven to fail on a
+planted violation.
+
+## 2026-09-16 - An ambiguous course title is never resolved by guessing
+
+**Decision.** When a transcript title matches two or more entries on a
+school's approved list equally well, `matchCourseTitle()` returns
+`ambiguous` and the course stays unchecked. It never picks one.
+
+**Reason.** Picking an entry picks its subject area and its credit cap
+too, and both feed the per-subject minimums the engine checks. A wrong
+pick does not shade a number, it can report a subject minimum as met
+when it is not. "Biology" against a list carrying both "AP Biology"
+(science) and "Biology Honors" (other academic) is a real shape, not a
+contrived one.
+
+**Consequences.** The screen distinguishes ambiguous from unchecked even
+though the engine treats both the same, because they need different
+actions from a human: one needs a list, the other needs somebody to say
+which course it was. The abbreviation table in `approvedCourses.ts` is
+kept deliberately short for the same reason: every entry in it is a
+chance to collapse two different courses into one.

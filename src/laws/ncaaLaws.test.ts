@@ -13,6 +13,12 @@ import { gradePoints, calculateCoreGpa, MAX_WEIGHT_BONUS, type CoreCourse } from
 import { DIVISION_STANDARDS, evaluateInitialEligibility } from "../lib/fit/ncaa/initialEligibility";
 import { evaluateAgeClock } from "../lib/fit/ncaa/ageClock";
 import { buildEligibilityView } from "../lib/data/ncaaAdapters";
+import {
+  matchCourseTitle,
+  applyApprovedLists,
+  approvedListProblem,
+  type ApprovedCourseList,
+} from "../lib/fit/ncaa/approvedCourses";
 
 const SRC = join(process.cwd(), "src");
 
@@ -342,5 +348,105 @@ describe("LAW: a grading scale entered by an org stays inside that org", () => {
     expect(docs).toMatch(/gradingScaleProblem/);
     // One implementation, imported by both. Two copies is how they drift.
     expect(docs).toMatch(/from "@\/lib\/fit\/ncaa\/gradingScale"/);
+  });
+});
+
+// ── Approved course lists ────────────────────────────────────────────
+// Added 2026-09-16 with migration 0014. These are the rules that decide
+// whether a course counts at all, so getting one wrong does not shade a
+// number, it removes credits an athlete actually earned or adds ones
+// they did not.
+
+describe("LAW: a partial approved list can confirm a course but never deny one", () => {
+  it("a course absent from a partial list stays unchecked, not excluded", () => {
+    const partial: ApprovedCourseList = {
+      schoolName: "Cardinal Ridge High School",
+      courses: [{ title: "Algebra II", subject: "math" }],
+      isComplete: false,
+      source: "org",
+    };
+    expect(matchCourseTitle("Ceramics", partial).status).toBe("unknown");
+  });
+
+  it("the same course absent from a complete list is excluded", () => {
+    const complete: ApprovedCourseList = {
+      schoolName: "Cardinal Ridge High School",
+      courses: [{ title: "Algebra II", subject: "math" }],
+      isComplete: true,
+      source: "ncaa_portal",
+    };
+    expect(matchCourseTitle("Ceramics", complete).status).toBe("not_approved");
+  });
+});
+
+describe("LAW: an ambiguous title is never resolved by guessing", () => {
+  it("two equally good matches produce ambiguous, and the course stays unchecked", () => {
+    const twins: ApprovedCourseList = {
+      schoolName: "Cardinal Ridge High School",
+      courses: [
+        { title: "AP Biology", subject: "science" },
+        { title: "Biology Honors", subject: "other_academic" },
+      ],
+      isComplete: true,
+      source: "ncaa_portal",
+    };
+    const m = matchCourseTitle("Biology", twins);
+    expect(m.status).toBe("ambiguous");
+    expect(m.entry).toBeUndefined();
+
+    const applied = applyApprovedLists(
+      [{ title: "Biology", subject: "science", credit: 1, grade: "A" }],
+      new Map([["cardinal ridge high school", twins]]),
+      () => "Cardinal Ridge High School",
+    );
+    expect(applied.courses[0].ncaaApproved).toBeUndefined();
+  });
+});
+
+describe("LAW: the approved list's subject beats the transcript's", () => {
+  it("a course the NCAA files as other_academic does not count toward the science minimum", () => {
+    const list: ApprovedCourseList = {
+      schoolName: "Cardinal Ridge High School",
+      courses: [{ title: "Computer Science", subject: "other_academic" }],
+      isComplete: false,
+      source: "ncaa_portal",
+    };
+    const applied = applyApprovedLists(
+      [{ title: "Computer Science", subject: "science", credit: 1, grade: "A" }],
+      new Map([["cardinal ridge high school", list]]),
+      () => "Cardinal Ridge High School",
+    );
+    expect(applied.courses[0].subject).toBe("other_academic");
+  });
+});
+
+describe("LAW: a credit cap on the approved list only ever reduces credit", () => {
+  it("caps a full credit down and leaves a smaller one alone", () => {
+    const list: ApprovedCourseList = {
+      schoolName: "Cardinal Ridge High School",
+      courses: [{ title: "Health Science", subject: "science", maxCredit: 0.5 }],
+      isComplete: false,
+      source: "ncaa_portal",
+    };
+    const lists = new Map([["cardinal ridge high school", list]]);
+    const at = () => "Cardinal Ridge High School";
+
+    const over = applyApprovedLists([{ title: "Health Science", subject: "science", credit: 1, grade: "A" }], lists, at);
+    expect(over.courses[0].credit).toBe(0.5);
+
+    const under = applyApprovedLists([{ title: "Health Science", subject: "science", credit: 0.25, grade: "A" }], lists, at);
+    expect(under.courses[0].credit).toBe(0.25);
+  });
+});
+
+describe("LAW: a short list may not claim to be a school's whole catalog", () => {
+  it("is refused as complete and accepted as partial", () => {
+    const three = [
+      { title: "Algebra II", subject: "math" },
+      { title: "English 11", subject: "english" },
+      { title: "Biology", subject: "science" },
+    ];
+    expect(approvedListProblem({ courses: three, isComplete: true })).not.toBeNull();
+    expect(approvedListProblem({ courses: three, isComplete: false })).toBeNull();
   });
 });
