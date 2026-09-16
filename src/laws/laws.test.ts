@@ -78,3 +78,44 @@ describe("LAW: the fit engine and Doc AI stay walled off", () => {
     expect(violations).toEqual([]);
   });
 });
+
+describe("LAW: the server never trusts the client's account of an uploaded file", () => {
+  // ingest.ts runs in the BROWSER. Its size cap, format sniffing and
+  // HEIC refusal are a convenience for the person uploading, not a
+  // boundary: a direct call to the server action skipped all three.
+  // Found by an adversarial audit on 2026-09-16.
+
+  it("processDocument validates every record before it inserts anything", () => {
+    const source = readFileSync(join(SRC, "lib", "actions", "documents.ts"), "utf8");
+    expect(source).toMatch(/checkIngestedRecord/);
+
+    // Order matters as much as presence. Validating after the row is
+    // created leaves a stuck document behind for every refusal, and
+    // validating after the pipeline runs defeats the point entirely.
+    const validateAt = source.indexOf("validateRecords(input.records)");
+    const insertAt = source.indexOf('.from("documents")');
+    expect(validateAt).toBeGreaterThan(-1);
+    expect(insertAt).toBeGreaterThan(-1);
+    expect(validateAt).toBeLessThan(insertAt);
+  });
+
+  it("the acceptance check reads the bytes, not the reported size", () => {
+    const source = readFileSync(join(SRC, "lib", "docai", "acceptance.ts"), "utf8");
+    const code = source
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("//"))
+      .join("\n");
+    // originalSize is the client's claim. It may be carried for display,
+    // but it must never be what a limit is compared against.
+    expect(code).not.toMatch(/originalSize\s*[<>]/);
+    expect(code).toMatch(/byteLength > MAX_INGEST_BYTES/);
+  });
+
+  it("the shared limit is not duplicated", () => {
+    // Two copies of a size cap is how they end up different, and the
+    // server's being the larger of the two is the failure mode.
+    const ingest = readFileSync(join(SRC, "lib", "docai", "ingest.ts"), "utf8");
+    expect(ingest).not.toMatch(/MAX_INGEST_BYTES\s*=\s*\d/);
+    expect(ingest).toMatch(/from "\.\/limits"/);
+  });
+});

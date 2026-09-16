@@ -25,11 +25,12 @@
 
 import type { IngestedRecord, SourceRole } from "./types";
 import { sniffKind } from "./magicBytes";
+import { MAX_INGEST_BYTES } from "./limits";
 
-// Mirrors Bridge's MAX_API_BYTES (diCheckSize) - a safe upper bound for
-// base64 content going to the model, checked before any expensive
-// decode/normalize work, not after.
-export const MAX_INGEST_BYTES = 4 * 1024 * 1024;
+// Re-exported so existing callers keep working. The constant itself
+// moved to ./limits so the server can import it without pulling this
+// browser-only module in. See limits.ts.
+export { MAX_INGEST_BYTES } from "./limits";
 
 const SUPPORTED_IMAGE_KINDS = new Set(["jpeg", "png", "gif", "webp"]);
 

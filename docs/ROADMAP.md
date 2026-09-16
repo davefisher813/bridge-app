@@ -124,16 +124,15 @@ Ordered by what naturally follows what's already built.
 These came out of an adversarial audit and are real. They are written
 down because each needs a decision, not because they were missed.
 
-- **RLS carries no role check.** Every org-scoped policy is
-  `for all using (org_id in (select _member_org_ids()))` and none looks
-  at `org_members.role`. Since the anon key ships to the browser, a
-  `member` can write to any org-scoped table through PostgREST with
-  their own token. `requireRole(..., STAFF_ROLES)` is an app-layer
-  convenience, not a boundary. Cross-org isolation is solid and proven;
-  intra-org role separation does not exist at the database. Fixing it
-  means role-aware policies on every table plus a second pass in
-  `scripts/rls_test.sql`, which currently runs every assertion as an
-  owner and so never tests this.
+- ~~**RLS carries no role check.**~~ Fixed 2026-09-16, migration `0010`.
+  Every org-scoped table now has a read policy keyed off membership and
+  insert/update/delete policies keyed off `_staff_org_ids()`. The
+  benchmark_sets shared row, which the old policy made writable by any
+  member of any org, is now writable by nobody through RLS.
+  `scripts/rls_test.sql` gained a member-role pass and a staff-role
+  pass, which is what it had been missing: every assertion in it used
+  to run as an owner, so it could never have caught this. 55 assertions,
+  up from 35.
 - **`discardDocument` does not undo an apply.** It sets a status and
   leaves the course rows, the GPA and the date of birth it wrote in
   place. There is no path in the app to remove them.
@@ -146,9 +145,11 @@ down because each needs a decision, not because they were missed.
   converts entirely against one school's table. The transfer-student
   design is in the storage and the adapter but cannot be expressed by
   the extractor yet.
-- **No server-side file validation.** Size, type sniffing and the HEIC
-  refusal all live in `ingest.ts`, which runs in the browser. A direct
-  call to the server action skips them.
+- ~~**No server-side file validation.**~~ Fixed 2026-09-16.
+  `src/lib/docai/acceptance.ts` re-checks size, format and the HEIC
+  refusal from the bytes that actually arrived, before the document row
+  is created. The size cap moved to `src/lib/docai/limits.ts` so both
+  sides share one number instead of keeping two copies.
 
 ## Next up
 

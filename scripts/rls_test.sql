@@ -22,16 +22,28 @@ grant select, insert, update, delete on all tables in schema public to app_user;
 -- one shared school, one global benchmark set, one org1-owned set. ──
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-000000000001', 'user1@bridge.example'),
-  ('00000000-0000-0000-0000-000000000002', 'user2@elitesquad.example');
+  ('00000000-0000-0000-0000-000000000002', 'user2@elitesquad.example'),
+  ('00000000-0000-0000-0000-000000000003', 'user3@bridge.example');
 insert into users (id, email, full_name) values
   ('00000000-0000-0000-0000-000000000001', 'user1@bridge.example', 'User One'),
-  ('00000000-0000-0000-0000-000000000002', 'user2@elitesquad.example', 'User Two');
+  ('00000000-0000-0000-0000-000000000002', 'user2@elitesquad.example', 'User Two'),
+  ('00000000-0000-0000-0000-000000000003', 'user3@bridge.example', 'User Three');
 insert into orgs (id, name, slug) values
   ('00000000-0000-0000-0000-000000000010', 'Bridge', 'bridge'),
   ('00000000-0000-0000-0000-000000000020', 'Elite Squad', 'elite-squad');
 insert into org_members (user_id, org_id, role) values
   ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', 'owner'),
-  ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000020', 'owner');
+  ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000020', 'owner'),
+  -- A Bridge MEMBER, not staff. Until 2026-09-16 every assertion in this
+  -- file ran as an owner, which is exactly why the missing role check in
+  -- the policies went unnoticed: the suite could not have caught it.
+  ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000010', 'member'),
+  -- The same person is STAFF in the other org. This is what proves the
+  -- role check is scoped per org rather than global: every Bridge write
+  -- below must still fail for them, while their Elite Squad writes
+  -- succeed. A helper that forgot its org filter would pass every other
+  -- assertion in this file.
+  ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000020', 'staff');
 insert into athletes (id, org_id, recruit_type, name, sport) values
   ('00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000010', 'hs', 'Bridge Athlete A', 'baseball'),
   ('00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000010', 'hs', 'Bridge Athlete B', 'baseball'),
@@ -112,9 +124,15 @@ end $$;
 do $$
 declare n int;
 begin
+  -- Two, not one: user1 and user3 are both Bridge members, and
+  -- org_members_self deliberately lets a member see their own org's
+  -- roster. The number that matters is that Elite Squad's row is not
+  -- among them.
   select count(*) into n from org_members;
-  if n <> 1 then raise exception 'FAIL: user1 saw % org_members rows, expected 1 (their own Bridge membership)', n; end if;
-  raise notice 'PASS: user1 sees only Bridge''s membership row, not Elite Squad''s';
+  if n <> 2 then raise exception 'FAIL: user1 saw % org_members rows, expected 2 (Bridge''s roster)', n; end if;
+  select count(*) into n from org_members where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 0 then raise exception 'FAIL: user1 saw % of Elite Squad''s membership rows', n; end if;
+  raise notice 'PASS: user1 sees Bridge''s membership rows and none of Elite Squad''s';
 end $$;
 
 do $$
@@ -322,6 +340,194 @@ begin
   select count(*) into n from orgs;
   if n <> 1 then raise exception 'FAIL: user1 saw % orgs, expected 1 (their own Bridge row, not Elite Squad''s)', n; end if;
   raise notice 'PASS: user1 can read their own org row, not the other org''s';
+end $$;
+
+-- ── The member pass. user3 belongs to Bridge with role `member`, which
+-- in this app means read-only: every write path in the application goes
+-- through requireRole(..., STAFF_ROLES). Before migration 0010 the
+-- database did not know that, and since the anon key ships to the
+-- browser, a member could write to any org-scoped table in their own org
+-- straight through PostgREST with their own token.
+--
+-- Reads should behave exactly like an owner's. Writes should all fail. ──
+select set_test_user('00000000-0000-0000-0000-000000000003');
+
+do $$
+declare n int;
+begin
+  -- user3 belongs to both orgs, as a member of Bridge and staff of Elite
+  -- Squad, so the totals are checked per org rather than overall.
+  select count(*) into n from athletes where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 2 then raise exception 'FAIL: a member saw % Bridge athletes, expected 2 (same as an owner)', n; end if;
+  raise notice 'PASS: a member reads their org exactly like an owner does';
+end $$;
+
+do $$
+declare n int;
+begin
+  select count(*) into n from org_grading_scales where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 2 then raise exception 'FAIL: a member saw % Bridge grading scales, expected 2 (the seeded one plus the one the owner entered earlier in this file)', n; end if;
+  raise notice 'PASS: a member reads their org''s grading scales';
+end $$;
+
+-- Every org-scoped table, insert. A loop rather than eight copies: the
+-- failure being guarded against is one table quietly not getting the
+-- same treatment, and a loop cannot skip one by typo.
+do $$
+declare
+  t text;
+  stmt text;
+  org uuid := '00000000-0000-0000-0000-000000000010';
+  ath uuid := '00000000-0000-0000-0000-000000000110';
+  tgt uuid := '00000000-0000-0000-0000-000000000210';
+  inserts text[][] := array[
+    array['athletes', 'insert into athletes (org_id, recruit_type, name, sport) values (%L, ''hs'', ''Member Insert'', ''baseball'')'],
+    array['recruiting_targets', 'insert into recruiting_targets (org_id, athlete_id, school_id, status) values (%L, ''00000000-0000-0000-0000-000000000110'', ''00000000-0000-0000-0000-000000000130'', ''Target'')'],
+    array['target_communications', 'insert into target_communications (org_id, target_id, kind, notes) values (%L, ''00000000-0000-0000-0000-000000000210'', ''call'', ''member wrote this'')'],
+    array['contacts', 'insert into contacts (org_id, athlete_id, name, role) values (%L, ''00000000-0000-0000-0000-000000000110'', ''Member Contact'', ''hs_coach'')'],
+    array['target_visits', 'insert into target_visits (org_id, target_id, visit_type) values (%L, ''00000000-0000-0000-0000-000000000210'', ''unofficial'')'],
+    array['documents', 'insert into documents (org_id, file_name, file_size, media_type, source_role, status) values (%L, ''m.pdf'', 10, ''application/pdf'', ''coordinator'', ''pending'')'],
+    array['athlete_courses', 'insert into athlete_courses (org_id, athlete_id, title, subject, credit, grade) values (%L, ''00000000-0000-0000-0000-000000000110'', ''Member Course'', ''math'', 1.00, ''A'')'],
+    array['org_grading_scales', 'insert into org_grading_scales (org_id, school_name, bands) values (%L, ''Member HS'', ''[]''::jsonb)']
+  ];
+begin
+  for i in 1 .. array_length(inserts, 1) loop
+    t := inserts[i][1];
+    stmt := format(inserts[i][2], org);
+    begin
+      execute stmt;
+      raise exception 'FAIL: a member was able to insert into % in their own org', t;
+    exception when insufficient_privilege then
+      raise notice 'PASS: member insert into % correctly rejected by RLS', t;
+    end;
+  end loop;
+  -- Silences the unused-variable warnings for the fixed UUIDs above,
+  -- which are referenced inside the literal statements rather than as
+  -- format arguments.
+  perform ath, tgt;
+end $$;
+
+-- Update and delete, on rows the member can genuinely see. These are the
+-- dangerous ones: a member who can UPDATE can rewrite a GPA or a grade,
+-- and a member who can DELETE can remove an athlete's whole record.
+do $$
+declare n int;
+begin
+  update athletes set name = 'Tampered' where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member updated % athlete rows in their own org', n; end if;
+  raise notice 'PASS: a member cannot update an athlete they can read';
+end $$;
+
+do $$
+declare n int;
+begin
+  update athlete_courses set grade = 'A' where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member rewrote % course grades', n; end if;
+  raise notice 'PASS: a member cannot rewrite a course grade';
+end $$;
+
+do $$
+declare n int;
+begin
+  update org_grading_scales set bands = '[]'::jsonb where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member rewrote % grading scales, changing every eligibility verdict in the org', n; end if;
+  raise notice 'PASS: a member cannot rewrite a grading scale';
+end $$;
+
+do $$
+declare n int;
+begin
+  delete from recruiting_targets where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member deleted % recruiting targets', n; end if;
+  raise notice 'PASS: a member cannot delete a recruiting target';
+end $$;
+
+do $$
+declare n int;
+begin
+  delete from documents where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member deleted % documents', n; end if;
+  raise notice 'PASS: a member cannot delete a document';
+end $$;
+
+-- The shared benchmark set has a null org_id and belongs to nobody. The
+-- old `for all using (org_id is null or ...)` policy made it writable by
+-- any member of any org, which would have changed athletic scoring for
+-- every organization on the platform.
+do $$
+declare n int;
+begin
+  update benchmark_sets set sport = 'tampered' where org_id is null;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member rewrote the shared benchmark set, which every org reads';
+  end if;
+  raise notice 'PASS: nobody can write the shared benchmark set through RLS';
+end $$;
+
+-- And an owner must still be able to do all of this, or the fix has
+-- simply broken the app instead of securing it.
+select set_test_user('00000000-0000-0000-0000-000000000001');
+
+do $$
+declare n int;
+begin
+  insert into athletes (org_id, recruit_type, name, sport)
+    values ('00000000-0000-0000-0000-000000000010', 'hs', 'Owner Insert', 'baseball');
+  update athletes set name = 'Owner Renamed' where name = 'Owner Insert';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: an owner updated % rows, expected 1', n; end if;
+  delete from athletes where name = 'Owner Renamed';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: an owner deleted % rows, expected 1', n; end if;
+  raise notice 'PASS: an owner can still insert, update and delete in their own org';
+end $$;
+
+do $$
+declare n int;
+begin
+  insert into org_grading_scales (org_id, school_name, bands, source_note)
+    values ('00000000-0000-0000-0000-000000000010', 'Owner HS', '[]'::jsonb, 'owner typed this');
+  update org_grading_scales set source_note = 'owner edited this' where school_name = 'Owner HS';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: an owner updated % grading scales, expected 1', n; end if;
+  raise notice 'PASS: an owner can still enter and correct a grading scale';
+end $$;
+
+-- A staff member, not just an owner, has to be able to write. STAFF_ROLES
+-- is owner plus staff everywhere in the app, and a policy that only
+-- admitted owners would break every coordinator. user3 was seeded as
+-- staff in Elite Squad at the top of this file, alongside their Bridge
+-- membership.
+select set_test_user('00000000-0000-0000-0000-000000000003');
+
+do $$
+declare n int;
+begin
+  insert into athletes (org_id, recruit_type, name, sport)
+    values ('00000000-0000-0000-0000-000000000020', 'hs', 'Staff Insert', 'baseball');
+  delete from athletes where name = 'Staff Insert';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: staff deleted % rows, expected 1', n; end if;
+  raise notice 'PASS: a staff member can write in the org where they are staff';
+end $$;
+
+do $$
+begin
+  -- The same person is only a MEMBER of Bridge. Being staff somewhere
+  -- else must not carry over, which a helper that forgot its org filter
+  -- would get wrong while passing every test above.
+  begin
+    insert into athletes (org_id, recruit_type, name, sport)
+      values ('00000000-0000-0000-0000-000000000010', 'hs', 'Crossover', 'baseball');
+    raise exception 'FAIL: being staff in one org let this user write to an org where they are only a member';
+  exception when insufficient_privilege then
+    raise notice 'PASS: staff in one org is still only a member in the other';
+  end;
 end $$;
 
 -- ── Anonymous: no auth.uid() at all. Every org-scoped table should be

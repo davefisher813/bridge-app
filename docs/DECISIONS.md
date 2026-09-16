@@ -895,3 +895,60 @@ ever setting it, so every AP athlete got an understated core GPA and a
 warning about their school not being on record that nobody had been
 asked about. The entry form asks both conditions and the real bonus
 amount, because the NCAA's 1.00 is a cap and not the value.
+
+---
+
+## 2026-09-16 - RLS enforces the role, and the server checks the bytes
+
+**Decision:** Migration `0010` replaces every `for all` org-scoped policy
+with a read policy keyed off membership and three write policies keyed
+off a new `_staff_org_ids()` helper. `src/lib/docai/acceptance.ts`
+re-validates every uploaded file on the server before anything is
+written.
+
+**Reason:** Both were real holes, both found by the adversarial audit and
+recorded rather than fixed at the time.
+
+The anon key ships to the browser, so a user with role `member` could
+open a console and write to any org-scoped table in their own org
+through PostgREST with their own token: change a GPA, delete a target,
+rewrite a grading scale. `requireRole(..., STAFF_ROLES)` guards the
+server actions, but a server action is not the only way in.
+
+Separately, the size cap, format sniffing and HEIC refusal all lived in
+`ingest.ts`, which runs in the browser. A direct call to `processDocument`
+skipped all three.
+
+**Consequences:** The policy loop in `0010` is written as a `do` block
+over an explicit table list rather than 36 hand-typed statements,
+because the failure being guarded against is one table quietly not
+getting the same treatment as the others.
+
+`benchmark_sets` was the one table that could not go through the loop,
+and it turned out to hide a second bug: its policy was
+`for all using (org_id is null or org_id in (...))`, which made the
+shared null-org benchmark row, the one every organization reads,
+writable by any member of any org.
+
+The test suite is the other half of this. Every assertion in
+`scripts/rls_test.sql` ran as an owner, which is precisely why the
+missing role check survived a test suite that otherwise proved
+cross-org isolation properly. It now seeds a third user who is a
+`member` of Bridge and `staff` of Elite Squad at the same time, which
+also proves the role check is scoped per org rather than global: a
+helper that forgot its org filter would pass every other assertion in
+the file. 55 assertions, up from 35, and reverting the policy to the
+old shape fails it.
+
+`MAX_INGEST_BYTES` moved from `ingest.ts` to a new `limits.ts`. It had
+to, because the server could not import the browser-only module to
+reach it, which is part of why the server had no size check at all. Two
+copies of a size cap is how they end up different, and the server's
+being the larger of the two is the failure mode, so a law now checks
+there is only one.
+
+The acceptance check compares the decoded byte length, never
+`originalSize`, which is the client's own claim about a file. It also
+refuses a PDF sent as an image and an image sent as a PDF, because that
+mismatch makes the pipeline send the wrong content block type and fails
+downstream in a way nobody can diagnose from the error.

@@ -23,6 +23,9 @@ import { effectiveConfidence, routeDecision, NAME_MATCH_AUTO } from "../src/lib/
 import { calculateCoreGpa, gradePoints, MAX_WEIGHT_BONUS, type CoreCourse } from "../src/lib/fit/ncaa/coreGpa";
 import { DIVISION_STANDARDS, evaluateInitialEligibility } from "../src/lib/fit/ncaa/initialEligibility";
 import { evaluateAgeClock } from "../src/lib/fit/ncaa/ageClock";
+import { gradingScaleProblem, resolveScale, TEN_POINT_STARTING_POINT } from "../src/lib/fit/ncaa/gradingScale";
+import { checkIngestedRecord } from "../src/lib/docai/acceptance";
+import { MAX_INGEST_BYTES } from "../src/lib/docai/limits";
 
 // ---------------------------------------------------------------- assertions
 
@@ -326,6 +329,74 @@ function runSuite(): Check[] {
   check("NCAA age clock", "does not apply to Division III", () => {
     if (evaluateAgeClock({ dateOfBirth: "2008-03-15", division: "D3", today: "2026-09-15" }).applies) return "ran the age clock for a D3 athlete";
     return null;
+  });
+
+  check("Grading scales", "a real table with a wide F band is accepted", () => {
+    // The F band runs 0 to 64 on every real scale there is. A catch-all
+    // rule that did not exempt it rejected every complete table, which
+    // is what Doc AI was silently doing to transcript legends.
+    const problem = gradingScaleProblem(TEN_POINT_STARTING_POINT);
+    return problem === null ? null : `refused a real table: ${problem}`;
+  });
+
+  check("Grading scales", "a table whose letters run backwards is refused", () => {
+    const problem = gradingScaleProblem([
+      { letter: "A", min: 60, max: 69 },
+      { letter: "B", min: 70, max: 79 },
+      { letter: "C", min: 90, max: 100 },
+    ]);
+    return problem ? null : "accepted a table where A sits below C, which turns every good grade into a bad one";
+  });
+
+  check("Grading scales", "a confirmed table beats one an org typed in", () => {
+    const picked = resolveScale([{ origin: "org" as const }, { origin: "verified" as const }]);
+    return picked?.origin === "verified" ? null : `picked ${picked?.origin ?? "nothing"}`;
+  });
+
+  check("Grading scales", "the assumed default is only ever the last resort", () => {
+    const withOrg = resolveScale([{ origin: "assumed" as const }, { origin: "org" as const }]);
+    if (withOrg?.origin !== "org") return `preferred the assumption over a real table (${withOrg?.origin})`;
+    const alone = resolveScale([{ origin: "assumed" as const }]);
+    return alone?.origin === "assumed" ? null : "did not fall back at all";
+  });
+
+  check("Uploads", "the server measures the file rather than believing it", () => {
+    const r = checkIngestedRecord({
+      originalName: "huge.pdf",
+      originalSize: 10,
+      mediaType: "application/pdf",
+      kind: "pdf",
+      base64Length: 0,
+      byteLength: MAX_INGEST_BYTES + 1,
+      header: new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+    });
+    return r.ok ? "accepted an oversized file because the client said it was small" : null;
+  });
+
+  check("Uploads", "a file renamed .pdf is refused for what it actually is", () => {
+    const r = checkIngestedRecord({
+      originalName: "transcript.pdf",
+      originalSize: 100,
+      mediaType: "application/pdf",
+      kind: "pdf",
+      base64Length: 0,
+      byteLength: 100,
+      header: new Uint8Array([0x50, 0x4b, 0x03, 0x04]),
+    });
+    return r.ok ? "accepted a zip archive named transcript.pdf" : null;
+  });
+
+  check("Uploads", "HEIC is refused rather than stored unreadable", () => {
+    const r = checkIngestedRecord({
+      originalName: "IMG_0042.HEIC",
+      originalSize: 100,
+      mediaType: "image/heic",
+      kind: "image",
+      base64Length: 0,
+      byteLength: 100,
+      header: new Uint8Array([0, 0, 0, 0x20, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63]),
+    });
+    return r.ok ? "accepted a HEIC nothing downstream can read" : null;
   });
 
   return [...checks];

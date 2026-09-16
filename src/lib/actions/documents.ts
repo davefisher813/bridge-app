@@ -13,6 +13,13 @@ import { normalizeGpa } from "@/lib/docai/gpa";
 // in by a coordinator and one read off a scan need the same check, and
 // keeping two copies is how they drift.
 import { gradingScaleProblem } from "@/lib/fit/ncaa/gradingScale";
+import {
+  checkIngestedRecord,
+  decodedByteLength,
+  isPlausibleBase64,
+  MAX_RECORDS_PER_UPLOAD,
+} from "@/lib/docai/acceptance";
+import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
 import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole } from "@/lib/docai/types";
 
 // The caller side of src/lib/docai. The pipeline deliberately returns a
@@ -37,6 +44,47 @@ export interface ProcessResult {
   ok: boolean;
   documentId?: string;
   error?: string;
+}
+
+// Returns the reason to refuse, or null to proceed. Decoding happens
+// here rather than in src/lib/docai, which stays free of Node specifics
+// per CLAUDE.md; the check itself is the pure function in acceptance.ts.
+function validateRecords(records: IngestedRecord[]): string | null {
+  if (records.length > MAX_RECORDS_PER_UPLOAD) {
+    return `That is ${records.length} files at once. Upload up to ${MAX_RECORDS_PER_UPLOAD} at a time.`;
+  }
+
+  for (const r of records) {
+    if (typeof r.base64 !== "string" || !isPlausibleBase64(r.base64)) {
+      return `${r.originalName || "That file"} did not arrive as readable file data.`;
+    }
+
+    // Length is computed from the string before anything is decoded, so
+    // an oversized payload is refused without allocating it.
+    const byteLength = decodedByteLength(r.base64);
+    if (byteLength > MAX_INGEST_BYTES) {
+      const mb = (byteLength / 1024 / 1024).toFixed(1);
+      const max = (MAX_INGEST_BYTES / 1024 / 1024).toFixed(0);
+      return `${r.originalName || "That file"} is ${mb}MB, over the ${max}MB limit.`;
+    }
+
+    // Only the leading bytes are decoded, which is all a format sniff
+    // needs. 64 covers every signature in magicBytes.ts with room spare.
+    const header = new Uint8Array(Buffer.from(r.base64.slice(0, 88), "base64"));
+
+    const verdict = checkIngestedRecord({
+      originalName: r.originalName,
+      originalSize: r.originalSize,
+      mediaType: r.mediaType,
+      kind: r.kind,
+      base64Length: r.base64.length,
+      byteLength,
+      header,
+    });
+    if (!verdict.ok) return verdict.reason ?? "That file cannot be processed.";
+  }
+
+  return null;
 }
 
 // Roster rows the resolver needs to match a name to an athlete, and the
@@ -84,6 +132,13 @@ export async function processDocument(
   await requireRole(org.id, STAFF_ROLES);
 
   if (!input.records.length) return { ok: false, error: "No files were uploaded." };
+
+  // Everything the client checked, checked again here from the bytes
+  // that actually arrived. ingest.ts runs in the browser, so a direct
+  // call to this action skipped the size cap, the format sniffing and
+  // the HEIC refusal entirely. See src/lib/docai/acceptance.ts.
+  const rejection = validateRecords(input.records);
+  if (rejection) return { ok: false, error: rejection };
 
   const first = input.records[0]!;
   const supabase = await createClient();
