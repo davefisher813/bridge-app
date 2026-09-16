@@ -117,6 +117,12 @@ export default async function FundraisingPage({
             <Link href={`/org/${slug}/fundraising/donors`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
               Donors
             </Link>
+            <Link
+              href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`}
+              className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink"
+            >
+              Set the budget
+            </Link>
           </div>
         )}
       </main>
@@ -167,7 +173,7 @@ export default async function FundraisingPage({
                   <div className="text-[13px] font-bold text-ink">{c.label}</div>
                   <div className="mt-0.5 text-[11.5px] text-muted">
                     {formatMoneyShort(c.receivedCents)}
-                    {c.budgetCents > 0 ? ` of ${formatMoneyShort(c.budgetCents)}` : " received, no budget set"}
+                    {c.budgetCents > 0 ? ` of ${formatMoneyShort(c.budgetCents)}` : " received, no target set"}
                     {c.inKindCents > 0 ? ` · ${formatMoneyShort(c.inKindCents)} in kind` : ""}
                   </div>
                   <Bar percent={c.percentOfBudget ?? 0} role={role} />
@@ -263,8 +269,20 @@ export default async function FundraisingPage({
           <Link href={`/org/${slug}/fundraising/donors`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
             Donors
           </Link>
+          <Link href={`/org/${slug}/fundraising/pledges/new`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+            Record a pledge
+          </Link>
+          <Link href={`/org/${slug}/fundraising/campaigns/new`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+            New campaign
+          </Link>
           <Link href={`/org/${slug}/fundraising/grants`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
             Grants
+          </Link>
+          <Link
+            href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`}
+            className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink"
+          >
+            {s.totalBudgetCents > 0 ? "Edit the budget" : "Set the budget"}
           </Link>
         </div>
       )}

@@ -13,7 +13,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
 import { TINT } from "@/components/statusHue";
@@ -105,7 +105,8 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
-  await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -199,6 +200,17 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
             })}
           </div>
         </>
+      )}
+
+      {canEdit && (
+        <div className="mt-5">
+          <Link
+            href={`/org/${slug}/fundraising/grants/new`}
+            className="block rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on"
+          >
+            Track a grant
+          </Link>
+        </div>
       )}
     </main>
   );

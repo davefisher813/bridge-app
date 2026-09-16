@@ -3,7 +3,7 @@
 // asserting rather than trusting.
 
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { summarize, donorTotals, campaignProgress, toCents, type Gift, type Pledge } from "../lib/fundraising/rollup";
 
@@ -140,7 +140,20 @@ describe("LAW: fundraising is gated, in the actions and not only on the screen",
   });
 
   it("every fundraising screen refuses an org without the module", () => {
-    const pages = ["page.tsx", "donors/page.tsx", "donors/new/page.tsx", "gifts/new/page.tsx", "grants/page.tsx"];
+    // Every page under the fundraising route, found by walking the
+    // folder rather than listed by hand: a list gets out of date the
+    // first time somebody adds a screen, which is exactly when the gate
+    // matters most.
+    const root = join(SRC, "app", "org", "[slug]", "fundraising");
+    const pages: string[] = [];
+    const walk = (dir: string, prefix: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory()) walk(join(dir, entry.name), `${prefix}${entry.name}/`);
+        else if (entry.name === "page.tsx") pages.push(`${prefix}${entry.name}`);
+      }
+    };
+    walk(root, "");
+    expect(pages.length).toBeGreaterThanOrEqual(9);
     for (const p of pages) {
       const source = readFileSync(join(SRC, "app", "org", "[slug]", "fundraising", p), "utf8");
       expect(source, p).toMatch(/if \(!org\.modules\.donor_fundraising\) notFound\(\);/);

@@ -308,7 +308,126 @@ SCREENS["grants"] = ("Grants", f"""
 </main>
 """)
 
-order = ["overview", "donors", "gift", "grants"]
+
+# ---------------------------------------------------------------- 5 budget
+_BUDGET_ROWS = "".join(
+    '<div><label class="mb-1.5 block text-[11px] font-bold text-muted">' + c + '</label>'
+    '<input value="$' + v + '" class="' + INPUT + ' tabular-nums" /></div>'
+    for c, v in zip(CATEGORIES, ["60,000", "30,000", "45,000", "25,000", "25,000"])
+)
+
+_BUDGET_TOTAL = rail("contact",
+    '<div class="flex items-center justify-between gap-3">'
+    '<div class="text-[13px] font-bold text-ink">Total</div>'
+    '<div class="text-[15px] font-extrabold tabular-nums text-ink">$185,000</div></div>')
+
+SCREENS["budget"] = ("Set the budget", f"""
+<main class="px-4 pt-2 pb-6">
+  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Fundraising</a></div>
+  <h1 class="mb-1 text-[20px] font-extrabold text-ink">2026 budget</h1>
+  <p class="mb-5 text-[12.5px] leading-tight text-muted">The full-year target per category, as the board approved it. Everything on the overview is measured against these.</p>
+  <div class="flex flex-col gap-3">{_BUDGET_ROWS}</div>
+  <div class="mt-4">{_BUDGET_TOTAL}</div>
+  <div class="mt-3">{note("Leave a category at zero and the overview says no target rather than showing it at 0%. Those are different statements and only one of them is a problem.", "contact")}</div>
+  <div class="mt-5">
+    <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Save the budget</button>
+  </div>
+</main>
+""")
+
+# -------------------------------------------------------------- 6 campaign
+SCREENS["campaign"] = ("New campaign", f"""
+<main class="px-4 pt-2 pb-6">
+  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Fundraising</a></div>
+  <h1 class="mb-1 text-[20px] font-extrabold text-ink">New campaign</h1>
+  <p class="mb-5 text-[12.5px] leading-tight text-muted">An event, an appeal, or anything with a goal and an end date.</p>
+
+  <div class="mb-4">
+    <label class="mb-1.5 block text-[11px] font-bold text-muted">Name</label>
+    <input value="Bridge Invitational" class="{INPUT}" />
+  </div>
+  <div class="mb-4">
+    <label class="mb-1.5 block text-[11px] font-bold text-muted">Kind</label>
+    <input value="Event" class="{INPUT}" />
+  </div>
+  <div class="mb-4 grid grid-cols-2 gap-2">
+    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Starts</label>
+    <input value="2026-06-01" class="{INPUT} tabular-nums" /></div>
+    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Ends</label>
+    <input value="2026-08-13" class="{INPUT} tabular-nums" /></div>
+  </div>
+  <div class="mb-4">
+    <label class="mb-1.5 block text-[11px] font-bold text-muted">Goal</label>
+    <input value="$25,000" class="{INPUT} tabular-nums" />
+    <p class="mt-1 text-[11.5px] leading-tight text-muted">Measured against cash raised. Pledges show beside the bar, never inside it.</p>
+  </div>
+  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Create it</button>
+</main>
+""")
+
+# ---------------------------------------------------------------- 7 pledge
+SCREENS["pledge"] = ("Record a pledge", f"""
+<main class="px-4 pt-2 pb-6">
+  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Fundraising</a></div>
+  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Record a pledge</h1>
+  <p class="mb-5 text-[12.5px] leading-tight text-muted">Money promised. It will not count as raised until a payment against it actually arrives.</p>
+
+  <div class="mb-4">
+    <label class="mb-1.5 block text-[11px] font-bold text-muted">Who promised it</label>
+    <input value="Example Corp" class="{INPUT}" />
+    <p class="mt-1 text-[11.5px] leading-tight text-muted">Required, unlike a gift. An anonymous promise is not one anybody can follow up on.</p>
+  </div>
+  <div class="mb-4">
+    <label class="mb-1.5 block text-[11px] font-bold text-muted">Amount</label>
+    <input value="$12,000" class="{INPUT} text-[18px] font-bold tabular-nums" />
+  </div>
+  <div class="mb-4 grid grid-cols-2 gap-2">
+    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Promised</label>
+    <input value="2026-01-15" class="{INPUT} tabular-nums" /></div>
+    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Due</label>
+    <input value="2026-12-31" class="{INPUT} tabular-nums" /></div>
+  </div>
+  <div class="mb-4">{note("Leave the due date blank if none was given. It will show as outstanding and never as overdue, which is the honest reading.", "contact")}</div>
+  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Record the pledge</button>
+</main>
+""")
+
+# ----------------------------------------------------------- 8 track a grant
+SCREENS["grantform"] = ("Track a grant", f"""
+<main class="px-4 pt-2 pb-6">
+  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Grants</a></div>
+  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Track a grant</h1>
+  <p class="mb-5 text-[12.5px] leading-tight text-muted">The application. Money arrives later as an ordinary gift in the Foundation Grants category.</p>
+
+  <div class="mb-4">
+    <label class="mb-1.5 block text-[11px] font-bold text-muted">Funder</label>
+    <input value="Example Foundation" class="{INPUT}" />
+  </div>
+  <div class="mb-4">
+    <label class="mb-1.5 block text-[11px] font-bold text-muted">Where it stands</label>
+    <input value="Researching" class="{INPUT}" />
+  </div>
+  <div class="mb-4 grid grid-cols-2 gap-2">
+    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Requesting</label>
+    <input value="$25,000" class="{INPUT} tabular-nums" /></div>
+    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Deadline</label>
+    <input value="2026-11-01" class="{INPUT} tabular-nums" /></div>
+  </div>
+
+  <div class="mb-2">{header("Dates that bite later", None, "time")}</div>
+  <p class="mb-3 text-[12px] leading-tight text-muted">Most of a grant's life happens before any money exists, and these are the ones that get missed.</p>
+  <div class="mb-4 grid grid-cols-2 gap-2">
+    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Decision expected</label>
+    <input placeholder="optional" class="{INPUT} tabular-nums" /></div>
+    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Report due</label>
+    <input placeholder="optional" class="{INPUT} tabular-nums" /></div>
+  </div>
+  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Track it</button>
+</main>
+""")
+
+
+order = ["overview", "donors", "gift", "budget", "campaign", "pledge", "grants", "grantform"]
 options = [f'<option value="{k}">{SCREENS[k][0]}</option>' for k in order]
 blocks = [f'<div class="screen" data-screen="{k}" hidden><div class="phone">{SCREENS[k][1]}</div></div>' for k in order]
 
@@ -338,7 +457,7 @@ code {{ font-size:11.5px; }}
 </style>
 
 <h1 class="pg">Fundraising</h1>
-<p class="lede">Four screens at phone width, using the app's own compiled CSS and the locked catalog. Nothing here is built yet. React before I write it. Every name and figure is made up.</p>
+<p class="lede">Eight screens at phone width, using the app's own compiled CSS and the locked catalog. Nothing here is built yet. React before I write it. Every name and figure is made up.</p>
 
 <div class="controls">
   <select id="picker" onchange="show(this.value)">{"".join(options)}</select>

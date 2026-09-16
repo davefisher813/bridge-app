@@ -6,6 +6,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
 import { centsToDecimalString, parseGiftForm, parsePledgeForm } from "@/lib/validation/gift";
+import { toCents } from "@/lib/fundraising/rollup";
 
 export interface FundraisingActionState {
   errors: Record<string, string>;
@@ -187,13 +188,33 @@ export async function setBudget(
   const supabase = await createClient();
 
   const categories = ["individual", "board", "corporate", "special_event", "grant"] as const;
-  const rows = categories.map((category) => ({
-    org_id: org.id,
-    fiscal_year: fiscalYear,
-    category,
-    amount: centsToDecimalString(Math.max(0, toCentsFromField(formData.get(`budget_${category}`)))),
-    updated_at: new Date().toISOString(),
-  }));
+  const rows = [];
+  const errors: Record<string, string> = {};
+
+  for (const category of categories) {
+    const raw = String(formData.get(`budget_${category}`) ?? "").trim();
+    const cents = raw === "" ? 0 : toCents(raw);
+    // A blank is zero, which means no target. Text that is not a number
+    // is a mistake, and silently filing it as zero would set a target of
+    // nothing without saying so.
+    if (raw !== "" && cents === 0 && !/^[$,.\s0]+$/.test(raw)) {
+      errors[`budget_${category}`] = "That does not look like an amount.";
+      continue;
+    }
+    if (cents < 0) {
+      errors[`budget_${category}`] = "A budget cannot be negative.";
+      continue;
+    }
+    rows.push({
+      org_id: org.id,
+      fiscal_year: fiscalYear,
+      category,
+      amount: centsToDecimalString(cents),
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  if (Object.keys(errors).length > 0) return { errors };
 
   const { error } = await supabase.from("fundraising_budget").upsert(rows, { onConflict: "org_id,fiscal_year,category" });
   if (error) return { errors: { form: error.message } };
@@ -202,7 +223,93 @@ export async function setBudget(
   redirect(`/org/${slug}/fundraising`);
 }
 
-function toCentsFromField(v: FormDataEntryValue | null): number {
-  const n = Number(String(v ?? "").replace(/[$,\s]/g, ""));
-  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+export async function createCampaign(
+  slug: string,
+  _prevState: FundraisingActionState,
+  formData: FormData
+): Promise<FundraisingActionState> {
+  const { org } = await requireFundraising(slug);
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return { errors: { name: "A campaign needs a name." } };
+
+  const kind = String(formData.get("kind") ?? "other");
+  if (!["event", "appeal", "grant", "other"].includes(kind)) return { errors: { kind: "Pick a kind." } };
+
+  const startsOn = String(formData.get("startsOn") ?? "").trim() || null;
+  const endsOn = String(formData.get("endsOn") ?? "").trim() || null;
+  if (startsOn && endsOn && endsOn < startsOn) {
+    return { errors: { endsOn: "The end date is before the start." } };
+  }
+
+  const rawGoal = String(formData.get("goalAmount") ?? "").trim();
+  const goalCents = rawGoal === "" ? null : toCents(rawGoal);
+  if (goalCents !== null && goalCents < 0) return { errors: { goalAmount: "A goal cannot be negative." } };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("campaigns").insert({
+    org_id: org.id,
+    name,
+    kind,
+    starts_on: startsOn,
+    ends_on: endsOn,
+    // Null, not zero. No goal set and a goal of nothing are different,
+    // and the overview says "no goal" for the first rather than dividing
+    // by the second.
+    goal_amount: goalCents === null ? null : centsToDecimalString(goalCents),
+    notes: String(formData.get("notes") ?? "").trim() || null,
+  });
+  if (error) return { errors: { form: error.message } };
+
+  revalidatePath(`/org/${slug}/fundraising`);
+  redirect(`/org/${slug}/fundraising`);
+}
+
+export async function trackGrant(
+  slug: string,
+  _prevState: FundraisingActionState,
+  formData: FormData
+): Promise<FundraisingActionState> {
+  const { org } = await requireFundraising(slug);
+
+  const funderName = String(formData.get("funderName") ?? "").trim();
+  if (!funderName) return { errors: { funderName: "Who is the funder?" } };
+
+  const status = String(formData.get("status") ?? "researching");
+  const statuses = ["researching", "applied", "pending", "awarded", "declined", "closed"];
+  if (!statuses.includes(status)) return { errors: { status: "Pick where it stands." } };
+
+  const money = (field: string): string | null => {
+    const raw = String(formData.get(field) ?? "").trim();
+    if (raw === "") return null;
+    const cents = toCents(raw);
+    return cents <= 0 ? null : centsToDecimalString(cents);
+  };
+
+  const date = (field: string): string | null => String(formData.get(field) ?? "").trim() || null;
+
+  const amountAwarded = money("amountAwarded");
+  // An awarded grant with no amount is a status nobody can report on,
+  // and the amount is the first thing anyone asks about it.
+  if (status === "awarded" && !amountAwarded) {
+    return { errors: { amountAwarded: "An awarded grant needs the amount awarded." } };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("grants").insert({
+    org_id: org.id,
+    funder_name: funderName,
+    status,
+    amount_requested: money("amountRequested"),
+    amount_awarded: amountAwarded,
+    deadline_on: date("deadlineOn"),
+    applied_on: date("appliedOn"),
+    decision_expected_on: date("decisionExpectedOn"),
+    report_due_on: date("reportDueOn"),
+    notes: String(formData.get("notes") ?? "").trim() || null,
+  });
+  if (error) return { errors: { form: error.message } };
+
+  revalidatePath(`/org/${slug}/fundraising/grants`);
+  redirect(`/org/${slug}/fundraising/grants`);
 }
