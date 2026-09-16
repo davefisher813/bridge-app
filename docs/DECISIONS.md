@@ -1030,3 +1030,63 @@ The stub caller produces a transfer transcript above a seed threshold,
 so the path is reachable without an API key, the same way the three
 eligibility outcomes already were. Not on every seed, or every stubbed
 athlete would look like a transfer student.
+
+---
+
+## 2026-09-16 - Fundraising, modelled on what Bridge already tracks
+
+**Decision:** Migration `0012` adds donors, gifts, pledges, campaigns,
+grants and a per-category budget. The rollup is pure and testable
+(`src/lib/fundraising/rollup.ts`). Screens live under
+`/org/[slug]/fundraising`, gated on `orgs.modules.donor_fundraising` in
+both the pages and the server actions.
+
+**Reason:** Today's "Program overview" had been a coming-soon
+placeholder with no table behind it since the redesign. The model is not
+invented: Dave's existing BFFSA platform app already tracks donors, a
+transaction ledger and a P&L with five revenue categories against a
+full-year budget, so this uses the same five categories with the same
+labels and a report out of this system reconciles against the one his
+board already sees.
+
+**Alternatives considered:** Copying that app's shape exactly. Rejected
+in three specific places, each for a reason.
+
+**Consequences:**
+
+- `total`, `last` and `init` are not columns on the donor. They are
+  derived from the gift rows. A stored lifetime total drifts the first
+  time a gift is corrected or removed and nobody fixes it by hand, and a
+  wrong donor total nobody can explain is worse than a sum.
+- A pledge is its own table rather than a gift with a flag, so no query
+  summing donations can accidentally include money that has not arrived.
+  Dave asked for pledges explicitly.
+- Grants are a table, not only a revenue category. Dave: "We don't have
+  grants yet but build it for when we do." Most of a grant's life is
+  dates that matter before any money exists. Awarded money still arrives
+  as an ordinary gift in the `grant` category, linked back, so nothing
+  is counted twice.
+
+Four rules are enforced as laws, each proven to fail against code
+without it, because each is a way a board report goes quietly wrong
+rather than visibly wrong:
+
+1. A pledge is never inside a total, only beside it. Overstating the
+   year is the most damaging thing this feature could do, because nobody
+   questions a number that is too good.
+2. An in-kind gift is support and never cash. A donated case of food in
+   the cash figure tells a treasurer there is money to spend that does
+   not exist. An in-kind gift with no description of what was given is
+   refused, because that is the first thing an auditor asks about.
+3. Money is integer cents everywhere. Postgres returns numeric as a
+   string, forms return strings, and JSON returns numbers; all three
+   convert once, in `toCents`. A long enough donation list summed as
+   dollars drifts by a cent.
+4. The module gate is checked in the actions, not only on the screens. A
+   server action is a public endpoint, and a page that never renders for
+   Elite Squad is not the same thing as an endpoint they cannot call.
+
+The unique index on `(org_id, external_ref)` is what stops a replayed
+Stripe webhook booking the same donation twice, which would be wrong in
+the direction nobody questions. Bridge takes donations through Stripe
+payment links today, so that path is real and not hypothetical.

@@ -181,9 +181,13 @@ down because each needs a decision, not because they were missed.
    exists.
 
 ## After that
-- A real fundraising/donation data model for the `donor_fundraising`
-  module - Today's "Program overview" section is currently a "coming
-  soon" placeholder, not backed by any table.
+- ~~A real fundraising/donation data model~~ Done 2026-09-16, migration
+  `0012`. Donors, gifts, pledges, campaigns, grants and a per-category
+  budget, modelled on what Dave's existing BFFSA app already tracks so a
+  report reconciles against the one his board sees. Screens at
+  `/org/[slug]/fundraising`, all gated on `donor_fundraising`. Today's
+  "Program overview" now shows the real figure. Grants are built but
+  empty: Dave has none yet and asked for it ready for when he does.
 - Board/governance module, gated behind `orgs.modules`, built only once
   the core product works for both Bridge and Elite Squad.
 - Elite Squad onboarding as the second real org - this is the actual

@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
 import { EmptyState, RailCard, SectionHeader, StatTile } from "@/components/catalog";
 import { statusRole } from "@/components/statusHue";
+import Link from "next/link";
+import { formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
+import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 
 function ClearIcon() {
   return (
@@ -88,6 +91,35 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       .eq("org_id", org.id),
     supabase.from("transfer_windows").select("sport, division, window_label, opens_on, closes_on"),
   ]);
+
+  // Only queried when the module is on. An org without fundraising does
+  // not pay for three queries it will never render, and Elite Squad
+  // never touches the tables at all.
+  let fundraising: ReturnType<typeof summarize> | null = null;
+  if (org.modules.donor_fundraising) {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const [{ data: giftRows }, { data: pledgeRows }, { data: budgetRows }] = await Promise.all([
+      supabase
+        .from("gifts")
+        .select("id, amount, received_on, category, method, donor_id, campaign_id, pledge_id")
+        .eq("org_id", org.id),
+      supabase.from("pledges").select("id, amount, promised_on, due_on, status, donor_id, campaign_id").eq("org_id", org.id),
+      supabase.from("fundraising_budget").select("fiscal_year, category, amount").eq("org_id", org.id),
+    ]);
+    const gifts = toGifts(giftRows as GiftRow[] | null);
+    const pledges = toPledges(pledgeRows as PledgeRow[] | null);
+    // Null rather than a summary of nothing, so the screen shows an
+    // empty state instead of a confident "$0 raised".
+    if (gifts.length > 0 || pledges.length > 0) {
+      fundraising = summarize({
+        gifts,
+        pledges,
+        budget: toBudgetLines(budgetRows as BudgetRow[] | null),
+        fiscalYear: Number(todayIso.slice(0, 4)),
+        today: todayIso,
+      });
+    }
+  }
 
   const rows = (targets ?? []) as TargetRow[];
   const inContactCount = rows.filter((r) => r.status === "In Contact").length;
@@ -209,9 +241,31 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
           <div className="mb-2 mt-6">
             <SectionHeader label="Program overview" />
           </div>
-          <EmptyState icon={<ChartIcon />} title="Fundraising tracking is coming soon">
-            No donation data is wired up yet.
-          </EmptyState>
+          {fundraising === null ? (
+            <EmptyState icon={<ChartIcon />} title="Nothing recorded yet">
+              Record the first gift and this starts reporting against your categories.
+            </EmptyState>
+          ) : (
+            <Link href={`/org/${slug}/fundraising`} className="block">
+              <RailCard role="committed">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[14px] font-semibold text-ink">
+                      {formatMoneyShort(fundraising.totalCashCents)} raised this year
+                    </div>
+                    <div className="mt-0.5 text-[12px] leading-tight text-muted">
+                      {fundraising.totalBudgetCents > 0
+                        ? `${Math.round((fundraising.totalCashCents / fundraising.totalBudgetCents) * 100)}% of the year's target`
+                        : "No budget set for the year"}
+                      {fundraising.outstandingPledgeCents > 0
+                        ? ` \u00b7 ${formatMoneyShort(fundraising.outstandingPledgeCents)} promised and not received`
+                        : ""}
+                    </div>
+                  </div>
+                </div>
+              </RailCard>
+            </Link>
+          )}
         </>
       )}
     </main>

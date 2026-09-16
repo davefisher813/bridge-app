@@ -26,6 +26,7 @@ import { evaluateAgeClock } from "../src/lib/fit/ncaa/ageClock";
 import { gradingScaleProblem, resolveScale, TEN_POINT_STARTING_POINT } from "../src/lib/fit/ncaa/gradingScale";
 import { letterFromScale } from "../src/lib/fit/ncaa/fromTranscript";
 import { checkIngestedRecord } from "../src/lib/docai/acceptance";
+import { summarize as summarizeFundraising, toCents as moneyToCents, campaignProgress } from "../src/lib/fundraising/rollup";
 import { MAX_INGEST_BYTES } from "../src/lib/docai/limits";
 
 // ---------------------------------------------------------------- assertions
@@ -409,6 +410,61 @@ function runSuite(): Check[] {
     if (atStrict === atLenient) return `both schools called an 85 a ${atStrict}`;
     if (atStrict !== "C" || atLenient !== "B") return `got ${atStrict} and ${atLenient}, expected C and B`;
     return null;
+  });
+
+  check("Fundraising", "a promise is never counted as money raised", () => {
+    // The single most damaging thing this feature could do, because
+    // nobody questions a number that is too good.
+    const s = summarizeFundraising({
+      gifts: [],
+      pledges: [{ id: "p1", amountCents: 1000000, promisedOn: "2026-01-15", dueOn: "2026-12-31", status: "open", donorId: "d1", campaignId: null }],
+      budget: [],
+      fiscalYear: 2026,
+      today: "2026-09-16",
+    });
+    if (s.totalCashCents !== 0) return `counted ${s.totalCashCents} cents of promises as raised`;
+    if (s.outstandingPledgeCents !== 1000000) return "lost the promise entirely";
+    return null;
+  });
+
+  check("Fundraising", "a donated case of food is support, not cash", () => {
+    const s = summarizeFundraising({
+      gifts: [
+        { id: "g1", amountCents: 50000, receivedOn: "2026-05-01", category: "corporate", method: "in_kind", donorId: "d1", campaignId: null, pledgeId: null },
+        { id: "g2", amountCents: 25000, receivedOn: "2026-05-01", category: "corporate", method: "check", donorId: "d1", campaignId: null, pledgeId: null },
+      ],
+      pledges: [],
+      budget: [],
+      fiscalYear: 2026,
+      today: "2026-09-16",
+    });
+    if (s.totalCashCents !== 25000) return `cash was ${s.totalCashCents}, expected 25000`;
+    if (s.totalInKindCents !== 50000) return `in kind was ${s.totalInKindCents}, expected 50000`;
+    if (s.totalSupportCents !== 75000) return `support was ${s.totalSupportCents}, expected 75000`;
+    return null;
+  });
+
+  check("Fundraising", "a thousand ten-cent gifts total exactly one hundred dollars", () => {
+    // Added as dollars this drifts. Added as integer cents it cannot.
+    const gifts = Array.from({ length: 1000 }, (_, i) => ({
+      id: `g${i}`,
+      amountCents: moneyToCents(0.1),
+      receivedOn: "2026-05-01",
+      category: "individual" as const,
+      method: "check" as const,
+      donorId: null,
+      campaignId: null,
+      pledgeId: null,
+    }));
+    const s = summarizeFundraising({ gifts, pledges: [], budget: [], fiscalYear: 2026, today: "2026-09-16" });
+    return s.totalCashCents === 10000 ? null : `drifted to ${s.totalCashCents} cents instead of 10000`;
+  });
+
+  check("Fundraising", "promises cannot complete a campaign", () => {
+    const p = campaignProgress("c1", 100000, [], [
+      { id: "p1", amountCents: 100000, promisedOn: "2026-01-15", dueOn: null, status: "open", donorId: "d1", campaignId: "c1" },
+    ]);
+    return p.percentOfGoal === 0 ? null : `campaign read ${p.percentOfGoal}% on promises alone`;
   });
 
   check("Uploads", "HEIC is refused rather than stored unreadable", () => {

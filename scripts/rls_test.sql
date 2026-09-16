@@ -76,6 +76,27 @@ insert into high_school_grading_scales (school_name, bands) values
 insert into org_grading_scales (org_id, school_name, bands, source_note) values
   ('00000000-0000-0000-0000-000000000010', 'Contested HS', '[{"letter":"A","min":90,"max":100}]'::jsonb, 'Bridge typed this'),
   ('00000000-0000-0000-0000-000000000020', 'Contested HS', '[{"letter":"A","min":95,"max":100}]'::jsonb, 'Elite Squad typed this');
+-- Fundraising. Donor names and giving histories are the most sensitive
+-- rows in this database, so both orgs get one and the assertions below
+-- prove neither can see the other's.
+insert into donors (id, org_id, name, donor_type, email) values
+  ('00000000-0000-0000-0000-000000000310', '00000000-0000-0000-0000-000000000010', 'Bridge Donor', 'individual', 'donor@bridge.example'),
+  ('00000000-0000-0000-0000-000000000320', '00000000-0000-0000-0000-000000000020', 'Elite Donor', 'corporate', 'donor@elite.example');
+insert into campaigns (id, org_id, name, kind, goal_amount) values
+  ('00000000-0000-0000-0000-000000000330', '00000000-0000-0000-0000-000000000010', 'Bridge Invitational', 'event', 25000.00),
+  ('00000000-0000-0000-0000-000000000340', '00000000-0000-0000-0000-000000000020', 'Elite Appeal', 'appeal', 5000.00);
+insert into gifts (org_id, donor_id, campaign_id, amount, received_on, category, method) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000310', '00000000-0000-0000-0000-000000000330', 200.00, '2026-08-13', 'special_event', 'stripe'),
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000320', '00000000-0000-0000-0000-000000000340', 500.00, '2026-08-13', 'corporate', 'check');
+insert into pledges (org_id, donor_id, amount, promised_on, due_on) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000310', 5000.00, '2026-01-15', '2026-12-31'),
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000320', 1000.00, '2026-01-15', '2026-12-31');
+insert into grants (org_id, funder_name, status, amount_requested) values
+  ('00000000-0000-0000-0000-000000000010', 'Some Foundation', 'researching', 25000.00),
+  ('00000000-0000-0000-0000-000000000020', 'Other Foundation', 'applied', 10000.00);
+insert into fundraising_budget (org_id, fiscal_year, category, amount) values
+  ('00000000-0000-0000-0000-000000000010', 2026, 'individual', 50000.00),
+  ('00000000-0000-0000-0000-000000000020', 2026, 'individual', 10000.00);
 insert into benchmark_sets (org_id, sport, tiers, positions) values
   (null, 'baseball', '[]'::jsonb, '[]'::jsonb),
   ('00000000-0000-0000-0000-000000000010', 'baseball', '[]'::jsonb, '[]'::jsonb),
@@ -342,6 +363,94 @@ begin
   raise notice 'PASS: user1 can read their own org row, not the other org''s';
 end $$;
 
+-- ── Fundraising. Donor records are the rows whose leaking would matter
+-- most, so they get the same cross-org treatment as everything else. ──
+do $$
+declare n int;
+begin
+  select count(*) into n from donors;
+  if n <> 1 then raise exception 'FAIL: user1 saw % donors, expected 1 (Bridge''s only)', n; end if;
+  select count(*) into n from gifts;
+  if n <> 1 then raise exception 'FAIL: user1 saw % gifts, expected 1', n; end if;
+  select count(*) into n from pledges;
+  if n <> 1 then raise exception 'FAIL: user1 saw % pledges, expected 1', n; end if;
+  select count(*) into n from grants;
+  if n <> 1 then raise exception 'FAIL: user1 saw % grants, expected 1', n; end if;
+  raise notice 'PASS: user1 sees only Bridge''s donors, gifts, pledges and grants';
+end $$;
+
+do $$
+begin
+  begin
+    insert into gifts (org_id, amount, received_on, category, method)
+      values ('00000000-0000-0000-0000-000000000020', 1.00, '2026-09-16', 'individual', 'cash');
+    raise exception 'FAIL: user1 booked a gift into Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org gift insert correctly rejected by RLS';
+  end;
+end $$;
+
+do $$
+declare n int;
+begin
+  update donors set email = 'stolen@example.com' where org_id = '00000000-0000-0000-0000-000000000020';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: user1 rewrote % of Elite Squad''s donor records', n; end if;
+  raise notice 'PASS: user1 cannot touch Elite Squad''s donor records';
+end $$;
+
+-- A gift must be money. A zero row is not a correction, it is a mistake,
+-- and it inflates the gift count and the donor count for nothing.
+do $$
+begin
+  begin
+    insert into gifts (org_id, amount, received_on, category, method)
+      values ('00000000-0000-0000-0000-000000000010', 0, '2026-09-16', 'individual', 'cash');
+    raise exception 'FAIL: a gift of zero was accepted';
+  exception when check_violation then
+    raise notice 'PASS: a gift of zero is refused by the database';
+  end;
+end $$;
+
+-- A pledge of zero or less is not a promise.
+do $$
+begin
+  begin
+    insert into pledges (org_id, donor_id, amount, promised_on)
+      values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000310', -5.00, '2026-09-16');
+    raise exception 'FAIL: a negative pledge was accepted';
+  exception when check_violation then
+    raise notice 'PASS: a negative pledge is refused by the database';
+  end;
+end $$;
+
+-- Stripe delivers the same webhook more than once. Without the unique
+-- index a replay books the donation twice and the year's total is wrong
+-- in the direction nobody questions.
+do $$
+begin
+  insert into gifts (org_id, amount, received_on, category, method, external_ref)
+    values ('00000000-0000-0000-0000-000000000010', 200.00, '2026-08-13', 'special_event', 'stripe', 'pi_test_123');
+  begin
+    insert into gifts (org_id, amount, received_on, category, method, external_ref)
+      values ('00000000-0000-0000-0000-000000000010', 200.00, '2026-08-13', 'special_event', 'stripe', 'pi_test_123');
+    raise exception 'FAIL: the same Stripe payment was booked twice';
+  exception when unique_violation then
+    raise notice 'PASS: replaying a Stripe payment cannot double-book a gift';
+  end;
+end $$;
+
+-- The same reference in a DIFFERENT org is a different payment and must
+-- still be allowed, or one org's ids would block another's.
+do $$
+begin
+  insert into gifts (org_id, amount, received_on, category, method, external_ref)
+    values ('00000000-0000-0000-0000-000000000010', 50.00, '2026-08-13', 'individual', 'stripe', null);
+  insert into gifts (org_id, amount, received_on, category, method, external_ref)
+    values ('00000000-0000-0000-0000-000000000010', 50.00, '2026-08-13', 'individual', 'stripe', null);
+  raise notice 'PASS: two gifts with no external reference do not collide';
+end $$;
+
 -- ── The member pass. user3 belongs to Bridge with role `member`, which
 -- in this app means read-only: every write path in the application goes
 -- through requireRole(..., STAFF_ROLES). Before migration 0010 the
@@ -360,6 +469,29 @@ begin
   select count(*) into n from athletes where org_id = '00000000-0000-0000-0000-000000000010';
   if n <> 2 then raise exception 'FAIL: a member saw % Bridge athletes, expected 2 (same as an owner)', n; end if;
   raise notice 'PASS: a member reads their org exactly like an owner does';
+end $$;
+
+-- Donor records specifically: a member reads them and cannot change one.
+do $$
+declare n int;
+begin
+  select count(*) into n from donors where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 1 then raise exception 'FAIL: a member saw % Bridge donors, expected 1', n; end if;
+  update donors set email = 'member@example.com' where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member rewrote % donor records', n; end if;
+  raise notice 'PASS: a member reads donors and cannot change one';
+end $$;
+
+do $$
+begin
+  begin
+    insert into gifts (org_id, amount, received_on, category, method)
+      values ('00000000-0000-0000-0000-000000000010', 100.00, '2026-09-16', 'individual', 'cash');
+    raise exception 'FAIL: a member booked a gift in their own org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a member cannot book a gift';
+  end;
 end $$;
 
 do $$
