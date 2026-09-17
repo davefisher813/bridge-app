@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { gradePoints, calculateCoreGpa, MAX_WEIGHT_BONUS, type CoreCourse } from "../lib/fit/ncaa/coreGpa";
 import { DIVISION_STANDARDS, evaluateInitialEligibility } from "../lib/fit/ncaa/initialEligibility";
 import { evaluateAgeClock } from "../lib/fit/ncaa/ageClock";
-import { buildEligibilityView } from "../lib/data/ncaaAdapters";
+import { buildEligibilityView, type AthleteCourseRow, type GradingScaleRow } from "../lib/data/ncaaAdapters";
 import {
   matchCourseTitle,
   applyApprovedLists,
@@ -448,5 +448,79 @@ describe("LAW: a short list may not claim to be a school's whole catalog", () =>
     ];
     expect(approvedListProblem({ courses: three, isComplete: true })).not.toBeNull();
     expect(approvedListProblem({ courses: three, isComplete: false })).toBeNull();
+  });
+});
+
+// ── The origin label, and why it is a law ────────────────────────────
+// Found 2026-09-17 while wiring the approved-course screens. The
+// eligibility page queried only the shared grading-scale table and cast
+// the result to GradingScaleRow without an origin, because no such
+// column exists and the app derives the label. resolveScale() matched
+// none of the three origins and returned null for every row, so every
+// school on every athlete fell through to the assumed ten-point default.
+// Both the shared tables and the org-entered ones were inert, in a
+// product that reported the number as if a real table had produced it.
+describe("LAW: a real grading scale is never silently replaced by the assumed default", () => {
+  const bands = [
+    { letter: "A", min: 85, max: 100 },
+    { letter: "B", min: 75, max: 84 },
+    { letter: "C", min: 65, max: 74 },
+    { letter: "D", min: 60, max: 64 },
+    { letter: "F", min: 0, max: 59 },
+  ];
+  const course: AthleteCourseRow = {
+    id: "c1", title: "English 11", subject: "english", credit: 1, grade: "86",
+    term: "24-25", school_name: "Cardinal Ridge", weighted: false,
+    ncaa_approved: true, duplicate_of: null,
+  };
+  const build = (scale: unknown) =>
+    buildEligibilityView({
+      courses: [course],
+      scales: [scale] as GradingScaleRow[],
+      division: "D1",
+      athlete: { dateOfBirth: null, firstFullTimeEnrollment: null, intendedEnrollment: null },
+      today: "2026-09-17",
+    });
+
+  // 86 is an A on this school's table and a B on the ten-point default,
+  // so which table ran is visible in the quality points.
+  it("uses a table whose origin label is missing rather than dropping it", () => {
+    const view = build({
+      school_name: "Cardinal Ridge", bands,
+      reports_weighted_grades: false, weighting_is_class_rank_only: false, weight_bonus: 0,
+    });
+    expect(view.scalesUsed[0]?.origin).not.toBe("assumed");
+    expect(view.eligibility.coreGpa?.counted[0]?.points).toBe(4);
+  });
+
+  it("still labels an unlabelled table conservatively, never as verified", () => {
+    const view = build({
+      school_name: "Cardinal Ridge", bands,
+      reports_weighted_grades: true, weighting_is_class_rank_only: false, weight_bonus: 1,
+    });
+    expect(view.scalesUsed[0]?.origin).toBe("org");
+  });
+
+  it("uses a verified table and says so", () => {
+    const view = build({
+      school_name: "Cardinal Ridge", bands, origin: "verified",
+      reports_weighted_grades: false, weighting_is_class_rank_only: false, weight_bonus: 0,
+    });
+    expect(view.scalesUsed[0]?.origin).toBe("verified");
+    expect(view.eligibility.coreGpa?.counted[0]?.points).toBe(4);
+  });
+});
+
+describe("LAW: the eligibility screen reads the org's own grading scales", () => {
+  it("queries both tables and labels each with its origin", () => {
+    const page = readFileSync(join(SRC, "app", "org", "[slug]", "roster", "[id]", "eligibility", "page.tsx"), "utf8");
+    const code = page.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+    expect(code).toMatch(/from\("high_school_grading_scales"\)/);
+    // Without this the org-scoped entry screen from migration 0009 saves
+    // a scale that nothing ever reads.
+    expect(code).toMatch(/from\("org_grading_scales"\)/);
+    // And the cast that hid the missing origin must not come back.
+    expect(code).not.toMatch(/as GradingScaleRow\[\]/);
+    expect(code).toMatch(/origin/);
   });
 });

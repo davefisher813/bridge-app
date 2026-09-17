@@ -194,6 +194,13 @@ export function buildEligibilityView(input: EligibilityInput): EligibilityView {
 
     if (!scale) {
       everySchoolReportsWeighted = false;
+    } else if (scale.origin !== "verified" && scale.origin !== "org" && scale.origin !== "assumed") {
+      // A real table with a label nobody set. Used, because a real table
+      // beats a guess, but never presented as confirmed and never given
+      // the weighted bonus, which is a claim about what the school told
+      // the Eligibility Center rather than about the numbers.
+      everySchoolReportsWeighted = false;
+      scalesUsed.push({ school: schoolName || "this athlete's school", origin: "org", sourceNote: scale.source_note ?? null });
     } else if (scale.origin === "assumed") {
       everySchoolReportsWeighted = false;
       schoolsMissingScale.add(schoolName || "this athlete's school");

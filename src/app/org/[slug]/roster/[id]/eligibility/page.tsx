@@ -21,6 +21,7 @@ import { SectionHeader, EmptyState } from "@/components/catalog";
 import { GpaPair, NoteRail, SubjectRow, VerdictCard } from "@/components/EligibilityVerdict";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { buildEligibilityView, type AthleteCourseRow, type GradingScaleRow } from "@/lib/data/ncaaAdapters";
+import type { ApprovedCourseList } from "@/lib/fit/ncaa/approvedCourses";
 import { DIVISION_STANDARDS, normalizeDivision } from "@/lib/fit/ncaa/initialEligibility";
 import type { SubjectArea } from "@/lib/fit/ncaa/coreGpa";
 
@@ -104,12 +105,105 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   // out before the adapter ever saw them, making its own
   // case-insensitivity dead code.
   const schoolKeys = [...new Set(courses.map((c) => c.school_name?.trim().toLowerCase()).filter((s): s is string => !!s))];
-  const { data: scaleRows } = schoolKeys.length
-    ? await supabase
-        .from("high_school_grading_scales")
-        .select("school_name, bands, reports_weighted_grades, weighting_is_class_rank_only, weight_bonus")
-        .in("school_name_key", schoolKeys)
-    : { data: [] };
+
+  // BOTH tables, each labelled with where it came from. Two things were
+  // wrong here and they compounded:
+  //
+  //   1. Only the shared table was queried, so an org that entered its
+  //      own scale (migration 0009, the whole point of that feature)
+  //      saved it, saw it listed, and watched the core GPA not move.
+  //   2. Neither query set `origin`, because no such column exists: the
+  //      app derives the label. The result was cast to GradingScaleRow
+  //      anyway, so every row arrived with origin undefined,
+  //      resolveScale() matched none of them and returned null, and
+  //      EVERY school on EVERY athlete fell through to the assumed
+  //      ten-point default. The grading-scale feature was inert in the
+  //      product while reporting itself as working.
+  //
+  // The cast is gone. The rows are mapped, so a missing field is a type
+  // error rather than a silent undefined.
+  const [{ data: sharedRows }, { data: orgRows }] = schoolKeys.length
+    ? await Promise.all([
+        supabase
+          .from("high_school_grading_scales")
+          .select("school_name, bands, reports_weighted_grades, weighting_is_class_rank_only, weight_bonus, source_note")
+          .in("school_name_key", schoolKeys),
+        supabase
+          .from("org_grading_scales")
+          .select("school_name, bands, reports_weighted_grades, weighting_is_class_rank_only, weight_bonus, source_note")
+          .eq("org_id", org.id)
+          .in("school_name_key", schoolKeys),
+      ])
+    : [{ data: [] }, { data: [] }];
+
+  type ScaleQueryRow = {
+    school_name: string;
+    bands: unknown;
+    reports_weighted_grades: boolean;
+    weighting_is_class_rank_only: boolean;
+    weight_bonus: number | string;
+    source_note: string | null;
+  };
+  const label = (rows: ScaleQueryRow[] | null, origin: "verified" | "org"): GradingScaleRow[] =>
+    (rows ?? []).map((r) => ({
+      school_name: r.school_name,
+      bands: r.bands,
+      reports_weighted_grades: r.reports_weighted_grades,
+      weighting_is_class_rank_only: r.weighting_is_class_rank_only,
+      weight_bonus: r.weight_bonus,
+      source_note: r.source_note,
+      origin,
+    }));
+  // A verified shared row beats an org's own entry; resolveScale picks.
+  const scales = [
+    ...label(sharedRows as ScaleQueryRow[] | null, "verified"),
+    ...label(orgRows as ScaleQueryRow[] | null, "org"),
+  ];
+
+  // The approved lists for those same schools, portal first. Without
+  // these every course stays unchecked and the core GPA reports itself
+  // as an estimate, which was true of every athlete in the product until
+  // migration 0014.
+  const [{ data: sharedLists }, { data: orgLists }] = schoolKeys.length
+    ? await Promise.all([
+        supabase
+          .from("ncaa_approved_course_lists")
+          .select("school_name, ceeb_code, is_complete, source_note, ncaa_approved_courses(title, subject, max_credit, weighted)")
+          .in("school_name_key", schoolKeys),
+        supabase
+          .from("org_approved_course_lists")
+          .select("school_name, ceeb_code, is_complete, source_note, org_approved_courses(title, subject, max_credit, weighted)")
+          .eq("org_id", org.id)
+          .in("school_name_key", schoolKeys),
+      ])
+    : [{ data: [] }, { data: [] }];
+
+  type ListQueryRow = {
+    school_name: string;
+    ceeb_code: string | null;
+    is_complete: boolean;
+    source_note: string | null;
+    ncaa_approved_courses?: Array<{ title: string; subject: string; max_credit: number | string | null; weighted: boolean }>;
+    org_approved_courses?: Array<{ title: string; subject: string; max_credit: number | string | null; weighted: boolean }>;
+  };
+  const toList = (rows: ListQueryRow[] | null, source: "ncaa_portal" | "org"): ApprovedCourseList[] =>
+    (rows ?? []).map((r) => ({
+      schoolName: r.school_name,
+      ceebCode: r.ceeb_code ?? undefined,
+      isComplete: r.is_complete,
+      source,
+      sourceNote: r.source_note ?? undefined,
+      courses: (r.ncaa_approved_courses ?? r.org_approved_courses ?? []).map((c) => ({
+        title: c.title,
+        subject: c.subject as SubjectArea,
+        maxCredit: c.max_credit === null ? undefined : Number(c.max_credit),
+        weighted: c.weighted,
+      })),
+    }));
+  const approvedLists = [
+    ...toList(sharedLists as ListQueryRow[] | null, "ncaa_portal"),
+    ...toList(orgLists as ListQueryRow[] | null, "org"),
+  ];
 
   const divisions = (targetRows ?? []).flatMap((t) => {
     const s = (t as { schools?: { division?: string } | { division?: string }[] }).schools;
@@ -120,7 +214,8 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
 
   const view = buildEligibilityView({
     courses,
-    scales: (scaleRows ?? []) as GradingScaleRow[],
+    scales,
+    approvedLists,
     division,
     athlete: {
       dateOfBirth: athlete.date_of_birth,

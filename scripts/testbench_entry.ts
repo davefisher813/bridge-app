@@ -24,6 +24,8 @@ import { calculateCoreGpa, gradePoints, MAX_WEIGHT_BONUS, type CoreCourse } from
 import { DIVISION_STANDARDS, evaluateInitialEligibility } from "../src/lib/fit/ncaa/initialEligibility";
 import { evaluateAgeClock } from "../src/lib/fit/ncaa/ageClock";
 import { gradingScaleProblem, resolveScale, TEN_POINT_STARTING_POINT } from "../src/lib/fit/ncaa/gradingScale";
+import { matchCourseTitle, applyApprovedLists, approvedListProblem, type ApprovedCourseList } from "../src/lib/fit/ncaa/approvedCourses";
+import { parseApprovedListPaste, parseIsSaveable } from "../src/lib/fit/ncaa/approvedListPaste";
 import { letterFromScale } from "../src/lib/fit/ncaa/fromTranscript";
 import { checkIngestedRecord } from "../src/lib/docai/acceptance";
 import { summarize as summarizeFundraising, toCents as moneyToCents, campaignProgress } from "../src/lib/fundraising/rollup";
@@ -361,6 +363,83 @@ function runSuite(): Check[] {
     if (withOrg?.origin !== "org") return `preferred the assumption over a real table (${withOrg?.origin})`;
     const alone = resolveScale([{ origin: "assumed" as const }]);
     return alone?.origin === "assumed" ? null : "did not fall back at all";
+  });
+
+  // ── Approved course lists ──────────────────────────────────────────
+  const CARDINAL = (isComplete: boolean): ApprovedCourseList => ({
+    schoolName: "Cardinal Ridge High School",
+    isComplete,
+    source: "ncaa_portal",
+    courses: [
+      { title: "English 11", subject: "english" },
+      { title: "Algebra II", subject: "math" },
+      { title: "AP Biology", subject: "science" },
+      { title: "Computer Science", subject: "other_academic" },
+    ],
+  });
+
+  check("Approved lists", "a partial list can confirm a course but never exclude one", () => {
+    const partial = CARDINAL(false);
+    if (matchCourseTitle("Algebra II", partial).status !== "approved") return "failed to confirm a course that is on the list";
+    const absent = matchCourseTitle("Ceramics", partial).status;
+    return absent === "unknown" ? null : `a partial list ruled a course out (${absent}), which drops credits nobody checked`;
+  });
+
+  check("Approved lists", "a complete list does exclude a course that is not on it", () => {
+    const s = matchCourseTitle("Ceramics", CARDINAL(true)).status;
+    return s === "not_approved" ? null : `a complete list returned ${s} instead of excluding the course`;
+  });
+
+  check("Approved lists", "an ambiguous title is never resolved by guessing", () => {
+    const twins: ApprovedCourseList = {
+      schoolName: "X",
+      isComplete: true,
+      source: "ncaa_portal",
+      courses: [
+        { title: "AP Biology", subject: "science" },
+        { title: "Biology Honors", subject: "other_academic" },
+      ],
+    };
+    const m = matchCourseTitle("Biology", twins);
+    if (m.status !== "ambiguous") return `picked ${m.entry?.title ?? m.status} between two equally good matches`;
+    return m.entry === undefined ? null : "returned an entry alongside an ambiguous verdict";
+  });
+
+  check("Approved lists", "the list's subject beats the transcript's", () => {
+    const r = applyApprovedLists(
+      [{ title: "Computer Science", subject: "science", credit: 1, grade: "A" }],
+      new Map([["cardinal ridge high school", CARDINAL(false)]]),
+      () => "Cardinal Ridge High School",
+    );
+    return r.courses[0]?.subject === "other_academic"
+      ? null
+      : `kept the transcript's subject (${r.courses[0]?.subject}), which counts the course toward the wrong minimum`;
+  });
+
+  check("Approved lists", "a handful of rows may not call itself a whole catalog", () => {
+    const three = [
+      { title: "A", subject: "math" },
+      { title: "B", subject: "english" },
+      { title: "C", subject: "science" },
+    ];
+    if (!approvedListProblem({ courses: three, isComplete: true })) return "accepted three courses as a school's whole approved list";
+    return approvedListProblem({ courses: three, isComplete: false }) === null ? null : "refused the same three as a partial list";
+  });
+
+  check("Approved lists", "a pasted portal table parses into courses", () => {
+    const r = parseApprovedListPaste(["Course Title\tSubject\tCredit", "English 9\tEnglish\t1.0", "Algebra I\tMathematics\t1.0"].join("\n"));
+    if (r.rows.length !== 2) return `parsed ${r.rows.length} rows out of a two-row table`;
+    // The bug this check exists for: stripping digits turned "English 9"
+    // into the category "English", so the title was eaten as the subject
+    // and the course imported with no title of its own.
+    if (r.rows[0]?.title !== "English 9") return `lost the course title, got "${r.rows[0]?.title}"`;
+    return parseIsSaveable(r) ? null : "a clean paste was not saveable";
+  });
+
+  check("Approved lists", "a category the parser does not know is left for a person", () => {
+    const r = parseApprovedListPaste("Underwater Basket Weaving\tElectives");
+    if (r.rows[0]?.subject !== null) return `invented the subject ${r.rows[0]?.subject}`;
+    return parseIsSaveable(r) ? "let a list save with a course that has no subject" : null;
   });
 
   check("Board give/get", "money brought in counts, not just money given", () => {

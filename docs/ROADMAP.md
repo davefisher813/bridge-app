@@ -172,10 +172,22 @@ down because each needs a decision, not because they were missed.
    list on file the core GPA stops reporting itself as an estimate,
    which was true of every athlete in the product until now.
 
-   Still to build: the entry and import screens in the real app (the
-   prototype has the read-side screens as the preview), and getting real
-   lists in. The portal is not a public API, so loading one is a
-   transcription or an upload, not a scrape.
+   Screens done 2026-09-17: `/org/[slug]/approved-courses` (index with a
+   "Needed now" section for schools on a transcript with no list),
+   `.../new` (paste import plus per-row subject fixing) and `.../[id]`
+   (read-only view; a portal list is not editable here at all). The
+   eligibility page now reads both list tables and passes them to the
+   engine, so the estimate warning actually clears.
+
+   Paste is the primary path and the reason the feature is usable: a
+   school's list runs to eighty rows, and a form with a subject dropdown
+   per row is an afternoon on a phone.
+   `src/lib/fit/ncaa/approvedListPaste.ts` reads tab, multi-space, comma,
+   dash and colon separated tables, maps the NCAA's category names onto
+   subject areas, and refuses to guess one it does not recognise.
+
+   Still to come: real lists. The portal is not a public API, so getting
+   one in is a paste or an upload, never a scrape.
 
 2. ~~**Grading-scale entry.**~~ Done 2026-09-16. Resolved by splitting
    the shared verified table from a new org-scoped one

@@ -1316,3 +1316,55 @@ to the existing tests and all now laws:
 
 The audit exits non-zero on any finding, so the preview build fails
 rather than publishing a screen nobody can read.
+
+## 2026-09-17 - Every grading scale in the product was being ignored
+
+**Found** while wiring the approved-course screens, not by a test.
+
+The eligibility page queried only `high_school_grading_scales`, never the
+org-scoped table migration 0009 added, and cast the result to
+`GradingScaleRow` without an `origin`. No such column exists: the app
+derives that label. So every row arrived with `origin: undefined`,
+`resolveScale()` matched none of its three cases and returned null, and
+every school on every athlete fell through to the assumed ten-point
+default. Both halves of the feature were inert, and the screen reported
+the resulting number the same way it reports a real one.
+
+**Fix, in three places.** The page queries both tables and maps each row
+explicitly with its origin, so a missing field is now a type error rather
+than a silent undefined; the `as GradingScaleRow[]` cast that hid it is
+gone. `resolveScale()` falls back to the first candidate rather than
+returning null, because a real table with an unrecognised label is still
+a real table and dropping it substitutes a guess. The adapter labels such
+a row "org" rather than "verified", so it is used but never presented as
+confirmed and never earns the weighted bonus.
+
+**Consequences.** Two laws in `src/laws/ncaaLaws.test.ts`, both proven to
+fail on a planted violation: a real scale is never silently replaced by
+the assumed default, and the eligibility screen reads the org's own
+scales. The general lesson is about the cast: `as` on a query result
+turns a missing column into undefined at runtime and silence at compile
+time, which is exactly the shape of this bug.
+
+## 2026-09-17 - Paste is the primary way a course list gets entered
+
+**Decision.** The approved-list entry screen leads with a paste box, not
+a row builder. `parseApprovedListPaste()` splits the pasted table, works
+out which cell is the title and which is the NCAA category, and returns
+per-row problems. Adding a row by hand is the fallback.
+
+**Reason.** A high school's approved list is eighty to a hundred courses.
+Entering that through a form with a subject dropdown per row is an
+afternoon on a phone, and an afternoon is the same as never: the feature
+would ship and go unused. The list is already a table on the Eligibility
+Center's page, so selecting it and pasting it is ten seconds.
+
+**Consequences.** The parser refuses to guess a subject, the same way
+`matchCourseTitle()` refuses to pick between two candidates, because the
+subject decides which per-subject minimum a course counts toward. Rows
+needing a decision sort to the top of the review list and the save button
+stays disabled until none are left. One real parser bug was caught by its
+own tests: stripping digits before matching a category turned "English 9"
+into "english", so the title was consumed as the subject and the course
+imported with no title. A cell containing a digit is now never a
+category.

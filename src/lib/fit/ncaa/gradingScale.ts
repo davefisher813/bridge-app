@@ -127,6 +127,16 @@ export function resolveScale<T extends { origin: ScaleOrigin }>(candidates: T[])
     candidates.find((c) => c.origin === "verified") ??
     candidates.find((c) => c.origin === "org") ??
     candidates.find((c) => c.origin === "assumed") ??
+    // A candidate whose origin is not one of the three is still a real
+    // table somebody fetched out of a real row. Returning null for it
+    // drops the school's own conversion and substitutes the assumed
+    // ten-point default, which is a WORSE answer arrived at silently.
+    // That is not hypothetical: the eligibility page cast its query
+    // result to GradingScaleRow without an origin (no such column
+    // exists, the app derives the label), so every scale in the product
+    // resolved to null and every school read as assumed. Prefer the
+    // row. The caller labels an unrecognised origin conservatively.
+    candidates[0] ??
     null
   );
 }

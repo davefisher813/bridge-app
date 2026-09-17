@@ -72,10 +72,24 @@ export function ScorePill({ score }: { score: number }) {
 
 // H1: colored dot, label, dotted rule, trailing count. The count is ink
 // rather than muted because the number is the useful part.
-export function SectionHeader({ label, count, role = "accent" }: { label: string; count?: number; role?: Role }) {
+export function SectionHeader({
+  label,
+  count,
+  role = "accent",
+  kind,
+}: {
+  label: string;
+  count?: number;
+  role?: Role;
+  kind?: RowKind;
+}) {
   return (
     <div className="flex items-center gap-2">
-      <span className={`h-[7px] w-[7px] flex-shrink-0 rounded-full ${DOT[role]}`} />
+      {kind ? (
+        <RowGlyph kind={kind} role={role} className="h-[15px] w-[15px]" />
+      ) : (
+        <span className={`h-[7px] w-[7px] flex-shrink-0 rounded-full ${DOT[role]}`} />
+      )}
       <span className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">{label}</span>
       <span className="h-px flex-1 border-b-2 border-dotted border-line" />
       {count !== undefined && <span className="text-[12px] font-extrabold tabular-nums text-ink">{count}</span>}
