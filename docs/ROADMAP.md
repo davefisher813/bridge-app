@@ -175,11 +175,24 @@ Recruiting:
   page already; this is the full log)
 - `school` a school's profile, money and depth chart
 
-Fundraising:
-- `gifts` the gift ledger, filterable by category and method
-- `pledges` what is promised and unpaid
-- `donor` one supporter's gifts, pledges and lifetime total
-- `campaign` a campaign's own gifts against its goal
+Fundraising: all four done 2026-09-17.
+- ~~`gifts`~~ `/fundraising/gifts`, filterable by `?category=` and
+  `?method=`. There was a `/gifts/new` and no list: money could go in
+  and never be read back except as a total, which is the shape of a
+  system nobody trusts.
+- ~~`pledges`~~ `/fundraising/pledges`, overdue first. Outstanding is
+  computed from the gifts against each pledge, not from the pledge's
+  own status, because a part payment is a gift and the remainder is
+  what is actually owed.
+- ~~`donor`~~ `/fundraising/donors/[id]`, with the board seat linked
+  when one is credited to them.
+- ~~`campaign`~~ `/fundraising/campaigns/[id]`, pledges beside the bar
+  and never inside it.
+
+Reading the gift ledger, the pledges and the donors is a member right,
+not a staff one: those three links sit outside the `canEdit` block on
+the fundraising index. A board member who is shown a total can see what
+it is made of, which is the point of showing them a total.
 
 Governance:
 - `member` a board seat's give/get, and the gifts credited to it

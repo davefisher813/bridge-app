@@ -93,7 +93,8 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
           </div>
           <div className="mb-5 flex flex-col gap-2">
             {owing.map(({ donor, totals }) => (
-              <RailCard key={donor.id} role="target">
+              <Link key={donor.id} href={`/org/${slug}/fundraising/donors/${donor.id}`} className="block">
+              <RailCard role="target">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-[13px] font-bold text-ink">{donor.name}</div>
@@ -106,6 +107,7 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
                   </span>
                 </div>
               </RailCard>
+              </Link>
             ))}
           </div>
         </>
@@ -122,7 +124,8 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
       ) : (
         <div className="flex flex-col gap-2">
           {rows.map(({ donor, totals }) => (
-            <RailCard key={donor.id} role="contact">
+            <Link key={donor.id} href={`/org/${slug}/fundraising/donors/${donor.id}`} className="block">
+            <RailCard role="contact">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-[13px] font-bold text-ink">{donor.name}</div>
@@ -149,6 +152,7 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
                 </div>
               </div>
             </RailCard>
+            </Link>
           ))}
         </div>
       )}

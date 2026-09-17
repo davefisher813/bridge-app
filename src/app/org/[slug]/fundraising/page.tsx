@@ -166,8 +166,12 @@ export default async function FundraisingPage({
       <div className="flex flex-col gap-2">
         {s.byCategory.map((c) => {
           const role = roleFor(c.percentOfBudget);
-          return (
-            <RailCard key={c.category} role={role}>
+          // The category row is the natural way in to the gifts behind
+          // the number. A percentage nobody can open is a number you
+          // either believe or do not, which is the whole complaint about
+          // the spreadsheet this replaces.
+          const card = (
+            <RailCard role={role}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="text-[13px] font-bold text-ink">{c.label}</div>
@@ -183,6 +187,11 @@ export default async function FundraisingPage({
                 </span>
               </div>
             </RailCard>
+          );
+          return (
+            <Link key={c.category} href={`/org/${slug}/fundraising/gifts?category=${c.category}`} className="block">
+              {card}
+            </Link>
           );
         })}
       </div>
@@ -215,8 +224,8 @@ export default async function FundraisingPage({
               const goalCents = c.goal_amount === null ? 0 : Math.round(Number(c.goal_amount) * 100);
               const p = campaignProgress(c.id, goalCents, gifts, pledges);
               const role = roleFor(p.percentOfGoal);
-              return (
-                <RailCard key={c.id} role={role}>
+              const card = (
+                <RailCard role={role}>
                   <div className="min-w-0">
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-[13px] font-bold text-ink">{c.name}</div>
@@ -232,6 +241,11 @@ export default async function FundraisingPage({
                     <Bar percent={p.percentOfGoal ?? 0} role={role} />
                   </div>
                 </RailCard>
+              );
+              return (
+                <Link key={c.id} href={`/org/${slug}/fundraising/campaigns/${c.id}`} className="block">
+                  {card}
+                </Link>
               );
             })}
           </div>
@@ -258,16 +272,28 @@ export default async function FundraisingPage({
         </div>
       </RailCard>
 
+      {/* Reading the ledger is not an editing right. A board member who
+          can see the total can see what it is made of, which is the
+          point of showing them a total at all. */}
+      <div className="mt-5 flex flex-col gap-2">
+        <Link href={`/org/${slug}/fundraising/gifts`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+          All gifts
+        </Link>
+        <Link href={`/org/${slug}/fundraising/pledges`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+          Pledges
+        </Link>
+        <Link href={`/org/${slug}/fundraising/donors`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+          Donors
+        </Link>
+      </div>
+
       {canEdit && (
-        <div className="mt-5 flex flex-col gap-2">
+        <div className="mt-2 flex flex-col gap-2">
           <Link
             href={`/org/${slug}/fundraising/gifts/new`}
             className="rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on"
           >
             Record a gift
-          </Link>
-          <Link href={`/org/${slug}/fundraising/donors`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
-            Donors
           </Link>
           <Link href={`/org/${slug}/fundraising/pledges/new`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
             Record a pledge
