@@ -65,8 +65,8 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
       .eq("org_id", org.id)
       .single(),
     supabase.from("transfer_windows").select("sport, division, season_year, window_label, opens_on, closes_on"),
-    supabase.from("target_communications").select("target_id, kind, notes, occurred_at").eq("target_id", id).eq("org_id", org.id).order("occurred_at", { ascending: false }),
-    supabase.from("target_visits").select("target_id, visit_type, impression, occurred_at").eq("target_id", id).eq("org_id", org.id).order("occurred_at", { ascending: false }),
+    supabase.from("target_communications").select("target_id, kind, notes, occurred_on").eq("target_id", id).eq("org_id", org.id).order("occurred_on", { ascending: false }),
+    supabase.from("target_visits").select("target_id, visit_type, impression, visit_date").eq("target_id", id).eq("org_id", org.id).order("visit_date", { ascending: false }),
   ]);
 
   if (!target) notFound();
@@ -77,8 +77,8 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
 
   const athlete = athleteRowToFitAthlete(athleteRow);
   const school = schoolRowToFitSchool(schoolRow);
-  const comms = (commRows ?? []) as Array<{ target_id: string; kind: string; notes: string | null; occurred_at: string | null }>;
-  const visits = (visitRows ?? []) as Array<{ target_id: string; visit_type: string; impression: string | null; occurred_at: string | null }>;
+  const comms = (commRows ?? []) as Array<{ target_id: string; kind: string; notes: string | null; occurred_on: string | null }>;
+  const visits = (visitRows ?? []) as Array<{ target_id: string; visit_type: string; impression: string | null; visit_date: string | null }>;
 
   const fit = scoreFit(athlete, school, {
     isPlaced: (target as { status: string }).status === "Committed",
@@ -198,7 +198,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
                 <div className="text-[14.5px] font-bold leading-tight text-ink">{c.notes || c.kind}</div>
                 <div className="mt-0.5 text-[12.5px] leading-tight text-muted">{c.kind}</div>
               </div>
-              {c.occurred_at && <span className="flex-shrink-0 text-[12.5px] font-bold text-muted">{c.occurred_at.slice(0, 10)}</span>}
+              {c.occurred_on && <span className="flex-shrink-0 text-[12.5px] font-bold text-muted">{c.occurred_on.slice(0, 10)}</span>}
             </div>
           </RailCard>
         ))}

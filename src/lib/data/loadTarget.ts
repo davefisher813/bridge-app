@@ -32,14 +32,20 @@ export interface CommunicationRow {
   target_id: string;
   kind: string;
   notes: string | null;
-  occurred_at: string | null;
+  // occurred_ON, per migration 0004. It was written as occurred_at here
+  // and on the target page, which is a column neither table has, so
+  // PostgREST would have errored on every load of both screens.
+  // src/laws/schemaLaws.test.ts found it on its first run.
+  occurred_on: string | null;
 }
 
 export interface VisitRow {
   target_id: string;
   visit_type: string;
   impression: string | null;
-  occurred_at: string | null;
+  // visit_date, per migration 0006. A visit has a date rather than a
+  // timestamp because that is what anybody actually records.
+  visit_date: string | null;
 }
 
 export interface TargetBundle {
@@ -78,16 +84,16 @@ export async function loadTarget(orgId: string, targetId: string): Promise<Targe
     supabase.from("transfer_windows").select("sport, division, season_year, window_label, opens_on, closes_on"),
     supabase
       .from("target_communications")
-      .select("target_id, kind, notes, occurred_at")
+      .select("target_id, kind, notes, occurred_on")
       .eq("target_id", targetId)
       .eq("org_id", orgId)
-      .order("occurred_at", { ascending: false }),
+      .order("occurred_on", { ascending: false }),
     supabase
       .from("target_visits")
-      .select("target_id, visit_type, impression, occurred_at")
+      .select("target_id, visit_type, impression, visit_date")
       .eq("target_id", targetId)
       .eq("org_id", orgId)
-      .order("occurred_at", { ascending: false }),
+      .order("visit_date", { ascending: false }),
   ]);
 
   if (!target) return null;

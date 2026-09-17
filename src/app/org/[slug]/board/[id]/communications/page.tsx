@@ -69,10 +69,10 @@ export default async function CommunicationsPage({ params }: { params: Promise<{
   const entries: Entry[] = [
     ...bundle.communications.map((c) => {
       const meta = KIND[c.kind] ?? KIND.other;
-      return { at: c.occurred_at, label: meta.label, detail: c.notes, kind: meta.kind, role: meta.role };
+      return { at: c.occurred_on, label: meta.label, detail: c.notes, kind: meta.kind, role: meta.role };
     }),
     ...bundle.visits.map((v) => ({
-      at: v.occurred_at,
+      at: v.visit_date,
       label: VISIT_KIND[v.visit_type] ?? VISIT_KIND.other,
       detail: v.impression,
       kind: "visit" as RowKind,

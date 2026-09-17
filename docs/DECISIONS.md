@@ -1541,3 +1541,49 @@ ordinary policy.
 - All fourteen migrations apply cleanly to a real Postgres 16 and the
   whole suite passes, which is also the first time `0013` and `0014` have
   been run end to end in this session rather than trusted.
+
+## 2026-09-17: a law that compares every select against the schema
+
+**Decision.** `src/laws/schemaLaws.test.ts` parses the column list out of
+every `create table` and `alter table ... add column` in `migrations/`,
+parses every `.from("t").select("...")` in `src/`, and fails if a query
+names a column the schema does not have. Embedded tables and
+`alias:column` are both checked.
+
+**Reason.** The same mistake happened twice in one afternoon, in both
+directions: `loadTarget.ts` selected `coach_email`, which does not exist,
+and the donor page put `board_id` in a cast and not in the select. A
+column name is a string, and a string is invisible to TypeScript. The
+schema is also a string, in a .sql file, so this is the only place the
+two can be compared.
+
+**It found a live bug on its first run.** `target_communications` has
+`occurred_on` and `target_visits` has `visit_date`; both the target page
+and `loadTarget.ts` were asking for `occurred_at`, which neither table
+has. PostgREST would have errored on every load of the target page and
+the whole contact log. The target page has been wrong since it was
+written; `loadTarget.ts` inherited it by copy an hour after.
+
+**Consequences.**
+
+- Three plants, all caught: the real `occurred_at`, the same column
+  hidden behind an `at:occurred_at` alias, and a `jersey_number` inside
+  an `athletes(...)` embed.
+- It deliberately does not validate the whole PostgREST select grammar.
+  It checks plain columns, embeds and aliases, and skips what it cannot
+  parse confidently rather than guessing. A law that reports a false
+  failure earns an allowlist entry within a week and stops meaning
+  anything.
+- A sanity assertion guards the parser itself: the schema must have more
+  than fifteen tables and the app more than forty queries, and
+  `recruiting_targets` must have `coach_name` and not `coach_email`. A
+  broken regex would otherwise show up as zero problems and zero work.
+- No select in the app is built by interpolation, which is a third
+  assertion. A runtime-built column list is invisible to this check for
+  the same reason a runtime-built table name is invisible to
+  `dataLaws.test.ts`.
+
+**The bug this did not catch and nothing yet does:** the pages are all
+`force-dynamic` server components, so nothing in the repo ever executes
+one. `npm run build` type-checks them and never runs them. A real
+rendering harness against a seeded database is the next honest gap.
