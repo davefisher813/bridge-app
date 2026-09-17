@@ -892,3 +892,37 @@ end $$;
 reset role;
 
 \echo 'ALL RLS ASSERTIONS PASSED'
+
+-- ── Coverage, asked of the database rather than of the SQL text ──────
+-- Added 2026-09-17. A regex over the migrations cannot see a policy
+-- created in a DO loop with format(), which is how the fundraising and
+-- governance tables get theirs, so the check that every org-scoped table
+-- is actually guarded belongs here where the answer is authoritative.
+do $$
+declare
+  unguarded text[] := '{}';
+  t record;
+begin
+  for t in
+    select c.relname as name, c.relrowsecurity as rls
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relkind = 'r'
+      and exists (
+        select 1 from pg_attribute a
+        where a.attrelid = c.oid and a.attname = 'org_id' and a.attnum > 0 and not a.attisdropped
+      )
+  loop
+    if not t.rls then
+      unguarded := unguarded || (t.name || ': carries org_id with row level security OFF');
+    elsif not exists (select 1 from pg_policies p where p.schemaname = 'public' and p.tablename = t.name) then
+      unguarded := unguarded || (t.name || ': row level security on, but no policy, so nothing is readable');
+    end if;
+  end loop;
+
+  if array_length(unguarded, 1) > 0 then
+    raise exception 'FAIL: % org-scoped table(s) unguarded: %', array_length(unguarded, 1), array_to_string(unguarded, '; ');
+  end if;
+  raise notice 'PASS: every table carrying org_id has row level security and at least one policy';
+end $$;

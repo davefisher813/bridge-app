@@ -1368,3 +1368,40 @@ own tests: stripping digits before matching a category turned "English 9"
 into "english", so the title was consumed as the subject and the course
 imported with no title. A cell containing a digit is now never a
 category.
+
+## 2026-09-17 - Laws about the app as a whole, not about one function
+
+**Decision.** `src/laws/dataLaws.test.ts` checks properties that are only
+visible across the whole codebase at once: no table is written and never
+read, no query takes its table name from a variable, and a file that
+computes with a shared reference table also reads the org-scoped half of
+the pair. The RLS coverage check lives in `scripts/rls_test.sql` instead,
+where it asks the real database which tables carry `org_id` and which of
+those are unguarded.
+
+**Reason.** The grading-scale bug was correct on both ends and broken in
+the middle: the entry screen wrote, the index listed, the eligibility
+page never read. Every unit test passed because each half is right on its
+own. Nothing that looks at one function can see it.
+
+**Alternatives considered.** Checking RLS coverage by regex over the
+migration SQL. It cannot work: the fundraising and governance policies
+are created in a DO loop with `format()`, so the policy names never
+appear as literals. The first version of this law reported eight false
+failures before it moved to Postgres.
+
+**Consequences.** Two allowlists, `NOT_APP_TABLES` and
+`DYNAMIC_ALLOWED`, each entry carrying a reason, so adding to one is a
+decision rather than a way to quiet the check. The dynamic-table rule
+also drove a real change: the approved-list detail page picked its table
+with a variable, which would have hidden that table from the orphan
+check, and it now uses two literal branches.
+
+Applying the laws immediately surfaced a second defect. Doc AI saves a
+grading table it read off a transcript into the SHARED table with
+`verified_at` null, so "shared" and "confirmed with the school" are
+different claims. The eligibility page was labelling every shared row
+verified, which let a scale OCR'd from a parent's phone photo outrank a
+table a coordinator typed off the school's printed legend. Precedence is
+now: confirmed shared, then the org's own entry, then unconfirmed shared,
+then the assumed default.

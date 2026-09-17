@@ -126,7 +126,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
     ? await Promise.all([
         supabase
           .from("high_school_grading_scales")
-          .select("school_name, bands, reports_weighted_grades, weighting_is_class_rank_only, weight_bonus, source_note")
+          .select("school_name, bands, reports_weighted_grades, weighting_is_class_rank_only, weight_bonus, source_note, verified_at")
           .in("school_name_key", schoolKeys),
         supabase
           .from("org_grading_scales")
@@ -143,6 +143,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
     weighting_is_class_rank_only: boolean;
     weight_bonus: number | string;
     source_note: string | null;
+    verified_at?: string | null;
   };
   const label = (rows: ScaleQueryRow[] | null, origin: "verified" | "org"): GradingScaleRow[] =>
     (rows ?? []).map((r) => ({
@@ -154,10 +155,24 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
       source_note: r.source_note,
       origin,
     }));
-  // A verified shared row beats an org's own entry; resolveScale picks.
+
+  // NOT every shared row is verified. src/lib/actions/documents.ts saves
+  // a table Doc AI read off a transcript into the shared table with
+  // verified_at null, so "shared" and "confirmed with the school" are
+  // different claims and only the column tells them apart. Labelling
+  // every shared row verified would let a scale OCR'd from a parent's
+  // phone photo outrank a table a coordinator typed off the school's own
+  // printed legend, which is backwards.
+  //
+  // Precedence, in the order resolveScale() reads the array: a confirmed
+  // shared table, then this org's own entry, then an unconfirmed shared
+  // one, then the assumed default. The middle two share the "org" label
+  // because they are the same claim: a real table nobody has verified.
+  const sharedAll = (sharedRows ?? []) as ScaleQueryRow[];
   const scales = [
-    ...label(sharedRows as ScaleQueryRow[] | null, "verified"),
+    ...label(sharedAll.filter((r) => r.verified_at != null), "verified"),
     ...label(orgRows as ScaleQueryRow[] | null, "org"),
+    ...label(sharedAll.filter((r) => r.verified_at == null), "org"),
   ];
 
   // The approved lists for those same schools, portal first. Without

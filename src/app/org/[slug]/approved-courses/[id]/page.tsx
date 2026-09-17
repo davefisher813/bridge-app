@@ -48,22 +48,22 @@ export default async function ApprovedListPage({
   const fromPortal = origin === "portal";
   const supabase = await createClient();
 
-  const listTable = fromPortal ? "ncaa_approved_course_lists" : "org_approved_course_lists";
-  const courseTable = fromPortal ? "ncaa_approved_courses" : "org_approved_courses";
+  // Two literal branches rather than a table name in a variable. A
+  // dynamic .from() is invisible to the table audit in
+  // src/laws/dataLaws.test.ts, which is the check that catches a table
+  // being written and never read: exactly how the org grading scales
+  // sat dead for a release.
+  const LIST_COLUMNS = "id, school_name, ceeb_code, is_complete, retrieved_on, source_note";
+  const COURSE_COLUMNS = "title, subject, max_credit, weighted";
 
-  const { data: list } = await supabase
-    .from(listTable)
-    .select("id, school_name, ceeb_code, is_complete, retrieved_on, source_note")
-    .eq("id", id)
-    .single();
+  const { data: list } = fromPortal
+    ? await supabase.from("ncaa_approved_course_lists").select(LIST_COLUMNS).eq("id", id).single()
+    : await supabase.from("org_approved_course_lists").select(LIST_COLUMNS).eq("id", id).eq("org_id", org.id).single();
   if (!list) notFound();
 
-  const { data: courseRows } = await supabase
-    .from(courseTable)
-    .select("title, subject, max_credit, weighted")
-    .eq("list_id", id)
-    .order("subject", { ascending: true })
-    .order("title", { ascending: true });
+  const { data: courseRows } = fromPortal
+    ? await supabase.from("ncaa_approved_courses").select(COURSE_COLUMNS).eq("list_id", id).order("subject").order("title")
+    : await supabase.from("org_approved_courses").select(COURSE_COLUMNS).eq("list_id", id).eq("org_id", org.id).order("subject").order("title");
 
   const courses = (courseRows ?? []) as CourseRow[];
   const bySubject = new Map<SubjectArea, CourseRow[]>();
