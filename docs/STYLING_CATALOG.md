@@ -16,7 +16,7 @@ adding it here first.
 | Status pills | P1 | Solid fill, paired foreground |
 | Section headers | H1 | Colored dot, dotted rule, trailing count |
 | Metadata icon badges | B1 | Solid square badge, one hue per field type |
-| Cards and rows | C2 | Solid card, colored left border rail |
+| Cards and rows | C2 | Solid card, colored type glyph (was: left border rail) |
 | Fit score | S2 | Numeric pill, rendered as a tint |
 | Avatars | AV1 | Gradient fill with initials |
 | Primary buttons | BT3 | Solid rounded rectangle |
@@ -145,15 +145,41 @@ with its contrast ratio recorded in the table above.
 
 ### C2, cards and rows
 
-Solid `bg-paper`, `rounded-[10px]`, `border-left: 5px` in a meaningful
-color: the row's stage for a target, or its field role for a row that is
-not a pipeline item (contacts take `people`, visits take `place`). Never
-red, which now belongs to actions. Not a glass surface, and not a hairline-divided full-bleed row.
+**Revised 2026-09-16.** Solid `bg-paper`, `rounded-[10px]`, with a
+leading type glyph in a meaningful color: the row's stage for a target,
+or its field role for a row that is not a pipeline item (contacts take
+`people`, visits take `place`). Never red, which belongs to actions. Not
+a glass surface, and not a hairline-divided full-bleed row.
+
+The glyph replaced a 5px coloured left border. Dave, after clicking
+through the prototype: "let's use icons like Jarvis does to identify
+categories instead of the color highlight." The reasoning is the same
+one JARVIS settled on: a stripe can only ever say status, so a list of
+eight rows was eight coloured stripes and no indication of what any of
+them was. The glyph says the KIND and keeps the status in its colour, so
+a row answers both questions before it is read.
+
+Form: a bare coloured glyph, 18px, 1.75 stroke, no tile behind it. This
+is JARVIS's second form (`RowGlyph`, approved there 2026-08-18) rather
+than its first (`RowIcon`, a tinted tile). A filled tile on every row of
+a list reads heavier than the stripe it was meant to lighten; the tile
+belongs on stat and banner surfaces, the same place JARVIS keeps it.
+
+The stripe survives, and is still what `RailCard` renders when no `kind`
+is passed, for rows that are a sentence rather than a record: a warning,
+a note, a piece of prose. A type mark on a paragraph labels the wrong
+thing.
+
+Drawings live in `src/components/rowIcons.json`. One file, read by the
+component and by every generator, because copies of a shared map drifted
+three times in one sitting earlier in this project. Two laws in
+`src/laws/stylingLaws.test.ts` hold it: every icon has a real drawing,
+and no generator keeps its own copy.
 
 This is the one place the catalog departs from JARVIS's own "chassis,
-not a card pile" rule in docs/DESIGN_SYSTEM.md. Dave picked the rail
-card knowingly. The DESIGN_SYSTEM reference to full-bleed rows now
-describes JARVIS, not this app.
+not a card pile" rule in docs/DESIGN_SYSTEM.md. Dave picked the card
+knowingly. The DESIGN_SYSTEM reference to full-bleed rows now describes
+JARVIS, not this app.
 
 ### S2, fit score
 

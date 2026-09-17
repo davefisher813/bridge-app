@@ -227,3 +227,58 @@ describe("LAW: the role token set stays complete and legible", () => {
     expect(bad).toEqual([]);
   });
 });
+
+// ── The type glyphs ──────────────────────────────────────────────────
+// Added 2026-09-16, when the coloured left rail was replaced by a type
+// icon (Dave: "let's use icons like Jarvis does to identify categories
+// instead of the color highlight").
+describe("LAW: there is one icon set and everything reads it", () => {
+  const ICONS = JSON.parse(readFileSync(join(SRC, "components/rowIcons.json"), "utf8")) as Record<string, string>;
+
+  it("every icon has a real drawing", () => {
+    const empty = Object.entries(ICONS)
+      .filter(([k]) => k !== "_comment")
+      .filter(([, v]) => typeof v !== "string" || !/<(path|circle|rect)/.test(v))
+      .map(([k]) => k);
+    expect(empty).toEqual([]);
+  });
+
+  // Copies of a shared map drifted three times in one sitting earlier in
+  // this project, which is why the generators parse the source. A
+  // generator that inlines the drawings instead is the same bug coming
+  // back, and it would be invisible: the prototype would keep rendering
+  // whatever it was given.
+  it("no generator keeps its own copy of the drawings", () => {
+    const generators = ["scripts/build_prototype.py", "scripts/build_preview.py", "scripts/build_testbench.py"];
+    const offenders: string[] = [];
+    for (const g of generators) {
+      let src = "";
+      try {
+        src = readFileSync(join(process.cwd(), g), "utf8");
+      } catch {
+        continue;
+      }
+      // A path command string from the set, sitting in a generator, means
+      // somebody pasted the map in rather than reading the file.
+      for (const [name, d] of Object.entries(ICONS)) {
+        if (name === "_comment") continue;
+        const firstPath = String(d).match(/d='([^']{12,})'/)?.[1];
+        if (firstPath && src.includes(firstPath)) offenders.push(`${g} inlines "${name}"`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  // A glyph is only useful if it renders in the colour its role asks for,
+  // and a Tailwind class that was never generated renders as body text
+  // while looking perfectly correct in the markup. That shipped once.
+  it("every role has a foreground class and the set is complete", () => {
+    const hue = readFileSync(join(SRC, "components/statusHue.ts"), "utf8");
+    const roles = [...hue.matchAll(/^\s+\|\s+"(\w+)"$/gm)].map((m) => m[1]);
+    // [\s\S] rather than the s flag: tsconfig targets es2017 here.
+    const fgBody = hue.match(/export const FG: Record<Role, string> = \{([\s\S]*?)\n\};/)?.[1] ?? "";
+    const missing = roles.filter((r) => !new RegExp(`\\b${r}:\\s*"text-ios-`).test(fgBody));
+    expect(roles.length).toBeGreaterThan(5);
+    expect(missing).toEqual([]);
+  });
+});

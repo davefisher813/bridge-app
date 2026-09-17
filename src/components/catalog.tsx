@@ -5,12 +5,37 @@
 
 import type { ReactNode } from "react";
 import { DOT, RAIL, SOLID, TINT, scoreRole, type Role } from "@/components/statusHue";
+import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 
-// C2: solid card, 5px colored left rail. The rail carries meaning, so it
-// takes the row's own role, defaulting to accent for a row with nothing to
-// say.
-export function RailCard({ role = "accent", children }: { role?: Role; children: ReactNode }) {
-  return <div className={`rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL[role]}`}>{children}</div>;
+// C2, revised 2026-09-16. Was a solid card with a 5px coloured left rail.
+// Dave, after clicking through the prototype: "let's use icons like Jarvis
+// does to identify categories instead of the color highlight." The stripe
+// only ever said status, so a list of eight rows was eight stripes and no
+// indication of what any of them was. Passing `kind` swaps the stripe for
+// the type glyph, which keeps the status in its colour and adds the thing
+// the stripe could never say.
+//
+// The stripe is still here, and still the default, for rows that are a
+// sentence rather than a record: a warning, a note, a piece of prose. A
+// glyph there labels a paragraph, which is not what a type mark is for.
+export function RailCard({
+  role = "accent",
+  kind,
+  children,
+}: {
+  role?: Role;
+  kind?: RowKind;
+  children: ReactNode;
+}) {
+  if (!kind) return <div className={`rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL[role]}`}>{children}</div>;
+  return (
+    <div className="flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
+      <span className="mt-[1px]">
+        <RowGlyph kind={kind} role={role} />
+      </span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
 }
 
 // AV1: gradient circle with initials. The gradient is fixed rather than

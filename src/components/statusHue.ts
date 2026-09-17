@@ -125,3 +125,26 @@ export const DOT: Record<Role, string> = {
   danger: "bg-ios-pink",
   neutral: "bg-ios-gray",
 };
+
+// The glyph colour, for the type icon that replaced the left rail
+// (Dave 2026-09-16). Same hue as the rail it replaces, so a row that was
+// orange is still orange and nothing has to be relearned. Foreground
+// rather than background, because the glyph is a drawing and not a
+// swatch: a filled tile behind every row reads heavier than the stripe
+// it was meant to lighten.
+export const FG: Record<Role, string> = {
+  target: "text-ios-gray",
+  contact: "text-ios-blue",
+  visit: "text-ios-mint",
+  offer: "text-ios-orange",
+  committed: "text-ios-green",
+  high: "text-ios-green",
+  mid: "text-ios-yellow",
+  low: "text-ios-gray",
+  time: "text-ios-yellow",
+  people: "text-ios-teal",
+  place: "text-ios-indigo",
+  accent: "text-ios-red",
+  danger: "text-ios-pink",
+  neutral: "text-ios-gray",
+};

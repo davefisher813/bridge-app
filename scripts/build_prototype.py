@@ -46,8 +46,14 @@ def parse_map(name):
 
 
 MAPS = "\n".join(
-    f"const {name} = {json.dumps(parse_map(name))};" for name in ("SOLID", "TINT", "RAIL", "DOT")
+    f"const {name} = {json.dumps(parse_map(name))};" for name in ("SOLID", "TINT", "RAIL", "DOT", "FG")
 )
+
+# The type glyphs, read from the same file the app's RowGlyph imports.
+# Not copied: a copied map drifted three times in one sitting earlier in
+# this project, which is why every generator parses the source.
+ICONS = {k: v for k, v in json.load(open("src/components/rowIcons.json")).items() if k != "_comment"}
+MAPS += f"\nconst ICONS = {json.dumps(ICONS)};"
 
 HTML = f"""<title>Recruiting Platform Prototype</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

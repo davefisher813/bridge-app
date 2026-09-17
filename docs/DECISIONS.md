@@ -1228,3 +1228,53 @@ actions from a human: one needs a list, the other needs somebody to say
 which course it was. The abbreviation table in `approvedCourses.ts` is
 kept deliberately short for the same reason: every entry in it is a
 chance to collapse two different courses into one.
+
+## 2026-09-17 - The type glyph replaces the coloured left rail
+
+**Decision.** C2's 5px coloured left border becomes a leading type glyph
+in the same colour. `RailCard` takes an optional `kind`; with one it
+renders the glyph, without one it still renders the stripe. Drawings live
+in `src/components/rowIcons.json`, read by the component and by every
+generator.
+
+**Reason.** Dave, 2026-09-16, after clicking through the prototype:
+"let's use icons like Jarvis does to identify categories instead of the
+color highlight." The stripe could only ever say status. Every row in a
+list wore one, so eight rows read as eight coloured stripes with no
+indication of what any of them was. The glyph carries the kind and keeps
+the status in its colour, so a row answers both before it is read.
+
+**Alternatives considered.** JARVIS's tiled form (`RowIcon`, a glyph on a
+tinted square). Rejected for the same reason JARVIS keeps it off list
+surfaces: a filled tile on every row is heavier than the stripe it was
+meant to lighten. It remains the right treatment for stat and banner
+surfaces here too.
+
+**Consequences.** The stripe is retained deliberately for rows that are
+prose rather than records, because a type mark on a paragraph labels the
+wrong thing. Two laws hold the single icon set. A third law checks every
+role has a foreground colour class, after the first pass of this shipped
+with orange and mint glyphs rendering black: the Tailwind classes had
+never been generated, and the markup looked perfectly correct. The
+prototype walkthrough now asserts computed colour, not class names.
+
+## 2026-09-17 - Detail gets its own page rather than grey under every row
+
+**Decision.** Explanatory text comes off the working screens and onto
+pages built for it. The eligibility screen's stack of caveats collapses
+to one row that opens a "Things to know" page carrying all of them in
+full. A "How this works" page under More explains core GPA, approved
+lists, grading scales, fit scoring, pledges and give/get at length.
+
+**Reason.** Dave, 2026-09-16: "if we don't have to use subtext in
+certain spots or can tighten it up, that would be great. Could also have
+a page that's very informative where it doesn't matter." The caveats are
+all real and none can be dropped, so the choice was never whether to say
+them but where. Five stacked paragraphs were the lower half of the
+eligibility screen and pushed the core-course breakdown below the fold.
+
+**Consequences.** A screen may now assume its explanation exists
+somewhere reachable, which is what lets a row carry a fact instead of a
+justification. The caveats page also carries the actions the caveats
+imply (enter a grading scale, enter an approved list), so reading them
+leads somewhere.

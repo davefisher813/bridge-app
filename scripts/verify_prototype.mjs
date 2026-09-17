@@ -319,9 +319,10 @@ await tap("text=Academic");
 t = await text();
 check("a score dimension opens its reasons", has(t, "Academic") && has(t, "Reasons"));
 await tap("a:has-text('Corville')");
-// By the row's own meta line: "Corville College" also matches the page
-// heading, which is not the thing that navigates.
-await tap("text=Division, money, depth chart");
+// The second match, not the first: the school name is both the page
+// heading and the row under More, and only the row navigates.
+await page.locator("#screen").getByText("Corville College", { exact: true }).nth(1).click();
+await page.waitForTimeout(60);
 t = await text();
 check("a school page opens", has(t, "Corville College") && has(t, "Money"));
 // The D3 law holds in the prototype because it runs the shipped rule.
@@ -426,6 +427,73 @@ check("a school with no list is flagged for entry", has(t, "Nothing on file"));
 await tap("text=Nothing on file");
 t = await text();
 check("a school with no list explains what that costs", /stays unchecked/i.test(t), t.slice(0, 200));
+
+// ── Type glyphs instead of the colour rail ───────────────────────────
+// Dave asked for JARVIS's icons in place of the left stripe. A glyph
+// that renders as an empty <svg> looks like nothing at all, so this
+// checks the drawings are actually there and that the stripe is gone.
+await tap("button:has-text('Today')");
+const glyphs = await page.evaluate(() => {
+  const svgs = [...document.querySelectorAll("#screen svg")];
+  return {
+    count: svgs.length,
+    empty: svgs.filter((el) => el.children.length === 0).length,
+    coloured: svgs.filter((el) => /text-ios-/.test(el.getAttribute("class") || "")).length,
+    rails: document.querySelectorAll("#screen .border-l-\\[5px\\]").length,
+  };
+});
+check("rows carry a type glyph", glyphs.count >= 6, JSON.stringify(glyphs));
+check("no glyph renders empty", glyphs.empty === 0, `${glyphs.empty} empty of ${glyphs.count}`);
+check("the glyph carries the status colour", glyphs.coloured === glyphs.count, `${glyphs.coloured} of ${glyphs.count}`);
+
+// By the COMPUTED colour, not the class name. A class Tailwind never
+// generated is still present in the markup and still renders as plain
+// body text, which is exactly how the first pass of this shipped: the
+// orange and mint glyphs were black and the class list looked correct.
+const unstyled = await page.evaluate(() => {
+  const body = getComputedStyle(document.body).color;
+  return [...document.querySelectorAll("#screen svg")]
+    .filter((el) => /text-ios-/.test(el.getAttribute("class") || ""))
+    .filter((el) => getComputedStyle(el).color === body)
+    .map((el) => (el.getAttribute("class") || "").match(/text-ios-[a-z]+/)?.[0]);
+});
+check("every glyph colour class actually resolves", unstyled.length === 0, [...new Set(unstyled)].join(", "));
+check("the left colour rail is gone from list rows", glyphs.rails === 0, String(glyphs.rails));
+
+// Every kind named anywhere in the app has to exist in the icon set.
+const unknownKinds = await page.evaluate(() => {
+  const names = Object.keys(ICONS);
+  return names.filter((k) => !ICONS[k] || ICONS[k].length < 5);
+});
+check("every icon in the set has a drawing", unknownKinds.length === 0, unknownKinds.join(", "));
+
+// ── The informative pages ────────────────────────────────────────────
+await tap("button:has-text('More')");
+await tap("text=Bridge Foundation");
+await page.waitForTimeout(80);
+await tap("button:has-text('Athletes')");
+await tap("text=Marcus Ellery");
+await tap("button:has-text('NCAA eligibility')");
+t = await text();
+check("the caveats collapse to one row", /caveats on this verdict/i.test(t), t.slice(0, 200));
+// The stack Dave screenshotted was five separate cards.
+const caveatCards = await page.evaluate(() =>
+  [...document.querySelectorAll("#screen .bg-paper")].filter((el) => /running GPA|projection|10\/7 rule/i.test(el.textContent || "")).length,
+);
+check("the warning stack is off the eligibility screen", caveatCards === 0, String(caveatCards));
+
+await tap("text=caveats on this verdict");
+t = await text();
+check("the caveats page carries all of them", /running GPA/i.test(t) && /10\/7 rule/i.test(t), t.slice(0, 160));
+check("the caveats page says what to do next", has(t, "What to do"));
+
+await tap("button:has-text('More')");
+await tap("text=How this works");
+t = await text();
+check("the guide opens", has(t, "How this works"));
+check("the guide explains the core GPA", /core GPA is not transcript GPA/i.test(t));
+check("the guide explains the partial-list rule", /partial list can only say yes/i.test(t));
+check("the guide says the data is invented", /made up/i.test(t));
 
 // ── Flagging a bug ───────────────────────────────────────────────────
 // Under setContent there is no artifact host, so claude.use("db")

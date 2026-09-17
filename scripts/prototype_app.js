@@ -328,9 +328,29 @@ function boardSummary(boardId) {
 // ── Rendering helpers ────────────────────────────────────────────────
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-function rail(role, inner, onclick) {
+// The type glyph that replaced the left colour rail (Dave, 2026-09-16:
+// "let's use icons like Jarvis does to identify categories instead of
+// the color highlight"). The stripe only ever said status, so eight rows
+// meant eight stripes and no clue what any of them was. The drawing says
+// the kind, its colour keeps the status, and one glance now answers both.
+function glyph(kind, role = "neutral", size = 18) {
+  const d = ICONS[kind];
+  if (!d) return "";
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+    class="flex-shrink-0 ${FG[role]}" style="width:${size}px;height:${size}px">${d}</svg>`;
+}
+
+function rail(role, inner, onclick, kind) {
   const click = onclick ? ` onclick="${onclick}" style="cursor:pointer"` : "";
-  return `<div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL[role]}"${click}>${inner}</div>`;
+  // No kind given: keep the rail. Used by the few surfaces where the row
+  // is a sentence rather than a record, and a glyph would be labelling
+  // prose.
+  if (!kind) return `<div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL[role]}"${click}>${inner}</div>`;
+  return `<div class="flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3"${click}>
+    <span class="mt-[1px]">${glyph(kind, role)}</span>
+    <div class="min-w-0 flex-1">${inner}</div>
+  </div>`;
 }
 function pill(text, role) {
   return `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-bold ${SOLID[role]}">${esc(text)}</span>`;
@@ -338,10 +358,12 @@ function pill(text, role) {
 function chip(text, role) {
   return `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${TINT[role]}">${esc(text)}</span>`;
 }
-function header(label, count, role = "accent") {
+function header(label, count, role = "accent", kind) {
   const c = count != null ? `<span class="text-[12px] font-extrabold tabular-nums text-ink">${count}</span>` : "";
-  return `<div class="flex items-center gap-2">
-    <span class="h-[7px] w-[7px] flex-shrink-0 rounded-full ${DOT[role]}"></span>
+  const lead = kind
+    ? glyph(kind, role, 15)
+    : `<span class="h-[7px] w-[7px] flex-shrink-0 rounded-full ${DOT[role]}"></span>`;
+  return `<div class="flex items-center gap-2">${lead}
     <span class="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">${esc(label)}</span>
     <span class="h-px flex-1 border-b-2 border-dotted border-line"></span>${c}</div>`;
 }
@@ -373,7 +395,7 @@ function statRow(items) {
 
 // A row that reads as tappable. Everything in a list is one of these now,
 // so nothing looks live and then does nothing.
-function row(role, main, meta, right, onclick) {
+function row(role, main, meta, right, onclick, kind) {
   return rail(
     role,
     `<div class="flex items-center justify-between gap-3">
@@ -384,6 +406,7 @@ function row(role, main, meta, right, onclick) {
       ${right || ""}
     </div>`,
     onclick,
+    kind,
   );
 }
 function bar(pct, role) {
@@ -418,6 +441,11 @@ function pctRole(pct) {
   if (pct == null) return "target";
   return pct >= 75 ? "committed" : "offer";
 }
+// Which glyph each fit dimension wears. The four rows on a target look
+// identical otherwise, and three of them are about money, grades and
+// ability, which are not the same thing.
+const DIM_ICON = { academic: "course", athletic: "target", financial: "money", eligibility: "checklist" };
+
 const STATUS_ROLE = {
   Target: "target",
   "In Contact": "contact",
@@ -465,7 +493,7 @@ SCREENS.today = () => {
       { label: "Inbox", value: docsPending, go: "go('documents')" },
     ])}
 
-    <div class="mb-2 mt-5">${header("Needs follow-up", stale.length, "offer")}</div>
+    <div class="mb-2 mt-5">${header("Needs follow-up", stale.length, "offer", "clock")}</div>
     <div class="flex flex-col gap-2">
       ${stale
         .map((t) => {
@@ -477,6 +505,7 @@ SCREENS.today = () => {
             `${esc(s.name)} &middot; ${daysSince(t.updatedAt)}d quiet`,
             pill(t.status, STATUS_ROLE[t.status]),
             `go('target',{id:'${t.id}'})`,
+            "athlete",
           );
         })
         .join("")}
@@ -484,7 +513,7 @@ SCREENS.today = () => {
 
     ${
       visits.length
-        ? `<div class="mb-2 mt-5">${header("Upcoming visits", visits.length, "visit")}</div>
+        ? `<div class="mb-2 mt-5">${header("Upcoming visits", visits.length, "visit", "visit")}</div>
       <div class="flex flex-col gap-2">${visits
         .map((t) =>
           row(
@@ -493,6 +522,7 @@ SCREENS.today = () => {
             esc(new Date(t.visitDate).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" })),
             "",
             `go('target',{id:'${t.id}'})`,
+            "visit",
           ),
         )
         .join("")}</div>`
@@ -501,7 +531,7 @@ SCREENS.today = () => {
 
     ${
       f
-        ? `<div class="mb-2 mt-5">${header("Fundraising", null, "committed")}</div>
+        ? `<div class="mb-2 mt-5">${header("Fundraising", null, "committed", "money")}</div>
       ${row(
         "committed",
         `${money(f.totalCashCents)} raised`,
@@ -510,6 +540,7 @@ SCREENS.today = () => {
         }`,
         "",
         "go('fundraising')",
+        "money",
       )}`
         : ""
     }
@@ -586,7 +617,7 @@ SCREENS.athlete = () => {
       ${button("Transcript", `go('courses',{id:'${a.id}'})`, "secondary")}
     </div>
 
-    <div class="mb-2">${header("Schools", ts.length, "contact")}</div>
+    <div class="mb-2">${header("Schools", ts.length, "contact", "school")}</div>
     <div class="flex flex-col gap-2">
       ${
         ts.length
@@ -604,6 +635,7 @@ SCREENS.athlete = () => {
                     ${chip(fit.tag + " " + fit.score, scoreRole(fit.score))}
                   </div>`,
                   `go('target',{id:'${t.id}'})`,
+                  "school",
                 );
               })
               .join("")
@@ -613,9 +645,9 @@ SCREENS.athlete = () => {
 
     ${
       docs.length
-        ? `<div class="mb-2 mt-5">${header("Documents", docs.length, "place")}</div>
+        ? `<div class="mb-2 mt-5">${header("Documents", docs.length, "place", "document")}</div>
       <div class="flex flex-col gap-2">${docs
-        .map((d) => rail("place", `<div class="text-[13px] font-bold text-ink">${esc(d.fileName)}</div><div class="text-[11.5px] text-muted">${esc(d.category || "Unknown")} &middot; applied ${esc(d.createdAt)}</div>`, `go('document',{id:'${d.id}'})`))
+        .map((d) => rail("place", `<div class="text-[13px] font-bold text-ink">${esc(d.fileName)}</div><div class="text-[11.5px] text-muted">${esc(d.category || "Unknown")}</div>`, `go('document',{id:'${d.id}'})`, "document"))
         .join("")}</div>`
         : ""
     }
@@ -659,6 +691,26 @@ SCREENS.eligibility = () => {
         : ""
     }
 
+    ${(() => {
+      // Five stacked paragraphs of caveat was the whole lower half of
+      // this screen (Dave, 2026-09-16, with a screenshot of it). They are
+      // all real and none can be dropped, so they collapse to one row
+      // that opens its own page, which is where detail is welcome.
+      // Placed under the verdict, because a caveat about a verdict
+      // belongs next to it and not four sections later.
+      const all = [...view.adapterWarnings, ...e.warnings];
+      if (!all.length) return "";
+      return `<div class="mb-2 mt-4">${header("Worth knowing", all.length, "offer", "warning")}</div>
+        <div class="mb-1">${row(
+          "offer",
+          all.length === 1 ? "One caveat on this verdict" : `${all.length} caveats on this verdict`,
+          "Tap to read them",
+          "",
+          `go('caveats',{id:'${a.id}'})`,
+          "warning",
+        )}</div>`;
+    })()}
+
     ${
       view.schoolsMissingScale.length
         ? `<div class="mb-3">${rail(
@@ -683,7 +735,7 @@ SCREENS.eligibility = () => {
 
     ${
       view.approvals.length
-        ? `<div class="mb-2 mt-4">${header("Against the approved list", null, "committed")}</div>
+        ? `<div class="mb-2 mt-4">${header("Against the approved list", null, "committed", "checklist")}</div>
            ${(() => {
              const by = (st) => view.approvals.filter((x) => x.match.status === st).length;
              const ok = by("approved");
@@ -695,6 +747,7 @@ SCREENS.eligibility = () => {
                `${ok} approved &middot; ${no} not approved${un > 0 ? " &middot; " + un + " unchecked" : ""}`,
                "",
                `go('approvals',{id:'${a.id}'})`,
+               "checklist",
              );
            })()}`
         : ""
@@ -703,14 +756,14 @@ SCREENS.eligibility = () => {
     ${
       view.approvalNotes.length
         ? `<div class="mt-2 flex flex-col gap-2">${view.approvalNotes
-            .map((n) => rail("target", `<div class="text-[12.5px] leading-tight text-ink">${esc(n)}</div>`))
+            .map((n) => rail("target", `<div class="text-[12.5px] leading-tight text-ink">${esc(n)}</div>`, null, "note"))
             .join("")}</div>`
         : ""
     }
 
     ${
       view.scalesUsed.length
-        ? `<div class="mb-2 mt-4">${header("How the grades were converted", null, "people")}</div>
+        ? `<div class="mb-2 mt-4">${header("How the grades were converted", null, "people", "scale")}</div>
            <div class="flex flex-col gap-2">${view.scalesUsed
              .map((s) =>
                rail(
@@ -718,23 +771,19 @@ SCREENS.eligibility = () => {
                  `<div class="text-[12.5px] leading-tight text-ink">${esc(s.school)} numbers converted ${
                    s.origin === "verified" ? "through a confirmed table" : s.origin === "org" ? "through a table your org entered" : "on an assumed ten-point scale"
                  }</div>${s.sourceNote ? `<div class="mt-1 text-[11.5px] leading-tight text-muted">"${esc(s.sourceNote)}"</div>` : ""}`,
+                 null,
+                 "scale",
                ),
              )
              .join("")}</div>`
         : ""
     }
 
-    ${
-      [...view.adapterWarnings, ...e.warnings].length
-        ? `<div class="mt-3 flex flex-col gap-2">${[...view.adapterWarnings, ...e.warnings]
-            .map((w) => rail("offer", `<div class="text-[12.5px] leading-tight text-ink">${esc(w)}</div>`))
-            .join("")}</div>`
-        : ""
-    }
+
 
     ${
       e.coreGpa && e.coreGpa.counted.length
-        ? `<div class="mb-2 mt-5">${header("Core courses", e.coreGpa.counted.length, "committed")}</div>
+        ? `<div class="mb-2 mt-5">${header("Core courses", e.coreGpa.counted.length, "committed", "course")}</div>
            <div class="flex flex-col gap-2">${Object.keys(SUBJECT_LABEL)
              .map((subject) => {
                const inSubject = e.coreGpa.counted.filter((c) => c.course.subject === subject);
@@ -749,6 +798,8 @@ SCREENS.eligibility = () => {
                     <div class="text-[11.5px] text-muted">${credits.toFixed(2)} of ${min} credits</div></div>
                     <span class="text-[13px] font-extrabold tabular-nums text-ink">${(points / credits).toFixed(2)}</span>
                   </div>`,
+                 null,
+                 "course",
                );
              })
              .join("")}</div>`
@@ -757,20 +808,22 @@ SCREENS.eligibility = () => {
 
     ${
       e.coreGpa && e.coreGpa.excluded.length
-        ? `<div class="mb-2 mt-5">${header("Not counted", e.coreGpa.excluded.length, "target")}</div>
+        ? `<div class="mb-2 mt-5">${header("Not counted", e.coreGpa.excluded.length, "target", "blocked")}</div>
            ${rail(
              "target",
              `<div class="text-[12.5px] leading-tight text-ink">${esc(e.coreGpa.excluded.map((x) => x.course.title).join(", "))}</div>
               <div class="mt-1 text-[11.5px] leading-tight text-muted">${esc(e.coreGpa.excluded[0].reason)}</div>`,
+             null,
+             "blocked",
            )}`
         : ""
     }
 
     ${
       view.ageClock.applies
-        ? `<div class="mb-2 mt-5">${header("The clock", null, "time")}</div>
+        ? `<div class="mb-2 mt-5">${header("The clock", null, "time", "clock")}</div>
            <div class="flex flex-col gap-2">${view.ageClock.reasons
-             .map((r) => rail("time", `<div class="text-[12.5px] leading-tight text-ink">${esc(r)}</div>`))
+             .map((r) => rail("time", `<div class="text-[12.5px] leading-tight text-ink">${esc(r)}</div>`, null, "clock"))
              .join("")}</div>`
         : ""
     }
@@ -805,6 +858,7 @@ SCREENS.board = () => {
                 ${chip(String(fit.score), scoreRole(fit.score))}
               </div>`,
               `go('target',{id:'${t.id}'})`,
+              "athlete",
             );
           })
           .join("")}</div>`;
@@ -830,6 +884,7 @@ SCREENS.target = () => {
           "",
           `<span class="text-[14px] font-extrabold tabular-nums text-ink">${d.score}</span>`,
           `go('dimension',{id:'${t.id}',dim:'${key}'})`,
+          DIM_ICON[key],
         )
       : "";
 
@@ -856,7 +911,7 @@ SCREENS.target = () => {
       ).join("")}
     </div>
 
-    <div class="mb-2">${header("How the score is built", null, "contact")}</div>
+    <div class="mb-2">${header("How the score is built", null, "contact", "target")}</div>
     <div class="flex flex-col gap-2">
       ${dim("Academic", fit.academic, "academic")}
       ${dim("Athletic", fit.athletic, "athletic")}
@@ -870,11 +925,11 @@ SCREENS.target = () => {
         : ""
     }
 
-    <div class="mb-2 mt-5">${header("More", null, "people")}</div>
+    <div class="mb-2 mt-5">${header("More", null, "people", "info")}</div>
     <div class="flex flex-col gap-2">
-      ${row("place", esc(s.name), "Division, money, depth chart", "", `go('school',{id:'${s.id}'})`)}
-      ${row("people", esc(t.coachName || "No coach on file"), `${t.commCount || 0} messages &middot; ${t.visitCount || 0} visits`, "", `go('comms',{id:'${t.id}'})`)}
-      ${row("contact", esc(a.name), "Back to the athlete", "", `go('athlete',{id:'${a.id}'})`)}
+      ${row("place", esc(s.name), "", "", `go('school',{id:'${s.id}'})`, "school")}
+      ${row("people", esc(t.coachName || "No coach on file"), `${t.commCount || 0} messages &middot; ${t.visitCount || 0} visits`, "", `go('comms',{id:'${t.id}'})`, "message")}
+      ${row("contact", esc(a.name), "", "", `go('athlete',{id:'${a.id}'})`, "athlete")}
     </div>
   `;
 };
@@ -1058,6 +1113,7 @@ SCREENS.courses = () => {
                   ${hit ? `<div class="text-[10.5px] font-bold text-muted">${hit.points.toFixed(1)} pts</div>` : ""}
                 </div>`,
                 `go('scaleEdit',{school:'${esc(c.school_name)}'})`,
+              "course",
               );
             })
             .join("")}</div>`;
@@ -1100,6 +1156,7 @@ SCREENS.approvals = () => {
                     : `No list on file for ${esc(x.school)}`,
               "",
               `go('approvedList',{school:'${esc(x.school)}'})`,
+              { approved: "check", not_approved: "blocked", ambiguous: "warning", unknown: "note" }[st],
             ),
           )
           .join("")}</div>`,
@@ -1129,6 +1186,7 @@ SCREENS.approvedLists = () => {
           !l ? "Nothing on file" : `${l.courses.length} courses &middot; ${l.isComplete ? "complete" : "partial"}`,
           !l ? `<span class="flex-shrink-0 text-[12px] font-extrabold text-solid-accent">Add</span>` : "",
           `go('approvedList',{school:'${esc(name)}'})`,
+          "checklist",
         );
       })
       .join("")}</div>
@@ -1191,32 +1249,160 @@ SCREENS.approvedList = () => {
   `;
 };
 
+// The caveats, in full, on their own page. Dave, 2026-09-16: "Could also
+// have a page that's very informative where it doesn't matter." This is
+// that page. Nothing here is trimmed, because the reason it exists is so
+// the screen it came off could be.
+SCREENS.caveats = () => {
+  const a = athlete(state.params.id);
+  const { view } = eligibilityFor(a.id);
+  const e = view.eligibility;
+  const all = [...view.adapterWarnings, ...e.warnings];
+
+  return `
+    ${backLink("NCAA eligibility")}
+    <h1 class="mb-1 text-[20px] font-extrabold text-ink">Things to know</h1>
+    <div class="mb-5 text-[12.5px] font-bold text-muted">${esc(a.name)} &middot; ${all.length} ${all.length === 1 ? "item" : "items"}</div>
+
+    <div class="flex flex-col gap-2">${all
+      .map((w) => rail("offer", `<div class="text-[12.5px] leading-relaxed text-ink">${esc(w)}</div>`, null, "warning"))
+      .join("")}</div>
+
+    <div class="mb-2 mt-5">${header("What to do", null, "accent", "info")}</div>
+    <div class="flex flex-col gap-2">
+      ${view.schoolsMissingScale.length ? row("offer", "Enter a grading scale", esc(view.schoolsMissingScale.join(", ")), "", "go('scales')", "scale") : ""}
+      ${view.schoolsMissingApprovedList.length ? row("offer", "Enter an approved list", esc(view.schoolsMissingApprovedList.join(", ")), "", "go('approvedLists')", "checklist") : ""}
+      ${row("contact", "See the transcript", "", "", `go('courses',{id:'${a.id}'})`, "course")}
+    </div>
+
+    <p class="mt-5 text-[11px] leading-relaxed text-muted">A projection until every core credit is final. Confirm with the NCAA Eligibility Center before anyone signs anything.</p>
+  `;
+};
+
+// The one page where length is the point. Everything the app is quietly
+// doing to a number, written out, so the screens themselves do not have
+// to explain themselves in grey under every row.
+SCREENS.guide = () => {
+  const part = (kind, role, title, body) => `
+    <div class="mb-2 mt-5">${header(title, null, role, kind)}</div>
+    <div class="rounded-[10px] bg-paper px-3.5 py-3 text-[12.5px] leading-relaxed text-ink">${body}</div>`;
+
+  return `
+    ${backLink("More")}
+    <h1 class="mb-1 text-[20px] font-extrabold text-ink">How this works</h1>
+    <div class="mb-1 text-[12.5px] font-bold text-muted">The rules behind every number on the other screens</div>
+
+    ${part(
+      "course",
+      "committed",
+      "Core GPA is not transcript GPA",
+      `The NCAA recalculates. It counts only approved core courses, ignores plus and minus so A+, A and A- are all four points,
+       and uses your best grades in the required subject areas rather than everything on the page.
+       A 3.4 transcript and a 2.9 core GPA is normal, and the gap is the thing worth knowing about in sophomore year rather than June of senior year.`,
+    )}
+
+    ${part(
+      "checklist",
+      "visit",
+      "The approved course list",
+      `Each high school files a list with the Eligibility Center. A course on it counts. A course not on it does not, whatever it is called
+       and whatever grade it earned. We hold two kinds of list: one transcribed in full from the NCAA portal, and a partial one somebody entered here.
+       A complete list can say no. A partial list can only say yes, because a course missing from a half-typed list has not been ruled out, it has just not been typed yet.
+       When a title could match two entries on the list, nothing is assumed: the course stays unchecked until a person says which it was.`,
+    )}
+
+    ${part(
+      "scale",
+      "contact",
+      "Grading scales",
+      `A school that prints numbers instead of letters needs its own conversion table, because an 89 is a B at one school and an A at another.
+       The NCAA uses the school's published table, never a generic curve.
+       With no table on file we fall back to the common ten-point scale so a number appears at all, and we label it as an assumption everywhere it shows.
+       An assumed scale never earns the weighted bonus.`,
+    )}
+
+    ${part(
+      "target",
+      "accent",
+      "The fit score",
+      `Four dimensions, each scored on its own and blended: academic, athletic, financial, and eligibility where it applies.
+       A veto in any one of them overrides the blend rather than averaging into it, so an athlete whose sport a school does not sponsor
+       reads as a conflict no matter how strong the rest is. The score is calculated live and never stored, so it cannot go stale.`,
+    )}
+
+    ${part(
+      "money",
+      "committed",
+      "A pledge is not revenue",
+      `Money promised is not money received, so a pledge sits beside the raised total and never inside it.
+       In-kind giving is counted as support, never as cash: a donated scoreboard is real and a treasurer cannot spend it.
+       These are the two rules that make a board report quietly wrong, so they are enforced in the code rather than left to whoever builds the slide.`,
+    )}
+
+    ${part(
+      "board",
+      "people",
+      "Give and get, both halves",
+      `A board member meets their commitment by giving the money or by bringing it in. Most systems only record the first half.
+       A gift counts once even when they did both. Only an active seat counts toward a board's total, because a prospect has not joined
+       and an emeritus member is not on the hook, and counting either makes the board look further behind than it is.`,
+    )}
+
+    ${part(
+      "org",
+      "target",
+      "One codebase, two organizations",
+      `Switching organizations under More changes the roster, the role labels and which sections exist. Fundraising and the board are modules
+       that are off by default; everything else is on for everyone. There is no branching on which organization it is, which is what makes
+       a third one a row in a table rather than a rewrite.`,
+    )}
+
+    ${part(
+      "info",
+      "neutral",
+      "What is invented here",
+      `Every athlete, school, coach, donor and board member in this prototype is made up. No real person appears in it.
+       The numbers are not: they are computed by the same code that will run in production, so changing a grading scale here moves a core GPA
+       for the same reason it will move one later.`,
+    )}
+  `;
+};
+
 SCREENS.more = () => {
   const m = org().modules;
   const you = org().you;
   const label = org().roleLabels[you.role] || you.role;
-  const item = (title, sub, screen, role) =>
-    rail(role, `<div class="text-[14px] font-semibold text-ink">${esc(title)}</div><div class="text-[12px] text-muted">${esc(sub)}</div>`, `tab('${screen}')`);
+  const item = (title, sub, screen, role, kind) =>
+    rail(
+      role,
+      `<div class="text-[14px] font-semibold text-ink">${esc(title)}</div>${
+        sub ? `<div class="text-[12px] text-muted">${esc(sub)}</div>` : ""
+      }`,
+      `tab('${screen}')`,
+      kind,
+    );
 
   return `
     <div class="mb-3">${header("More")}</div>
     <div class="flex flex-col gap-2">
-      ${item("Documents", `${byOrg(db.documents).filter((d) => d.status === "pending").length} need review`, "documents", "place")}
-      ${m.donor_fundraising ? item("Fundraising", "Donors, gifts, pledges, grants", "fundraising", "committed") : ""}
-      ${m.board_governance ? item("Board", "Seats and give/get", "governance", "people") : ""}
-      ${item("Grading scales", `${db.gradingScales.length} on file`, "scales", "contact")}
-      ${item("Approved lists", `${db.approvedLists.length} on file`, "approvedLists", "visit")}
-      ${item("Schools", `${db.schools.length} in the database`, "schools", "place")}
+      ${item("Documents", `${byOrg(db.documents).filter((d) => d.status === "pending").length} need review`, "documents", "place", "document")}
+      ${m.donor_fundraising ? item("Fundraising", "Donors, gifts, pledges, grants", "fundraising", "committed", "money") : ""}
+      ${m.board_governance ? item("Board", "Seats and give/get", "governance", "people", "board") : ""}
+      ${item("Grading scales", `${db.gradingScales.length} on file`, "scales", "contact", "scale")}
+      ${item("Approved lists", `${db.approvedLists.length} on file`, "approvedLists", "visit", "checklist")}
+      ${item("Schools", `${db.schools.length}`, "schools", "place", "school")}
+      ${item("How this works", "", "guide", "accent", "info")}
       ${item(
         bugs.local.length ? `Flagged bugs (${bugs.local.length})` : "Flagged bugs",
-        bugs.local.length ? "Tap to read them back" : "Nothing flagged yet",
+        "",
         "bugs",
         bugs.local.length ? "offer" : "neutral",
+        "flag",
       )}
-      ${rail("neutral", `<div class="text-[14px] font-semibold text-ink">${esc(you.name)}</div><div class="text-[12px] text-muted">${esc(label)} at ${esc(org().name)}</div>`)}
+      ${rail("neutral", `<div class="text-[14px] font-semibold text-ink">${esc(you.name)}</div><div class="text-[12px] text-muted">${esc(label)} at ${esc(org().name)}</div>`, null, "athlete")}
     </div>
 
-    <div class="mb-2 mt-5">${header("Switch organization", null, "target")}</div>
+    <div class="mb-2 mt-5">${header("Switch organization", null, "target", "org")}</div>
     <div class="flex flex-col gap-2">
       ${Object.values(db.orgs)
         .map((o) =>
@@ -1228,6 +1414,7 @@ SCREENS.more = () => {
               ${o.slug === state.org ? pill("Current", "committed") : ""}
             </div>`,
             `switchOrg('${o.slug}')`,
+            "org",
           ),
         )
         .join("")}
@@ -1253,6 +1440,7 @@ SCREENS.schools = () => {
           `${esc(s.division)}${s.conference ? " &middot; " + esc(s.conference) : ""}`,
           mine.length ? chip(`${mine.length} here`, "contact") : "",
           `go('school',{id:'${s.id}'})`,
+          "school",
         );
       })
       .join("")}</div>
@@ -1273,7 +1461,7 @@ SCREENS.documents = () => {
 
     ${pending.length ? `<div class="mb-2">${header("Needs review", pending.length, "offer")}</div>
       <div class="mb-5 flex flex-col gap-2">${pending
-        .map((d) => rail("offer", `<div class="text-[13px] font-bold text-ink">${esc(d.fileName)}</div><div class="text-[11.5px] text-muted">from ${esc(d.sourceRole)} &middot; ${Math.round(d.confidence * 100)}% confident</div>`, `go('document',{id:'${d.id}'})`))
+        .map((d) => rail("offer", `<div class="text-[13px] font-bold text-ink">${esc(d.fileName)}</div><div class="text-[11.5px] text-muted">from ${esc(d.sourceRole)} &middot; ${Math.round(d.confidence * 100)}% confident</div>`, `go('document',{id:'${d.id}'})`, "document"))
         .join("")}</div>` : ""}
 
     <div class="mb-2">${header("Everything else", done.length, "contact")}</div>
@@ -1288,6 +1476,7 @@ SCREENS.documents = () => {
             ${pill(label, role)}
           </div>`,
           `go('document',{id:'${d.id}'})`,
+          "document",
         );
       })
       .join("")}</div>
@@ -1375,6 +1564,7 @@ SCREENS.scales = () => {
                    <span class="text-[12px] font-extrabold text-solid-accent">Add</span>
                  </div>`,
                  `go('scaleEdit',{school:'${esc(n)}'})`,
+                 "scale",
                ),
              )
              .join("")}</div>`
@@ -1394,6 +1584,7 @@ SCREENS.scales = () => {
             <div class="mt-1 text-[11.5px] leading-tight text-muted">${s.reports_weighted_grades ? `Weighted, adds ${s.weight_bonus.toFixed(2)}` : "No weighted bonus"} &middot; ${esc(s.source_note || "")}</div>
           </div>`,
           `go('scaleEdit',{school:'${esc(s.school_name)}'})`,
+          "scale",
         ),
       )
       .join("")}</div>
@@ -1460,7 +1651,7 @@ SCREENS.fundraising = () => {
       { label: "In kind", value: money(f.totalInKindCents), go: "go('gifts',{method:'in_kind'})" },
     ])}
 
-    <div class="mb-2 mt-5">${header("By category", budgetPct == null ? null : budgetPct + "%", "committed")}</div>
+    <div class="mb-2 mt-5">${header("By category", budgetPct == null ? null : budgetPct + "%", "committed", "money")}</div>
     <div class="flex flex-col gap-2">${f.byCategory
       .map((c) => {
         const role = pctRole(c.percentOfBudget);
@@ -1477,13 +1668,14 @@ SCREENS.fundraising = () => {
             ${bar(c.percentOfBudget || 0, role)}
           </div>`,
           `go('gifts',{category:'${c.category}'})`,
+          "money",
         );
       })
       .join("")}</div>
 
     ${
       campaigns.length
-        ? `<div class="mb-2 mt-5">${header("Campaigns", campaigns.length, "visit")}</div>
+        ? `<div class="mb-2 mt-5">${header("Campaigns", campaigns.length, "visit", "campaign")}</div>
            <div class="flex flex-col gap-2">${campaigns
              .map((c) => {
                const p = E.campaignProgress(c.id, c.goalCents, byOrg(db.gifts), byOrg(db.pledges));
@@ -1501,18 +1693,19 @@ SCREENS.fundraising = () => {
                    ${bar(p.percentOfGoal || 0, role)}
                  </div>`,
                  `go('campaign',{id:'${c.id}'})`,
+                 "campaign",
                );
              })
              .join("")}</div>`
         : ""
     }
 
-    <div class="mb-2 mt-5">${header("Go to", null, "contact")}</div>
+    <div class="mb-2 mt-5">${header("Go to", null, "contact", "info")}</div>
     <div class="flex flex-col gap-2">
-      ${row("committed", "Donors", `${f.donorCount} supporters`, "", "go('donors')")}
-      ${row("contact", "All gifts", `${f.giftCount} this year`, "", "go('gifts')")}
-      ${row("offer", "Pledges", `${money(f.outstandingPledgeCents)} outstanding`, "", "go('pledges')")}
-      ${row("place", "Grants", `${byOrg(db.grants).length} tracked`, "", "go('grants')")}
+      ${row("committed", "Donors", `${f.donorCount}`, "", "go('donors')", "donor")}
+      ${row("contact", "All gifts", `${f.giftCount} this year`, "", "go('gifts')", "money")}
+      ${row("offer", "Pledges", `${money(f.outstandingPledgeCents)} outstanding`, "", "go('pledges')", "pledge")}
+      ${row("place", "Grants", `${byOrg(db.grants).length}`, "", "go('grants')", "grant")}
     </div>
 
     <div class="mt-5">${button("Record a gift", "go('giftNew')")}</div>
@@ -1544,6 +1737,7 @@ SCREENS.gifts = () => {
                 )}${g.campaignId ? " &middot; " + esc(byOrg(db.campaigns).find((c) => c.id === g.campaignId).name) : ""}`,
                 `<span class="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">${E.formatMoney(g.amountCents)}</span>`,
                 g.donorId ? `go('donor',{id:'${g.donorId}'})` : null,
+                g.method === "in_kind" ? "grant" : "money",
               ),
             )
             .join("")
@@ -1573,6 +1767,7 @@ SCREENS.pledges = () => {
                 }`,
                 `<span class="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">${outstanding === 0 ? "Paid" : E.formatMoney(outstanding)}</span>`,
                 p.donorId ? `go('donor',{id:'${p.donorId}'})` : null,
+                "pledge",
               );
             })
             .join("")
@@ -1601,6 +1796,8 @@ SCREENS.grants = () => {
                   <div class="text-[14px] font-extrabold tabular-nums text-ink">${E.formatMoney(g.amountAwarded ?? g.amountRequested)}</div>
                   <div class="text-[10.5px] font-bold text-muted">${g.amountAwarded ? "awarded" : "requested"}</div>
                 </div>`,
+                null,
+                "grant",
               ),
             )
             .join("")
@@ -1629,7 +1826,7 @@ SCREENS.campaign = () => {
       ${bar(p.percentOfGoal || 0, role)}`,
     )}</div>
 
-    <div class="mb-2">${header("Gifts", gifts.length, "committed")}</div>
+    <div class="mb-2">${header("Gifts", gifts.length, "committed", "money")}</div>
     <div class="flex flex-col gap-2">${
       gifts.length
         ? gifts
@@ -1640,6 +1837,7 @@ SCREENS.campaign = () => {
                 esc(new Date(g.receivedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })),
                 `<span class="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">${E.formatMoney(g.amountCents)}</span>`,
                 g.donorId ? `go('donor',{id:'${g.donorId}'})` : null,
+                "money",
               ),
             )
             .join("")
@@ -1782,7 +1980,7 @@ SCREENS.donors = () => {
 
     ${
       owing.length
-        ? `<div class="mb-2">${header("Owes a pledge", owing.length, "target")}</div>
+        ? `<div class="mb-2">${header("Owes a pledge", owing.length, "target", "pledge")}</div>
            <div class="mb-5 flex flex-col gap-2">${owing
              .map((r) =>
                row(
@@ -1791,13 +1989,14 @@ SCREENS.donors = () => {
                  "",
                  `<span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">${E.formatMoney(r.totals.outstandingPledgeCents)}</span>`,
                  `go('donor',{id:'${r.donor.id}'})`,
+                 "pledge",
                ),
              )
              .join("")}</div>`
         : ""
     }
 
-    <div class="mb-2">${header("All donors", rows.length, "contact")}</div>
+    <div class="mb-2">${header("All donors", rows.length, "contact", "donor")}</div>
     <div class="flex flex-col gap-2">${rows
       .map(({ donor, totals }) =>
         row(
@@ -1809,6 +2008,7 @@ SCREENS.donors = () => {
             ${totals.lifetimeInKindCents > 0 ? `<div class="text-[10.5px] text-muted">${money(totals.lifetimeInKindCents)} in kind</div>` : ""}
           </div>`,
           `go('donor',{id:'${donor.id}'})`,
+          "donor",
         ),
       )
       .join("")}</div>
@@ -1883,7 +2083,7 @@ SCREENS.governance = () => {
       { label: "Percent", value: pct == null ? "None" : pct + "%", go: "go('members')" },
     ])}
 
-    <div class="mb-2 mt-5">${header("Boards", boards.length, "committed")}</div>
+    <div class="mb-2 mt-5">${header("Boards", boards.length, "committed", "board")}</div>
     <div class="flex flex-col gap-2">${boards
       .map((b) => {
         const s = boardSummary(b.id);
@@ -1900,6 +2100,7 @@ SCREENS.governance = () => {
             ${bar(s.percent || 0, role)}
           </div>`,
           `go('boardDetail',{id:'${b.id}'})`,
+          "board",
         );
       })
       .join("")}</div>
@@ -1931,7 +2132,7 @@ SCREENS.boardDetail = () => {
       </div>`,
     )}</div>
 
-    <div class="mb-2">${header("Seats", ordered.length, "contact")}</div>
+    <div class="mb-2">${header("Seats", ordered.length, "contact", "people")}</div>
     <div class="flex flex-col gap-2">${ordered
       .map((m) => {
         const p = giveGetFor(m.id);
@@ -1952,6 +2153,7 @@ SCREENS.boardDetail = () => {
             }
           </div>`,
           `go('member',{id:'${m.id}'})`,
+          "people",
         );
       })
       .join("")}</div>
@@ -1985,6 +2187,7 @@ SCREENS.members = () => {
             ? `<span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">${p.percent == null ? "no target" : p.percent + "%"}</span>`
             : chip(m.status, "low"),
           `go('member',{id:'${m.id}'})`,
+          "people",
         );
       })
       .join("")}</div>
@@ -2191,13 +2394,13 @@ function bugLayer() {
 // tab rather than by screen, so adding a screen means adding it to one
 // list instead of remembering a fallthrough.
 const TAB_OF = {
-  athletes: ["athlete", "eligibility", "courses", "approvals"],
+  athletes: ["athlete", "eligibility", "courses", "approvals", "caveats"],
   board: ["target", "dimension", "school", "comms"],
   more: [
     "fundraising", "donors", "donor", "gifts", "pledges", "grants", "campaign", "giftNew",
     "governance", "boardDetail", "member", "members",
     "documents", "document", "scales", "scaleEdit", "schools", "bugs",
-    "approvedLists", "approvedList",
+    "approvedLists", "approvedList", "guide",
   ],
 };
 
