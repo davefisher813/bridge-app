@@ -1430,3 +1430,60 @@ transcript and used in no calculation. Without it the only key back to
 the transcript row is the title, and both halves of a year-long course
 answer to that, so the transcript screen would show one half's grade
 against both rows.
+
+## 2026-09-17: pills lose their colour fills; one type scale step up; icons redrawn
+
+**Decision.** Three changes Dave asked for in one pass, after clicking
+through the prototype on his phone.
+
+1. No pill, chip, badge or group tab carries a `bg-tint-*` or
+   `bg-solid-*` fill. Each is a glyph in the role's hue plus a plain
+   label, which is the anatomy the type glyph already used. `Chip` in
+   `src/components/catalog.tsx` is the single implementation.
+2. Every `text-[Npx]` moved up one step of the scale, in a single pass.
+   Body copy 12.5 to 13.5, the smallest label 10.5 to 11.5, titles 20 to
+   22. The table is in docs/STYLING_CATALOG.md.
+3. `src/components/rowIcons.json` redrawn: 2.0 stroke at 20px instead of
+   1.75 at 18px, everything inside a 20x20 safe area, no feature under 2
+   units, `visit` and `pledge` given marks that mean what they say, and a
+   new `stage_*` set for the recruiting stages.
+
+**Reason.** Dave: "let's make sure there's no color highlights on the
+pills like in pic two, we said we were going with icons, make sure it's
+consistent throughout. Also let's improve the quality of the icons. Font
+size in the app is a little small as well."
+
+The inconsistency was real and was ours. The type glyph landed on
+September 16 and the pills kept their fills, so a roster row carried a
+bare coloured mark at one end and a filled coloured block at the other,
+both saying status.
+
+**Consequences.**
+
+- `TEXT_ON` is a new map in `statusHue.ts` and the reason it exists is
+  worth keeping in mind: dropping the fill moves the colour onto the
+  mark, and `FG` (the raw iOS hue) is fine as a 2px stroke and 2.02:1 as
+  text. The first build of the bare coloured score number produced
+  twenty-six AA failures. A glyph takes `FG`; a word or a number takes
+  `TEXT_ON`.
+- Three laws in `src/laws/stylingLaws.test.ts` hold the line: no fill in
+  a `rounded-full` class string, no `${TINT[...]}` interpolated into one,
+  and no text size in the same class string as an `FG` lookup. All three
+  were planted, watched to fail, and reverted.
+- Selectable controls (subject picker, stage picker, Doc AI categories)
+  show "chosen" with a ring rather than a fill. A control has to show
+  state; it does not have to show it with a coloured block.
+- Buttons keep their solid fills. Reserving red for the primary action is
+  older than any of this, and an action that does not look like a button
+  is not a styling problem.
+- The prototype had a hand-written copy of `STATUS_ROLE` that predated
+  the generator parsing it, missing three of the eight statuses. Deleted
+  in this pass; the generator now parses `STATUS_ROLE`, `STAGE_KIND`,
+  `TEXT_ON` and `FG` out of the component, like the rest.
+
+**Alternative considered.** Keeping the fill on the stage pill alone, on
+the grounds that a stage is the one status worth shouting. Rejected: that
+is exactly the "it is different here" reasoning that produced the
+inconsistency in the first place, and the stage is now the most legible
+mark on the row anyway, since it is the only one with both a shape and a
+hue.

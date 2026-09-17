@@ -29,7 +29,7 @@ export function ContactForm({ action, schools }: { action: ServerAction; schools
 
   return (
     <form action={formAction} className="flex flex-col gap-3 rounded-[16px] border border-line bg-bg/50 p-3.5">
-      {state.errors.form && <div className="text-[12.5px] font-semibold text-danger">{state.errors.form}</div>}
+      {state.errors.form && <div className="text-[13.5px] font-semibold text-danger">{state.errors.form}</div>}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass} htmlFor="name">

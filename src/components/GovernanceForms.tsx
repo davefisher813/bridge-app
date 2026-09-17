@@ -13,7 +13,7 @@ const EMPTY_STATE: GovernanceActionState = { errors: {} };
 function FormError({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[13px] font-semibold text-danger">{message}</div>
+    <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[14.5px] font-semibold text-danger">{message}</div>
   );
 }
 
@@ -46,7 +46,7 @@ export function BoardForm({ action }: { action: ServerAction }) {
           ))}
         </select>
         {err("kind") && <p className={errorClass}>{err("kind")}</p>}
-        <p className="mt-1 text-[11.5px] leading-tight text-muted">{BOARD_KIND_PURPOSE[kind]}</p>
+        <p className="mt-1 text-[12.5px] leading-tight text-muted">{BOARD_KIND_PURPOSE[kind]}</p>
       </div>
 
       <div>
@@ -89,7 +89,7 @@ export function BoardForm({ action }: { action: ServerAction }) {
           key={`gg-${kind}`}
         />
         {err("giveGet") && <p className={errorClass}>{err("giveGet")}</p>}
-        <p className="mt-1 text-[11.5px] leading-tight text-muted">
+        <p className="mt-1 text-[12.5px] leading-tight text-muted">
           Prefilled from your governance document. Stored per board, so changing it here changes nothing anybody already agreed to.
         </p>
       </div>
@@ -124,7 +124,7 @@ export function BoardForm({ action }: { action: ServerAction }) {
         </div>
       </div>
       {kind === "sport" && (
-        <p className="text-[11.5px] leading-tight text-muted">
+        <p className="text-[12.5px] leading-tight text-muted">
           Your governance document says a sport board starts at three and can grow to five. Below the minimum is flagged, not blocked.
         </p>
       )}
@@ -189,7 +189,7 @@ export function BoardSeatForm({
           ))}
         </datalist>
         {roleSuggestions.length > 0 && (
-          <p className="mt-1 text-[11.5px] leading-tight text-muted">
+          <p className="mt-1 text-[12.5px] leading-tight text-muted">
             The core roles for this tier are {roleSuggestions.join(", ")}. Anything else is fine too.
           </p>
         )}
@@ -207,7 +207,7 @@ export function BoardSeatForm({
           ))}
         </select>
         {err("status") && <p className={errorClass}>{err("status")}</p>}
-        <p className="mt-1 text-[11.5px] leading-tight text-muted">
+        <p className="mt-1 text-[12.5px] leading-tight text-muted">
           Only an active seat counts toward the board&apos;s committed total. A prospect has not joined yet.
         </p>
       </div>
@@ -224,7 +224,7 @@ export function BoardSeatForm({
           defaultValue={defaultCommitment}
         />
         {err("commitment") && <p className={errorClass}>{err("commitment")}</p>}
-        <p className="mt-1 text-[11.5px] leading-tight text-muted">
+        <p className="mt-1 text-[12.5px] leading-tight text-muted">
           Copied from the board, so changing the tier later does not rewrite what a sitting member agreed to.
         </p>
       </div>
@@ -242,7 +242,7 @@ export function BoardSeatForm({
           ))}
         </select>
         {err("donorId") && <p className={errorClass}>{err("donorId")}</p>}
-        <p className="mt-1 text-[11.5px] leading-tight text-muted">
+        <p className="mt-1 text-[12.5px] leading-tight text-muted">
           Linking finds their own giving automatically. Without it, only what they bring in can be credited.
         </p>
       </div>

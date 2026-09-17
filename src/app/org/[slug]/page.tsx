@@ -160,7 +160,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
   return (
     <main className="px-4 pt-2">
-      <h1 className="mb-4 text-[26px] font-black leading-tight text-ink">
+      <h1 className="mb-4 text-[28px] font-black leading-tight text-ink">
         Good morning,
         <br />
         {firstName}.
@@ -168,9 +168,9 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
       {/* ST1: tinted tiles, each in the role of what it counts. */}
       <div className="flex gap-2">
-        <StatTile value={athleteCount ?? 0} label="Athletes" />
-        <StatTile value={inContactCount} label="In contact" role="contact" />
-        <StatTile value={committedCount} label="Committed" role="committed" />
+        <StatTile value={athleteCount ?? 0} label="Athletes" kind="athlete" />
+        <StatTile value={inContactCount} label="In contact" role="contact" kind="stage_contact" />
+        <StatTile value={committedCount} label="Committed" role="committed" kind="stage_committed" />
       </div>
       {totalTargets > 0 && (
         <div className="mt-2 flex h-1 overflow-hidden rounded-full bg-line">
@@ -192,8 +192,8 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
             <RailCard key={t.id} role={statusRole(t.status)}>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-[14px] font-bold text-ink">{t.athleteName}</div>
-                  <div className="text-[11.5px] text-muted">
+                  <div className="text-[15px] font-bold text-ink">{t.athleteName}</div>
+                  <div className="text-[12.5px] text-muted">
                     {t.schoolName} &middot; no update in {t.days} {t.days === 1 ? "day" : "days"}
                   </div>
                 </div>
@@ -201,7 +201,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
               </div>
             </RailCard>
           ))}
-          <a href={`/org/${slug}/board`} className="mt-1 self-end text-[12px] font-bold text-accent">
+          <a href={`/org/${slug}/board`} className="mt-1 self-end text-[13px] font-bold text-accent">
             View board &rarr;
           </a>
         </div>
@@ -218,8 +218,8 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
         <div className="flex flex-col gap-2">
           {upcomingVisits.map((v) => (
             <RailCard key={v.id} role="visit">
-              <div className="text-[14px] font-bold text-ink">Visit &middot; {v.schoolName}</div>
-              <div className="text-[11.5px] text-muted">
+              <div className="text-[15px] font-bold text-ink">Visit &middot; {v.schoolName}</div>
+              <div className="text-[12.5px] text-muted">
                 {new Date(v.visitDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} &middot;{" "}
                 {v.athleteName}
               </div>
@@ -227,8 +227,8 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
           ))}
           {upcomingWindows.map((w) => (
             <RailCard key={`${w.sport}-${w.division}-${w.window_label}`}>
-              <div className="text-[14px] font-bold text-ink">Transfer portal opens</div>
-              <div className="text-[11.5px] text-muted">
+              <div className="text-[15px] font-bold text-ink">Transfer portal opens</div>
+              <div className="text-[12.5px] text-muted">
                 {w.sport} {w.division} &middot; {w.window_label} &middot; in {daysUntil(w.opens_on)} days
               </div>
             </RailCard>
@@ -250,10 +250,10 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
               <RailCard role="committed">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-[14px] font-semibold text-ink">
+                    <div className="text-[15px] font-semibold text-ink">
                       {formatMoneyShort(fundraising.totalCashCents)} raised this year
                     </div>
-                    <div className="mt-0.5 text-[12px] leading-tight text-muted">
+                    <div className="mt-0.5 text-[13px] leading-tight text-muted">
                       {fundraising.totalBudgetCents > 0
                         ? `${Math.round((fundraising.totalCashCents / fundraising.totalBudgetCents) * 100)}% of the year's target`
                         : "No budget set for the year"}

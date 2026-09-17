@@ -64,7 +64,7 @@ export function BottomTabBar({ slug }: { slug: string }) {
           <Link
             key={tab.label}
             href={href}
-            className={`flex flex-1 flex-col items-center gap-1 text-[10px] font-bold ${active ? "text-ink" : "text-muted"}`}
+            className={`flex flex-1 flex-col items-center gap-1 text-[11px] font-bold ${active ? "text-ink" : "text-muted"}`}
           >
             <span
               className={

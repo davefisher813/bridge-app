@@ -54,7 +54,7 @@ export function TargetForm({
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {state.errors.form && (
-        <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[13px] font-semibold text-danger">
+        <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[14.5px] font-semibold text-danger">
           {state.errors.form}
         </div>
       )}
@@ -118,7 +118,7 @@ export function TargetForm({
           Visit date
         </label>
         <input className={inputClass} id="visitDate" name="visitDate" type="date" defaultValue={initialValues.visitDate ?? ""} />
-        <p className="mt-1 text-[11.5px] text-muted">Shows up on Today's "Upcoming" once set.</p>
+        <p className="mt-1 text-[12.5px] text-muted">Shows up on Today's "Upcoming" once set.</p>
       </div>
 
       <div>
@@ -139,7 +139,7 @@ export function TargetForm({
             </option>
           ))}
         </select>
-        <p className="mt-1 text-[11.5px] text-muted">Separate from status - this is the actual offer on file, not just the pipeline stage.</p>
+        <p className="mt-1 text-[12.5px] text-muted">Separate from status - this is the actual offer on file, not just the pipeline stage.</p>
       </div>
 
       {offerType === "scholarship" && (

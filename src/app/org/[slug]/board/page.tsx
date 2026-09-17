@@ -17,7 +17,7 @@ import {
 import { scoreFit } from "@/lib/fit/score";
 import type { FitTag } from "@/lib/fit/types";
 import { EmptyState, GroupTab, RailCard, ScorePill } from "@/components/catalog";
-import { statusRole } from "@/components/statusHue";
+import { stageKind, statusRole } from "@/components/statusHue";
 
 function BoardIcon() {
   return (
@@ -138,7 +138,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
       <div className="px-4 pt-4">
         <div className="mb-2 flex items-center justify-end">
           {canEdit && (
-            <Link href={`/org/${slug}/board/new`} className="text-[12px] font-bold text-accent">
+            <Link href={`/org/${slug}/board/new`} className="text-[13px] font-bold text-accent">
               + Add target
             </Link>
           )}
@@ -160,7 +160,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
               {/* G3: a tinted pill tab, not a solid one, since the rows
                   below carry the same hue at full saturation. */}
               <div className="mb-2">
-                <GroupTab label={group.status} count={group.rows.length} role={statusRole(group.status)} />
+                <GroupTab label={group.status} count={group.rows.length} role={statusRole(group.status)} kind={stageKind(group.status)} />
               </div>
               <div className="flex flex-col gap-2">
                 {group.rows.map((r) => {
@@ -168,17 +168,17 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
                     <RailCard role={statusRole(r.status)}>
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="text-[15px] font-semibold text-ink">
+                          <div className="text-[16px] font-semibold text-ink">
                             {r.athleteName} <span className="font-normal text-muted">to</span> {r.schoolName}
                           </div>
-                          <div className="text-[12px] text-muted">
+                          <div className="text-[13px] text-muted">
                             {r.athleteSport} · {r.schoolDivision}
                             {r.coachName ? ` · ${r.coachName}` : ""}
                           </div>
                         </div>
                         <div className="flex flex-shrink-0 flex-col items-end gap-1">
                           <ScorePill score={r.fit.score} />
-                          <div className={`text-[11px] font-bold ${TAG_STYLE[r.fit.tag]}`}>{r.fit.tag}</div>
+                          <div className={`text-[12px] font-bold ${TAG_STYLE[r.fit.tag]}`}>{r.fit.tag}</div>
                         </div>
                       </div>
                     </RailCard>

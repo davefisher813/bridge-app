@@ -1,3 +1,5 @@
+import type { RowKind } from "@/components/RowGlyph";
+
 // The one place a status turns into a color. StatusPill, the row rails,
 // the board's group tabs and Today's stat tiles all read from here, so a
 // status can never be one color as a pill and another as a rail.
@@ -41,6 +43,31 @@ const STATUS_ROLE: Record<string, Role> = {
 
 export function statusRole(status: string): Role {
   return STATUS_ROLE[status] ?? "neutral";
+}
+
+// The glyph a stage wears, added 2026-09-17 when the pills lost their
+// colour fills. Beside STATUS_ROLE rather than in StatusPill, because the
+// board's group tabs and Today's tiles show the same stages and the whole
+// point of this file is that they cannot disagree about one.
+//
+// Typed against the icon set, so a stage pointed at a drawing that does
+// not exist is a compile error rather than an empty box on the roster.
+const STAGE_KIND: Record<string, RowKind> = {
+  Target: "stage_target",
+  "In Contact": "stage_contact",
+  Visit: "stage_visit",
+  Offer: "stage_offer",
+  Committed: "stage_committed",
+  "Not Interested": "stage_none",
+  Active: "stage_committed",
+  Inactive: "stage_none",
+};
+
+// An unknown stage gets the neutral dash rather than nothing. A label
+// with no mark beside it reads as a different kind of thing from the rows
+// around it, which is a worse lie than a generic mark.
+export function stageKind(status: string): RowKind {
+  return STAGE_KIND[status] ?? "stage_none";
 }
 
 // A fit score's band. Lives here rather than in a component so every
@@ -126,12 +153,44 @@ export const DOT: Record<Role, string> = {
   neutral: "bg-ios-gray",
 };
 
+// Coloured TEXT, as opposed to a coloured glyph.
+//
+// Added 2026-09-17 with the pill rewrite, and the audit is what made it
+// necessary. FG points at the raw iOS hues, which is right for a 2px
+// stroke and wrong for type: text-ios-green on paper is 2.02:1, so the
+// first pass at a bare coloured score number put twenty-six AA failures
+// on the board in one build.
+//
+// These are the tint pairs' foregrounds, which are the same hues already
+// darkened for light and lightened for dark until they clear 4.5:1 on
+// the page. So the rule is: a glyph uses FG, a word or a number uses
+// TEXT_ON, and nothing coloured is set by hand.
+export const TEXT_ON: Record<Role, string> = {
+  target: "text-tint-target-on",
+  contact: "text-tint-contact-on",
+  visit: "text-tint-visit-on",
+  offer: "text-tint-offer-on",
+  committed: "text-tint-committed-on",
+  high: "text-tint-high-on",
+  mid: "text-tint-mid-on",
+  low: "text-tint-low-on",
+  time: "text-tint-time-on",
+  people: "text-tint-people-on",
+  place: "text-tint-place-on",
+  accent: "text-tint-accent-on",
+  danger: "text-tint-danger-on",
+  neutral: "text-tint-neutral-on",
+};
+
 // The glyph colour, for the type icon that replaced the left rail
 // (Dave 2026-09-16). Same hue as the rail it replaces, so a row that was
 // orange is still orange and nothing has to be relearned. Foreground
 // rather than background, because the glyph is a drawing and not a
 // swatch: a filled tile behind every row reads heavier than the stripe
 // it was meant to lighten.
+//
+// For a GLYPH only. Text in a role colour uses TEXT_ON above; see the
+// note there for what happens when it does not.
 export const FG: Record<Role, string> = {
   target: "text-ios-gray",
   contact: "text-ios-blue",

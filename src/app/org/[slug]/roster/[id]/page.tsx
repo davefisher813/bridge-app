@@ -136,18 +136,18 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Link href={`/org/${slug}/roster`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/roster`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Athletes
         </Link>
         {canEdit && (
-          <Link href={`/org/${slug}/roster/${id}/edit`} className="text-[12px] font-bold text-accent">
+          <Link href={`/org/${slug}/roster/${id}/edit`} className="text-[13px] font-bold text-accent">
             Edit
           </Link>
         )}
       </div>
 
-      <h1 className="text-[20px] font-extrabold text-ink">{athlete.name}</h1>
-      <div className="mt-1 text-[13px] text-muted">
+      <h1 className="text-[22px] font-extrabold text-ink">{athlete.name}</h1>
+      <div className="mt-1 text-[14.5px] text-muted">
         {athlete.sport}
         {athlete.position ? ` · ${athlete.position}` : ""} · {RECRUIT_TYPE_LABEL[athlete.recruit_type] ?? athlete.recruit_type}
         {athlete.gpa != null ? ` · ${Number(athlete.gpa).toFixed(2)} school GPA` : ""}
@@ -165,10 +165,10 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
         <RailCard role="contact" kind="checklist">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[14px] font-semibold text-ink">NCAA eligibility</div>
-              <div className="text-[11.5px] text-muted">Core GPA, qualifier status and the clock</div>
+              <div className="text-[15px] font-semibold text-ink">NCAA eligibility</div>
+              <div className="text-[12.5px] text-muted">Core GPA, qualifier status and the clock</div>
             </div>
-            <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">&rsaquo;</span>
+            <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">&rsaquo;</span>
           </div>
         </RailCard>
       </Link>
@@ -180,10 +180,10 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
         <RailCard role="contact" kind="course">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[14px] font-semibold text-ink">Transcript</div>
-              <div className="text-[11.5px] text-muted">Every course, and what the NCAA counted</div>
+              <div className="text-[15px] font-semibold text-ink">Transcript</div>
+              <div className="text-[12.5px] text-muted">Every course, and what the NCAA counted</div>
             </div>
-            <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">&rsaquo;</span>
+            <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">&rsaquo;</span>
           </div>
         </RailCard>
       </Link>
@@ -203,8 +203,8 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
                 <RailCard role={statusRole(t.status)}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-[14px] font-semibold text-ink">{t.school?.name ?? "Unknown school"}</div>
-                      <div className="text-[12px] text-muted">
+                      <div className="text-[15px] font-semibold text-ink">{t.school?.name ?? "Unknown school"}</div>
+                      <div className="text-[13px] text-muted">
                         {t.school?.division ?? ""}
                         {t.offer_type ? ` · ${t.offer_type} offer${t.offer_scholarship_percent ? ` (${t.offer_scholarship_percent}%)` : ""}` : ""}
                       </div>
@@ -234,20 +234,20 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
                 <RailCard key={c.id} role="people">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-[13px] font-bold text-ink">{c.name}</div>
-                      <div className="text-[11.5px] text-muted">{CONTACT_ROLE_LABEL[c.role] ?? c.role}</div>
+                      <div className="text-[14.5px] font-bold text-ink">{c.name}</div>
+                      <div className="text-[12.5px] text-muted">{CONTACT_ROLE_LABEL[c.role] ?? c.role}</div>
                       {(c.email || c.phone) && (
-                        <div className="mt-1 text-[12px] text-muted">
+                        <div className="mt-1 text-[13px] text-muted">
                           {c.email}
                           {c.email && c.phone ? " · " : ""}
                           {c.phone}
                         </div>
                       )}
-                      {c.notes && <p className="mt-1 text-[12px] text-muted">{c.notes}</p>}
+                      {c.notes && <p className="mt-1 text-[13px] text-muted">{c.notes}</p>}
                     </div>
                     {canEdit && (
                       <form action={deleteContactAction.bind(null, c.id)}>
-                        <button type="submit" className="text-[11.5px] font-bold text-danger">
+                        <button type="submit" className="text-[12.5px] font-bold text-danger">
                           Remove
                         </button>
                       </form>
@@ -277,15 +277,15 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
             {visits.map((v) => (
               <RailCard key={v.id} role="place">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-[13px] font-bold text-ink">
+                  <span className="text-[14.5px] font-bold text-ink">
                     {schoolNameByTargetId.get(v.target_id) ?? "Unknown school"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}
                   </span>
-                  <span className="flex-shrink-0 text-[11.5px] tabular-nums text-muted">
+                  <span className="flex-shrink-0 text-[12.5px] tabular-nums text-muted">
                     {new Date(v.visit_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                   </span>
                 </div>
-                {v.impression && <p className="mt-1 text-[12.5px] text-ink">{v.impression}</p>}
-                {v.next_step && <p className="mt-0.5 text-[12px] text-muted">Next: {v.next_step}</p>}
+                {v.impression && <p className="mt-1 text-[13.5px] text-ink">{v.impression}</p>}
+                {v.next_step && <p className="mt-0.5 text-[13px] text-muted">Next: {v.next_step}</p>}
               </RailCard>
             ))}
           </div>

@@ -38,10 +38,10 @@ def dollars(kind):
 
 
 def header(label, count=None, role="accent"):
-    c = f'<span class="text-[12px] font-extrabold tabular-nums text-ink">{count}</span>' if count is not None else ""
+    c = f'<span class="text-[13px] font-extrabold tabular-nums text-ink">{count}</span>' if count is not None else ""
     return ('<div class="flex items-center gap-2">'
             f'<span class="h-[7px] w-[7px] flex-shrink-0 rounded-full {DOT[role]}"></span>'
-            f'<span class="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">{label}</span>'
+            f'<span class="text-[13px] font-extrabold uppercase tracking-[0.04em] text-muted">{label}</span>'
             '<span class="h-px flex-1 border-b-2 border-dotted border-line"></span>'
             f'{c}</div>')
 
@@ -51,12 +51,12 @@ def rail(role, inner):
 
 
 def chip(text, role):
-    return (f'<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] '
+    return (f'<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[12px] '
             f'font-bold {TINT[role]}">{text}</span>')
 
 
 def note(text, role="contact"):
-    return rail(role, f'<div class="text-[12.5px] leading-tight text-ink">{text}</div>')
+    return rail(role, f'<div class="text-[13.5px] leading-tight text-ink">{text}</div>')
 
 
 def bar(pct, role):
@@ -65,55 +65,55 @@ def bar(pct, role):
 
 
 def board_card(name, amount, seats, pct, role, sub=""):
-    s = f'<div class="mt-0.5 text-[11.5px] leading-tight text-muted">{sub}</div>' if sub else ""
+    s = f'<div class="mt-0.5 text-[12.5px] leading-tight text-muted">{sub}</div>' if sub else ""
     return rail(role, f'''<div class="min-w-0">
       <div class="flex items-start justify-between gap-3">
-        <div class="text-[13px] font-bold text-ink">{name}</div>
-        <span class="flex-shrink-0 text-[12px] font-extrabold tabular-nums text-ink">{pct}%</span>
+        <div class="text-[14.5px] font-bold text-ink">{name}</div>
+        <span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">{pct}%</span>
       </div>
-      <div class="mt-0.5 text-[11.5px] text-muted">{amount} give/get &middot; {seats}</div>
+      <div class="mt-0.5 text-[12.5px] text-muted">{amount} give/get &middot; {seats}</div>
       {s}
       {bar(pct, role)}
     </div>''')
 
 
 def member_row(name, title, given, raised, pct, role, extra=""):
-    e = f'<div class="mt-1 text-[11.5px] leading-tight text-muted">{extra}</div>' if extra else ""
+    e = f'<div class="mt-1 text-[12.5px] leading-tight text-muted">{extra}</div>' if extra else ""
     return rail(role, f'''<div class="min-w-0">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <div class="text-[13px] font-bold text-ink">{name}</div>
-          <div class="mt-0.5 text-[11.5px] text-muted">{title}</div>
+          <div class="text-[14.5px] font-bold text-ink">{name}</div>
+          <div class="mt-0.5 text-[12.5px] text-muted">{title}</div>
         </div>
-        <span class="flex-shrink-0 text-[12px] font-extrabold tabular-nums text-ink">{pct}%</span>
+        <span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">{pct}%</span>
       </div>
-      <div class="mt-1.5 text-[11.5px] text-muted">{given} given &middot; {raised} brought in</div>
+      <div class="mt-1.5 text-[12.5px] text-muted">{given} given &middot; {raised} brought in</div>
       {e}
       {bar(pct, role)}
     </div>''')
 
 
 INPUT = ('w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 '
-         'text-[14px] text-ink placeholder:text-muted')
+         'text-[15px] text-ink placeholder:text-muted')
 
 SCREENS = {}
 
 # ------------------------------------------------------------- 1 overview
 SCREENS["boards"] = ("Boards", f"""
 <main class="px-4 pt-2 pb-6">
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Board</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">Five tiers, each with a give/get commitment. Progress is cash in the door, given or brought in.</p>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Board</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">Five tiers, each with a give/get commitment. Progress is cash in the door, given or brought in.</p>
 
   <div class="mb-3 grid grid-cols-2 gap-2">
     <div class="rounded-[12px] bg-paper p-3.5">
-      <div class="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">Committed</div>
-      <div class="mt-1 text-[24px] font-black tabular-nums leading-tight text-ink">$127,500</div>
-      <div class="mt-0.5 text-[10.5px] text-muted">across 24 active seats</div>
+      <div class="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">Committed</div>
+      <div class="mt-1 text-[26px] font-black tabular-nums leading-tight text-ink">$127,500</div>
+      <div class="mt-0.5 text-[11.5px] text-muted">across 24 active seats</div>
     </div>
     <div class="rounded-[12px] bg-paper p-3.5">
-      <div class="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">Delivered</div>
-      <div class="mt-1 text-[24px] font-black tabular-nums leading-tight text-ink">$71,200</div>
-      <div class="mt-0.5 text-[10.5px] text-muted">56% &middot; 9 of 24 fully met</div>
+      <div class="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">Delivered</div>
+      <div class="mt-1 text-[26px] font-black tabular-nums leading-tight text-ink">$71,200</div>
+      <div class="mt-0.5 text-[11.5px] text-muted">56% &middot; 9 of 24 fully met</div>
     </div>
   </div>
 
@@ -130,8 +130,8 @@ SCREENS["boards"] = ("Boards", f"""
   </div>
 
   <div class="mt-5 flex flex-col gap-2">
-    <button class="rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Add a seat</button>
-    <button class="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">New board</button>
+    <button class="rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Add a seat</button>
+    <button class="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">New board</button>
   </div>
 </main>
 """)
@@ -139,16 +139,16 @@ SCREENS["boards"] = ("Boards", f"""
 # -------------------------------------------------------------- 2 one board
 SCREENS["board"] = ("One board", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Board</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Baseball Board</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">{dollars("sport")} give/get per seat. Starts at three seats and can grow to five.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Board</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Baseball Board</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">{dollars("sport")} give/get per seat. Starts at three seats and can grow to five.</p>
 
   <div class="mb-4">{rail("offer", f'''<div class="min-w-0">
     <div class="flex items-start justify-between gap-3">
-      <div class="text-[13px] font-bold text-ink">$7,200 of $15,000</div>
-      <span class="flex-shrink-0 text-[12px] font-extrabold tabular-nums text-ink">48%</span>
+      <div class="text-[14.5px] font-bold text-ink">$7,200 of $15,000</div>
+      <span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">48%</span>
     </div>
-    <div class="mt-0.5 text-[11.5px] text-muted">3 seats filled &middot; 2 open &middot; 1 of 3 fully met</div>
+    <div class="mt-0.5 text-[12.5px] text-muted">3 seats filled &middot; 2 open &middot; 1 of 3 fully met</div>
     {bar(48, "offer")}
   </div>''')}</div>
 
@@ -160,8 +160,8 @@ SCREENS["board"] = ("One board", f"""
   </div>
 
   <div class="mb-2 mt-5">{header("Open seats", "2", "target")}</div>
-  {rail("target", '''<div class="text-[12.5px] leading-tight text-ink">Two seats to fill, up to the cap of five.
-    <div class="mt-1 text-[11.5px] leading-tight text-muted">The three core roles are filled. Anything beyond them is at the board's discretion.</div></div>''')}
+  {rail("target", '''<div class="text-[13.5px] leading-tight text-ink">Two seats to fill, up to the cap of five.
+    <div class="mt-1 text-[12.5px] leading-tight text-muted">The three core roles are filled. Anything beyond them is at the board's discretion.</div></div>''')}
 
   <div class="mt-3">{note("A pledge sits beside the progress, never inside it, exactly as on the fundraising screens. A promise does not discharge a commitment.", "contact")}</div>
 </main>
@@ -170,79 +170,79 @@ SCREENS["board"] = ("One board", f"""
 # -------------------------------------------------------------- 3 add a seat
 SCREENS["seat"] = ("Add a seat", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Baseball Board</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Add a seat</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">Baseball Board. Two seats open of five.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Baseball Board</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Add a seat</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">Baseball Board. Two seats open of five.</p>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Name</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Name</label>
     <input value="D. Placeholder" class="{INPUT}" />
   </div>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Role</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Role</label>
     <input value="Recruiting Lead" class="{INPUT}" />
-    <p class="mt-1 text-[11.5px] leading-tight text-muted">The sport boards' three core roles are Sport Director, Board Chair and Recruiting Lead. Anything else is fine too.</p>
+    <p class="mt-1 text-[12.5px] leading-tight text-muted">The sport boards' three core roles are Sport Director, Board Chair and Recruiting Lead. Anything else is fine too.</p>
   </div>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Status</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Status</label>
     <input value="Prospect" class="{INPUT}" />
-    <p class="mt-1 text-[11.5px] leading-tight text-muted">Only an active seat counts toward the board's committed total. A prospect has not joined yet.</p>
+    <p class="mt-1 text-[12.5px] leading-tight text-muted">Only an active seat counts toward the board's committed total. A prospect has not joined yet.</p>
   </div>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Commitment</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Commitment</label>
     <input value="{dollars('sport')}" class="{INPUT} tabular-nums" />
-    <p class="mt-1 text-[11.5px] leading-tight text-muted">Copied from the board so that changing the tier later does not rewrite what a sitting member agreed to.</p>
+    <p class="mt-1 text-[12.5px] leading-tight text-muted">Copied from the board so that changing the tier later does not rewrite what a sitting member agreed to.</p>
   </div>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Donor record</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Donor record</label>
     <input value="Not linked" class="{INPUT}" />
-    <p class="mt-1 text-[11.5px] leading-tight text-muted">Linking finds their own giving automatically. Without it, only what they bring in can be credited.</p>
+    <p class="mt-1 text-[12.5px] leading-tight text-muted">Linking finds their own giving automatically. Without it, only what they bring in can be credited.</p>
   </div>
 
   <div class="mb-4 grid grid-cols-2 gap-2">
     <div>
-      <label class="mb-1.5 block text-[11px] font-bold text-muted">Term starts</label>
+      <label class="mb-1.5 block text-[12px] font-bold text-muted">Term starts</label>
       <input value="2026-09-01" class="{INPUT} tabular-nums" />
     </div>
     <div>
-      <label class="mb-1.5 block text-[11px] font-bold text-muted">Term ends</label>
+      <label class="mb-1.5 block text-[12px] font-bold text-muted">Term ends</label>
       <input placeholder="optional" class="{INPUT} tabular-nums" />
     </div>
   </div>
 
-  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Add the seat</button>
+  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Add the seat</button>
 </main>
 """)
 
 # ------------------------------------------------------- 4 crediting a gift
 SCREENS["credit"] = ("Crediting the get", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Fundraising</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Record a gift</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">One extra field once the board module is on.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Fundraising</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Record a gift</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">One extra field once the board module is on.</p>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Amount</label>
-    <input value="$6,000.00" class="{INPUT} text-[18px] font-bold tabular-nums" />
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Amount</label>
+    <input value="$6,000.00" class="{INPUT} text-[20px] font-bold tabular-nums" />
   </div>
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Donor</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Donor</label>
     <input value="Example Corp" class="{INPUT}" />
   </div>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Brought in by</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Brought in by</label>
     <input value="B. Placeholder, Baseball Board" class="{INPUT}" />
-    <p class="mt-1 text-[11.5px] leading-tight text-muted">Credits this toward their give/get. This is the "get" half, and it is the thing most board software cannot record at all.</p>
+    <p class="mt-1 text-[12.5px] leading-tight text-muted">Credits this toward their give/get. This is the "get" half, and it is the thing most board software cannot record at all.</p>
   </div>
 
   <div class="mb-4">{note("If the donor and the person who brought it in are the same, it counts once. A member cannot clear a $10,000 commitment with $5,000 by being credited twice.", "contact")}</div>
 
-  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Record it</button>
+  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Record it</button>
 </main>
 """)
 

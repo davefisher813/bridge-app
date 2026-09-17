@@ -16,19 +16,19 @@ export default async function NewDocumentPage({ params }: { params: Promise<{ sl
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4 flex items-center gap-3">
-        <Link href={`/org/${slug}/documents`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/documents`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Documents
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Add a document</h1>
-      <p className="mb-5 text-[12.5px] text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Add a document</h1>
+      <p className="mb-5 text-[13.5px] text-muted">
         A transcript, test scores, an offer letter. It gets read, matched to an athlete, and either applied or sent to review.
       </p>
 
       {stubbed && (
         <div className="mb-5 rounded-[10px] border-l-[5px] border-l-ios-yellow bg-paper px-3.5 py-3">
-          <div className="text-[13px] font-bold text-ink">Simulated reading</div>
-          <div className="mt-0.5 text-[11.5px] text-muted">
+          <div className="text-[14.5px] font-bold text-ink">Simulated reading</div>
+          <div className="mt-0.5 text-[12.5px] text-muted">
             No AI model is connected yet, so nothing is actually read off the page. The whole flow runs and the results are made up.
           </div>
         </div>

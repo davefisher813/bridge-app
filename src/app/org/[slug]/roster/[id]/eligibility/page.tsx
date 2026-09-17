@@ -80,12 +80,12 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
     return (
       <main className="px-4 pt-2 pb-6">
         <div className="mb-4">
-          <Link href={back} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+          <Link href={back} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
             &larr; {athlete.name}
           </Link>
         </div>
-        <h1 className="mb-1 text-[20px] font-extrabold text-ink">NCAA eligibility</h1>
-        <p className="mb-5 text-[12.5px] text-muted">Nothing to judge against yet.</p>
+        <h1 className="mb-1 text-[22px] font-extrabold text-ink">NCAA eligibility</h1>
+        <p className="mb-5 text-[13.5px] text-muted">Nothing to judge against yet.</p>
         <EmptyState icon={<BookIcon />} title="No school on the board yet">
           Initial eligibility depends on where an athlete is going, not on the athlete. Add a target school and this starts calculating
           against that division.
@@ -98,7 +98,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
             <div className="mb-2 mt-6">
               <SectionHeader label="Add a transcript anyway" role="contact" />
             </div>
-            <p className="mb-3 text-[12px] leading-tight text-muted">
+            <p className="mb-3 text-[13px] leading-tight text-muted">
               The course list is what a core GPA is calculated from. Loading it now means the verdict is ready the moment a school goes on
               the board.
             </p>
@@ -115,12 +115,12 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={back} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={back} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; {athlete.name}
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">NCAA eligibility</h1>
-      <p className="mb-5 text-[12.5px] text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">NCAA eligibility</h1>
+      <p className="mb-5 text-[13.5px] text-muted">
         {division === "D3"
           ? "Target school is Division III."
           : `Division ${division === "D1" ? "I" : "II"} standard. Calculated from ${std?.coreCredits ?? 16} approved core courses, not from the transcript average.`}
@@ -140,7 +140,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
       {eligibility.projected && eligibility.coreGpa?.gpa != null && (
         <div className="mb-4">
           <NoteRail role="offer">
-            <div className="text-[12.5px] leading-tight text-ink">
+            <div className="text-[13.5px] leading-tight text-ink">
               Not a final status. {eligibility.coreGpa.totalCredits} of {std?.coreCredits ?? 16} core credits are on file, and the rest can
               move this either way.
             </div>
@@ -152,16 +152,16 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
         <div className="flex flex-col gap-2">
           {eligibility.reasons.map((r, i) => (
             <NoteRail key={i} role="contact">
-              <div className="text-[12.5px] leading-tight text-ink">{r}</div>
+              <div className="text-[13.5px] leading-tight text-ink">{r}</div>
             </NoteRail>
           ))}
           <NoteRail role="target">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-[13px] font-bold text-ink">Transcript GPA</div>
-                <div className="text-[11.5px] text-muted">The school&apos;s own number, unconverted</div>
+                <div className="text-[14.5px] font-bold text-ink">Transcript GPA</div>
+                <div className="text-[12.5px] text-muted">The school&apos;s own number, unconverted</div>
               </div>
-              <span className="text-[13px] font-extrabold tabular-nums text-ink">
+              <span className="text-[14.5px] font-extrabold tabular-nums text-ink">
                 {transcriptGpa === null ? "None" : transcriptGpa.toFixed(2)}
               </span>
             </div>
@@ -173,7 +173,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
 
           {eligibility.coreGpa?.gpa != null && (
             <NoteRail role="contact">
-              <div className="text-[12.5px] leading-tight text-ink">
+              <div className="text-[13.5px] leading-tight text-ink">
                 These are meant to be different. The core GPA counts only NCAA-approved core courses and uses A=4, B=3, with no plus or
                 minus. Electives and PE lift a transcript average and are left out of this one.
               </div>
@@ -183,17 +183,17 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           {view.schoolsMissingScale.length > 0 && (
             <div className="mt-3">
               <NoteRail role="offer">
-                <div className="text-[12.5px] font-bold leading-tight text-ink">
+                <div className="text-[13.5px] font-bold leading-tight text-ink">
                   {view.schoolsMissingScale.join(" and ")} {view.schoolsMissingScale.length > 1 ? "have" : "has"} no grading scale on file
                 </div>
-                <div className="mt-1 text-[12px] leading-tight text-muted">
+                <div className="mt-1 text-[13px] leading-tight text-muted">
                   Those grades are numbers, and the number above was produced by assuming the standard ten-point scale. The NCAA uses the
                   school&apos;s own published table, so an 85 is not automatically a B. Enter the real table and this recalculates.
                 </div>
                 {canUpload && (
                   <Link
                     href={`/org/${slug}/grading-scales/new?school=${encodeURIComponent(view.schoolsMissingScale[0] ?? "")}&returnTo=${encodeURIComponent(`/org/${slug}/roster/${id}/eligibility`)}`}
-                    className="mt-2 inline-block text-[12px] font-extrabold text-tint-accent-on"
+                    className="mt-2 inline-block text-[13px] font-extrabold text-tint-accent-on"
                   >
                     Enter the grading scale
                   </Link>
@@ -218,10 +218,10 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-[13px] font-bold leading-tight text-ink">
+                      <div className="text-[14.5px] font-bold leading-tight text-ink">
                         {view.approvals.filter((a) => a.match.status === "approved").length} confirmed on the list
                       </div>
-                      <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                      <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                         {view.approvals.filter((a) => a.match.status === "not_approved").length} not approved
                         {(() => {
                           const open = view.approvals.filter((a) => a.match.status === "unknown" || a.match.status === "ambiguous").length;
@@ -229,7 +229,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                         })()}
                       </div>
                     </div>
-                    <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">&rsaquo;</span>
+                    <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">&rsaquo;</span>
                   </div>
                 </RailCard>
               </Link>
@@ -239,14 +239,14 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           {view.schoolsMissingApprovedList.length > 0 && (
             <div className="mt-3">
               <RailCard role="offer" kind="warning">
-                <div className="text-[12.5px] font-bold leading-tight text-ink">
+                <div className="text-[13.5px] font-bold leading-tight text-ink">
                   {view.schoolsMissingApprovedList.join(" and ")} {view.schoolsMissingApprovedList.length > 1 ? "have" : "has"} no approved
                   list on file
                 </div>
                 {canUpload && (
                   <Link
                     href={`/org/${slug}/approved-courses/new?school=${encodeURIComponent(view.schoolsMissingApprovedList[0] ?? "")}`}
-                    className="-mb-2 mt-1 inline-flex min-h-[44px] items-center pr-3 text-[12.5px] font-extrabold text-tint-accent-on"
+                    className="-mb-2 mt-1 inline-flex min-h-[44px] items-center pr-3 text-[13.5px] font-extrabold text-tint-accent-on"
                   >
                     Enter the approved list
                   </Link>
@@ -271,14 +271,14 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                     conversion nobody supplied at all. */}
                 {view.scalesUsed.map((s, i) => (
                   <NoteRail key={i} role={s.origin === "verified" ? "contact" : s.origin === "org" ? "target" : "offer"}>
-                    <div className="text-[12.5px] leading-tight text-ink">
+                    <div className="text-[13.5px] leading-tight text-ink">
                       {s.origin === "verified"
                         ? `${s.school} numbers converted through a confirmed table`
                         : s.origin === "org"
                           ? `${s.school} numbers converted through a table your org entered`
                           : `${s.school} numbers converted on an assumed ten-point scale`}
                     </div>
-                    <div className="mt-1 text-[11.5px] leading-tight text-muted">
+                    <div className="mt-1 text-[12.5px] leading-tight text-muted">
                       {s.origin === "verified"
                         ? "Verified and shared across the platform. Your org cannot change this one."
                         : s.origin === "org"
@@ -298,7 +298,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
             <div className="mt-3 flex flex-col gap-2">
               {[...view.adapterWarnings, ...eligibility.warnings].map((w, i) => (
                 <NoteRail key={i} role="offer">
-                  <div className="text-[12.5px] leading-tight text-ink">{w}</div>
+                  <div className="text-[13.5px] leading-tight text-ink">{w}</div>
                 </NoteRail>
               ))}
             </div>
@@ -341,8 +341,8 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                 <SectionHeader label="Not counted" count={view.skipped.length} role="target" />
               </div>
               <NoteRail role="target">
-                <div className="text-[12.5px] leading-tight text-ink">{view.skipped.map((s) => s.title).join(", ")}</div>
-                <div className="mt-1 text-[11.5px] leading-tight text-muted">{view.skipped[0]?.reason}</div>
+                <div className="text-[13.5px] leading-tight text-ink">{view.skipped.map((s) => s.title).join(", ")}</div>
+                <div className="mt-1 text-[12.5px] leading-tight text-muted">{view.skipped[0]?.reason}</div>
               </NoteRail>
             </>
           )}
@@ -355,12 +355,12 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
               <div className="flex flex-col gap-2">
                 {ageClock.reasons.map((r, i) => (
                   <NoteRail key={i} role="time">
-                    <div className="text-[12.5px] leading-tight text-ink">{r}</div>
+                    <div className="text-[13.5px] leading-tight text-ink">{r}</div>
                   </NoteRail>
                 ))}
                 {ageClock.warnings.map((w, i) => (
                   <NoteRail key={`w${i}`} role="offer">
-                    <div className="text-[12.5px] leading-tight text-ink">{w}</div>
+                    <div className="text-[13.5px] leading-tight text-ink">{w}</div>
                   </NoteRail>
                 ))}
               </div>
@@ -381,7 +381,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           <div className="mb-2 mt-6">
             <SectionHeader label={courses.length ? "Add another transcript" : "Add a transcript"} role="contact" />
           </div>
-          <p className="mb-3 text-[12px] leading-tight text-muted">
+          <p className="mb-3 text-[13px] leading-tight text-muted">
             {courses.length
               ? `Goes straight onto ${athlete.name.split(" ")[0]}'s record. A transfer student legitimately has two, and the second does not replace the first.`
               : `Read for its course list, not just its GPA. That course list is the only thing an NCAA core GPA can be calculated from, so nothing above works until one is on file.`}
@@ -393,7 +393,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
         </>
       )}
 
-      <p className="mt-5 text-[11px] leading-relaxed text-muted">
+      <p className="mt-5 text-[12px] leading-relaxed text-muted">
         {eligibility.status === "not_applicable"
           ? "If a Division I or II target is added later, this page starts calculating against that division."
           : "A projection until every core credit is final. Confirm with the NCAA Eligibility Center before anyone signs anything."}

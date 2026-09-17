@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { applyDocument, discardDocument, isStubbedModel } from "@/lib/actions/documents";
 import { Avatar, RailCard, SectionHeader } from "@/components/catalog";
 import { StatusPill } from "@/components/StatusPill";
-import { SOLID, TINT, type Role } from "@/components/statusHue";
+import { TEXT_ON, type Role } from "@/components/statusHue";
+import { Chip } from "@/components/catalog";
 import { submitClass } from "@/components/formStyles";
 
 // One document: what was read off it, who it matched, and what happens
@@ -143,15 +144,15 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4 flex items-center justify-between">
-        <Link href={`/org/${slug}/documents`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/documents`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Documents
         </Link>
         {isApplied && <StatusPill status="Committed" />}
-        {isPending && <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-bold ${SOLID.offer}`}>Needs review</span>}
-        {isFailed && <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-bold ${SOLID.danger}`}>Not used</span>}
+        {isPending && <Chip label="Needs review" kind="warning" role="offer" />}
+        {isFailed && <Chip label="Not used" kind="blocked" role="danger" />}
       </div>
 
-      <h1 className="text-[20px] font-extrabold text-ink">
+      <h1 className="text-[22px] font-extrabold text-ink">
         {isFailed
           ? "Could not use this"
           : isPending
@@ -160,15 +161,15 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
               : "Not sure who this is"
             : `${doc.category ? CATEGORY_LABEL[doc.category] ?? doc.category : "Document"} read`}
       </h1>
-      <div className="mt-1 text-[13px] text-muted">
+      <div className="mt-1 text-[14.5px] text-muted">
         {doc.file_name}
         {doc.page_count ? ` · ${doc.page_count} page${doc.page_count === 1 ? "" : "s"}` : ""} · from {SOURCE_LABEL[doc.source_role] ?? doc.source_role}
       </div>
 
       {stubbed && (
         <div className="mt-4 rounded-[10px] border-l-[5px] border-l-ios-yellow bg-paper px-3.5 py-3">
-          <div className="text-[13px] font-bold text-ink">Simulated reading</div>
-          <div className="mt-0.5 text-[11.5px] text-muted">
+          <div className="text-[14.5px] font-bold text-ink">Simulated reading</div>
+          <div className="mt-0.5 text-[12.5px] text-muted">
             No AI model is connected yet. Nothing below was read off the page; it is made up by the stand-in so the flow can be used.
           </div>
         </div>
@@ -177,8 +178,8 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
       {doc.requested_category === null && doc.detected_type && (
         <div className="mt-4">
           <RailCard role="place">
-            <div className="text-[13px] font-bold text-ink">Worked out the type itself</div>
-            <div className="mt-0.5 text-[11.5px] text-muted">
+            <div className="text-[14.5px] font-bold text-ink">Worked out the type itself</div>
+            <div className="mt-0.5 text-[12.5px] text-muted">
               Nobody told it what this was. It decided: {doc.detected_type.replace(/_/g, " ")}.
             </div>
           </RailCard>
@@ -192,18 +193,18 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
           </div>
           <div className="flex flex-col gap-2">
             <RailCard role="danger">
-              <div className="text-[13px] font-bold text-ink">{doc.failure_reason ?? "It could not be read."}</div>
-              {legibility !== null && <div className="mt-0.5 text-[11.5px] text-muted">Legibility {legibility}%</div>}
+              <div className="text-[14.5px] font-bold text-ink">{doc.failure_reason ?? "It could not be read."}</div>
+              {legibility !== null && <div className="mt-0.5 text-[12.5px] text-muted">Legibility {legibility}%</div>}
             </RailCard>
             {(doc.triage?.issues ?? []).map((issue) => (
               <RailCard key={issue} role="danger">
-                <div className="text-[13px] font-bold text-ink">{issue}</div>
+                <div className="text-[14.5px] font-bold text-ink">{issue}</div>
               </RailCard>
             ))}
           </div>
           <div className="mt-6 rounded-[12px] bg-paper px-4 py-5">
-            <div className="text-[13px] font-extrabold text-ink">Try again</div>
-            <div className="mt-1 text-[11.5px] text-muted">
+            <div className="text-[14.5px] font-extrabold text-ink">Try again</div>
+            <div className="mt-1 text-[12.5px] text-muted">
               Lay it flat, avoid a window behind you, and get the whole page in frame. Nothing was changed on any athlete.
             </div>
           </div>
@@ -226,8 +227,8 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
               <div className="flex items-center gap-3">
                 <Avatar name={matched} />
                 <div>
-                  <div className="text-[14px] font-bold text-ink">{matched}</div>
-                  <div className="text-[11.5px] text-muted">{candidates[0]?.reasons.join(" · ") || "Matched on the name"}</div>
+                  <div className="text-[15px] font-bold text-ink">{matched}</div>
+                  <div className="text-[12.5px] text-muted">{candidates[0]?.reasons.join(" · ") || "Matched on the name"}</div>
                 </div>
               </div>
             </RailCard>
@@ -242,12 +243,12 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
                         <div className="flex items-center gap-3">
                           <Avatar name={c.name} />
                           <div>
-                            <div className="text-[14px] font-bold text-ink">{c.name}</div>
-                            <div className="text-[11.5px] text-muted">{c.reasons.join(" · ") || "Possible match"}</div>
+                            <div className="text-[15px] font-bold text-ink">{c.name}</div>
+                            <div className="text-[12.5px] text-muted">{c.reasons.join(" · ") || "Possible match"}</div>
                           </div>
                         </div>
                         <span
-                          className={`inline-flex flex-shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${TINT[confidenceRole(Math.round(c.score * 100))]}`}
+                          className={`flex-shrink-0 text-[16px] font-black tabular-nums ${TEXT_ON[confidenceRole(Math.round(c.score * 100))]}`}
                         >
                           {Math.round(c.score * 100)}%
                         </span>
@@ -256,12 +257,12 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
                   </button>
                 </form>
               ))}
-              <p className="mt-1 text-[11px] text-muted">Tapping one applies this document to them.</p>
+              <p className="mt-1 text-[12px] text-muted">Tapping one applies this document to them.</p>
             </div>
           ) : (
             <RailCard role="offer">
-              <div className="text-[13px] font-bold text-ink">No athlete on the roster looks like a match</div>
-              <div className="mt-0.5 text-[11.5px] text-muted">
+              <div className="text-[14.5px] font-bold text-ink">No athlete on the roster looks like a match</div>
+              <div className="mt-0.5 text-[12.5px] text-muted">
                 {doc.extracted?.studentName ? `The document says "${String(doc.extracted.studentName)}".` : "No name was read off it."} Add them to the
                 roster first, then come back.
               </div>
@@ -277,8 +278,8 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
                 {fields.map((f) => (
                   <RailCard key={f.label} role={isApplied ? "committed" : "offer"}>
                     <div className="flex items-center justify-between gap-3">
-                      <div className="text-[13px] text-muted">{f.label}</div>
-                      <div className="text-[14px] font-extrabold tabular-nums text-ink">{f.value}</div>
+                      <div className="text-[14.5px] text-muted">{f.label}</div>
+                      <div className="text-[15px] font-extrabold tabular-nums text-ink">{f.value}</div>
                     </div>
                   </RailCard>
                 ))}
@@ -293,10 +294,10 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
               </div>
               <RailCard role={isApplied ? "committed" : "offer"}>
                 <div className="flex items-center justify-between gap-3">
-                  <div className="text-[13px] font-bold text-ink">
+                  <div className="text-[14.5px] font-bold text-ink">
                     {pct >= 70 ? "High confidence" : pct >= 40 ? "Medium confidence" : "Low confidence"}
                   </div>
-                  <div className="text-[15px] font-extrabold tabular-nums text-ink">{pct}%</div>
+                  <div className="text-[16px] font-extrabold tabular-nums text-ink">{pct}%</div>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
                   <div
@@ -304,7 +305,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <div className="mt-2 text-[11.5px] text-muted">
+                <div className="mt-2 text-[12.5px] text-muted">
                   {modelPct !== null ? `It was ${modelPct}% sure of what it read` : "Confidence was not reported"}
                   {legibility !== null ? `, the scan was ${legibility}% legible` : ""}, and it came from {SOURCE_LABEL[doc.source_role] ?? doc.source_role}.
                   {isApplied ? " Applied without asking." : " That is not enough to change an athlete without a look."}
@@ -319,8 +320,8 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
           {isDiscarded && doc.undo_note && (
             <div className="mt-5">
               <RailCard role="target">
-                <div className="text-[13px] font-bold text-ink">What was undone</div>
-                <div className="mt-1 text-[12px] leading-tight text-muted">{doc.undo_note}</div>
+                <div className="text-[14.5px] font-bold text-ink">What was undone</div>
+                <div className="mt-1 text-[13px] leading-tight text-muted">{doc.undo_note}</div>
               </RailCard>
             </div>
           )}
@@ -332,8 +333,8 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
           {isApplied && (
             <div className="mt-5">
               <RailCard role="offer">
-                <div className="text-[13px] font-bold text-ink">Applied to the wrong athlete, or read wrong?</div>
-                <div className="mt-1 text-[12px] leading-tight text-muted">
+                <div className="text-[14.5px] font-bold text-ink">Applied to the wrong athlete, or read wrong?</div>
+                <div className="mt-1 text-[13px] leading-tight text-muted">
                   Discarding this now removes the courses it added and puts back the athlete&apos;s previous GPA and date of birth. Anything
                   corrected by hand since is left alone.
                 </div>
@@ -347,7 +348,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
             </Link>
             {(isPending || isApplied) && (
               <form action={discardAction} className="flex-1">
-                <button type="submit" className="w-full rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+                <button type="submit" className="w-full rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
                   {isApplied ? "Undo and discard" : "Discard"}
                 </button>
               </form>

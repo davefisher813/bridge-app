@@ -44,17 +44,17 @@ export function JourneyStepper({ result }: { result: JourneyResult }) {
                   }`}
                 />
               </div>
-              <div className={`text-center text-[9.5px] font-bold ${done || current ? "text-ink" : "text-muted"}`}>{label}</div>
+              <div className={`text-center text-[11px] font-bold ${done || current ? "text-ink" : "text-muted"}`}>{label}</div>
             </div>
           );
         })}
       </div>
       {result.furthestTarget ? (
-        <p className="mt-2.5 text-[11px] text-muted">
+        <p className="mt-2.5 text-[12px] text-muted">
           Furthest stage: {result.furthestTarget.status} ({result.furthestTarget.schoolName})
         </p>
       ) : (
-        <p className="mt-2.5 text-[11px] text-muted">No active targets yet.</p>
+        <p className="mt-2.5 text-[12px] text-muted">No active targets yet.</p>
       )}
     </div>
   );

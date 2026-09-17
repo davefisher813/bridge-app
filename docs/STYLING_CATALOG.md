@@ -5,6 +5,11 @@ treatments from the visual catalog artifact. This document is the
 contract. A screen that renders one of these components renders it the
 way this file says, or the law tests in `src/laws/` fail.
 
+**Amended 2026-09-16 (C2, the type glyph) and 2026-09-17 (the fill
+removal and the type scale), both by Dave, both recorded below and in
+docs/DECISIONS.md.** The lock is not broken by an amendment Dave asks
+for; it is broken by a judgment call made mid-screen.
+
 Changing a locked item is a conversation with Dave, not a judgment call
 mid-screen. Adding a component type that is not in this file means
 adding it here first.
@@ -13,20 +18,101 @@ adding it here first.
 
 | Component | Code | Treatment |
 | --- | --- | --- |
-| Status pills | P1 | Solid fill, paired foreground |
+| Status pills | P1 | Glyph in the stage hue, plain label (was: solid fill) |
 | Section headers | H1 | Colored dot, dotted rule, trailing count |
-| Metadata icon badges | B1 | Solid square badge, one hue per field type |
+| Metadata icon badges | B1 | Bare glyph, one hue per field type (was: solid square) |
 | Cards and rows | C2 | Solid card, colored type glyph (was: left border rail) |
-| Fit score | S2 | Numeric pill, rendered as a tint |
+| Fit score | S2 | The number alone in the band hue (was: tinted pill) |
 | Avatars | AV1 | Gradient fill with initials |
 | Primary buttons | BT3 | Solid rounded rectangle |
-| Stat tiles | ST1 | Tinted background |
+| Stat tiles | ST1 | Paper tile, value in the role hue (was: tinted background) |
 | Bottom tab bar | TB1 | Active tab gets a solid pill behind the icon |
 | Journey stepper | J1 | Connected dots, line fills as it completes |
 | Form inputs | F3 | Filled, no border |
-| Board group headers | G3 | Solid tinted pill tab |
+| Board group headers | G3 | Glyph and label, count after it (was: tinted pill tab) |
 | Empty states | E1 | Icon, title, subtext, centered |
 | Toasts | T3 | Solid pill |
+
+## The fill removal, 2026-09-17
+
+Dave, looking at the roster in the prototype: "let's make sure there's no
+color highlights on the pills like in pic two, we said we were going with
+icons, make sure it's consistent throughout."
+
+The September 16 change put a type glyph on every record row and left the
+fills on the pills, so for a day a row carried a bare coloured mark at one
+end and a filled coloured block at the other, both meaning status. That is
+the inconsistency he is pointing at, and he is right about it.
+
+**The rule now, everywhere:** a pill, chip, badge or tab is a glyph in the
+role's hue plus a label in `--ink`. No `bg-tint-*` and no `bg-solid-*`
+behind any of them. `Chip` in `src/components/catalog.tsx` is the one
+implementation; `StatusPill`, `GroupTab` and the per-screen status chips
+all render it.
+
+Two things survive the rule, and both for a reason:
+
+- **Primary and destructive buttons** keep `bg-solid-accent` and
+  `bg-solid-danger`. Reserving red for the action is the oldest rule in
+  this file, and an action that does not look like a button is not a
+  style problem.
+- **A selectable control** (a subject picker, a stage picker, the Doc AI
+  category tabs) shows "chosen" with `ring-2 ring-accent` and a border,
+  not a fill. A control has to show state; it does not have to show it
+  with a coloured block.
+
+**Colour on a glyph and colour on a word are different tokens.** `FG` is
+the raw iOS hue, correct for a 2px stroke. As text it is 2.02:1 on paper.
+The first pass at a bare coloured score number put twenty-six AA failures
+on the board in one build, which is what `TEXT_ON` exists for: the tint
+pairs' foregrounds, already tuned for both themes. A glyph takes `FG`, a
+word or a number takes `TEXT_ON`, and three laws in
+`src/laws/stylingLaws.test.ts` keep it that way.
+
+## The type scale, 2026-09-17
+
+Dave: "font size in the app is a little small as well."
+
+Every `text-[Npx]` in the app and in the generators moved up one step, in
+a single pass so nothing cascaded:
+
+| Was | Now | | Was | Now |
+| --- | --- | --- | --- | --- |
+| 9.5 | 11 | | 13 | 14.5 |
+| 10 | 11 | | 14 | 15 |
+| 10.5 | 11.5 | | 15 | 16 |
+| 11 | 12 | | 16 | 17 |
+| 11.5 | 12.5 | | 18 | 20 |
+| 12 | 13 | | 20 | 22 |
+| 12.5 | 13.5 | | 24 | 26 |
+|  |  | | 26 | 28 |
+
+Bigger at the bottom than the top. 10.5 and 11 were the sizes that
+actually hurt on a phone; a 20px screen title going to 26 would have been
+a redesign rather than a legibility fix. Body copy is now 13.5px and the
+smallest label in the app is 11px.
+
+## The icons, redrawn 2026-09-17
+
+Dave: "let's improve the quality of the icons." Four things were wrong and
+none of them was the choice of shape. The full account is in the header of
+`src/components/rowIcons.json`; the short version:
+
+1. **Stroke.** 1.75 on a 24 box at 18px is a 1.31px line, which falls
+   between device pixels. Now 2.0 at 20px, a 1.67px line. That alone
+   sharpened the set without a path changing.
+2. **Safe area.** Several glyphs ran to the edge of the box, so they
+   optically outsized their neighbours. Everything now sits inside 20x20.
+3. **Detail below the resolution.** Trophy handles, megaphone arcs and a
+   medal ribbon all carried features under 2 units, which merge at 18px.
+4. **Two glyphs said the wrong thing.** `visit` was a calendar, which is a
+   date and not a campus visit. `pledge` was the clock glyph exactly, so a
+   promise and a deadline were one mark.
+
+`board` was a bar chart doing duty for both the recruiting board and the
+board of directors; the second now has its own `governance` glyph. A new
+`stage_*` set carries the recruiting stages, which need shapes of their
+own now that the pills have no fill to carry them.
 
 ## The palette: Apple's, exactly
 
@@ -109,7 +195,7 @@ hairline-border rule that existed only because the old neutral fill sat at
 
 ## Component contracts
 
-### P1, status pills
+### P1, status pills (amended 2026-09-17)
 
 `src/components/StatusPill.tsx` is the only implementation. Do not
 re-style status text inline anywhere.
@@ -129,7 +215,7 @@ section's role where it has one, and falls back to `accent`.
 The rule is `border-bottom: 2px dotted var(--line)` on a flexed spacer,
 never a background image or a row of typed characters.
 
-### B1, metadata icon badges
+### B1, metadata icon badges (amended 2026-09-17)
 
 A 30px solid square, `rounded-[8px]`, icon centered, one hue per field
 type. Three hues exist and they are named for their role:
@@ -181,7 +267,7 @@ not a card pile" rule in docs/DESIGN_SYSTEM.md. Dave picked the card
 knowingly. The DESIGN_SYSTEM reference to full-bleed rows now describes
 JARVIS, not this app.
 
-### S2, fit score
+### S2, fit score (amended 2026-09-17)
 
 A TINT carrying the number alone, no label, no ring, no track. Banded
 green above 70, yellow 40 to 69, gray below, by `scoreRole()` in
@@ -204,7 +290,7 @@ tabs and toasts are all fully rounded. That contrast is intentional and
 is what separates a control you press from a label you read. Do not
 "fix" it by rounding buttons fully.
 
-### ST1, stat tiles
+### ST1, stat tiles (amended 2026-09-17)
 
 `rounded-[12px]`, background is the stat's tint pair rather than a solid
 fill, so a row of tiles does not compete with the pills next to it.
@@ -235,7 +321,7 @@ ring, since there is no border to recolor. Error state adds a
 Every form component in `src/components/` follows this. The current
 `inputClass` constants use a border and need converting.
 
-### G3, board group headers
+### G3, board group headers (amended 2026-09-17)
 
 A solid tinted pill tab carrying the group name and its count, tinted
 in the group's status hue rather than solid-filled, because a group

@@ -16,14 +16,24 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
-import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { RowGlyph } from "@/components/RowGlyph";
-import { DOT, TINT } from "@/components/statusHue";
+import { Chip, RailCard, SectionHeader, EmptyState } from "@/components/catalog";
+import { RowGlyph, type RowKind } from "@/components/RowGlyph";
+import { DOT } from "@/components/statusHue";
 import { formatMoney, formatMoneyShort, CATEGORY_LABEL, METHOD_LABEL } from "@/lib/fundraising/rollup";
 import { creditedGifts, type SeatStatus } from "@/lib/governance/giveGet";
 import { loadGovernance } from "@/lib/data/governanceView";
 
 export const dynamic = "force-dynamic";
+
+// The glyph each seat status wears, since the pills no longer carry a
+// fill. Prospect is a target because that is what it is: somebody the
+// chair is recruiting.
+const SEAT_KIND: Record<SeatStatus, RowKind> = {
+  prospect: "stage_target",
+  active: "check",
+  emeritus: "clock",
+  resigned: "stage_none",
+};
 
 const STATUS_LABEL: Record<SeatStatus, string> = {
   prospect: "Prospect",
@@ -57,9 +67,9 @@ function roleFor(percent: number | null): "committed" | "offer" | "target" {
 function Tile({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="rounded-[12px] bg-paper p-3.5">
-      <div className="text-[10px] font-bold uppercase tracking-[0.04em] text-muted">{label}</div>
-      <div className="mt-1 text-[18px] font-extrabold tabular-nums leading-tight text-ink">{value}</div>
-      <div className="mt-0.5 text-[10.5px] leading-tight text-muted">{sub}</div>
+      <div className="text-[11px] font-bold uppercase tracking-[0.04em] text-muted">{label}</div>
+      <div className="mt-1 text-[20px] font-extrabold tabular-nums leading-tight text-ink">{value}</div>
+      <div className="mt-0.5 text-[11.5px] leading-tight text-muted">{sub}</div>
     </div>
   );
 }
@@ -108,18 +118,16 @@ export default async function SeatPage({
       <div className="mb-4">
         <Link
           href={`/org/${slug}/board-governance/${board.id}`}
-          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted"
+          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted"
         >
           &larr; {board.name}
         </Link>
       </div>
 
-      <h1 className="mb-1 text-[20px] font-extrabold leading-tight text-ink">{member.name}</h1>
-      <div className="mb-5 flex flex-wrap items-center gap-2 text-[12.5px] font-bold text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold leading-tight text-ink">{member.name}</h1>
+      <div className="mb-5 flex flex-wrap items-center gap-2 text-[13.5px] font-bold text-muted">
         <span>{member.roleTitle ?? "No role set"}</span>
-        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${member.status === "active" ? TINT.committed : TINT.low}`}>
-          {STATUS_LABEL[member.status]}
-        </span>
+        <Chip label={STATUS_LABEL[member.status]} kind={SEAT_KIND[member.status]} role={member.status === "active" ? "committed" : "neutral"} />
       </div>
 
       <div className="mb-3 grid grid-cols-2 gap-2">
@@ -135,19 +143,19 @@ export default async function SeatPage({
         <div className="mb-5">
           <RailCard role={role} kind="money">
             <div className="flex items-start justify-between gap-3">
-              <div className="text-[13px] font-bold text-ink">
+              <div className="text-[14.5px] font-bold text-ink">
                 {p.commitmentCents === 0
                   ? "No commitment on this seat"
                   : p.met
                     ? `Commitment met: ${formatMoney(p.totalCents)} of ${formatMoney(p.commitmentCents)}`
                     : `${formatMoney(p.remainingCents)} still to go`}
               </div>
-              <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
+              <span className="flex-shrink-0 text-[14.5px] font-extrabold tabular-nums text-ink">
                 {p.percent === null ? "no target" : `${p.percent}%`}
               </span>
             </div>
             {p.commitmentCents > 0 && (
-              <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+              <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                 {formatMoney(p.totalCents)} of {formatMoney(p.commitmentCents)} for {fiscalYear}. Giving and bringing in both count.
               </div>
             )}
@@ -155,7 +163,7 @@ export default async function SeatPage({
             {/* Beside the progress, never inside it. A promise does not
                 discharge a commitment. */}
             {p.pledgedCents > 0 && (
-              <div className="mt-2 text-[11.5px] leading-tight text-muted">
+              <div className="mt-2 text-[12.5px] leading-tight text-muted">
                 {formatMoney(p.pledgedCents)} promised and not yet received. Not counted above.
               </div>
             )}
@@ -164,7 +172,7 @@ export default async function SeatPage({
       ) : (
         <div className="mb-5">
           <RailCard role="target">
-            <div className="text-[12.5px] leading-tight text-ink">
+            <div className="text-[13.5px] leading-tight text-ink">
               {member.status === "prospect"
                 ? "A prospect has not taken the seat yet, so no commitment is running and nothing counts against this year."
                 : "This seat is no longer active, so it carries no commitment for this year."}
@@ -176,8 +184,8 @@ export default async function SeatPage({
       {member.donorId === null && (
         <div className="mb-5">
           <RailCard role="offer">
-            <div className="text-[13px] font-bold text-ink">No donor record linked</div>
-            <div className="mt-1 text-[11.5px] leading-tight text-muted">
+            <div className="text-[14.5px] font-bold text-ink">No donor record linked</div>
+            <div className="mt-1 text-[12.5px] leading-tight text-muted">
               Their own giving cannot be found without one, so only gifts they are credited with bringing in are counted here.
             </div>
           </RailCard>
@@ -191,7 +199,7 @@ export default async function SeatPage({
           </div>
           <div className="mb-5">
             <RailCard role="time" kind="clock">
-              <div className="text-[13px] font-bold text-ink">
+              <div className="text-[14.5px] font-bold text-ink">
                 {member.termStart ? shortDate(member.termStart) : "Start not set"} to{" "}
                 {member.termEnd ? shortDate(member.termEnd) : "open ended"}
               </div>
@@ -217,8 +225,8 @@ export default async function SeatPage({
               <RailCard role={rowRole} kind={c.credit === "given" ? "money" : "people"}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-bold text-ink">{c.credit === "given" ? "Given" : "Brought in"}</div>
-                    <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                    <div className="text-[14.5px] font-bold text-ink">{c.credit === "given" ? "Given" : "Brought in"}</div>
+                    <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                       {donorName} &middot; {shortDate(c.gift.receivedOn)} &middot; {CATEGORY_LABEL[c.gift.category] ?? c.gift.category}
                       {c.gift.method ? ` · ${METHOD_LABEL[c.gift.method] ?? c.gift.method}` : ""}
                     </div>
@@ -227,13 +235,13 @@ export default async function SeatPage({
                         and getting a different number from the one at
                         the top of the screen. */}
                     {!c.counted && c.excludedBecause && (
-                      <div className="mt-1 text-[11.5px] font-bold leading-tight text-muted">
+                      <div className="mt-1 text-[12.5px] font-bold leading-tight text-muted">
                         Not counted. {EXCLUSION_NOTE[c.excludedBecause]}.
                       </div>
                     )}
                   </div>
                   <span
-                    className={`flex-shrink-0 text-[14px] font-extrabold tabular-nums ${c.counted ? "text-ink" : "text-muted"}`}
+                    className={`flex-shrink-0 text-[15px] font-extrabold tabular-nums ${c.counted ? "text-ink" : "text-muted"}`}
                   >
                     {formatMoney(c.gift.amountCents)}
                   </span>
@@ -254,7 +262,7 @@ export default async function SeatPage({
       {credited.length > countedCount && (
         <div className="mt-3">
           <RailCard role="contact">
-            <div className="text-[12.5px] leading-tight text-ink">
+            <div className="text-[13.5px] leading-tight text-ink">
               {countedCount} of {credited.length} of these count toward {fiscalYear}. The rest are shown so nothing looks lost, and are
               marked with the reason.
             </div>
@@ -266,7 +274,7 @@ export default async function SeatPage({
         <div className="mt-5">
           <Link
             href={`/org/${slug}/fundraising/donors/${member.donorId}`}
-            className="block rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink"
+            className="block rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink"
           >
             Their donor record
           </Link>

@@ -51,13 +51,13 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
       <div className="mb-2">
         <Link
           href={`/org/${slug}/fundraising/donors`}
-          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted"
+          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted"
         >
           &larr; Donors
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold leading-tight text-ink">{d.name}</h1>
-      <div className="mb-5 text-[12.5px] font-bold text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold leading-tight text-ink">{d.name}</h1>
+      <div className="mb-5 text-[13.5px] font-bold text-muted">
         {d.donor_type.replace(/_/g, " ")}
         {d.email ? ` · ${d.email}` : ""}
       </div>
@@ -69,8 +69,8 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
           ["Gifts", String(totals.giftCount)],
         ].map(([label, value]) => (
           <div key={label} className="rounded-[12px] bg-paper p-3.5">
-            <div className="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">{label}</div>
-            <div className="mt-1 text-[20px] font-black leading-tight tabular-nums text-ink">{value}</div>
+            <div className="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">{label}</div>
+            <div className="mt-1 text-[22px] font-black leading-tight tabular-nums text-ink">{value}</div>
           </div>
         ))}
       </div>
@@ -78,8 +78,8 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
       {totals.lifetimeInKindCents > 0 && (
         <div className="mb-5">
           <RailCard role="place" kind="grant">
-            <div className="text-[13px] font-bold leading-tight text-ink">{formatMoney(totals.lifetimeInKindCents)} in kind</div>
-            <div className="mt-0.5 text-[11.5px] leading-tight text-muted">Counted as support, never as cash.</div>
+            <div className="text-[14.5px] font-bold leading-tight text-ink">{formatMoney(totals.lifetimeInKindCents)} in kind</div>
+            <div className="mt-0.5 text-[12.5px] leading-tight text-muted">Counted as support, never as cash.</div>
           </RailCard>
         </div>
       )}
@@ -91,8 +91,8 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
         <div className="mb-5">
           <Link href={`/org/${slug}/board-governance/${seat.board_id}/seats/${seat.id}`} className="block">
             <RailCard role="people" kind="people">
-              <div className="text-[13px] font-bold leading-tight text-ink">Sits on a board</div>
-              <div className="mt-0.5 text-[11.5px] leading-tight text-muted">{seat.role_title ?? seat.name}</div>
+              <div className="text-[14.5px] font-bold leading-tight text-ink">Sits on a board</div>
+              <div className="mt-0.5 text-[12.5px] leading-tight text-muted">{seat.role_title ?? seat.name}</div>
             </RailCard>
           </Link>
         </div>
@@ -110,10 +110,10 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
                 <RailCard key={p.id} role={out > 0 ? "offer" : "committed"} kind="pledge">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-[13px] font-bold leading-tight text-ink">{formatMoney(p.amountCents)} promised</div>
-                      {p.dueOn && <div className="mt-0.5 text-[11.5px] leading-tight text-muted">due {p.dueOn}</div>}
+                      <div className="text-[14.5px] font-bold leading-tight text-ink">{formatMoney(p.amountCents)} promised</div>
+                      {p.dueOn && <div className="mt-0.5 text-[12.5px] leading-tight text-muted">due {p.dueOn}</div>}
                     </div>
-                    <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
+                    <span className="flex-shrink-0 text-[14.5px] font-extrabold tabular-nums text-ink">
                       {out === 0 ? "Paid" : `${formatMoney(out)} left`}
                     </span>
                   </div>
@@ -137,14 +137,14 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
             <RailCard key={g.id} role={g.method === "in_kind" ? "place" : "committed"} kind={g.method === "in_kind" ? "grant" : "money"}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-[13px] font-bold leading-tight text-ink">
+                  <div className="text-[14.5px] font-bold leading-tight text-ink">
                     {CATEGORY_LABEL[g.category as GiftCategory] ?? g.category}
                   </div>
-                  <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                  <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                     {g.receivedOn} &middot; {g.method === "in_kind" ? "in kind" : g.method}
                   </div>
                 </div>
-                <span className="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">{formatMoney(g.amountCents)}</span>
+                <span className="flex-shrink-0 text-[15px] font-extrabold tabular-nums text-ink">{formatMoney(g.amountCents)}</span>
               </div>
             </RailCard>
           ))}

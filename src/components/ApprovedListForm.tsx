@@ -91,25 +91,25 @@ export function ApprovedListForm({
       <input type="hidden" name="schoolName" value={schoolName} />
 
       {state.errors.form && (
-        <div className="rounded-[10px] bg-tint-danger px-3.5 py-3 text-[12.5px] font-semibold text-tint-danger-on">{state.errors.form}</div>
+        <div className="rounded-[10px] bg-tint-danger px-3.5 py-3 text-[13.5px] font-semibold text-tint-danger-on">{state.errors.form}</div>
       )}
 
       <div>
-        <label className="mb-1.5 block text-[11px] font-bold text-muted">PASTE THE LIST</label>
+        <label className="mb-1.5 block text-[12px] font-bold text-muted">PASTE THE LIST</label>
         <textarea
           value={paste}
           onChange={(e) => setPaste(e.target.value)}
           rows={5}
           placeholder={"Select the table at web3.ncaa.org/hsportal and paste it here.\nEnglish 9\tEnglish\nAlgebra I\tMathematics"}
-          className={`${fieldClass(false)} resize-none font-mono text-[12px]`}
+          className={`${fieldClass(false)} resize-none font-mono text-[13px]`}
         />
         {parsed && (
           <div className="mt-2 flex items-center justify-between gap-3">
-            <span className="text-[11.5px] font-bold text-muted">{describeParse(parsed)}</span>
+            <span className="text-[12.5px] font-bold text-muted">{describeParse(parsed)}</span>
             <button
               type="button"
               onClick={applyPaste}
-              className="inline-flex min-h-[44px] items-center rounded-[8px] bg-solid-accent px-4 text-[13px] font-bold text-solid-accent-on"
+              className="inline-flex min-h-[44px] items-center rounded-[8px] bg-solid-accent px-4 text-[14.5px] font-bold text-solid-accent-on"
             >
               Use these
             </button>
@@ -133,8 +133,8 @@ export function ApprovedListForm({
 
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-bold leading-tight text-ink">{r.title || "Untitled"}</div>
-                      <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                      <div className="text-[14.5px] font-bold leading-tight text-ink">{r.title || "Untitled"}</div>
+                      <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                         {r.maxCredit !== null && `${r.maxCredit} credit`}
                         {r.maxCredit !== null && r.weighted && " · "}
                         {r.weighted && "weighted"}
@@ -143,13 +143,13 @@ export function ApprovedListForm({
                     <button
                       type="button"
                       onClick={() => remove(r.id)}
-                      className="-my-2 inline-flex min-h-[44px] flex-shrink-0 items-center py-2 pl-3 text-[11.5px] font-bold text-muted"
+                      className="-my-2 inline-flex min-h-[44px] flex-shrink-0 items-center py-2 pl-3 text-[12.5px] font-bold text-muted"
                     >
                       Remove
                     </button>
                   </div>
 
-                  {r.problem && <div className="mt-1.5 text-[11.5px] font-semibold leading-tight text-tint-accent-on">{r.problem}</div>}
+                  {r.problem && <div className="mt-1.5 text-[12.5px] font-semibold leading-tight text-tint-accent-on">{r.problem}</div>}
 
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {SUBJECTS.map(([value, label]) => (
@@ -157,8 +157,13 @@ export function ApprovedListForm({
                         key={value}
                         type="button"
                         onClick={() => setSubject(r.id, value)}
-                        className={`inline-flex min-h-[44px] items-center rounded-full px-3.5 text-[12px] font-bold ${
-                          r.subject === value ? "bg-solid-contact text-solid-contact-on" : "bg-bg text-muted"
+                        // A control, not a status read-out. Since the
+                        // 2026-09-17 pass no chip carries a fill, so
+                        // "chosen" is a ring rather than a coloured
+                        // block; the touch target and the weight change
+                        // do the rest.
+                        className={`inline-flex min-h-[44px] items-center rounded-full border px-3.5 text-[13px] font-bold ${
+                          r.subject === value ? "border-accent text-ink ring-2 ring-accent" : "border-line text-muted"
                         }`}
                       >
                         {label}
@@ -172,7 +177,7 @@ export function ApprovedListForm({
           <button
             type="button"
             onClick={addBlank}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[13px] font-bold text-ink"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[14.5px] font-bold text-ink"
           >
             Add a course by hand
           </button>
@@ -180,23 +185,23 @@ export function ApprovedListForm({
       )}
 
       <div>
-        <label className="mb-1.5 block text-[11px] font-bold text-muted">CEEB CODE</label>
+        <label className="mb-1.5 block text-[12px] font-bold text-muted">CEEB CODE</label>
         <input name="ceebCode" inputMode="numeric" placeholder="070415" className={fieldClass(false)} />
       </div>
 
       <div>
-        <label className="mb-1.5 block text-[11px] font-bold text-muted">READ OFF THE PORTAL ON</label>
+        <label className="mb-1.5 block text-[12px] font-bold text-muted">READ OFF THE PORTAL ON</label>
         <input name="retrievedOn" type="date" className={`${fieldClass(false)} tabular-nums`} />
       </div>
 
       <div>
-        <label className="mb-1.5 block text-[11px] font-bold text-muted">WHERE THIS CAME FROM</label>
+        <label className="mb-1.5 block text-[12px] font-bold text-muted">WHERE THIS CAME FROM</label>
         <input
           name="sourceNote"
           placeholder="Transcribed from the NCAA portal"
           className={fieldClass(state.errors.sourceNote)}
         />
-        {state.errors.sourceNote && <p className="mt-1 text-[11.5px] font-semibold text-tint-danger-on">{state.errors.sourceNote}</p>}
+        {state.errors.sourceNote && <p className="mt-1 text-[12.5px] font-semibold text-tint-danger-on">{state.errors.sourceNote}</p>}
       </div>
 
       {/* The one field that changes what the engine is allowed to conclude. */}
@@ -209,21 +214,21 @@ export function ApprovedListForm({
           className="mt-0.5 h-[20px] w-[20px] flex-shrink-0"
         />
         <span className="min-w-0">
-          <span className="block text-[13px] font-bold text-ink">This is the school&apos;s whole list</span>
-          <span className="mt-0.5 block text-[11.5px] leading-tight text-muted">
+          <span className="block text-[14.5px] font-bold text-ink">This is the school&apos;s whole list</span>
+          <span className="mt-0.5 block text-[12.5px] leading-tight text-muted">
             Only tick this if you copied all of it. A complete list means a course missing from it does not count toward the core GPA. A partial
             one can confirm a course and never rules one out.
           </span>
         </span>
       </label>
 
-      {blockedBy && <div className="text-[11.5px] font-semibold text-muted">{blockedBy}</div>}
+      {blockedBy && <div className="text-[12.5px] font-semibold text-muted">{blockedBy}</div>}
 
       <button type="submit" disabled={pending || blockedBy !== null} className={submitClass}>
         {pending ? "Saving..." : "Save the list"}
       </button>
 
-      <p className="text-[11px] leading-relaxed text-muted">
+      <p className="text-[12px] leading-relaxed text-muted">
         <RowGlyph kind="info" role="neutral" className="mr-1 inline h-[13px] w-[13px] align-[-2px]" />
         Saving recalculates every athlete at {schoolName} straight away.
       </p>

@@ -6,7 +6,6 @@ import { ingestFile } from "@/lib/docai/ingest";
 import type { DocCategoryId, IngestedRecord, SourceRole } from "@/lib/docai/types";
 import { processDocument } from "@/lib/actions/documents";
 import { fieldClass, labelClass, submitClass } from "@/components/formStyles";
-import { TINT } from "@/components/statusHue";
 
 // A client component because ingestion is: src/lib/docai/ingest.ts needs
 // File, FileReader, createImageBitmap and canvas, none of which exist on
@@ -115,14 +114,14 @@ export function DocumentUploader({ slug, boundTo }: DocumentUploaderProps) {
                 key={c.label}
                 type="button"
                 onClick={() => setCategory(c.id)}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${on ? TINT.committed : TINT.neutral}`}
+                className={`rounded-full border px-3 py-1.5 text-[13px] font-bold ${on ? "border-accent text-ink ring-2 ring-accent" : "border-line text-muted"}`}
               >
                 {c.label}
               </button>
             );
           })}
         </div>
-        <p className="mt-2 text-[11px] text-muted">
+        <p className="mt-2 text-[12px] text-muted">
           {category === null
             ? "It will work out the type itself. Pick one above to force it."
             : "Forced. It will be read as this even if it looks like something else."}
@@ -146,7 +145,7 @@ export function DocumentUploader({ slug, boundTo }: DocumentUploaderProps) {
             </option>
           ))}
         </select>
-        <p className="mt-1 text-[11px] text-muted">
+        <p className="mt-1 text-[12px] text-muted">
           Changes how far the result is trusted. Something a parent sent is weighted lower than something you uploaded.
         </p>
       </div>
@@ -171,10 +170,10 @@ export function DocumentUploader({ slug, boundTo }: DocumentUploaderProps) {
               <path d="M4 15v3.5A1.5 1.5 0 005.5 20h13a1.5 1.5 0 001.5-1.5V15" strokeLinecap="round" />
             </svg>
           </div>
-          <div className="text-[13px] font-extrabold text-ink">
+          <div className="text-[14.5px] font-extrabold text-ink">
             {files.length ? `${files.length} file${files.length === 1 ? "" : "s"} chosen` : "Take a photo or choose a file"}
           </div>
-          <div className="mt-1 text-[11.5px] text-muted">
+          <div className="mt-1 text-[12.5px] text-muted">
             {files.length ? files.map((f) => f.name).join(", ") : "PDF, JPEG, PNG or HEIC"}
           </div>
         </button>
@@ -182,8 +181,8 @@ export function DocumentUploader({ slug, boundTo }: DocumentUploaderProps) {
 
       {error && (
         <div className="rounded-[10px] border-l-[5px] border-l-ios-pink bg-paper px-3.5 py-3">
-          <div className="text-[13px] font-bold text-ink">Could not read that</div>
-          <div className="mt-0.5 text-[11.5px] text-muted">{error}</div>
+          <div className="text-[14.5px] font-bold text-ink">Could not read that</div>
+          <div className="mt-0.5 text-[12.5px] text-muted">{error}</div>
         </div>
       )}
 

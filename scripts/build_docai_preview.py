@@ -15,6 +15,7 @@ Run: npx tailwindcss -i src/app/globals.css -o /tmp/preview.css --minify
 then python3 scripts/build_docai_preview.py
 """
 
+import json
 import re
 
 CSS = re.sub(r"body\{[^}]*\}", "", open("/tmp/preview.css").read(), count=1)
@@ -35,39 +36,52 @@ RAIL = parse_map("RAIL")
 DOT = parse_map("DOT")
 
 
-def pill(text, role):
-    return (f'<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] '
-            f'font-bold {SOLID[role]}">{text}</span>')
+FG = parse_map("FG")
+ICONS = {k: v for k, v in json.load(open("src/components/rowIcons.json")).items() if k != "_comment"}
 
 
-def chip(text, role):
-    return (f'<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] '
-            f'font-bold {TINT[role]}">{text}</span>')
+def glyph(kind, role="neutral", size=20):
+    d = ICONS.get(kind, "")
+    if not d:
+        return ""
+    return (f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            f'stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 {FG[role]}" '
+            f'style="width:{size}px;height:{size}px">{d}</svg>')
+
+
+# No colour block, per 2026-09-17.
+def pill(text, role, kind=None):
+    return (f'<span class="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-ink">'
+            f'{glyph(kind, role, 15) if kind else ""}{text}</span>')
+
+
+def chip(text, role, kind=None):
+    return pill(text, role, kind)
 
 
 def header(label, count=None, role="accent"):
-    c = f'<span class="text-[12px] font-extrabold tabular-nums text-ink">{count}</span>' if count is not None else ""
+    c = f'<span class="text-[13px] font-extrabold tabular-nums text-ink">{count}</span>' if count is not None else ""
     return ('<div class="flex items-center gap-2">'
             f'<span class="h-[7px] w-[7px] flex-shrink-0 rounded-full {DOT[role]}"></span>'
-            f'<span class="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">{label}</span>'
+            f'<span class="text-[13px] font-extrabold uppercase tracking-[0.04em] text-muted">{label}</span>'
             '<span class="h-px flex-1 border-b-2 border-dotted border-line"></span>'
             f'{c}</div>')
 
 
-def badge(role, glyph):
+def badge(role, mark):
     return (f'<span class="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center '
-            f'rounded-[8px] {SOLID[role]}">{glyph}</span>')
+            f'{FG[role]}">{mark}</span>')
 
 
 def rail(role, inner):
     return f'<div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 {RAIL[role]}">{inner}</div>'
 
 
-FIELD = ('w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[14px] text-ink '
+FIELD = ('w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[15px] text-ink '
          'placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent')
-LABEL = "mb-1.5 block text-[11px] font-bold text-muted"
-BTN = "rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on"
-BTN_QUIET = "rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink"
+LABEL = "mb-1.5 block text-[12px] font-bold text-muted"
+BTN = "rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
+BTN_QUIET = "rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink"
 
 CLOCK = "&#9200;"
 PERSON = "&#128100;"
@@ -79,10 +93,10 @@ SCREENS = {}
 SCREENS["upload"] = ("Upload", f"""
 <main class="px-4 pt-2 pb-6">
   <div class="mb-4 flex items-center gap-3">
-    <a href="#" class="text-[13px] font-bold text-muted">&larr; More</a>
+    <a href="#" class="text-[14.5px] font-bold text-muted">&larr; More</a>
   </div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Add a document</h1>
-  <p class="mb-5 text-[12.5px] text-muted">A transcript, test scores, an offer letter. It gets read, matched to an athlete, and either applied or sent to review.</p>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Add a document</h1>
+  <p class="mb-5 text-[13.5px] text-muted">A transcript, test scores, an offer letter. It gets read, matched to an athlete, and either applied or sent to review.</p>
 
   <div class="mb-4">
     <label class="{LABEL}">What is it</label>
@@ -93,13 +107,13 @@ SCREENS["upload"] = ("Upload", f"""
       {chip("Recommendation", "neutral")}
       {chip("Financial Aid", "neutral")}
     </div>
-    <p class="mt-2 text-[11px] text-muted">Film and highlights are not supported yet.</p>
+    <p class="mt-2 text-[12px] text-muted">Film and highlights are not supported yet.</p>
   </div>
 
   <div class="mb-4">
     <label class="{LABEL}">Where it came from</label>
     <select class="{FIELD}"><option>Coordinator</option></select>
-    <p class="mt-1 text-[11px] text-muted">Affects how much the result is trusted. A parent-supplied scan is weighted lower than one you uploaded.</p>
+    <p class="mt-1 text-[12px] text-muted">Affects how much the result is trusted. A parent-supplied scan is weighted lower than one you uploaded.</p>
   </div>
 
   <div class="mb-5 rounded-[12px] border-2 border-dashed border-line bg-paper px-4 py-9 text-center">
@@ -109,8 +123,8 @@ SCREENS["upload"] = ("Upload", f"""
         <path d="M4 15v3.5A1.5 1.5 0 005.5 20h13a1.5 1.5 0 001.5-1.5V15" stroke-linecap="round"/>
       </svg>
     </div>
-    <div class="text-[13px] font-extrabold text-ink">Take a photo or choose a file</div>
-    <div class="mt-1 text-[11.5px] text-muted">PDF, JPEG, PNG or HEIC &middot; up to 10 pages</div>
+    <div class="text-[14.5px] font-extrabold text-ink">Take a photo or choose a file</div>
+    <div class="mt-1 text-[12.5px] text-muted">PDF, JPEG, PNG or HEIC &middot; up to 10 pages</div>
   </div>
 
   <button class="{BTN} w-full" disabled style="opacity:.5">Read document</button>
@@ -120,34 +134,34 @@ SCREENS["upload"] = ("Upload", f"""
 # -------------------------------------------------------------- 2 processing
 SCREENS["processing"] = ("Reading", f"""
 <main class="px-4 pt-2 pb-6">
-  <h1 class="mb-4 text-[20px] font-extrabold text-ink">Reading document</h1>
+  <h1 class="mb-4 text-[22px] font-extrabold text-ink">Reading document</h1>
 
   <div class="mb-4">{rail("visit", f'''
     <div class="flex items-center gap-3">
       {badge("place", PIN)}
       <div class="min-w-0 flex-1">
-        <div class="truncate text-[14px] font-bold text-ink">marcus-transcript.pdf</div>
-        <div class="text-[11.5px] text-muted">3 pages &middot; 1.2 MB</div>
+        <div class="truncate text-[15px] font-bold text-ink">marcus-transcript.pdf</div>
+        <div class="text-[12.5px] text-muted">3 pages &middot; 1.2 MB</div>
       </div>
     </div>''')}</div>
 
   <div class="mb-2">{header("Progress", None, "contact")}</div>
   <div class="flex flex-col gap-2">
     {rail("committed", '''<div class="flex items-center justify-between gap-3">
-      <div class="text-[13px] font-bold text-ink">Checked the file</div>
-      <span class="text-[11px] font-bold text-ios-green">Done</span></div>
-      <div class="mt-0.5 text-[11.5px] text-muted">Real PDF, 3 pages, within size</div>''')}
+      <div class="text-[14.5px] font-bold text-ink">Checked the file</div>
+      <span class="text-[12px] font-bold text-ios-green">Done</span></div>
+      <div class="mt-0.5 text-[12.5px] text-muted">Real PDF, 3 pages, within size</div>''')}
     {rail("committed", '''<div class="flex items-center justify-between gap-3">
-      <div class="text-[13px] font-bold text-ink">Checked it is readable</div>
-      <span class="text-[11px] font-bold text-ios-green">Done</span></div>
-      <div class="mt-0.5 text-[11.5px] text-muted">Legibility 91% &middot; looks like a transcript</div>''')}
+      <div class="text-[14.5px] font-bold text-ink">Checked it is readable</div>
+      <span class="text-[12px] font-bold text-ios-green">Done</span></div>
+      <div class="mt-0.5 text-[12.5px] text-muted">Legibility 91% &middot; looks like a transcript</div>''')}
     {rail("contact", '''<div class="flex items-center justify-between gap-3">
-      <div class="text-[13px] font-bold text-ink">Pulling the details out</div>
-      <span class="text-[11px] font-bold text-ios-blue">Working</span></div>
+      <div class="text-[14.5px] font-bold text-ink">Pulling the details out</div>
+      <span class="text-[12px] font-bold text-ios-blue">Working</span></div>
       <div class="mt-2 h-1 overflow-hidden rounded-full bg-line"><div class="h-full w-2/5 rounded-full bg-ios-blue"></div></div>''')}
     {rail("target", '''<div class="flex items-center justify-between gap-3">
-      <div class="text-[13px] font-bold text-muted">Matching to an athlete</div>
-      <span class="text-[11px] font-bold text-muted">Waiting</span></div>''')}
+      <div class="text-[14.5px] font-bold text-muted">Matching to an athlete</div>
+      <span class="text-[12px] font-bold text-muted">Waiting</span></div>''')}
   </div>
 </main>
 """)
@@ -156,46 +170,46 @@ SCREENS["processing"] = ("Reading", f"""
 SCREENS["applied"] = ("Applied", f"""
 <main class="px-4 pt-2 pb-6">
   <div class="mb-4 flex items-center justify-between">
-    <a href="#" class="text-[13px] font-bold text-muted">&larr; Documents</a>
+    <a href="#" class="text-[14.5px] font-bold text-muted">&larr; Documents</a>
     {pill("Applied", "committed")}
   </div>
-  <h1 class="text-[20px] font-extrabold text-ink">Transcript read</h1>
-  <div class="mt-1 text-[13px] text-muted">marcus-transcript.pdf &middot; 3 pages</div>
+  <h1 class="text-[22px] font-extrabold text-ink">Transcript read</h1>
+  <div class="mt-1 text-[14.5px] text-muted">marcus-transcript.pdf &middot; 3 pages</div>
 
   <div class="mb-2 mt-6">{header("Matched to", None, "people")}</div>
   {rail("people", f'''<div class="flex items-center justify-between gap-3">
     <div class="flex items-center gap-3">
-      <div class="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ios-blue to-ios-indigo text-[12px] font-extrabold text-white">MB</div>
-      <div><div class="text-[14px] font-bold text-ink">Marcus Bell</div>
-      <div class="text-[11.5px] text-muted">Name, school and grad year all matched</div></div>
+      <div class="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ios-blue to-ios-indigo text-[13px] font-extrabold text-white">MB</div>
+      <div><div class="text-[15px] font-bold text-ink">Marcus Bell</div>
+      <div class="text-[12.5px] text-muted">Name, school and grad year all matched</div></div>
     </div>
-    <a href="#" class="flex-shrink-0 text-[12px] font-bold text-accent">Change</a>
+    <a href="#" class="flex-shrink-0 text-[13px] font-bold text-accent">Change</a>
   </div>''')}
 
   <div class="mb-2 mt-6">{header("What it says", 4, "committed")}</div>
   <div class="flex flex-col gap-2">
     {rail("committed", '''<div class="flex items-center justify-between gap-3">
-      <div class="text-[13px] text-muted">GPA</div>
-      <div class="text-[14px] font-extrabold tabular-nums text-ink">3.62 <span class="text-[11px] font-bold text-muted">was 3.41</span></div></div>''')}
+      <div class="text-[14.5px] text-muted">GPA</div>
+      <div class="text-[15px] font-extrabold tabular-nums text-ink">3.62 <span class="text-[12px] font-bold text-muted">was 3.41</span></div></div>''')}
     {rail("committed", '''<div class="flex items-center justify-between gap-3">
-      <div class="text-[13px] text-muted">Grad year</div>
-      <div class="text-[14px] font-extrabold tabular-nums text-ink">2027</div></div>''')}
+      <div class="text-[14.5px] text-muted">Grad year</div>
+      <div class="text-[15px] font-extrabold tabular-nums text-ink">2027</div></div>''')}
     {rail("committed", '''<div class="flex items-center justify-between gap-3">
-      <div class="text-[13px] text-muted">Course load</div>
-      <div class="text-[13px] font-bold text-ink">Mostly Honors/AP</div></div>''')}
+      <div class="text-[14.5px] text-muted">Course load</div>
+      <div class="text-[14.5px] font-bold text-ink">Mostly Honors/AP</div></div>''')}
     {rail("committed", '''<div class="flex items-center justify-between gap-3">
-      <div class="text-[13px] text-muted">AP / Honors</div>
-      <div class="text-[14px] font-extrabold tabular-nums text-ink">4 / 3</div></div>''')}
+      <div class="text-[14.5px] text-muted">AP / Honors</div>
+      <div class="text-[15px] font-extrabold tabular-nums text-ink">4 / 3</div></div>''')}
   </div>
 
   <div class="mb-2 mt-6">{header("How sure", None, "committed")}</div>
   {rail("committed", f'''
     <div class="flex items-center justify-between gap-3">
-      <div class="text-[13px] font-bold text-ink">High confidence</div>
-      <div class="text-[15px] font-extrabold tabular-nums text-ink">88%</div>
+      <div class="text-[14.5px] font-bold text-ink">High confidence</div>
+      <div class="text-[16px] font-extrabold tabular-nums text-ink">88%</div>
     </div>
     <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-line"><div class="h-full rounded-full bg-ios-green" style="width:88%"></div></div>
-    <div class="mt-2 text-[11.5px] text-muted">The model was 94% sure, the scan was 91% legible, and you uploaded it yourself. Applied without asking.</div>''')}
+    <div class="mt-2 text-[12.5px] text-muted">The model was 94% sure, the scan was 91% legible, and you uploaded it yourself. Applied without asking.</div>''')}
 
   <div class="mt-6 flex gap-2">
     <button class="{BTN} flex-1">Done</button>
@@ -208,27 +222,27 @@ SCREENS["applied"] = ("Applied", f"""
 SCREENS["review"] = ("Needs review", f"""
 <main class="px-4 pt-2 pb-6">
   <div class="mb-4 flex items-center justify-between">
-    <a href="#" class="text-[13px] font-bold text-muted">&larr; Documents</a>
+    <a href="#" class="text-[14.5px] font-bold text-muted">&larr; Documents</a>
     {pill("Needs review", "offer")}
   </div>
-  <h1 class="text-[20px] font-extrabold text-ink">Not sure who this is</h1>
-  <div class="mt-1 text-[13px] text-muted">parent-upload-3.jpg &middot; 1 page</div>
+  <h1 class="text-[22px] font-extrabold text-ink">Not sure who this is</h1>
+  <div class="mt-1 text-[14.5px] text-muted">parent-upload-3.jpg &middot; 1 page</div>
 
   <div class="mb-2 mt-6">{header("Pick the athlete", 2, "offer")}</div>
   <div class="flex flex-col gap-2">
     {rail("offer", f'''<div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <div class="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ios-blue to-ios-indigo text-[12px] font-extrabold text-white">MB</div>
-        <div><div class="text-[14px] font-bold text-ink">Marcus Bell</div>
-        <div class="text-[11.5px] text-muted">Name match &middot; grad year match</div></div>
+        <div class="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ios-blue to-ios-indigo text-[13px] font-extrabold text-white">MB</div>
+        <div><div class="text-[15px] font-bold text-ink">Marcus Bell</div>
+        <div class="text-[12.5px] text-muted">Name match &middot; grad year match</div></div>
       </div>
       {chip("71%", "mid")}
     </div>''')}
     {rail("target", f'''<div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <div class="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ios-blue to-ios-indigo text-[12px] font-extrabold text-white">MB</div>
-        <div><div class="text-[14px] font-bold text-ink">Marcus Bellamy</div>
-        <div class="text-[11.5px] text-muted">Name match</div></div>
+        <div class="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ios-blue to-ios-indigo text-[13px] font-extrabold text-white">MB</div>
+        <div><div class="text-[15px] font-bold text-ink">Marcus Bellamy</div>
+        <div class="text-[12.5px] text-muted">Name match</div></div>
       </div>
       {chip("44%", "low")}
     </div>''')}
@@ -240,7 +254,7 @@ SCREENS["review"] = ("Needs review", f"""
     <div>
       <label class="{LABEL}">GPA</label>
       <input class="{FIELD}" value="3.62">
-      <p class="mt-1 text-[11px] text-muted">Read from a 4.0 scale</p>
+      <p class="mt-1 text-[12px] text-muted">Read from a 4.0 scale</p>
     </div>
     <div>
       <label class="{LABEL}">Grad year</label>
@@ -251,11 +265,11 @@ SCREENS["review"] = ("Needs review", f"""
   <div class="mb-2 mt-6">{header("Why it stopped", None, "offer")}</div>
   {rail("offer", f'''
     <div class="flex items-center justify-between gap-3">
-      <div class="text-[13px] font-bold text-ink">Medium confidence</div>
-      <div class="text-[15px] font-extrabold tabular-nums text-ink">54%</div>
+      <div class="text-[14.5px] font-bold text-ink">Medium confidence</div>
+      <div class="text-[16px] font-extrabold tabular-nums text-ink">54%</div>
     </div>
     <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-line"><div class="h-full rounded-full bg-ios-orange" style="width:54%"></div></div>
-    <div class="mt-2 text-[11.5px] text-muted">A parent sent this one and the photo is soft, so it needs a look before anything changes.</div>''')}
+    <div class="mt-2 text-[12.5px] text-muted">A parent sent this one and the photo is soft, so it needs a look before anything changes.</div>''')}
 
   <div class="mt-6 flex gap-2">
     <button class="{BTN} flex-1">Apply to Marcus Bell</button>
@@ -268,24 +282,24 @@ SCREENS["review"] = ("Needs review", f"""
 SCREENS["rejected"] = ("Can't read it", f"""
 <main class="px-4 pt-2 pb-6">
   <div class="mb-4 flex items-center justify-between">
-    <a href="#" class="text-[13px] font-bold text-muted">&larr; Documents</a>
+    <a href="#" class="text-[14.5px] font-bold text-muted">&larr; Documents</a>
     {pill("Not used", "danger")}
   </div>
-  <h1 class="text-[20px] font-extrabold text-ink">Could not read this</h1>
-  <div class="mt-1 text-[13px] text-muted">IMG_4821.HEIC &middot; 1 page</div>
+  <h1 class="text-[22px] font-extrabold text-ink">Could not read this</h1>
+  <div class="mt-1 text-[14.5px] text-muted">IMG_4821.HEIC &middot; 1 page</div>
 
   <div class="mb-2 mt-6">{header("What went wrong", 3, "danger")}</div>
   <div class="flex flex-col gap-2">
-    {rail("danger", '''<div class="text-[13px] font-bold text-ink">Too blurry to trust</div>
-      <div class="mt-0.5 text-[11.5px] text-muted">Legibility 34%</div>''')}
-    {rail("danger", '''<div class="text-[13px] font-bold text-ink">The GPA line is cut off</div>
-      <div class="mt-0.5 text-[11.5px] text-muted">Right edge of the page is missing</div>''')}
-    {rail("danger", '''<div class="text-[13px] font-bold text-ink">Glare across the middle</div>''')}
+    {rail("danger", '''<div class="text-[14.5px] font-bold text-ink">Too blurry to trust</div>
+      <div class="mt-0.5 text-[12.5px] text-muted">Legibility 34%</div>''')}
+    {rail("danger", '''<div class="text-[14.5px] font-bold text-ink">The GPA line is cut off</div>
+      <div class="mt-0.5 text-[12.5px] text-muted">Right edge of the page is missing</div>''')}
+    {rail("danger", '''<div class="text-[14.5px] font-bold text-ink">Glare across the middle</div>''')}
   </div>
 
   <div class="mt-6 rounded-[12px] bg-paper px-4 py-5">
-    <div class="text-[13px] font-extrabold text-ink">Try again</div>
-    <div class="mt-1 text-[11.5px] text-muted">Lay it flat, avoid a window behind you, and get the whole page in frame. Nothing was changed on any athlete.</div>
+    <div class="text-[14.5px] font-extrabold text-ink">Try again</div>
+    <div class="mt-1 text-[12.5px] text-muted">Lay it flat, avoid a window behind you, and get the whole page in frame. Nothing was changed on any athlete.</div>
   </div>
 
   <div class="mt-5 flex gap-2">
@@ -299,22 +313,22 @@ SCREENS["rejected"] = ("Can't read it", f"""
 SCREENS["queue"] = ("Documents", f"""
 <main class="px-4 pt-4 pb-6">
   <div class="mb-3 flex items-center justify-between">
-    <div class="text-[20px] font-extrabold text-ink">Documents</div>
-    <a href="#" class="text-[12px] font-bold text-accent">+ Add</a>
+    <div class="text-[22px] font-extrabold text-ink">Documents</div>
+    <a href="#" class="text-[13px] font-bold text-accent">+ Add</a>
   </div>
 
   <div class="mb-2">{header("Needs review", 2, "offer")}</div>
   <div class="mb-6 flex flex-col gap-2">
     {rail("offer", f'''<div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">{badge("time", CLOCK)}
-        <div><div class="text-[14px] font-bold text-ink">Transcript &middot; Marcus Bell?</div>
-        <div class="text-[11.5px] text-muted">From a parent &middot; 2 days ago</div></div>
+        <div><div class="text-[15px] font-bold text-ink">Transcript &middot; Marcus Bell?</div>
+        <div class="text-[12.5px] text-muted">From a parent &middot; 2 days ago</div></div>
       </div>{chip("54%", "mid")}
     </div>''')}
     {rail("offer", f'''<div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">{badge("time", CLOCK)}
-        <div><div class="text-[14px] font-bold text-ink">Test Scores &middot; no match</div>
-        <div class="text-[11.5px] text-muted">From email &middot; 4 days ago</div></div>
+        <div><div class="text-[15px] font-bold text-ink">Test Scores &middot; no match</div>
+        <div class="text-[12.5px] text-muted">From email &middot; 4 days ago</div></div>
       </div>{chip("38%", "low")}
     </div>''')}
   </div>
@@ -323,14 +337,14 @@ SCREENS["queue"] = ("Documents", f"""
   <div class="flex flex-col gap-2">
     {rail("committed", f'''<div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">{badge("people", PERSON)}
-        <div><div class="text-[14px] font-bold text-ink">Transcript &middot; Ava Thompson</div>
-        <div class="text-[11.5px] text-muted">GPA 3.91 &middot; yesterday</div></div>
+        <div><div class="text-[15px] font-bold text-ink">Transcript &middot; Ava Thompson</div>
+        <div class="text-[12.5px] text-muted">GPA 3.91 &middot; yesterday</div></div>
       </div>{chip("92%", "high")}
     </div>''')}
     {rail("committed", f'''<div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">{badge("people", PERSON)}
-        <div><div class="text-[14px] font-bold text-ink">Offer Letter &middot; Diego Marin</div>
-        <div class="text-[11.5px] text-muted">Northgate, preferred &middot; 3 days ago</div></div>
+        <div><div class="text-[15px] font-bold text-ink">Offer Letter &middot; Diego Marin</div>
+        <div class="text-[12.5px] text-muted">Northgate, preferred &middot; 3 days ago</div></div>
       </div>{chip("88%", "high")}
     </div>''')}
   </div>
@@ -345,7 +359,7 @@ TABS = [
 ]
 tabbar = ('<nav class="sticky bottom-0 flex border-t border-line bg-paper/90 px-1.5 pb-3.5 pt-2 backdrop-blur">'
           + "".join(
-              f'<span class="flex flex-1 flex-col items-center gap-1 text-[10px] font-bold '
+              f'<span class="flex flex-1 flex-col items-center gap-1 text-[11px] font-bold '
               f'{"text-ink" if label == "More" else "text-muted"}">'
               f'<span class="{"flex h-[26px] w-[38px] items-center justify-center rounded-[8px] bg-solid-accent text-solid-accent-on" if label == "More" else "flex h-[26px] w-[38px] items-center justify-center"}">'
               f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">{icon}</svg>'
@@ -357,8 +371,8 @@ tabbar = ('<nav class="sticky bottom-0 flex border-t border-line bg-paper/90 px-
 blocks, options = [], []
 for key, (title, body) in SCREENS.items():
     chrome = ('<div class="flex items-center justify-between border-b border-line px-4 py-2.5">'
-              '<span class="text-[13px] font-extrabold text-ink">Bridge</span>'
-              '<span class="text-[11px] text-muted">Executive Director</span></div>')
+              '<span class="text-[14.5px] font-extrabold text-ink">Bridge</span>'
+              '<span class="text-[12px] text-muted">Executive Director</span></div>')
     blocks.append(
         f'<div class="screen" data-screen="{key}" hidden><div class="phone" data-theme="dark">'
         f'<div class="phone-inner">{chrome}<div class="phone-scroll">{body}</div>{tabbar}</div></div></div>'

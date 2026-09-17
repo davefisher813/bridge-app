@@ -16,12 +16,25 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { TINT } from "@/components/statusHue";
+import { Chip } from "@/components/catalog";
+import type { RowKind } from "@/components/RowGlyph";
 import { formatMoneyShort } from "@/lib/fundraising/rollup";
 
 export const dynamic = "force-dynamic";
 
 type GrantStatus = "researching" | "applied" | "pending" | "awarded" | "declined" | "closed";
+
+// Which glyph each grant status wears, added 2026-09-17 when the pills
+// lost their fills. A status needs a shape now that the tint that used to
+// carry it is gone.
+const GRANT_KIND: Record<GrantStatus, RowKind> = {
+  researching: "target",
+  applied: "document",
+  pending: "clock",
+  awarded: "check",
+  declined: "blocked",
+  closed: "stage_none",
+};
 
 const STATUS_LABEL: Record<GrantStatus, string> = {
   researching: "Researching",
@@ -128,12 +141,12 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Fundraising
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Grants</h1>
-      <p className="mb-5 text-[12.5px] leading-tight text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Grants</h1>
+      <p className="mb-5 text-[13.5px] leading-tight text-muted">
         The applications, not the money. Awarded funds are recorded as a gift in the Foundation Grants category, so nothing is counted
         twice.
       </p>
@@ -146,7 +159,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
           </EmptyState>
           <div className="mt-4">
             <RailCard role="contact">
-              <div className="text-[12.5px] leading-tight text-ink">
+              <div className="text-[13.5px] leading-tight text-ink">
                 Foundation Grants sits at zero on the overview until the first award arrives, which is accurate rather than a gap.
               </div>
             </RailCard>
@@ -162,8 +175,8 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
               <div className="mb-5 flex flex-col gap-2">
                 {soon.map((g) => (
                   <RailCard key={g.id} role="offer">
-                    <div className="text-[13px] font-bold text-ink">{g.funder_name}</div>
-                    <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                    <div className="text-[14.5px] font-bold text-ink">{g.funder_name}</div>
+                    <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                       {g.report_due_on && g.report_due_on <= today
                         ? `Report was due ${shortDate(g.report_due_on)}`
                         : g.deadline_on && g.deadline_on <= today && !g.applied_on
@@ -186,14 +199,15 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
                 <RailCard key={g.id} role={STATUS_ROLE[g.status] === "high" ? "committed" : "contact"}>
                   <div className="min-w-0">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="text-[13px] font-bold text-ink">{g.funder_name}</div>
-                      <span
-                        className={`inline-flex flex-shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${TINT[STATUS_ROLE[g.status]]}`}
-                      >
-                        {STATUS_LABEL[g.status]}
-                      </span>
+                      <div className="text-[14.5px] font-bold text-ink">{g.funder_name}</div>
+                      <Chip
+                        label={STATUS_LABEL[g.status]}
+                        kind={GRANT_KIND[g.status]}
+                        role={STATUS_ROLE[g.status]}
+                        className="flex-shrink-0"
+                      />
                     </div>
-                    {detail && <div className="mt-1 text-[11.5px] leading-tight text-muted">{detail}</div>}
+                    {detail && <div className="mt-1 text-[12.5px] leading-tight text-muted">{detail}</div>}
                   </div>
                 </RailCard>
               );
@@ -206,7 +220,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
         <div className="mt-5">
           <Link
             href={`/org/${slug}/fundraising/grants/new`}
-            className="block rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on"
+            className="block rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
           >
             Track a grant
           </Link>

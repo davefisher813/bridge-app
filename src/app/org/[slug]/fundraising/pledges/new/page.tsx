@@ -27,27 +27,27 @@ export default async function NewPledgePage({ params }: { params: Promise<{ slug
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Fundraising
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Record a pledge</h1>
-      <p className="mb-5 text-[12.5px] leading-tight text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Record a pledge</h1>
+      <p className="mb-5 text-[13.5px] leading-tight text-muted">
         Money promised. It will not count as raised until a payment against it actually arrives.
       </p>
 
       {donors.length === 0 ? (
         <>
           <RailCard role="offer">
-            <div className="text-[13px] font-bold text-ink">No donors on file yet</div>
-            <div className="mt-1 text-[12px] leading-tight text-muted">
+            <div className="text-[14.5px] font-bold text-ink">No donors on file yet</div>
+            <div className="mt-1 text-[13px] leading-tight text-muted">
               A pledge needs somebody behind it, so add the donor first.
             </div>
           </RailCard>
           <div className="mt-5">
             <Link
               href={`/org/${slug}/fundraising/donors/new`}
-              className="block rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on"
+              className="block rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
             >
               Add a donor
             </Link>

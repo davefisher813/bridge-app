@@ -20,12 +20,12 @@ export default async function NewSchoolPage({ params }: { params: Promise<{ slug
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4 flex items-center gap-3">
-        <Link href={`/org/${slug}/board/new`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/board/new`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Add target
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Add school</h1>
-      <p className="mb-4 text-[12.5px] text-muted">Schools are shared across every org on the platform, not just this one.</p>
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Add school</h1>
+      <p className="mb-4 text-[13.5px] text-muted">Schools are shared across every org on the platform, not just this one.</p>
       <SchoolForm action={action} />
     </main>
   );

@@ -11,8 +11,7 @@ import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { TINT } from "@/components/statusHue";
+import { Chip, RailCard, SectionHeader, EmptyState } from "@/components/catalog";
 import { donorTotals, formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 
@@ -76,12 +75,12 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Fundraising
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Donors</h1>
-      <p className="mb-5 text-[12.5px] leading-tight text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Donors</h1>
+      <p className="mb-5 text-[13.5px] leading-tight text-muted">
         {donors.length} {donors.length === 1 ? "supporter" : "supporters"}. Totals are calculated from the gifts, not typed in, so they
         cannot go stale.
       </p>
@@ -97,12 +96,12 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
               <RailCard role="target">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-[13px] font-bold text-ink">{donor.name}</div>
-                    <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                    <div className="text-[14.5px] font-bold text-ink">{donor.name}</div>
+                    <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                       Promised and not yet received. Not counted in anything raised.
                     </div>
                   </div>
-                  <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
+                  <span className="flex-shrink-0 text-[14.5px] font-extrabold tabular-nums text-ink">
                     {formatMoney(totals.outstandingPledgeCents)}
                   </span>
                 </div>
@@ -128,25 +127,23 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
             <RailCard role="contact">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-[13px] font-bold text-ink">{donor.name}</div>
-                  <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                  <div className="text-[14.5px] font-bold text-ink">{donor.name}</div>
+                  <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                     {totals.giftCount} {totals.giftCount === 1 ? "gift" : "gifts"}
                     {totals.firstGiftOn ? ` · first ${shortDate(totals.firstGiftOn)}` : ""}
                     {totals.lastGiftOn ? ` · last ${shortDate(totals.lastGiftOn)}` : ""}
                   </div>
                   <div className="mt-1.5">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${TINT.contact}`}>
-                      {TYPE_LABEL[donor.donor_type] ?? donor.donor_type}
-                    </span>
+                    <Chip label={TYPE_LABEL[donor.donor_type] ?? donor.donor_type} />
                   </div>
                 </div>
                 <div className="flex-shrink-0 text-right">
                   <div
-                    className={`text-[13px] font-extrabold tabular-nums ${totals.lifetimeCashCents === 0 ? "text-muted" : "text-ink"}`}
+                    className={`text-[14.5px] font-extrabold tabular-nums ${totals.lifetimeCashCents === 0 ? "text-muted" : "text-ink"}`}
                   >
                     {formatMoneyShort(totals.lifetimeCashCents)}
                   </div>
-                  <div className="text-[10.5px] text-muted">
+                  <div className="text-[11.5px] text-muted">
                     {totals.lifetimeInKindCents > 0 ? `${formatMoneyShort(totals.lifetimeInKindCents)} in kind` : "lifetime"}
                   </div>
                 </div>
@@ -159,7 +156,7 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
 
       <div className="mt-4">
         <RailCard role="contact">
-          <div className="text-[12.5px] leading-tight text-ink">
+          <div className="text-[13.5px] leading-tight text-ink">
             A donor who has only given in kind shows nothing in cash and their goods beside it. Rolling the two together would tell a
             treasurer there is money that is not there.
           </div>
@@ -170,7 +167,7 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
         <div className="mt-5">
           <Link
             href={`/org/${slug}/fundraising/donors/new`}
-            className="block rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on"
+            className="block rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
           >
             Add a donor
           </Link>

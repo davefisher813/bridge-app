@@ -51,12 +51,12 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
   return (
     <main className="px-4 pb-24 pt-2">
       <div className="mb-2">
-        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Fundraising
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold leading-tight text-ink">{c.name}</h1>
-      <div className="mb-5 text-[12.5px] font-bold text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold leading-tight text-ink">{c.name}</h1>
+      <div className="mb-5 text-[13.5px] font-bold text-muted">
         {c.kind}
         {c.ends_on ? ` · ends ${c.ends_on}` : ""}
       </div>
@@ -64,10 +64,10 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
       <div className="mb-5">
         <RailCard role={role} kind="campaign">
           <div className="flex items-start justify-between gap-3">
-            <div className="text-[15px] font-extrabold tabular-nums text-ink">
+            <div className="text-[16px] font-extrabold tabular-nums text-ink">
               {formatMoneyShort(p.raisedCents)} of {formatMoneyShort(p.goalCents)}
             </div>
-            <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">{pct == null ? "no goal" : `${pct}%`}</span>
+            <span className="flex-shrink-0 text-[14.5px] font-extrabold tabular-nums text-ink">{pct == null ? "no goal" : `${pct}%`}</span>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-bg">
             {/* DOT, not a solid fill token. A solid fill is half of a
@@ -78,7 +78,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
           </div>
           {/* Beside the bar, never inside it. */}
           {p.pledgedCents > 0 && (
-            <div className="mt-2 text-[11.5px] leading-tight text-muted">
+            <div className="mt-2 text-[12.5px] leading-tight text-muted">
               {formatMoney(p.pledgedCents)} pledged on top, not counted above.
             </div>
           )}
@@ -99,12 +99,12 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
               <RailCard role={g.method === "in_kind" ? "place" : "committed"} kind={g.method === "in_kind" ? "grant" : "money"}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-[13px] font-bold leading-tight text-ink">
+                    <div className="text-[14.5px] font-bold leading-tight text-ink">
                       {g.donorId ? (donorName.get(g.donorId) ?? "Unknown donor") : "Anonymous"}
                     </div>
-                    <div className="mt-0.5 text-[11.5px] leading-tight text-muted">{g.receivedOn}</div>
+                    <div className="mt-0.5 text-[12.5px] leading-tight text-muted">{g.receivedOn}</div>
                   </div>
-                  <span className="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">{formatMoney(g.amountCents)}</span>
+                  <span className="flex-shrink-0 text-[15px] font-extrabold tabular-nums text-ink">{formatMoney(g.amountCents)}</span>
                 </div>
               </RailCard>
             );

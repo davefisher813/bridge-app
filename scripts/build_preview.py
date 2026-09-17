@@ -17,6 +17,7 @@ Run: npx tailwindcss -i src/app/globals.css -o /tmp/preview.css --minify
 then python3 scripts/build_preview.py
 """
 
+import json
 import re
 
 CSS = open("/tmp/preview.css").read()
@@ -31,20 +32,20 @@ SCREENS = {}
 # ----------------------------------------------------------------- Today
 SCREENS["today"] = ("Today", "dark", """
 <main class="px-4 pt-2">
-  <h1 class="mb-4 text-[26px] font-black leading-tight text-ink">Good morning,<br>Dave.</h1>
+  <h1 class="mb-4 text-[28px] font-black leading-tight text-ink">Good morning,<br>Dave.</h1>
 
   <div class="flex gap-2">
     <div class="flex-1 rounded-[12px] px-3 py-2.5 bg-tint-neutral text-tint-neutral-on">
-      <div class="text-[18px] font-extrabold tabular-nums">24</div>
-      <div class="mt-0.5 text-[10.5px] font-bold uppercase tracking-[0.03em] opacity-80">Athletes</div>
+      <div class="text-[20px] font-extrabold tabular-nums">24</div>
+      <div class="mt-0.5 text-[11.5px] font-bold uppercase tracking-[0.03em] opacity-80">Athletes</div>
     </div>
     <div class="flex-1 rounded-[12px] px-3 py-2.5 bg-tint-contact text-tint-contact-on">
-      <div class="text-[18px] font-extrabold tabular-nums">7</div>
-      <div class="mt-0.5 text-[10.5px] font-bold uppercase tracking-[0.03em] opacity-80">In contact</div>
+      <div class="text-[20px] font-extrabold tabular-nums">7</div>
+      <div class="mt-0.5 text-[11.5px] font-bold uppercase tracking-[0.03em] opacity-80">In contact</div>
     </div>
     <div class="flex-1 rounded-[12px] px-3 py-2.5 bg-tint-committed text-tint-committed-on">
-      <div class="text-[18px] font-extrabold tabular-nums">3</div>
-      <div class="mt-0.5 text-[10.5px] font-bold uppercase tracking-[0.03em] opacity-80">Committed</div>
+      <div class="text-[20px] font-extrabold tabular-nums">3</div>
+      <div class="mt-0.5 text-[11.5px] font-bold uppercase tracking-[0.03em] opacity-80">Committed</div>
     </div>
   </div>
   <div class="mt-2 flex h-1 overflow-hidden rounded-full bg-line">
@@ -56,18 +57,18 @@ SCREENS["today"] = ("Today", "dark", """
   <div class="flex flex-col gap-2">
     __RAIL_AVA__
     __RAIL_MARCUS__
-    <a href="#" class="mt-1 self-end text-[12px] font-bold text-accent">View board &rarr;</a>
+    <a href="#" class="mt-1 self-end text-[13px] font-bold text-accent">View board &rarr;</a>
   </div>
 
   <div class="mb-2 mt-6">__SH_UPCOMING__</div>
   <div class="flex flex-col gap-2">
     <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_visit__">
-      <div class="text-[14px] font-bold text-ink">Visit &middot; Fairview State</div>
-      <div class="text-[11.5px] text-muted">Fri, Sep 19 &middot; Marcus Bell</div>
+      <div class="text-[15px] font-bold text-ink">Visit &middot; Fairview State</div>
+      <div class="text-[12.5px] text-muted">Fri, Sep 19 &middot; Marcus Bell</div>
     </div>
     <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_time__">
-      <div class="text-[14px] font-bold text-ink">Transfer portal opens</div>
-      <div class="text-[11.5px] text-muted">Baseball D1 &middot; Fall window &middot; in 42 days</div>
+      <div class="text-[15px] font-bold text-ink">Transfer portal opens</div>
+      <div class="text-[12.5px] text-muted">Baseball D1 &middot; Fall window &middot; in 42 days</div>
     </div>
   </div>
 </main>
@@ -78,8 +79,8 @@ SCREENS["roster"] = ("Athletes", "dark", """
 <main>
   <div class="px-4 pt-4">
     <div class="mb-2 flex items-center justify-between">
-      <div class="text-[20px] font-extrabold text-ink">Athletes</div>
-      <a href="#" class="text-[12px] font-bold text-accent">+ Add</a>
+      <div class="text-[22px] font-extrabold text-ink">Athletes</div>
+      <a href="#" class="text-[13px] font-bold text-accent">+ Add</a>
     </div>
     <div class="flex flex-col gap-2">
       __ROW_MARCUS__
@@ -95,18 +96,18 @@ SCREENS["roster"] = ("Athletes", "dark", """
 SCREENS["athlete"] = ("Athlete detail", "dark", """
 <main class="px-4 pt-2 pb-6">
   <div class="mb-4 flex items-center justify-between">
-    <a href="#" class="text-[13px] font-bold text-muted">&larr; Athletes</a>
-    <a href="#" class="text-[12px] font-bold text-accent">Edit</a>
+    <a href="#" class="text-[14.5px] font-bold text-muted">&larr; Athletes</a>
+    <a href="#" class="text-[13px] font-bold text-accent">Edit</a>
   </div>
-  <h1 class="text-[20px] font-extrabold text-ink">Marcus Bell</h1>
-  <div class="mt-1 text-[13px] text-muted">Baseball &middot; SS &middot; High School &middot; 3.62 GPA</div>
+  <h1 class="text-[22px] font-extrabold text-ink">Marcus Bell</h1>
+  <div class="mt-1 text-[14.5px] text-muted">Baseball &middot; SS &middot; High School &middot; 3.62 GPA</div>
 
   <div class="mt-6 rounded-[12px] bg-paper p-4">
     <div>
       <div class="flex items-center">
         __STEP_1__ __STEP_2__ __STEP_3__ __STEP_4__
       </div>
-      <p class="mt-2.5 text-[11px] text-muted">Furthest stage: Visit (Fairview State)</p>
+      <p class="mt-2.5 text-[12px] text-muted">Furthest stage: Visit (Fairview State)</p>
     </div>
   </div>
 
@@ -116,8 +117,8 @@ SCREENS["athlete"] = ("Athlete detail", "dark", """
       <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_visit__">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <div class="text-[14px] font-semibold text-ink">Fairview State</div>
-            <div class="text-[12px] text-muted">D2</div>
+            <div class="text-[15px] font-semibold text-ink">Fairview State</div>
+            <div class="text-[13px] text-muted">D2</div>
           </div>
           __PILL_VISIT__
         </div>
@@ -125,8 +126,8 @@ SCREENS["athlete"] = ("Athlete detail", "dark", """
       <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_offer__">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <div class="text-[14px] font-semibold text-ink">Northgate College</div>
-            <div class="text-[12px] text-muted">D3 &middot; preferred offer</div>
+            <div class="text-[15px] font-semibold text-ink">Northgate College</div>
+            <div class="text-[13px] text-muted">D3 &middot; preferred offer</div>
           </div>
           __PILL_OFFER__
         </div>
@@ -140,11 +141,11 @@ SCREENS["athlete"] = ("Athlete detail", "dark", """
       <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_people__">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <div class="text-[13px] font-bold text-ink">Coach Rivera</div>
-            <div class="text-[11.5px] text-muted">HS coach</div>
-            <div class="mt-1 text-[12px] text-muted">rivera@example.edu &middot; 203 555 0148</div>
+            <div class="text-[14.5px] font-bold text-ink">Coach Rivera</div>
+            <div class="text-[12.5px] text-muted">HS coach</div>
+            <div class="mt-1 text-[13px] text-muted">rivera@example.edu &middot; 203 555 0148</div>
           </div>
-          <button class="text-[11.5px] font-bold text-danger">Remove</button>
+          <button class="text-[12.5px] font-bold text-danger">Remove</button>
         </div>
       </div>
     </div>
@@ -157,7 +158,7 @@ SCREENS["board"] = ("Board", "dark", """
 <main>
   <div class="px-4 pt-4">
     <div class="mb-2 flex items-center justify-end">
-      <a href="#" class="text-[12px] font-bold text-accent">+ Add target</a>
+      <a href="#" class="text-[13px] font-bold text-accent">+ Add target</a>
     </div>
 
     <div class="mb-6">
@@ -182,36 +183,36 @@ SCREENS["board"] = ("Board", "dark", """
 SCREENS["form"] = ("Add athlete", "dark", """
 <main class="px-4 pt-2 pb-6">
   <div class="mb-4 flex items-center gap-3">
-    <a href="#" class="text-[13px] font-bold text-muted">&larr; Athletes</a>
+    <a href="#" class="text-[14.5px] font-bold text-muted">&larr; Athletes</a>
   </div>
-  <h1 class="mb-4 text-[20px] font-extrabold text-ink">Add athlete</h1>
+  <h1 class="mb-4 text-[22px] font-extrabold text-ink">Add athlete</h1>
   <form class="flex flex-col gap-4">
     <div>
-      <label class="mb-1.5 block text-[11px] font-bold text-muted">Name</label>
-      <input class="w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[14px] text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent" placeholder="Jose Ulloa">
+      <label class="mb-1.5 block text-[12px] font-bold text-muted">Name</label>
+      <input class="w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[15px] text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent" placeholder="Jose Ulloa">
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="mb-1.5 block text-[11px] font-bold text-muted">Sport</label>
-        <input class="w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[14px] text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent" value="Baseball">
+        <label class="mb-1.5 block text-[12px] font-bold text-muted">Sport</label>
+        <input class="w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[15px] text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent" value="Baseball">
       </div>
       <div>
-        <label class="mb-1.5 block text-[11px] font-bold text-muted">Position</label>
-        <input class="w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[14px] text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent" placeholder="RHP">
+        <label class="mb-1.5 block text-[12px] font-bold text-muted">Position</label>
+        <input class="w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[15px] text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent" placeholder="RHP">
       </div>
     </div>
     <div>
-      <label class="mb-1.5 block text-[11px] font-bold text-muted">GPA</label>
-      <input class="w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[14px] text-ink placeholder:text-muted ring-2 ring-danger focus:outline-none focus:ring-2 focus:ring-danger" value="5.2">
-      <p class="mt-1 text-[11.5px] font-semibold text-danger">GPA must be between 0 and 4.</p>
+      <label class="mb-1.5 block text-[12px] font-bold text-muted">GPA</label>
+      <input class="w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[15px] text-ink placeholder:text-muted ring-2 ring-danger focus:outline-none focus:ring-2 focus:ring-danger" value="5.2">
+      <p class="mt-1 text-[12.5px] font-semibold text-danger">GPA must be between 0 and 4.</p>
     </div>
     <div>
-      <label class="mb-1.5 block text-[11px] font-bold text-muted">Recruit type</label>
-      <select class="w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[14px] text-ink focus:outline-none focus:ring-2 focus:ring-accent">
+      <label class="mb-1.5 block text-[12px] font-bold text-muted">Recruit type</label>
+      <select class="w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 text-[15px] text-ink focus:outline-none focus:ring-2 focus:ring-accent">
         <option>High School</option>
       </select>
     </div>
-    <button class="mt-1 rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Add athlete</button>
+    <button class="mt-1 rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Add athlete</button>
   </form>
 </main>
 """)
@@ -221,8 +222,8 @@ SCREENS["empty"] = ("Empty state", "dark", """
 <main>
   <div class="px-4 pt-4">
     <div class="mb-2 flex items-center justify-between">
-      <div class="text-[20px] font-extrabold text-ink">Athletes</div>
-      <a href="#" class="text-[12px] font-bold text-accent">+ Add</a>
+      <div class="text-[22px] font-extrabold text-ink">Athletes</div>
+      <a href="#" class="text-[13px] font-bold text-accent">+ Add</a>
     </div>
     <div class="rounded-[12px] bg-paper px-4 py-8 text-center">
       <div class="mb-2 flex justify-center text-muted">
@@ -231,8 +232,8 @@ SCREENS["empty"] = ("Empty state", "dark", """
           <path d="M5 20c1-4 4-6 7-6s6 2 7 6" stroke-linecap="round"></path>
         </svg>
       </div>
-      <div class="text-[13px] font-extrabold text-ink">No athletes yet</div>
-      <div class="mt-1 text-[11.5px] text-muted"><a href="#" class="font-bold text-accent">Add your first athlete &rarr;</a></div>
+      <div class="text-[14.5px] font-extrabold text-ink">No athletes yet</div>
+      <div class="mt-1 text-[12.5px] text-muted"><a href="#" class="font-bold text-accent">Add your first athlete &rarr;</a></div>
     </div>
   </div>
 </main>
@@ -244,10 +245,10 @@ SCREENS["more"] = ("More", "dark", """
   <div class="mb-3">__SH_MORE__</div>
   <div class="flex flex-col gap-2">
     <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_neutral__">
-      <div class="text-[14px] font-semibold text-ink">Dave Fisher</div>
-      <div class="text-[12px] text-muted">Bridge Foundation for Student Athletes</div>
+      <div class="text-[15px] font-semibold text-ink">Dave Fisher</div>
+      <div class="text-[13px] text-muted">Bridge Foundation for Student Athletes</div>
     </div>
-    <button class="w-full rounded-[10px] bg-paper px-3.5 py-3 text-left text-[14px] font-semibold text-danger">Sign out</button>
+    <button class="w-full rounded-[10px] bg-paper px-3.5 py-3 text-left text-[15px] font-semibold text-danger">Sign out</button>
   </div>
 </main>
 """)
@@ -257,21 +258,21 @@ SCREENS["login"] = ("Login", "light", """
 <main class="flex min-h-full items-center justify-center px-5 py-10">
   <div class="w-full max-w-[340px]">
     <div class="rounded-[16px] bg-paper p-5">
-      <h1 class="mb-1 text-[20px] font-extrabold text-ink">Sign in</h1>
-      <p class="mb-5 text-[12.5px] text-muted">Bridge Foundation for Student Athletes</p>
+      <h1 class="mb-1 text-[22px] font-extrabold text-ink">Sign in</h1>
+      <p class="mb-5 text-[13.5px] text-muted">Bridge Foundation for Student Athletes</p>
       <form class="flex flex-col gap-4">
         <div class="flex flex-col gap-[6px]">
-          <label class="text-[12px] font-semibold text-muted">Email</label>
-          <input class="rounded-[10px] border-0 bg-bg px-3 py-2.5 text-[15px] text-ink outline-none focus:ring-2 focus:ring-accent" value="dave@bffsa.org">
+          <label class="text-[13px] font-semibold text-muted">Email</label>
+          <input class="rounded-[10px] border-0 bg-bg px-3 py-2.5 text-[16px] text-ink outline-none focus:ring-2 focus:ring-accent" value="dave@bffsa.org">
         </div>
         <div class="flex flex-col gap-[6px]">
-          <label class="text-[12px] font-semibold text-muted">Password</label>
-          <input type="password" class="rounded-[10px] border-0 bg-bg px-3 py-2.5 text-[15px] text-ink outline-none focus:ring-2 focus:ring-accent" value="passwordvalue">
+          <label class="text-[13px] font-semibold text-muted">Password</label>
+          <input type="password" class="rounded-[10px] border-0 bg-bg px-3 py-2.5 text-[16px] text-ink outline-none focus:ring-2 focus:ring-accent" value="passwordvalue">
         </div>
-        <button class="mt-1 rounded-[8px] bg-solid-accent py-[13px] text-[14px] font-extrabold tracking-[0.02em] text-solid-accent-on">Sign In</button>
+        <button class="mt-1 rounded-[8px] bg-solid-accent py-[13px] text-[15px] font-extrabold tracking-[0.02em] text-solid-accent-on">Sign In</button>
       </form>
     </div>
-    <p class="mt-4 text-center text-[11.5px] text-muted">Accounts are created by your organization, not self-service.</p>
+    <p class="mt-4 text-center text-[12.5px] text-muted">Accounts are created by your organization, not self-service.</p>
   </div>
 </main>
 """)
@@ -280,14 +281,14 @@ SCREENS["login"] = ("Login", "light", """
 # --------------------------------------------------------------- fragments
 def section_header(label, count=None, dot="bg-accent"):
     c = (
-        f'<span class="text-[12px] font-extrabold tabular-nums text-ink">{count}</span>'
+        f'<span class="text-[13px] font-extrabold tabular-nums text-ink">{count}</span>'
         if count is not None
         else ""
     )
     return (
         '<div class="flex items-center gap-2">'
         f'<span class="h-[7px] w-[7px] flex-shrink-0 rounded-full {dot}"></span>'
-        f'<span class="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">{label}</span>'
+        f'<span class="text-[13px] font-extrabold uppercase tracking-[0.04em] text-muted">{label}</span>'
         '<span class="h-px flex-1 border-b-2 border-dotted border-line"></span>'
         f"{c}</div>"
     )
@@ -311,15 +312,28 @@ TINT = _parse_ts_map(_HUE_SRC, "TINT")
 RAIL_MAP = _parse_ts_map(_HUE_SRC, "RAIL")
 DOT_MAP = _parse_ts_map(_HUE_SRC, "DOT")
 
-PILL = {status: SOLID[role] for status, role in STATUS_ROLE.items()}
+STAGE_KIND = _parse_ts_map(_HUE_SRC, "STAGE_KIND")
+FG = _parse_ts_map(_HUE_SRC, "FG")
+ICONS = {k: v for k, v in json.load(open("src/components/rowIcons.json")).items() if k != "_comment"}
+
+
+def glyph(kind, role="neutral", size=20):
+    d = ICONS.get(kind, "")
+    if not d:
+        return ""
+    return (f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            f'stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 {FG[role]}" '
+            f'style="width:{size}px;height:{size}px">{d}</svg>')
+
 RAIL = RAIL_MAP
 HUE_OF = STATUS_ROLE
 
 
+# No colour block, per 2026-09-17: a glyph in the stage's hue and a plain
+# label, the same anatomy as the type mark on the row.
 def pill(status):
-    return (
-        f'<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-bold {PILL[status]}">{status}</span>'
-    )
+    return (f'<span class="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-ink">'
+            f'{glyph(STAGE_KIND.get(status, "stage_none"), STATUS_ROLE.get(status, "neutral"), 15)}{status}</span>')
 
 
 def avatar(name):
@@ -345,11 +359,11 @@ def roster_row(name, meta, gpa, status):
     return f"""<a href="#" class="block"><div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 {RAIL[HUE_OF[status]]}">
   <div class="flex items-center justify-between">
     <div class="flex items-center gap-3">{avatar(name)}
-      <div><div class="text-[15px] font-semibold text-ink">{name}</div>
-      <div class="text-[12px] text-muted">{meta}</div></div>
+      <div><div class="text-[16px] font-semibold text-ink">{name}</div>
+      <div class="text-[13px] text-muted">{meta}</div></div>
     </div>
     <div class="flex flex-col items-end gap-1">
-      <div class="text-[13px] font-semibold tabular-nums text-ink">{gpa}</div>{pill(status)}
+      <div class="text-[14.5px] font-semibold tabular-nums text-ink">{gpa}</div>{pill(status)}
     </div>
   </div></div></a>"""
 
@@ -364,7 +378,7 @@ def score_pill(score):
         if score >= 40
         else "bg-tint-low text-tint-low-on"
     )
-    return f'<span class="inline-flex items-center rounded-full px-3 py-1 text-[13px] font-extrabold tabular-nums {cls}">{score}</span>'
+    return f'<span class="inline-flex items-center rounded-full px-3 py-1 text-[14.5px] font-extrabold tabular-nums {cls}">{score}</span>'
 
 
 TAG_STYLE = {"Safety": "text-ios-green", "Fit": "text-ink", "Reach": "text-muted", "Conflict": "text-ios-pink", "Unknown": "text-muted"}
@@ -374,17 +388,18 @@ def board_row(athlete, school, meta, score, tag, status):
     return f"""<a href="#" class="block"><div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 {RAIL[HUE_OF[status]]}">
   <div class="flex items-center justify-between gap-3">
     <div>
-      <div class="text-[15px] font-semibold text-ink">{athlete} <span class="font-normal text-muted">to</span> {school}</div>
-      <div class="text-[12px] text-muted">{meta}</div>
+      <div class="text-[16px] font-semibold text-ink">{athlete} <span class="font-normal text-muted">to</span> {school}</div>
+      <div class="text-[13px] text-muted">{meta}</div>
     </div>
     <div class="flex flex-shrink-0 flex-col items-end gap-1">{score_pill(score)}
-      <div class="text-[11px] font-bold {TAG_STYLE[tag]}">{tag}</div>
+      <div class="text-[12px] font-bold {TAG_STYLE[tag]}">{tag}</div>
     </div>
   </div></div></a>"""
 
 
 def group_tab(label, count, hue):
-    return f'<span class="inline-block rounded-full px-3 py-1 text-[11.5px] font-extrabold {TINT[hue]}">{label} &middot; {count}</span>'
+    return (f'<span class="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-ink">'
+            f'{glyph(STAGE_KIND.get(label, "stage_none"), hue, 15)}{label} &middot; {count}</span>')
 
 
 def rail_card(hue, inner):
@@ -393,8 +408,8 @@ def rail_card(hue, inner):
 
 def followup(name, sub, status):
     inner = f"""<div class="flex items-center justify-between gap-3">
-  <div><div class="text-[14px] font-bold text-ink">{name}</div>
-  <div class="text-[11.5px] text-muted">{sub}</div></div>{pill(status)}</div>"""
+  <div><div class="text-[15px] font-bold text-ink">{name}</div>
+  <div class="text-[12.5px] text-muted">{sub}</div></div>{pill(status)}</div>"""
     return rail_card(HUE_OF[status], inner)
 
 
@@ -411,7 +426,7 @@ def step(kind, label, first=False):
     text = "text-ink" if kind in ("done", "current") else "text-muted"
     return f"""<div class="relative flex flex-1 flex-col items-center gap-2">{seg}
   <div class="z-10 flex h-[14px] items-center"><div class="rounded-full {dot}"></div></div>
-  <div class="text-center text-[9.5px] font-bold {text}">{label}</div></div>"""
+  <div class="text-center text-[11px] font-bold {text}">{label}</div></div>"""
 
 
 FRAGMENTS = {
@@ -458,7 +473,7 @@ def tab_bar(active):
             else "flex h-[26px] w-[38px] items-center justify-center"
         )
         items.append(
-            f'<a href="#" data-goto="{key}" class="flex flex-1 flex-col items-center gap-1 text-[10px] font-bold '
+            f'<a href="#" data-goto="{key}" class="flex flex-1 flex-col items-center gap-1 text-[11px] font-bold '
             f'{"text-ink" if on else "text-muted"}"><span class="{wrap}">'
             f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">{icon}</svg>'
             f"</span>{label}</a>"
@@ -481,8 +496,8 @@ for key, (title, theme, body) in SCREENS.items():
     if key != "login":
         chrome = (
             '<div class="flex items-center justify-between border-b border-line px-4 py-2.5">'
-            '<span class="text-[13px] font-extrabold text-ink">Bridge</span>'
-            '<span class="text-[11px] text-muted">Executive Director</span></div>'
+            '<span class="text-[14.5px] font-extrabold text-ink">Bridge</span>'
+            '<span class="text-[12px] text-muted">Executive Director</span></div>'
         )
     bar = tab_bar(TAB_FOR[key]) if key != "login" else ""
     theme_attr = ' data-theme="dark"' if theme == "dark" else ""

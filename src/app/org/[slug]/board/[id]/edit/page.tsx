@@ -57,11 +57,11 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4 flex items-center gap-3">
-        <Link href={`/org/${slug}/board`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/board`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Board
         </Link>
       </div>
-      <h1 className="mb-4 text-[20px] font-extrabold text-ink">Edit target</h1>
+      <h1 className="mb-4 text-[22px] font-extrabold text-ink">Edit target</h1>
       <TargetForm
         action={action}
         athletes={athletes}
@@ -80,21 +80,21 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
       />
 
       <div className="mt-8 flex flex-col gap-3">
-        <h2 className="text-[15px] font-extrabold text-ink">Communication log</h2>
+        <h2 className="text-[16px] font-extrabold text-ink">Communication log</h2>
         <CommunicationForm action={commAction} />
         {comms.length === 0 ? (
-          <p className="text-[12.5px] text-muted">Nothing logged yet.</p>
+          <p className="text-[13.5px] text-muted">Nothing logged yet.</p>
         ) : (
           <div className="rounded-[16px] border border-line bg-paper">
             {comms.map((c, i) => (
               <div key={c.id} className={`px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] font-bold text-ink">{KIND_LABEL[c.kind] ?? c.kind}</span>
-                  <span className="text-[11.5px] text-muted tabular-nums">
+                  <span className="text-[14.5px] font-bold text-ink">{KIND_LABEL[c.kind] ?? c.kind}</span>
+                  <span className="text-[12.5px] text-muted tabular-nums">
                     {new Date(c.occurred_on).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                   </span>
                 </div>
-                {c.notes && <p className="mt-1 text-[12.5px] text-muted">{c.notes}</p>}
+                {c.notes && <p className="mt-1 text-[13.5px] text-muted">{c.notes}</p>}
               </div>
             ))}
           </div>
@@ -102,23 +102,23 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
       </div>
 
       <div className="mt-8 flex flex-col gap-3">
-        <h2 className="text-[15px] font-extrabold text-ink">Visits</h2>
+        <h2 className="text-[16px] font-extrabold text-ink">Visits</h2>
         <VisitForm action={visitAction} />
         {visits.length === 0 ? (
-          <p className="text-[12.5px] text-muted">No visits logged yet.</p>
+          <p className="text-[13.5px] text-muted">No visits logged yet.</p>
         ) : (
           <div className="rounded-[16px] border border-line bg-paper">
             {visits.map((v, i) => (
               <div key={v.id} className={`px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] font-bold text-ink">{VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}</span>
-                  <span className="text-[11.5px] text-muted tabular-nums">
+                  <span className="text-[14.5px] font-bold text-ink">{VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}</span>
+                  <span className="text-[12.5px] text-muted tabular-nums">
                     {new Date(v.visit_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                   </span>
                 </div>
-                {v.impression && <p className="mt-1 text-[12.5px] text-ink">{v.impression}</p>}
-                {v.next_step && <p className="mt-0.5 text-[12px] text-muted">Next: {v.next_step}</p>}
-                {v.notes && <p className="mt-0.5 text-[12px] text-muted">{v.notes}</p>}
+                {v.impression && <p className="mt-1 text-[13.5px] text-ink">{v.impression}</p>}
+                {v.next_step && <p className="mt-0.5 text-[13px] text-muted">Next: {v.next_step}</p>}
+                {v.notes && <p className="mt-0.5 text-[13px] text-muted">{v.notes}</p>}
               </div>
             ))}
           </div>

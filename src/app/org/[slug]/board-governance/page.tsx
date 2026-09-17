@@ -79,8 +79,8 @@ export default async function BoardGovernancePage({
 
   return (
     <main className="px-4 pt-2 pb-6">
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Board</h1>
-      <p className="mb-5 text-[12.5px] leading-tight text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Board</h1>
+      <p className="mb-5 text-[13.5px] leading-tight text-muted">
         {fiscalYear}. Each tier carries a give/get commitment, and progress is cash in the door, given or brought in.
       </p>
 
@@ -93,7 +93,7 @@ export default async function BoardGovernancePage({
             <div className="mt-5">
               <Link
                 href={`/org/${slug}/board-governance/new`}
-                className="block rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on"
+                className="block rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
               >
                 New board
               </Link>
@@ -104,16 +104,16 @@ export default async function BoardGovernancePage({
         <>
           <div className="mb-3 grid grid-cols-2 gap-2">
             <div className="rounded-[12px] bg-paper p-3.5">
-              <div className="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">Committed</div>
-              <div className="mt-1 text-[24px] font-black leading-tight tabular-nums text-ink">{formatMoneyShort(totals.committed)}</div>
-              <div className="mt-0.5 text-[10.5px] text-muted">
+              <div className="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">Committed</div>
+              <div className="mt-1 text-[26px] font-black leading-tight tabular-nums text-ink">{formatMoneyShort(totals.committed)}</div>
+              <div className="mt-0.5 text-[11.5px] text-muted">
                 across {totals.seats} active {totals.seats === 1 ? "seat" : "seats"}
               </div>
             </div>
             <div className="rounded-[12px] bg-paper p-3.5">
-              <div className="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">Delivered</div>
-              <div className="mt-1 text-[24px] font-black leading-tight tabular-nums text-ink">{formatMoneyShort(totals.raised)}</div>
-              <div className="mt-0.5 text-[10.5px] text-muted">
+              <div className="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">Delivered</div>
+              <div className="mt-1 text-[26px] font-black leading-tight tabular-nums text-ink">{formatMoneyShort(totals.raised)}</div>
+              <div className="mt-0.5 text-[11.5px] text-muted">
                 {overallPercent === null ? "no commitments set" : `${overallPercent}%`} &middot; {totals.meeting} of {totals.seats} fully met
               </div>
             </div>
@@ -121,7 +121,7 @@ export default async function BoardGovernancePage({
 
           <div className="mb-4">
             <RailCard role="contact">
-              <div className="text-[12.5px] leading-tight text-ink">
+              <div className="text-[13.5px] leading-tight text-ink">
                 Give/get counts both halves. A member meets their number by giving it or by bringing it in, and a gift is never counted
                 twice when they did both.
               </div>
@@ -140,16 +140,16 @@ export default async function BoardGovernancePage({
                   <RailCard role={role}>
                     <div className="min-w-0">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="text-[13px] font-bold text-ink">{b.name}</div>
-                        <span className="flex-shrink-0 text-[12px] font-extrabold tabular-nums text-ink">
+                        <div className="text-[14.5px] font-bold text-ink">{b.name}</div>
+                        <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
                           {s.percent === null ? "no target" : `${s.percent}%`}
                         </span>
                       </div>
-                      <div className="mt-0.5 text-[11.5px] text-muted">
+                      <div className="mt-0.5 text-[12.5px] text-muted">
                         {formatMoneyShort(b.giveGetCents)} give/get &middot; {s.seatsFilled} of {b.maxSeats} seats
                       </div>
                       {s.belowMinimum && (
-                        <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                        <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                           Below the floor of {b.minSeats} {b.minSeats === 1 ? "seat" : "seats"} for {BOARD_KIND_LABEL[b.kind].toLowerCase()}.
                         </div>
                       )}
@@ -165,7 +165,7 @@ export default async function BoardGovernancePage({
             <div className="mt-5">
               <Link
                 href={`/org/${slug}/board-governance/new`}
-                className="block rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink"
+                className="block rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink"
               >
                 New board
               </Link>
@@ -178,7 +178,7 @@ export default async function BoardGovernancePage({
           <div className="mt-2">
             <Link
               href={`/org/${slug}/board-governance/members`}
-              className="block rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink"
+              className="block rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink"
             >
               Every seat
             </Link>

@@ -15,12 +15,12 @@ export default async function NewCampaignPage({ params }: { params: Promise<{ sl
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Fundraising
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">New campaign</h1>
-      <p className="mb-5 text-[12.5px] leading-tight text-muted">An event, an appeal, or anything with a goal and an end date.</p>
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">New campaign</h1>
+      <p className="mb-5 text-[13.5px] leading-tight text-muted">An event, an appeal, or anything with a goal and an end date.</p>
       <CampaignForm action={createCampaign.bind(null, slug)} />
     </main>
   );

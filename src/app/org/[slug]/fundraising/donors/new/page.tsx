@@ -17,12 +17,12 @@ export default async function NewDonorPage({ params }: { params: Promise<{ slug:
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={`/org/${slug}/fundraising/donors`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/fundraising/donors`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Donors
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Add a donor</h1>
-      <p className="mb-5 text-[12.5px] leading-tight text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Add a donor</h1>
+      <p className="mb-5 text-[13.5px] leading-tight text-muted">
         Their giving history builds itself from the gifts you record against them. Nothing about totals is typed in here.
       </p>
       <DonorForm action={action} />

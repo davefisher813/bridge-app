@@ -4,7 +4,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState, RailCard, SectionHeader } from "@/components/catalog";
-import { TINT, type Role } from "@/components/statusHue";
+import { TEXT_ON, type Role } from "@/components/statusHue";
 import { isStubbedModel } from "@/lib/actions/documents";
 
 // The review queue. A document routed to "review" has to live somewhere or
@@ -69,20 +69,16 @@ function DocumentRow({ slug, doc, role }: { slug: string; doc: DocRow; role: Rol
       <RailCard role={role}>
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="truncate text-[14px] font-bold text-ink">
+            <div className="truncate text-[15px] font-bold text-ink">
               {doc.category ? CATEGORY_LABEL[doc.category] ?? doc.category : "Unrecognized"}
               {athlete ? ` · ${athlete}` : " · no match"}
             </div>
-            <div className="truncate text-[11.5px] text-muted">
+            <div className="truncate text-[12.5px] text-muted">
               {doc.status === "failed" && doc.failure_reason ? doc.failure_reason : doc.file_name} &middot; {ago(doc.created_at)}
             </div>
           </div>
           {pct !== null && (
-            <span
-              className={`inline-flex flex-shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${TINT[confidenceRole(pct)]}`}
-            >
-              {pct}%
-            </span>
+            <span className={`flex-shrink-0 text-[16px] font-black tabular-nums ${TEXT_ON[confidenceRole(pct)]}`}>{pct}%</span>
           )}
         </div>
       </RailCard>
@@ -115,16 +111,16 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
   return (
     <main className="px-4 pt-4 pb-6">
       <div className="mb-3 flex items-center justify-between">
-        <div className="text-[20px] font-extrabold text-ink">Documents</div>
-        <Link href={`/org/${slug}/documents/new`} className="text-[12px] font-bold text-accent">
+        <div className="text-[22px] font-extrabold text-ink">Documents</div>
+        <Link href={`/org/${slug}/documents/new`} className="text-[13px] font-bold text-accent">
           + Add
         </Link>
       </div>
 
       {stubbed && (
         <div className="mb-4 rounded-[10px] border-l-[5px] border-l-ios-yellow bg-paper px-3.5 py-3">
-          <div className="text-[13px] font-bold text-ink">Simulated reading</div>
-          <div className="mt-0.5 text-[11.5px] text-muted">
+          <div className="text-[14.5px] font-bold text-ink">Simulated reading</div>
+          <div className="mt-0.5 text-[12.5px] text-muted">
             No AI model is connected yet. Anything here was made up by the stand-in, not read off a page.
           </div>
         </div>

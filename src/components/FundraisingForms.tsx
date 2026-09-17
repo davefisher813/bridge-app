@@ -13,7 +13,7 @@ const EMPTY_STATE: FundraisingActionState = { errors: {} };
 function FormError({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[13px] font-semibold text-danger">{message}</div>
+    <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[14.5px] font-semibold text-danger">{message}</div>
   );
 }
 
@@ -63,12 +63,12 @@ export function BudgetForm({
 
       <div className="rounded-[10px] border-l-[5px] border-l-ios-blue bg-paper px-3.5 py-3">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-[13px] font-bold text-ink">Total for {fiscalYear}</div>
-          <div className="text-[15px] font-extrabold tabular-nums text-ink">{formatMoney(totalCents)}</div>
+          <div className="text-[14.5px] font-bold text-ink">Total for {fiscalYear}</div>
+          <div className="text-[16px] font-extrabold tabular-nums text-ink">{formatMoney(totalCents)}</div>
         </div>
       </div>
 
-      <p className="text-[11.5px] leading-tight text-muted">
+      <p className="text-[12.5px] leading-tight text-muted">
         Leave a category blank and the overview says no target rather than showing it at 0%. Those are different statements and only one
         of them is a problem.
       </p>
@@ -146,7 +146,7 @@ export function CampaignForm({ action }: { action: ServerAction }) {
           placeholder="$0"
         />
         {err("goalAmount") && <p className={errorClass}>{err("goalAmount")}</p>}
-        <p className="mt-1 text-[11.5px] leading-tight text-muted">
+        <p className="mt-1 text-[12.5px] leading-tight text-muted">
           Measured against cash raised. Pledges show beside the bar, never inside it, so promises cannot complete a campaign.
         </p>
       </div>
@@ -199,7 +199,7 @@ export function PledgeForm({
           ))}
         </select>
         {err("donorId") && <p className={errorClass}>{err("donorId")}</p>}
-        <p className="mt-1 text-[11.5px] leading-tight text-muted">
+        <p className="mt-1 text-[12.5px] leading-tight text-muted">
           Required, unlike a gift. An anonymous promise is not one anybody can follow up on.
         </p>
       </div>
@@ -209,7 +209,7 @@ export function PledgeForm({
           Amount
         </label>
         <input
-          className={`${fieldClass(err("amount"))} text-[18px] font-bold tabular-nums`}
+          className={`${fieldClass(err("amount"))} text-[20px] font-bold tabular-nums`}
           id="amount"
           name="amount"
           inputMode="decimal"
@@ -243,7 +243,7 @@ export function PledgeForm({
         </div>
       </div>
 
-      <p className="text-[11.5px] leading-tight text-muted">
+      <p className="text-[12.5px] leading-tight text-muted">
         Leave the due date blank if none was given. It will show as outstanding and never as overdue, which is the honest reading.
       </p>
 
@@ -354,7 +354,7 @@ export function GrantForm({ action }: { action: ServerAction }) {
             placeholder="$0"
           />
           {err("amountAwarded") && <p className={errorClass}>{err("amountAwarded")}</p>}
-          <p className="mt-1 text-[11.5px] leading-tight text-muted">
+          <p className="mt-1 text-[12.5px] leading-tight text-muted">
             The money itself is recorded separately as a gift in the Foundation Grants category, so an award is never counted both as a
             win here and as revenue there.
           </p>
@@ -363,7 +363,7 @@ export function GrantForm({ action }: { action: ServerAction }) {
 
       <div>
         <div className={labelClass}>Dates that bite later</div>
-        <p className="mb-2 text-[11.5px] leading-tight text-muted">
+        <p className="mb-2 text-[12.5px] leading-tight text-muted">
           Most of a grant&apos;s life happens before any money exists, and these are the ones that get missed.
         </p>
         <div className="grid grid-cols-2 gap-2">

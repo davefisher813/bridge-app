@@ -27,21 +27,21 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4 flex items-center gap-3">
-        <Link href={`/org/${slug}/board`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/board`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Board
         </Link>
       </div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-[20px] font-extrabold text-ink">Add target</h1>
+        <h1 className="text-[22px] font-extrabold text-ink">Add target</h1>
         {isOwner && (
-          <Link href={`/org/${slug}/schools/new`} className="text-[12px] font-bold text-accent">
+          <Link href={`/org/${slug}/schools/new`} className="text-[13px] font-bold text-accent">
             + Add a school
           </Link>
         )}
       </div>
 
       {athletes.length === 0 ? (
-        <div className="rounded-[16px] border border-line bg-paper px-4 py-6 text-center text-[13px] text-muted">
+        <div className="rounded-[16px] border border-line bg-paper px-4 py-6 text-center text-[14.5px] text-muted">
           No athletes on the roster yet.{" "}
           <Link href={`/org/${slug}/roster/new`} className="font-bold text-accent">
             Add one first
@@ -49,7 +49,7 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
           .
         </div>
       ) : schools.length === 0 ? (
-        <div className="rounded-[16px] border border-line bg-paper px-4 py-6 text-center text-[13px] text-muted">
+        <div className="rounded-[16px] border border-line bg-paper px-4 py-6 text-center text-[14.5px] text-muted">
           No schools in the reference database yet. Schools are shared across every org, so only an owner can add one.{" "}
           {isOwner ? (
             <Link href={`/org/${slug}/schools/new`} className="font-bold text-accent">

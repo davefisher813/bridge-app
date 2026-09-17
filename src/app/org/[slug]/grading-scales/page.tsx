@@ -103,12 +103,12 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={`/org/${slug}/more`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/more`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; More
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Grading scales</h1>
-      <p className="mb-5 text-[12.5px] leading-tight text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Grading scales</h1>
+      <p className="mb-5 text-[13.5px] leading-tight text-muted">
         How each high school&apos;s numbers become letters. The NCAA converts a numeric grade using the school&apos;s own published table,
         never a generic curve, so an 85 is not automatically a B.
       </p>
@@ -118,7 +118,7 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
           <div className="mb-2">
             <SectionHeader label="Needed now" count={blockedList.length} role="offer" />
           </div>
-          <p className="mb-3 text-[12px] leading-tight text-muted">
+          <p className="mb-3 text-[13px] leading-tight text-muted">
             Transcripts here print numbers and no table is on file, so these core GPAs are running on the assumed ten-point scale until
             the real table is entered.
           </p>
@@ -128,13 +128,13 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
                 <RailCard role="offer">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-[13px] font-bold text-ink">{b.name}</div>
-                      <div className="text-[11.5px] text-muted">
+                      <div className="text-[14.5px] font-bold text-ink">{b.name}</div>
+                      <div className="text-[12.5px] text-muted">
                         {b.athletes.size} {b.athletes.size === 1 ? "athlete" : "athletes"} &middot; {b.courses}{" "}
                         {b.courses === 1 ? "course" : "courses"} waiting
                       </div>
                     </div>
-                    {canEdit && <span className="flex-shrink-0 text-[12px] font-extrabold text-tint-accent-on">Add</span>}
+                    {canEdit && <span className="flex-shrink-0 text-[13px] font-extrabold text-tint-accent-on">Add</span>}
                   </div>
                 </RailCard>
               );
@@ -167,9 +167,9 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
             const body = (
               <RailCard role="contact">
                 <div className="min-w-0">
-                  <div className="text-[13px] font-bold text-ink">{s.school_name}</div>
-                  <div className="mt-0.5 text-[11.5px] leading-tight text-muted">{summarize(bands)}</div>
-                  <div className="mt-1 text-[11.5px] leading-tight text-muted">
+                  <div className="text-[14.5px] font-bold text-ink">{s.school_name}</div>
+                  <div className="mt-0.5 text-[12.5px] leading-tight text-muted">{summarize(bands)}</div>
+                  <div className="mt-1 text-[12.5px] leading-tight text-muted">
                     {s.reports_weighted_grades
                       ? `Weighted, adds ${Number.isFinite(bonus) ? bonus.toFixed(2) : "1.00"}`
                       : "No weighted bonus"}
@@ -191,7 +191,7 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
 
       <div className="mt-4">
         <RailCard role="contact">
-          <div className="text-[12.5px] leading-tight text-ink">
+          <div className="text-[13.5px] leading-tight text-ink">
             Only this org uses these. Another organization with an athlete at the same school keeps its own, so a mistake here cannot
             change anyone else&apos;s eligibility verdict. A table confirmed with the school and shared across the platform still wins
             where one exists.
@@ -203,7 +203,7 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
         <div className="mt-5">
           <Link
             href={`/org/${slug}/grading-scales/new`}
-            className="block rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on"
+            className="block rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
           >
             Add a school&apos;s scale
           </Link>

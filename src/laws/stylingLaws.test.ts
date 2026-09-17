@@ -356,3 +356,79 @@ describe("LAW: a row you can tap is at least a thumb tall", () => {
     expect(thin).toEqual([]);
   });
 });
+
+describe("LAW: a pill is a glyph and a label, never a coloured block", () => {
+  // Dave, 2026-09-17, looking at the roster: "make sure there's no color
+  // highlights on the pills, we said we were going with icons, make sure
+  // it's consistent throughout."
+  //
+  // The failure mode this guards is not ugliness, it is drift. The type
+  // glyph landed on September 16 and the fills stayed on the pills, so
+  // for a day the app had two ways of saying the same thing on the same
+  // row. The next person adding a status chip will reach for TINT[role]
+  // because that is what a status chip looked like for two weeks.
+  //
+  // Verified this law bites: put `bg-tint-offer` back on the seat status
+  // chip in board-governance/[id]/page.tsx, ran
+  // `npx vitest run stylingLaws`, watched it fail naming that file,
+  // reverted.
+  const PILL_SHAPE = /rounded-full/;
+
+  it("no rounded-full element carries a tint or solid fill", () => {
+    const violations: string[] = [];
+    for (const f of SOURCES) {
+      // statusHue.ts is where the maps are DEFINED. The definitions are
+      // not uses, and TINT and SOLID both still have legitimate callers:
+      // the primary action button is a solid fill, which is the whole
+      // reason red was reserved for it.
+      if (rel(f) === "components/statusHue.ts") continue;
+      for (const lit of stringLiterals(read(f))) {
+        if (!PILL_SHAPE.test(lit)) continue;
+        if (/\bbg-(tint|solid)-[a-z]+\b/.test(lit)) {
+          violations.push(`${rel(f)}: a rounded-full element with a fill: "${lit.slice(0, 60)}"`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  // The interpolated form of the same thing, which the literal check
+  // above cannot see: `${TINT[role]}` inside a className is a fill whose
+  // name is only known at runtime.
+  it("no component interpolates TINT or SOLID into a pill", () => {
+    const violations: string[] = [];
+    for (const f of SOURCES) {
+      if (rel(f) === "components/statusHue.ts") continue;
+      const src = read(f);
+      for (const m of src.matchAll(/`[^`]*rounded-full[^`]*`/g)) {
+        if (/\$\{\s*(TINT|SOLID)\b/.test(m[0])) {
+          violations.push(`${rel(f)}: a pill taking its fill from a map: "${m[0].slice(0, 70)}"`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  // The other half of the rule, and the one the audit caught the hard
+  // way. Dropping the fill means the colour moves onto the mark, and a
+  // glyph and a word need different tokens to stay legible: FG is the raw
+  // iOS hue, which is 2.02:1 as text on paper. Coloured TEXT takes
+  // TEXT_ON.
+  //
+  // Checked by shape rather than by name, since a className is a string:
+  // an FG lookup in the same literal as a text-size class is type wearing
+  // a glyph colour.
+  it("no text size is set in the same class string as an FG colour", () => {
+    const violations: string[] = [];
+    for (const f of SOURCES) {
+      if (rel(f) === "components/statusHue.ts" || rel(f) === "components/RowGlyph.tsx") continue;
+      const src = read(f);
+      for (const m of src.matchAll(/`[^`]*`/g)) {
+        if (/text-\[[\d.]+px\]/.test(m[0]) && /\$\{\s*FG\[/.test(m[0])) {
+          violations.push(`${rel(f)}: text sized and coloured with FG: "${m[0].slice(0, 70)}"`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});

@@ -38,13 +38,13 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
       <div className="mb-2">
         <Link
           href={`/org/${slug}/roster/${id}/eligibility`}
-          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted"
+          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted"
         >
           &larr; NCAA eligibility
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Approved courses</h1>
-      <div className="mb-5 text-[12.5px] font-bold text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Approved courses</h1>
+      <div className="mb-5 text-[13.5px] font-bold text-muted">
         {athlete.name} &middot; {view.approvals.length} checked
       </div>
 
@@ -64,8 +64,8 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
               <div className="flex flex-col gap-2">
                 {rows.map((a, i) => (
                   <RailCard key={a.title + i} role={role} kind={kind}>
-                    <div className="text-[13px] font-bold leading-tight text-ink">{a.title}</div>
-                    <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                    <div className="text-[14.5px] font-bold leading-tight text-ink">{a.title}</div>
+                    <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                       {status === "approved"
                         ? `${a.school} · ${a.match.how === "exact" ? "exact title" : "matched on the title"}`
                         : status === "ambiguous"
@@ -90,7 +90,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
           <div className="flex flex-col gap-2">
             {view.approvalNotes.map((n) => (
               <RailCard key={n} role="target" kind="note">
-                <div className="text-[12.5px] leading-relaxed text-ink">{n}</div>
+                <div className="text-[13.5px] leading-relaxed text-ink">{n}</div>
               </RailCard>
             ))}
           </div>
@@ -100,7 +100,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
       {view.schoolsMissingApprovedList.length > 0 && (
         <Link
           href={`/org/${slug}/approved-courses`}
-          className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[14px] font-bold text-ink"
+          className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
         >
           Enter a list for {view.schoolsMissingApprovedList[0]}
         </Link>

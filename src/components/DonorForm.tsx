@@ -23,7 +23,7 @@ export function DonorForm({ action }: { action: ServerAction }) {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {state.errors.form && (
-        <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[13px] font-semibold text-danger">
+        <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[14.5px] font-semibold text-danger">
           {state.errors.form}
         </div>
       )}
@@ -48,7 +48,7 @@ export function DonorForm({ action }: { action: ServerAction }) {
           ))}
         </select>
         {err("donorType") && <p className={errorClass}>{err("donorType")}</p>}
-        <p className="mt-1 text-[11.5px] leading-tight text-muted">
+        <p className="mt-1 text-[12.5px] leading-tight text-muted">
           Board member is its own type because board giving is a separate line on the P&amp;L.
         </p>
       </div>
@@ -72,7 +72,7 @@ export function DonorForm({ action }: { action: ServerAction }) {
           Address
         </label>
         <textarea className={inputClass} id="address" name="address" rows={2} />
-        <p className="mt-1 text-[11.5px] leading-tight text-muted">Needed on an acknowledgment letter, which is why it is here.</p>
+        <p className="mt-1 text-[12.5px] leading-tight text-muted">Needed on an acknowledgment letter, which is why it is here.</p>
       </div>
 
       <div>

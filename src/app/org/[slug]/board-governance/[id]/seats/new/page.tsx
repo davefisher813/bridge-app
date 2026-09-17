@@ -45,12 +45,12 @@ export default async function NewSeatPage({ params }: { params: Promise<{ slug: 
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={`/org/${slug}/board-governance/${board.id}`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/board-governance/${board.id}`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; {board.name}
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Add a seat</h1>
-      <p className="mb-5 text-[12.5px] leading-tight text-muted">{board.name}, up to {board.maxSeats} active seats.</p>
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Add a seat</h1>
+      <p className="mb-5 text-[13.5px] leading-tight text-muted">{board.name}, up to {board.maxSeats} active seats.</p>
 
       <BoardSeatForm
         action={addBoardSeat.bind(null, slug, board.id)}

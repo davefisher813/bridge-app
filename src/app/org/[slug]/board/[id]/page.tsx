@@ -96,21 +96,21 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
   return (
     <main className="px-4 pb-24 pt-2">
       <div className="mb-2">
-        <Link href={`/org/${slug}/board`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/board`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Board
         </Link>
       </div>
 
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[20px] font-extrabold leading-tight text-ink">{school.name}</h1>
-          <div className="text-[12.5px] font-bold text-muted">
+          <h1 className="text-[22px] font-extrabold leading-tight text-ink">{school.name}</h1>
+          <div className="text-[13.5px] font-bold text-muted">
             {school.division} &middot; {athlete.name}
           </div>
         </div>
         <div className="flex-shrink-0 text-right">
           <div className="text-[28px] font-black leading-none tabular-nums text-ink">{fit.score}</div>
-          <div className="mt-1 text-[11.5px] font-bold text-muted">{fit.tag}</div>
+          <div className="mt-1 text-[12.5px] font-bold text-muted">{fit.tag}</div>
         </div>
       </div>
 
@@ -119,7 +119,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
       {fit.reasons.length > 0 && (
         <div className="mb-5">
           <RailCard role="contact" kind="info">
-            <div className="text-[12.5px] leading-relaxed text-ink">{fit.reasons[0]}</div>
+            <div className="text-[13.5px] leading-relaxed text-ink">{fit.reasons[0]}</div>
           </RailCard>
         </div>
       )}
@@ -136,16 +136,16 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
             <RailCard key={key} role={role} kind={d.veto ? "warning" : kind}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-[13px] font-bold leading-tight text-ink">{label}</div>
-                  <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                  <div className="text-[14.5px] font-bold leading-tight text-ink">{label}</div>
+                  <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                     {d.reasons[0] ?? d.warnings[0] ?? "No signal"}
                   </div>
                 </div>
-                <span className="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">{d.score}</span>
+                <span className="flex-shrink-0 text-[15px] font-extrabold tabular-nums text-ink">{d.score}</span>
               </div>
               {/* A veto is not a low score, it is an override, so it says
                   so rather than being inferred from a small number. */}
-              {d.veto && <div className="mt-1.5 text-[11.5px] font-semibold leading-tight text-tint-accent-on">Overrides the blend: {d.veto}</div>}
+              {d.veto && <div className="mt-1.5 text-[12.5px] font-semibold leading-tight text-tint-accent-on">Overrides the blend: {d.veto}</div>}
             </RailCard>
           );
         })}
@@ -159,7 +159,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
           <div className="mb-5 flex flex-col gap-2">
             {fit.warnings.map((w) => (
               <RailCard key={w} role="offer" kind="warning">
-                <div className="text-[12.5px] leading-relaxed text-ink">{w}</div>
+                <div className="text-[13.5px] leading-relaxed text-ink">{w}</div>
               </RailCard>
             ))}
           </div>
@@ -171,8 +171,8 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
       </div>
       <div className="mb-5 flex flex-col gap-2">
         <RailCard role="people" kind="message">
-          <div className="text-[13px] font-bold leading-tight text-ink">{coachName || "No coach on file"}</div>
-          <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+          <div className="text-[14.5px] font-bold leading-tight text-ink">{coachName || "No coach on file"}</div>
+          <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
             {comms.length} {comms.length === 1 ? "message" : "messages"} &middot; {visits.length} {visits.length === 1 ? "visit" : "visits"}
           </div>
         </RailCard>
@@ -180,10 +180,10 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
           <RailCard key={i} role="contact" kind="message">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-[13px] font-bold leading-tight text-ink">{c.notes || c.kind}</div>
-                <div className="mt-0.5 text-[11.5px] leading-tight text-muted">{c.kind}</div>
+                <div className="text-[14.5px] font-bold leading-tight text-ink">{c.notes || c.kind}</div>
+                <div className="mt-0.5 text-[12.5px] leading-tight text-muted">{c.kind}</div>
               </div>
-              {c.occurred_at && <span className="flex-shrink-0 text-[11.5px] font-bold text-muted">{c.occurred_at.slice(0, 10)}</span>}
+              {c.occurred_at && <span className="flex-shrink-0 text-[12.5px] font-bold text-muted">{c.occurred_at.slice(0, 10)}</span>}
             </div>
           </RailCard>
         ))}
@@ -192,21 +192,21 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
       <div className="flex flex-col gap-2">
         <Link
           href={`/org/${slug}/roster/${athlete.id}`}
-          className="flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[14px] font-bold text-ink"
+          className="flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
         >
           Open {athlete.name}
         </Link>
         {canEdit && (
           <Link
             href={`/org/${slug}/board/${id}/edit`}
-            className="flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[14px] font-bold text-ink"
+            className="flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
           >
             Edit this target
           </Link>
         )}
       </div>
 
-      <p className="mt-5 text-[11px] leading-relaxed text-muted">
+      <p className="mt-5 text-[12px] leading-relaxed text-muted">
         Status: {status}. The score is calculated every time this page loads, never stored, so it cannot disagree with the record it came from.
       </p>
     </main>

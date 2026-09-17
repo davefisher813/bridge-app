@@ -59,11 +59,11 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
     <main>
       <div className="px-4 pt-4">
         <div className="mb-2 flex items-center justify-between">
-          <div className="text-[13px] font-bold uppercase tracking-[0.04em] text-muted">Athletes</div>
+          <div className="text-[14.5px] font-bold uppercase tracking-[0.04em] text-muted">Athletes</div>
           <div className="flex items-center gap-3">
-            <div className="text-[12px] text-muted">{rows.length}</div>
+            <div className="text-[13px] text-muted">{rows.length}</div>
             {canEdit && (
-              <Link href={`/org/${slug}/roster/new`} className="text-[12px] font-bold text-accent">
+              <Link href={`/org/${slug}/roster/new`} className="text-[13px] font-bold text-accent">
                 + Add
               </Link>
             )}
@@ -91,15 +91,15 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
                     <div className="flex items-center gap-3">
                       <Avatar name={a.name} />
                       <div>
-                        <div className="text-[15px] font-semibold text-ink">{a.name}</div>
-                        <div className="text-[12px] text-muted">
+                        <div className="text-[16px] font-semibold text-ink">{a.name}</div>
+                        <div className="text-[13px] text-muted">
                           {a.sport}
                           {a.position ? ` · ${a.position}` : ""} · {RECRUIT_TYPE_LABEL[a.recruit_type] ?? a.recruit_type}
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <div className="text-[13px] font-semibold tabular-nums text-ink">{a.gpa != null ? a.gpa.toFixed(2) : "–"}</div>
+                      <div className="text-[14.5px] font-semibold tabular-nums text-ink">{a.gpa != null ? a.gpa.toFixed(2) : "–"}</div>
                       <StatusPill status={a.status} />
                     </div>
                   </div>

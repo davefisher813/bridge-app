@@ -82,8 +82,8 @@ export default async function ApprovedCoursesPage({ params }: { params: Promise<
   return (
     <main className="px-4 pb-24 pt-3">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h1 className="text-[20px] font-extrabold text-ink">Approved lists</h1>
-        <span className="text-[12px] font-bold text-muted">{onFile.length}</span>
+        <h1 className="text-[22px] font-extrabold text-ink">Approved lists</h1>
+        <span className="text-[13px] font-bold text-muted">{onFile.length}</span>
       </div>
 
       {missing.length > 0 && (
@@ -96,13 +96,13 @@ export default async function ApprovedCoursesPage({ params }: { params: Promise<
               <RailCard key={key} role="offer" kind="checklist">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-[13px] font-bold leading-tight text-ink">{name}</div>
-                    <div className="mt-0.5 text-[11.5px] leading-tight text-muted">Every course here stays unchecked</div>
+                    <div className="text-[14.5px] font-bold leading-tight text-ink">{name}</div>
+                    <div className="mt-0.5 text-[12.5px] leading-tight text-muted">Every course here stays unchecked</div>
                   </div>
                   {canEdit && (
                     <Link
                       href={`/org/${slug}/approved-courses/new?school=${encodeURIComponent(name)}`}
-                      className="-my-2 inline-flex min-h-[44px] flex-shrink-0 items-center py-2 pl-3 text-[12px] font-extrabold text-tint-accent-on"
+                      className="-my-2 inline-flex min-h-[44px] flex-shrink-0 items-center py-2 pl-3 text-[13px] font-extrabold text-tint-accent-on"
                     >
                       Add
                     </Link>
@@ -127,8 +127,8 @@ export default async function ApprovedCoursesPage({ params }: { params: Promise<
             <Link key={row.id} href={`/org/${slug}/approved-courses/${row.id}?origin=${origin}`} className="block">
               <RailCard role={row.is_complete ? "committed" : "target"} kind="checklist">
                 <div className="min-w-0">
-                  <div className="text-[13px] font-bold leading-tight text-ink">{row.school_name}</div>
-                  <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                  <div className="text-[14.5px] font-bold leading-tight text-ink">{row.school_name}</div>
+                  <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                     {countOf(row)} courses &middot; {row.is_complete ? "complete" : "partial"} &middot;{" "}
                     {origin === "portal" ? "from the NCAA portal" : "entered here"}
                   </div>

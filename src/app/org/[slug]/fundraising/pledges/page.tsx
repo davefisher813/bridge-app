@@ -53,15 +53,15 @@ export default async function PledgesPage({ params }: { params: Promise<{ slug: 
     <RailCard key={r.p.id} role={role} kind="pledge">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[13px] font-bold leading-tight text-ink">
+          <div className="text-[14.5px] font-bold leading-tight text-ink">
             {r.p.donorId ? (donorName.get(r.p.donorId) ?? "Unknown donor") : "Anonymous"}
           </div>
-          <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+          <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
             {formatMoney(r.p.amountCents)} promised
             {r.p.dueOn ? ` · due ${r.p.dueOn}` : ""}
           </div>
         </div>
-        <span className="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">
+        <span className="flex-shrink-0 text-[15px] font-extrabold tabular-nums text-ink">
           {r.outstanding === 0 ? "Paid" : formatMoney(r.outstanding)}
         </span>
       </div>
@@ -71,12 +71,12 @@ export default async function PledgesPage({ params }: { params: Promise<{ slug: 
   return (
     <main className="px-4 pb-24 pt-2">
       <div className="mb-2">
-        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Fundraising
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Pledges</h1>
-      <div className="mb-5 text-[12.5px] font-bold text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Pledges</h1>
+      <div className="mb-5 text-[13.5px] font-bold text-muted">
         {formatMoney(totalOutstanding)} outstanding. None of this is in the raised figure.
       </div>
 
@@ -116,7 +116,7 @@ export default async function PledgesPage({ params }: { params: Promise<{ slug: 
       {canEdit && (
         <Link
           href={`/org/${slug}/fundraising/pledges/new`}
-          className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[14px] font-bold text-ink"
+          className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
         >
           Record a pledge
         </Link>

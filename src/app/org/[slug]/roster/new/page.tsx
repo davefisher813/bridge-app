@@ -16,11 +16,11 @@ export default async function NewAthletePage({ params }: { params: Promise<{ slu
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4 flex items-center gap-3">
-        <Link href={`/org/${slug}/roster`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/roster`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Athletes
         </Link>
       </div>
-      <h1 className="mb-4 text-[20px] font-extrabold text-ink">Add athlete</h1>
+      <h1 className="mb-4 text-[22px] font-extrabold text-ink">Add athlete</h1>
       <AthleteForm action={action} submitLabel="Add athlete" />
     </main>
   );

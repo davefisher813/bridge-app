@@ -16,7 +16,7 @@ export function SchoolForm({ action }: { action: ServerAction }) {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {state.errors.form && (
-        <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[13px] font-semibold text-danger">
+        <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[14.5px] font-semibold text-danger">
           {state.errors.form}
         </div>
       )}
@@ -55,7 +55,7 @@ export function SchoolForm({ action }: { action: ServerAction }) {
           Sports sponsored
         </label>
         <input className={inputClass} id="sportsSponsored" name="sportsSponsored" placeholder="baseball, softball" />
-        <p className="mt-1 text-[11.5px] text-muted">Comma-separated.</p>
+        <p className="mt-1 text-[12.5px] text-muted">Comma-separated.</p>
       </div>
 
       <button type="submit" disabled={pending} className={submitClass}>

@@ -74,7 +74,7 @@ export function AthleteForm({
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {state.errors.form && (
-        <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[13px] font-semibold text-danger">
+        <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[14.5px] font-semibold text-danger">
           {state.errors.form}
         </div>
       )}
@@ -144,14 +144,14 @@ export function AthleteForm({
         </div>
       </div>
 
-      <label className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+      <label className="flex items-center gap-2 text-[14.5px] font-semibold text-ink">
         <input type="checkbox" name="gpaVerified" defaultChecked={f("gpaVerified") === "on" || !!initialValues.gpaVerified} className="h-4 w-4" />
         GPA verified
       </label>
 
       {recruitType === "hs" ? (
         <div className="flex flex-col gap-3 rounded-[16px] border border-line bg-bg/50 p-3.5">
-          <div className="text-[12px] font-bold uppercase tracking-[0.04em] text-muted">High school details</div>
+          <div className="text-[13px] font-bold uppercase tracking-[0.04em] text-muted">High school details</div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} htmlFor="gradYear">
@@ -211,7 +211,7 @@ export function AthleteForm({
         </div>
       ) : (
         <div className="flex flex-col gap-3 rounded-[16px] border border-line bg-bg/50 p-3.5">
-          <div className="text-[12px] font-bold uppercase tracking-[0.04em] text-muted">Transfer details</div>
+          <div className="text-[13px] font-bold uppercase tracking-[0.04em] text-muted">Transfer details</div>
           <div>
             <label className={labelClass} htmlFor="currentSchool">
               Current school
@@ -280,7 +280,7 @@ export function AthleteForm({
             <input className={inputClass} id="desiredMajorTransfer" name="desiredMajor" defaultValue={f("desiredMajor")} />
           </div>
           {recruitType === "transfer_grad" && (
-            <label className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+            <label className="flex items-center gap-2 text-[14.5px] font-semibold text-ink">
               <input type="checkbox" name="degreeCompleted" defaultChecked={f("degreeCompleted") === "on" || !!initialValues.degreeCompleted} className="h-4 w-4" />
               Degree completed
             </label>
@@ -288,7 +288,7 @@ export function AthleteForm({
         </div>
       )}
 
-      <label className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+      <label className="flex items-center gap-2 text-[14.5px] font-semibold text-ink">
         <input
           type="checkbox"
           name="isInternational"

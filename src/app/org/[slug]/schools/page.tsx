@@ -43,14 +43,14 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
     <RailCard key={s.id} role={mine ? "contact" : "target"} kind="school">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[13px] font-bold leading-tight text-ink">{s.name}</div>
-          <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+          <div className="text-[14.5px] font-bold leading-tight text-ink">{s.name}</div>
+          <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
             {s.division ?? "No division"}
             {s.conference ? ` · ${s.conference}` : ""}
           </div>
         </div>
         {mine && (
-          <span className="flex-shrink-0 text-[12px] font-extrabold tabular-nums text-ink">
+          <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
             {countBySchool.get(s.id)}
           </span>
         )}
@@ -61,8 +61,8 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
   return (
     <main className="px-4 pb-24 pt-3">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h1 className="text-[20px] font-extrabold text-ink">Schools</h1>
-        <span className="text-[12px] font-bold text-muted">{schools.length}</span>
+        <h1 className="text-[22px] font-extrabold text-ink">Schools</h1>
+        <span className="text-[13px] font-bold text-muted">{schools.length}</span>
       </div>
 
       {schools.length === 0 ? (
@@ -92,7 +92,7 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
       {isOwner && (
         <Link
           href={`/org/${slug}/schools/new`}
-          className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[14px] font-bold text-ink"
+          className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
         >
           Add a school
         </Link>

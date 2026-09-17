@@ -34,9 +34,9 @@ function ChartIcon() {
 function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-[12px] bg-paper p-3.5">
-      <div className="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">{label}</div>
-      <div className="mt-1 text-[24px] font-black leading-tight tabular-nums text-ink">{value}</div>
-      {sub && <div className="mt-0.5 text-[10.5px] leading-tight text-muted">{sub}</div>}
+      <div className="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">{label}</div>
+      <div className="mt-1 text-[26px] font-black leading-tight tabular-nums text-ink">{value}</div>
+      {sub && <div className="mt-0.5 text-[11.5px] leading-tight text-muted">{sub}</div>}
     </div>
   );
 }
@@ -100,8 +100,8 @@ export default async function FundraisingPage({
   if (gifts.length === 0 && pledges.length === 0) {
     return (
       <main className="px-4 pt-2 pb-6">
-        <h1 className="mb-1 text-[20px] font-extrabold text-ink">Fundraising</h1>
-        <p className="mb-5 text-[12.5px] leading-tight text-muted">{fiscalYear}, against the board budget.</p>
+        <h1 className="mb-1 text-[22px] font-extrabold text-ink">Fundraising</h1>
+        <p className="mb-5 text-[13.5px] leading-tight text-muted">{fiscalYear}, against the board budget.</p>
         <EmptyState icon={<ChartIcon />} title="Nothing recorded yet">
           Record the first gift and this starts reporting against your categories. Totals are calculated from the gifts themselves, so
           nothing here can go stale.
@@ -110,16 +110,16 @@ export default async function FundraisingPage({
           <div className="mt-5 flex flex-col gap-2">
             <Link
               href={`/org/${slug}/fundraising/gifts/new`}
-              className="rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on"
+              className="rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
             >
               Record a gift
             </Link>
-            <Link href={`/org/${slug}/fundraising/donors`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+            <Link href={`/org/${slug}/fundraising/donors`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
               Donors
             </Link>
             <Link
               href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`}
-              className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink"
+              className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink"
             >
               Set the budget
             </Link>
@@ -131,8 +131,8 @@ export default async function FundraisingPage({
 
   return (
     <main className="px-4 pt-2 pb-6">
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Fundraising</h1>
-      <p className="mb-5 text-[12.5px] leading-tight text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Fundraising</h1>
+      <p className="mb-5 text-[13.5px] leading-tight text-muted">
         {fiscalYear}, against the board budget. Cash received only.
       </p>
 
@@ -151,8 +151,8 @@ export default async function FundraisingPage({
       {s.outstandingPledgeCents > 0 && (
         <div className="mb-4">
           <RailCard role="offer">
-            <div className="text-[13px] font-bold text-ink">{formatMoney(s.outstandingPledgeCents)} promised, not received</div>
-            <div className="mt-1 text-[12px] leading-tight text-muted">
+            <div className="text-[14.5px] font-bold text-ink">{formatMoney(s.outstandingPledgeCents)} promised, not received</div>
+            <div className="mt-1 text-[13px] leading-tight text-muted">
               Not counted in the {formatMoneyShort(s.totalCashCents)} above.
               {s.overduePledgeCents > 0 ? ` ${formatMoney(s.overduePledgeCents)} of it is past its due date.` : ""}
             </div>
@@ -174,15 +174,15 @@ export default async function FundraisingPage({
             <RailCard role={role}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-bold text-ink">{c.label}</div>
-                  <div className="mt-0.5 text-[11.5px] text-muted">
+                  <div className="text-[14.5px] font-bold text-ink">{c.label}</div>
+                  <div className="mt-0.5 text-[12.5px] text-muted">
                     {formatMoneyShort(c.receivedCents)}
                     {c.budgetCents > 0 ? ` of ${formatMoneyShort(c.budgetCents)}` : " received, no target set"}
                     {c.inKindCents > 0 ? ` · ${formatMoneyShort(c.inKindCents)} in kind` : ""}
                   </div>
                   <Bar percent={c.percentOfBudget ?? 0} role={role} />
                 </div>
-                <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
+                <span className="flex-shrink-0 text-[14.5px] font-extrabold tabular-nums text-ink">
                   {c.percentOfBudget === null ? "no target" : `${c.percentOfBudget}%`}
                 </span>
               </div>
@@ -206,8 +206,8 @@ export default async function FundraisingPage({
             <SectionHeader label="In kind" role="place" />
           </div>
           <RailCard role="place">
-            <div className="text-[13px] font-bold text-ink">{formatMoney(s.totalInKindCents)} donated in goods and services</div>
-            <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+            <div className="text-[14.5px] font-bold text-ink">{formatMoney(s.totalInKindCents)} donated in goods and services</div>
+            <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
               Counted as support, never as cash. Total support for the year is {formatMoneyShort(s.totalSupportCents)}.
             </div>
           </RailCard>
@@ -228,12 +228,12 @@ export default async function FundraisingPage({
                 <RailCard role={role}>
                   <div className="min-w-0">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="text-[13px] font-bold text-ink">{c.name}</div>
-                      <span className="flex-shrink-0 text-[12px] font-extrabold tabular-nums text-ink">
+                      <div className="text-[14.5px] font-bold text-ink">{c.name}</div>
+                      <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
                         {p.percentOfGoal === null ? "no goal" : `${p.percentOfGoal}%`}
                       </span>
                     </div>
-                    <div className="mt-0.5 text-[11.5px] text-muted">
+                    <div className="mt-0.5 text-[12.5px] text-muted">
                       {formatMoneyShort(p.raisedCents)} raised
                       {goalCents > 0 ? ` of a ${formatMoneyShort(goalCents)} goal` : ""}
                       {p.pledgedCents > 0 ? ` · ${formatMoneyShort(p.pledgedCents)} pledged` : ""}
@@ -251,7 +251,7 @@ export default async function FundraisingPage({
           </div>
           <div className="mt-3">
             <RailCard role="contact">
-              <div className="text-[12.5px] leading-tight text-ink">
+              <div className="text-[13.5px] leading-tight text-ink">
                 A campaign&apos;s percentage is cash raised against goal. Pledges are shown beside it and never inside it: a campaign with
                 promises covering its goal has not met its goal.
               </div>
@@ -264,10 +264,10 @@ export default async function FundraisingPage({
         <SectionHeader label="This year" role="contact" />
       </div>
       <RailCard role="contact">
-        <div className="text-[12.5px] leading-tight text-ink">
+        <div className="text-[13.5px] leading-tight text-ink">
           {s.giftCount} {s.giftCount === 1 ? "gift" : "gifts"} from {s.donorCount} {s.donorCount === 1 ? "supporter" : "supporters"}.
         </div>
-        <div className="mt-1 text-[11.5px] leading-tight text-muted">
+        <div className="mt-1 text-[12.5px] leading-tight text-muted">
           Anonymous gifts count in the total and not in the supporter number, so the figure means people.
         </div>
       </RailCard>
@@ -276,13 +276,13 @@ export default async function FundraisingPage({
           can see the total can see what it is made of, which is the
           point of showing them a total at all. */}
       <div className="mt-5 flex flex-col gap-2">
-        <Link href={`/org/${slug}/fundraising/gifts`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+        <Link href={`/org/${slug}/fundraising/gifts`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
           All gifts
         </Link>
-        <Link href={`/org/${slug}/fundraising/pledges`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+        <Link href={`/org/${slug}/fundraising/pledges`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
           Pledges
         </Link>
-        <Link href={`/org/${slug}/fundraising/donors`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+        <Link href={`/org/${slug}/fundraising/donors`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
           Donors
         </Link>
       </div>
@@ -291,22 +291,22 @@ export default async function FundraisingPage({
         <div className="mt-2 flex flex-col gap-2">
           <Link
             href={`/org/${slug}/fundraising/gifts/new`}
-            className="rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on"
+            className="rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
           >
             Record a gift
           </Link>
-          <Link href={`/org/${slug}/fundraising/pledges/new`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+          <Link href={`/org/${slug}/fundraising/pledges/new`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
             Record a pledge
           </Link>
-          <Link href={`/org/${slug}/fundraising/campaigns/new`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+          <Link href={`/org/${slug}/fundraising/campaigns/new`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
             New campaign
           </Link>
-          <Link href={`/org/${slug}/fundraising/grants`} className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">
+          <Link href={`/org/${slug}/fundraising/grants`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
             Grants
           </Link>
           <Link
             href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`}
-            className="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink"
+            className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink"
           >
             {s.totalBudgetCents > 0 ? "Edit the budget" : "Set the budget"}
           </Link>

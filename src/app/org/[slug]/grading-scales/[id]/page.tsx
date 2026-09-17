@@ -40,12 +40,12 @@ export default async function EditGradingScalePage({ params }: { params: Promise
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={`/org/${slug}/grading-scales`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/grading-scales`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; Grading scales
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">{scale.school_name}</h1>
-      <p className="mb-5 text-[12.5px] leading-tight text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">{scale.school_name}</h1>
+      <p className="mb-5 text-[13.5px] leading-tight text-muted">
         Changing this recalculates every athlete at this school in your org. Verdicts can move in either direction.
       </p>
 
@@ -53,7 +53,7 @@ export default async function EditGradingScalePage({ params }: { params: Promise
         <div className="mb-5 flex flex-col gap-2">
           {notes.map((n, i) => (
             <RailCard key={i} role="offer">
-              <div className="text-[12.5px] leading-tight text-ink">{n}</div>
+              <div className="text-[13.5px] leading-tight text-ink">{n}</div>
             </RailCard>
           ))}
         </div>

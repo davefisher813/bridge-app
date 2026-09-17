@@ -43,10 +43,10 @@ MAX_SPAN = re.search(r"MAX_BAND_SPAN\s*=\s*(\d+)", GS).group(1)
 
 
 def header(label, count=None, role="accent"):
-    c = f'<span class="text-[12px] font-extrabold tabular-nums text-ink">{count}</span>' if count is not None else ""
+    c = f'<span class="text-[13px] font-extrabold tabular-nums text-ink">{count}</span>' if count is not None else ""
     return ('<div class="flex items-center gap-2">'
             f'<span class="h-[7px] w-[7px] flex-shrink-0 rounded-full {DOT[role]}"></span>'
-            f'<span class="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">{label}</span>'
+            f'<span class="text-[13px] font-extrabold uppercase tracking-[0.04em] text-muted">{label}</span>'
             '<span class="h-px flex-1 border-b-2 border-dotted border-line"></span>'
             f'{c}</div>')
 
@@ -56,23 +56,23 @@ def rail(role, inner):
 
 
 def chip(text, role):
-    return (f'<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] '
+    return (f'<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[12px] '
             f'font-bold {TINT[role]}">{text}</span>')
 
 
 def note(text, role="contact"):
-    return rail(role, f'<div class="text-[12.5px] leading-tight text-ink">{text}</div>')
+    return rail(role, f'<div class="text-[13.5px] leading-tight text-ink">{text}</div>')
 
 
 def field(label, hint, inner):
-    h = f'<div class="mb-1.5 text-[11.5px] leading-tight text-muted">{hint}</div>' if hint else ""
+    h = f'<div class="mb-1.5 text-[12.5px] leading-tight text-muted">{hint}</div>' if hint else ""
     return ('<div class="mb-4">'
-            f'<label class="mb-1 block text-[12px] font-extrabold uppercase tracking-[0.03em] text-muted">{label}</label>'
+            f'<label class="mb-1 block text-[13px] font-extrabold uppercase tracking-[0.03em] text-muted">{label}</label>'
             f'{h}{inner}</div>')
 
 
 INPUT = ('w-full rounded-[10px] border border-line bg-paper px-3 py-2.5 '
-         'text-[15px] text-ink placeholder:text-muted')
+         'text-[16px] text-ink placeholder:text-muted')
 
 
 def band_row(letter, lo, hi, muted=False):
@@ -84,9 +84,9 @@ def band_row(letter, lo, hi, muted=False):
     tone = "text-muted" if muted else "text-ink"
     return ('<div class="flex items-center gap-2">'
             f'<span class="flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-[9px] '
-            f'text-[16px] font-black {TINT["neutral"] if muted else TINT["contact"]}">{letter}</span>'
+            f'text-[17px] font-black {TINT["neutral"] if muted else TINT["contact"]}">{letter}</span>'
             f'<input inputmode="numeric" {lo_v} class="{INPUT} {tone} text-center tabular-nums" />'
-            '<span class="text-[13px] font-bold text-muted">to</span>'
+            '<span class="text-[14.5px] font-bold text-muted">to</span>'
             f'<input inputmode="numeric" {hi_v} class="{INPUT} {tone} text-center tabular-nums" />'
             '</div>')
 
@@ -96,41 +96,41 @@ SCREENS = {}
 # --------------------------------------------------------------- 1 the list
 SCREENS["list"] = ("Grading scales list", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; More</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Grading scales</h1>
-  <p class="mb-5 text-[12.5px] text-muted">How each high school's numbers become letters. Used for every NCAA core GPA at that school, for this org only.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; More</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Grading scales</h1>
+  <p class="mb-5 text-[13.5px] text-muted">How each high school's numbers become letters. Used for every NCAA core GPA at that school, for this org only.</p>
 
   <div class="mb-2">{header("Needed now", "2", "offer")}</div>
-  <p class="mb-3 text-[12px] leading-tight text-muted">Athletes on your roster whose transcripts print numbers, at schools with no table on file. Their core GPAs are running on the assumed ten-point scale until these are entered.</p>
+  <p class="mb-3 text-[13px] leading-tight text-muted">Athletes on your roster whose transcripts print numbers, at schools with no table on file. Their core GPAs are running on the assumed ten-point scale until these are entered.</p>
   <div class="flex flex-col gap-2">
     {rail("offer", '''<div class="flex items-center justify-between gap-3">
-      <div class="min-w-0"><div class="text-[13px] font-bold text-ink">Cardinal Hayes High School</div>
-      <div class="text-[11.5px] text-muted">3 athletes &middot; 41 courses waiting</div></div>
-      <span class="text-[12px] font-extrabold text-solid-accent">Add</span></div>''')}
+      <div class="min-w-0"><div class="text-[14.5px] font-bold text-ink">Cardinal Hayes High School</div>
+      <div class="text-[12.5px] text-muted">3 athletes &middot; 41 courses waiting</div></div>
+      <span class="text-[13px] font-extrabold text-solid-accent">Add</span></div>''')}
     {rail("offer", '''<div class="flex items-center justify-between gap-3">
-      <div class="min-w-0"><div class="text-[13px] font-bold text-ink">James Monroe High School</div>
-      <div class="text-[11.5px] text-muted">1 athlete &middot; 18 courses waiting</div></div>
-      <span class="text-[12px] font-extrabold text-solid-accent">Add</span></div>''')}
+      <div class="min-w-0"><div class="text-[14.5px] font-bold text-ink">James Monroe High School</div>
+      <div class="text-[12.5px] text-muted">1 athlete &middot; 18 courses waiting</div></div>
+      <span class="text-[13px] font-extrabold text-solid-accent">Add</span></div>''')}
   </div>
 
   <div class="mb-2 mt-5">{header("On file", "3", "committed")}</div>
   <div class="flex flex-col gap-2">
     {rail("committed", f'''<div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <div class="text-[13px] font-bold text-ink">Westminster School</div>
-        <div class="mt-0.5 text-[11.5px] leading-tight text-muted">A 93-100 &middot; B 85-92 &middot; C 77-84 &middot; D 70-76 &middot; F 0-69</div>
+        <div class="text-[14.5px] font-bold text-ink">Westminster School</div>
+        <div class="mt-0.5 text-[12.5px] leading-tight text-muted">A 93-100 &middot; B 85-92 &middot; C 77-84 &middot; D 70-76 &middot; F 0-69</div>
         <div class="mt-1.5">{chip("Confirmed with the school", "committed")}</div>
       </div></div>''')}
     {rail("contact", f'''<div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <div class="text-[13px] font-bold text-ink">Trinity Catholic</div>
-        <div class="mt-0.5 text-[11.5px] leading-tight text-muted">A 90-100 &middot; B 80-89 &middot; C 70-79 &middot; F 0-69</div>
+        <div class="text-[14.5px] font-bold text-ink">Trinity Catholic</div>
+        <div class="mt-0.5 text-[12.5px] leading-tight text-muted">A 90-100 &middot; B 80-89 &middot; C 70-79 &middot; F 0-69</div>
         <div class="mt-1.5">{chip("Typed from a transcript legend", "contact")}</div>
       </div></div>''')}
     {rail("contact", f'''<div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <div class="text-[13px] font-bold text-ink">Stamford High School</div>
-        <div class="mt-0.5 text-[11.5px] leading-tight text-muted">A 90-100 &middot; B 80-89 &middot; C 75-79 &middot; D 70-74 &middot; F 0-69</div>
+        <div class="text-[14.5px] font-bold text-ink">Stamford High School</div>
+        <div class="mt-0.5 text-[12.5px] leading-tight text-muted">A 90-100 &middot; B 80-89 &middot; C 75-79 &middot; D 70-74 &middot; F 0-69</div>
         <div class="mt-1.5">{chip("Weighted, adds 0.50", "place")}</div>
       </div></div>''')}
   </div>
@@ -138,7 +138,7 @@ SCREENS["list"] = ("Grading scales list", f"""
   <div class="mt-4">{note("Only this org uses these. Another organization with an athlete at the same school keeps its own, so a mistake here cannot change anyone else's eligibility verdict.", "contact")}</div>
 
   <div class="mt-5">
-    <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Add a school's scale</button>
+    <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Add a school's scale</button>
   </div>
 </main>
 """)
@@ -146,14 +146,14 @@ SCREENS["list"] = ("Grading scales list", f"""
 # --------------------------------------------------------------- 2 the form
 SCREENS["form"] = ("Entry form", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Grading scales</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Cardinal Hayes High School</h1>
-  <p class="mb-5 text-[12.5px] text-muted">Copy the table exactly as the school publishes it. Do not adjust it to look like other schools.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Grading scales</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Cardinal Hayes High School</h1>
+  <p class="mb-5 text-[13.5px] text-muted">Copy the table exactly as the school publishes it. Do not adjust it to look like other schools.</p>
 
   {field("School", "", f'<input value="Cardinal Hayes High School" class="{INPUT}" />')}
 
   <div class="mb-2">{header("The table", None, "contact")}</div>
-  <p class="mb-3 text-[12px] leading-tight text-muted">
+  <p class="mb-3 text-[13px] leading-tight text-muted">
     Five rows, not twelve. The NCAA does not recognise plus or minus, so A+, A and A- are all worth the same four points and collapse into one band.
     Leave a letter blank if the school does not award it.
   </p>
@@ -170,40 +170,40 @@ SCREENS["form"] = ("Entry form", f"""
   <div class="mb-2 mt-5">{header("Weighted courses", None, "place")}</div>
   <div class="flex flex-col gap-2">
     {rail("place", '''<div class="flex items-start gap-3">
-      <span class="mt-0.5 flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-[6px] bg-solid-place text-[13px] font-black text-solid-place-on">&#10003;</span>
-      <div class="min-w-0 flex-1"><div class="text-[13px] font-bold text-ink">The school is on record with the Eligibility Center as awarding weighted grades</div>
-      <div class="mt-0.5 text-[11.5px] leading-tight text-muted">Not "they offer AP". The school has to have told the NCAA.</div></div></div>''')}
+      <span class="mt-0.5 flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-[6px] bg-solid-place text-[14.5px] font-black text-solid-place-on">&#10003;</span>
+      <div class="min-w-0 flex-1"><div class="text-[14.5px] font-bold text-ink">The school is on record with the Eligibility Center as awarding weighted grades</div>
+      <div class="mt-0.5 text-[12.5px] leading-tight text-muted">Not "they offer AP". The school has to have told the NCAA.</div></div></div>''')}
     {rail("neutral", '''<div class="flex items-start gap-3">
       <span class="mt-0.5 h-[22px] w-[22px] flex-shrink-0 rounded-[6px] border-2 border-line"></span>
-      <div class="min-w-0 flex-1"><div class="text-[13px] font-bold text-ink">The weighting only affects class rank, not the GPA</div>
-      <div class="mt-0.5 text-[11.5px] leading-tight text-muted">If this is true the bonus does not apply at all.</div></div></div>''')}
+      <div class="min-w-0 flex-1"><div class="text-[14.5px] font-bold text-ink">The weighting only affects class rank, not the GPA</div>
+      <div class="mt-0.5 text-[12.5px] leading-tight text-muted">If this is true the bonus does not apply at all.</div></div></div>''')}
   </div>
   <div class="mt-3">
     {field("Bonus per weighted course", f"What this school actually adds. The NCAA caps it at 1.00, and that cap is not the same as the amount: a school that adds 0.50 would have every AP athlete overstated if the cap were used.", f'<input value="0.50" inputmode="decimal" class="{INPUT} tabular-nums" />')}
   </div>
 
   <div class="mb-2 mt-1">{header("Where this came from", None, "people")}</div>
-  <p class="mb-3 text-[12px] leading-tight text-muted">Required. This table governs every eligibility verdict for every athlete at this school in your org, and in six months nobody will remember who typed it.</p>
+  <p class="mb-3 text-[13px] leading-tight text-muted">Required. This table governs every eligibility verdict for every athlete at this school in your org, and in six months nobody will remember who typed it.</p>
   <textarea rows="3" class="{INPUT}">Legend printed on page 2 of the official transcript, confirmed by phone with the counselor on 16 Sep.</textarea>
 
   <div class="mt-5 flex flex-col gap-2">
-    <button class="rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Save and recalculate</button>
-    <button class="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">Cancel</button>
+    <button class="rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Save and recalculate</button>
+    <button class="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">Cancel</button>
   </div>
 
-  <p class="mt-5 text-[11px] leading-relaxed text-muted">Saving recalculates every athlete at this school immediately. Verdicts can move in either direction.</p>
+  <p class="mt-5 text-[12px] leading-relaxed text-muted">Saving recalculates every athlete at this school immediately. Verdicts can move in either direction.</p>
 </main>
 """)
 
 # ------------------------------------------------------------ 3 the refusal
 SCREENS["refused"] = ("A table that cannot be right", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Grading scales</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Cardinal Hayes High School</h1>
-  <p class="mb-5 text-[12.5px] text-muted">Copy the table exactly as the school publishes it.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Grading scales</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Cardinal Hayes High School</h1>
+  <p class="mb-5 text-[13.5px] text-muted">Copy the table exactly as the school publishes it.</p>
 
-  <div class="mb-4">{rail("offer", '''<div class="text-[13px] font-bold leading-tight text-ink">That table cannot be right: its B and C bands overlap.
-    <div class="mt-1 text-[12px] font-normal leading-tight text-muted">A grade of 78 would be two different letters at once. Nothing has been saved.</div></div>''')}</div>
+  <div class="mb-4">{rail("offer", '''<div class="text-[14.5px] font-bold leading-tight text-ink">That table cannot be right: its B and C bands overlap.
+    <div class="mt-1 text-[13px] font-normal leading-tight text-muted">A grade of 78 would be two different letters at once. Nothing has been saved.</div></div>''')}</div>
 
   {field("School", "", f'<input value="Cardinal Hayes High School" class="{INPUT}" />')}
 
@@ -222,7 +222,7 @@ SCREENS["refused"] = ("A table that cannot be right", f"""
   </div>
 
   <div class="mt-5 flex flex-col gap-2">
-    <button class="rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Save and recalculate</button>
+    <button class="rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Save and recalculate</button>
   </div>
 </main>
 """)
@@ -230,38 +230,38 @@ SCREENS["refused"] = ("A table that cannot be right", f"""
 # ----------------------------------------------------- 4 attribution on the verdict
 SCREENS["attribution"] = ("Where the number came from", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Johan D.</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">NCAA eligibility</h1>
-  <p class="mb-5 text-[12.5px] text-muted">Division I standard. Calculated from 16 approved core courses, not from the transcript average.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Johan D.</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">NCAA eligibility</h1>
+  <p class="mb-5 text-[13.5px] text-muted">Division I standard. Calculated from 16 approved core courses, not from the transcript average.</p>
 
   <div class="mb-4 rounded-[16px] bg-paper p-4">
     <div class="mb-2">{chip("Qualifier", "high")}</div>
-    <div class="text-[14px] font-bold leading-tight text-ink">On track to receive aid, practice and compete in year one.</div>
+    <div class="text-[15px] font-bold leading-tight text-ink">On track to receive aid, practice and compete in year one.</div>
   </div>
 
   <div class="mb-4 grid grid-cols-2 gap-2">
     <div class="rounded-[12px] bg-paper p-3.5">
-      <div class="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">NCAA core</div>
-      <div class="mt-1 text-[26px] font-black tabular-nums leading-tight text-ink">2.64</div>
-      <div class="mt-0.5 text-[10.5px] text-muted">needs 2.30 for D1</div>
+      <div class="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">NCAA core</div>
+      <div class="mt-1 text-[28px] font-black tabular-nums leading-tight text-ink">2.64</div>
+      <div class="mt-0.5 text-[11.5px] text-muted">needs 2.30 for D1</div>
     </div>
     <div class="rounded-[12px] bg-paper p-3.5">
-      <div class="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">Transcript</div>
-      <div class="mt-1 text-[26px] font-black tabular-nums leading-tight text-ink">3.10</div>
-      <div class="mt-0.5 text-[10.5px] text-muted">what the school reports</div>
+      <div class="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">Transcript</div>
+      <div class="mt-1 text-[28px] font-black tabular-nums leading-tight text-ink">3.10</div>
+      <div class="mt-0.5 text-[11.5px] text-muted">what the school reports</div>
     </div>
   </div>
 
   <div class="mb-2">{header("How the grades were converted", None, "people")}</div>
   <div class="flex flex-col gap-2">
-    {rail("contact", '''<div class="text-[12.5px] leading-tight text-ink">Cardinal Hayes numbers converted through a table your org entered
-      <div class="mt-1 text-[11.5px] leading-tight text-muted">"Legend printed on page 2 of the official transcript." Nobody has confirmed it with the school, so this core GPA is only as right as that table.</div>
-      <div class="mt-2 text-[12px] font-extrabold text-solid-accent">Review the table</div></div>''')}
-    {rail("contact", '''<div class="text-[12.5px] leading-tight text-ink">Westminster numbers converted through a confirmed table
-      <div class="mt-1 text-[11.5px] leading-tight text-muted">Verified and shared across the platform. Your org cannot change this one.</div></div>''')}
-    {rail("offer", '''<div class="text-[12.5px] leading-tight text-ink">James Monroe numbers converted on an assumed ten-point scale
-      <div class="mt-1 text-[11.5px] leading-tight text-muted">Nothing from this school is on file. This is a placeholder conversion, not what the NCAA will use.</div>
-      <div class="mt-2 text-[12px] font-extrabold text-solid-accent">Enter the grading scale</div></div>''')}
+    {rail("contact", '''<div class="text-[13.5px] leading-tight text-ink">Cardinal Hayes numbers converted through a table your org entered
+      <div class="mt-1 text-[12.5px] leading-tight text-muted">"Legend printed on page 2 of the official transcript." Nobody has confirmed it with the school, so this core GPA is only as right as that table.</div>
+      <div class="mt-2 text-[13px] font-extrabold text-solid-accent">Review the table</div></div>''')}
+    {rail("contact", '''<div class="text-[13.5px] leading-tight text-ink">Westminster numbers converted through a confirmed table
+      <div class="mt-1 text-[12.5px] leading-tight text-muted">Verified and shared across the platform. Your org cannot change this one.</div></div>''')}
+    {rail("offer", '''<div class="text-[13.5px] leading-tight text-ink">James Monroe numbers converted on an assumed ten-point scale
+      <div class="mt-1 text-[12.5px] leading-tight text-muted">Nothing from this school is on file. This is a placeholder conversion, not what the NCAA will use.</div>
+      <div class="mt-2 text-[13px] font-extrabold text-solid-accent">Enter the grading scale</div></div>''')}
   </div>
 
   <div class="mt-4">{note("This section only appears when a numeric grade actually ran through a table. A transcript that prints letters converts the same either way, and a caveat that applies to nothing is worse than none.", "contact")}</div>
@@ -271,31 +271,31 @@ SCREENS["attribution"] = ("Where the number came from", f"""
 # ------------------------------------------------------- 5 the default in use
 SCREENS["default"] = ("No table on file", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Johan D.</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">NCAA eligibility</h1>
-  <p class="mb-5 text-[12.5px] text-muted">Division I standard. Calculated from 16 approved core courses, not from the transcript average.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Johan D.</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">NCAA eligibility</h1>
+  <p class="mb-5 text-[13.5px] text-muted">Division I standard. Calculated from 16 approved core courses, not from the transcript average.</p>
 
   <div class="mb-4 rounded-[16px] bg-paper p-4">
     <div class="mb-2">{chip("Qualifier", "high")}</div>
-    <div class="text-[14px] font-bold leading-tight text-ink">On track to receive aid, practice and compete in year one.</div>
+    <div class="text-[15px] font-bold leading-tight text-ink">On track to receive aid, practice and compete in year one.</div>
   </div>
 
   <div class="mb-4 grid grid-cols-2 gap-2">
     <div class="rounded-[12px] bg-paper p-3.5">
-      <div class="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">NCAA core</div>
-      <div class="mt-1 text-[26px] font-black tabular-nums leading-tight text-ink">2.81</div>
-      <div class="mt-0.5 text-[10.5px] text-muted">needs 2.30 for D1</div>
+      <div class="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">NCAA core</div>
+      <div class="mt-1 text-[28px] font-black tabular-nums leading-tight text-ink">2.81</div>
+      <div class="mt-0.5 text-[11.5px] text-muted">needs 2.30 for D1</div>
     </div>
     <div class="rounded-[12px] bg-paper p-3.5">
-      <div class="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">Transcript</div>
-      <div class="mt-1 text-[26px] font-black tabular-nums leading-tight text-ink">3.40</div>
-      <div class="mt-0.5 text-[10.5px] text-muted">what the school reports</div>
+      <div class="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">Transcript</div>
+      <div class="mt-1 text-[28px] font-black tabular-nums leading-tight text-ink">3.40</div>
+      <div class="mt-0.5 text-[11.5px] text-muted">what the school reports</div>
     </div>
   </div>
 
-  <div class="mt-3">{rail("offer", '''<div class="text-[12.5px] font-bold leading-tight text-ink">James Monroe High School has no grading scale on file
-    <div class="mt-1 text-[12px] font-normal leading-tight text-muted">Those grades are numbers, and the number above was produced by assuming the standard ten-point scale. The NCAA uses the school's own published table, so an 85 is not automatically a B. Enter the real table and this recalculates.</div>
-    <div class="mt-2 text-[12px] font-extrabold text-solid-accent">Enter the grading scale</div></div>''')}</div>
+  <div class="mt-3">{rail("offer", '''<div class="text-[13.5px] font-bold leading-tight text-ink">James Monroe High School has no grading scale on file
+    <div class="mt-1 text-[13px] font-normal leading-tight text-muted">Those grades are numbers, and the number above was produced by assuming the standard ten-point scale. The NCAA uses the school's own published table, so an 85 is not automatically a B. Enter the real table and this recalculates.</div>
+    <div class="mt-2 text-[13px] font-extrabold text-solid-accent">Enter the grading scale</div></div>''')}</div>
 
   <div class="mt-3">{note("James Monroe grades were converted on the standard ten-point scale, because that school's own table is not on file. The NCAA uses the school's published table, so this core GPA is an estimate and can move once the real one is entered.", "offer")}</div>
 </main>

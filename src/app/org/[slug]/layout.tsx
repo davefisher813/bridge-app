@@ -14,7 +14,7 @@ export default async function OrgLayout({ children, params }: { children: React.
   return (
     <div data-theme="dark" className="flex min-h-screen flex-col bg-bg">
       <div className="flex items-center justify-between px-4 pb-2 pt-4">
-        <div className="text-[16px] font-extrabold text-ink">{org.name}</div>
+        <div className="text-[17px] font-extrabold text-ink">{org.name}</div>
       </div>
 
       <div className="flex-1 pb-2">{children}</div>

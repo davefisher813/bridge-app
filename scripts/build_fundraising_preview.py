@@ -42,10 +42,10 @@ CATEGORIES = re.findall(r'\w+:\s*"([^"]+)"', LABELS)
 
 
 def header(label, count=None, role="accent"):
-    c = f'<span class="text-[12px] font-extrabold tabular-nums text-ink">{count}</span>' if count is not None else ""
+    c = f'<span class="text-[13px] font-extrabold tabular-nums text-ink">{count}</span>' if count is not None else ""
     return ('<div class="flex items-center gap-2">'
             f'<span class="h-[7px] w-[7px] flex-shrink-0 rounded-full {DOT[role]}"></span>'
-            f'<span class="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">{label}</span>'
+            f'<span class="text-[13px] font-extrabold uppercase tracking-[0.04em] text-muted">{label}</span>'
             '<span class="h-px flex-1 border-b-2 border-dotted border-line"></span>'
             f'{c}</div>')
 
@@ -55,19 +55,19 @@ def rail(role, inner):
 
 
 def chip(text, role):
-    return (f'<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] '
+    return (f'<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[12px] '
             f'font-bold {TINT[role]}">{text}</span>')
 
 
 def note(text, role="contact"):
-    return rail(role, f'<div class="text-[12.5px] leading-tight text-ink">{text}</div>')
+    return rail(role, f'<div class="text-[13.5px] leading-tight text-ink">{text}</div>')
 
 
 def tile(label, value, sub=""):
-    s = f'<div class="mt-0.5 text-[10.5px] leading-tight text-muted">{sub}</div>' if sub else ""
+    s = f'<div class="mt-0.5 text-[11.5px] leading-tight text-muted">{sub}</div>' if sub else ""
     return ('<div class="rounded-[12px] bg-paper p-3.5">'
-            f'<div class="text-[10.5px] font-bold uppercase tracking-[0.03em] text-muted">{label}</div>'
-            f'<div class="mt-1 text-[24px] font-black tabular-nums leading-tight text-ink">{value}</div>{s}</div>')
+            f'<div class="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">{label}</div>'
+            f'<div class="mt-1 text-[26px] font-black tabular-nums leading-tight text-ink">{value}</div>{s}</div>')
 
 
 def bar(pct, role):
@@ -79,24 +79,24 @@ def bar(pct, role):
 def cat_row(label, actual, budget, pct, role):
     return rail(role, f'''<div class="flex items-start justify-between gap-3">
       <div class="min-w-0 flex-1">
-        <div class="text-[13px] font-bold text-ink">{label}</div>
-        <div class="mt-0.5 text-[11.5px] text-muted">{actual} of {budget}</div>
+        <div class="text-[14.5px] font-bold text-ink">{label}</div>
+        <div class="mt-0.5 text-[12.5px] text-muted">{actual} of {budget}</div>
         {bar(pct, role)}
       </div>
-      <span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">{pct}%</span>
+      <span class="flex-shrink-0 text-[14.5px] font-extrabold tabular-nums text-ink">{pct}%</span>
     </div>''')
 
 
 INPUT = ('w-full rounded-[10px] border-0 bg-paper px-3 py-2.5 '
-         'text-[14px] text-ink placeholder:text-muted')
+         'text-[15px] text-ink placeholder:text-muted')
 
 SCREENS = {}
 
 # ------------------------------------------------------------- 1 overview
 SCREENS["overview"] = ("Fundraising overview", f"""
 <main class="px-4 pt-2 pb-6">
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Fundraising</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">2026, against the board budget. Cash received only.</p>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Fundraising</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">2026, against the board budget. Cash received only.</p>
 
   <div class="mb-3 grid grid-cols-2 gap-2">
     {tile("Raised", "$118,420", "cash in the door")}
@@ -105,8 +105,8 @@ SCREENS["overview"] = ("Fundraising overview", f"""
 
   <div class="mb-4">{rail("offer", '''<div class="flex items-start justify-between gap-3">
     <div class="min-w-0">
-      <div class="text-[13px] font-bold text-ink">$34,500 promised, not received</div>
-      <div class="mt-1 text-[12px] leading-tight text-muted">Not counted in the $118,420 above. $8,000 of it is past its due date.</div>
+      <div class="text-[14.5px] font-bold text-ink">$34,500 promised, not received</div>
+      <div class="mt-1 text-[13px] leading-tight text-muted">Not counted in the $118,420 above. $8,000 of it is past its due date.</div>
     </div>
   </div>''')}</div>
 
@@ -123,26 +123,26 @@ SCREENS["overview"] = ("Fundraising overview", f"""
 
   <div class="mb-2 mt-5">{header("In kind", None, "place")}</div>
   {rail("place", '''<div class="flex items-center justify-between gap-3">
-    <div class="min-w-0"><div class="text-[13px] font-bold text-ink">$6,850 donated in goods and services</div>
-    <div class="mt-0.5 text-[11.5px] leading-tight text-muted">Counted as support, never as cash. Food, printing and two rounds of golf.</div></div>
+    <div class="min-w-0"><div class="text-[14.5px] font-bold text-ink">$6,850 donated in goods and services</div>
+    <div class="mt-0.5 text-[12.5px] leading-tight text-muted">Counted as support, never as cash. Food, printing and two rounds of golf.</div></div>
   </div>''')}
 
   <div class="mb-2 mt-5">{header("Campaigns", "2", "visit")}</div>
   <div class="flex flex-col gap-2">
     {rail("committed", f'''<div class="min-w-0">
       <div class="flex items-center justify-between gap-3">
-        <div class="text-[13px] font-bold text-ink">Bridge Invitational</div>
-        <span class="text-[12px] font-extrabold tabular-nums text-ink">107%</span>
+        <div class="text-[14.5px] font-bold text-ink">Bridge Invitational</div>
+        <span class="text-[13px] font-extrabold tabular-nums text-ink">107%</span>
       </div>
-      <div class="mt-0.5 text-[11.5px] text-muted">$26,720 raised of a $25,000 goal</div>
+      <div class="mt-0.5 text-[12.5px] text-muted">$26,720 raised of a $25,000 goal</div>
       {bar(107, "committed")}
     </div>''')}
     {rail("offer", f'''<div class="min-w-0">
       <div class="flex items-center justify-between gap-3">
-        <div class="text-[13px] font-bold text-ink">Year-end appeal</div>
-        <span class="text-[12px] font-extrabold tabular-nums text-ink">18%</span>
+        <div class="text-[14.5px] font-bold text-ink">Year-end appeal</div>
+        <span class="text-[13px] font-extrabold tabular-nums text-ink">18%</span>
       </div>
-      <div class="mt-0.5 text-[11.5px] text-muted">$5,400 raised of a $30,000 goal &middot; $12,000 pledged</div>
+      <div class="mt-0.5 text-[12.5px] text-muted">$5,400 raised of a $30,000 goal &middot; $12,000 pledged</div>
       {bar(18, "offer")}
     </div>''')}
   </div>
@@ -150,8 +150,8 @@ SCREENS["overview"] = ("Fundraising overview", f"""
   <div class="mt-3">{note("A campaign's percentage is cash raised against goal. Pledges are shown beside it and never inside it: a campaign with promises covering its goal has not met its goal.", "contact")}</div>
 
   <div class="mt-5 flex flex-col gap-2">
-    <button class="rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Record a gift</button>
-    <button class="rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink">Donors</button>
+    <button class="rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Record a gift</button>
+    <button class="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">Donors</button>
   </div>
 </main>
 """)
@@ -159,51 +159,51 @@ SCREENS["overview"] = ("Fundraising overview", f"""
 # --------------------------------------------------------------- 2 donors
 SCREENS["donors"] = ("Donors", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Fundraising</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Donors</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">62 supporters. Totals are calculated from the gifts, not typed in, so they cannot go stale.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Fundraising</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Donors</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">62 supporters. Totals are calculated from the gifts, not typed in, so they cannot go stale.</p>
 
   <div class="mb-2">{header("Needs a thank you", "3", "offer")}</div>
   <div class="flex flex-col gap-2">
     {rail("offer", f'''<div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <div class="text-[13px] font-bold text-ink">Sample Family Fund</div>
-        <div class="mt-0.5 text-[11.5px] text-muted">$5,000 on 2 Sep &middot; first gift</div>
+        <div class="text-[14.5px] font-bold text-ink">Sample Family Fund</div>
+        <div class="mt-0.5 text-[12.5px] text-muted">$5,000 on 2 Sep &middot; first gift</div>
         <div class="mt-1.5">{chip("Individual", "contact")}</div>
       </div>
-      <span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">$5,000</span>
+      <span class="flex-shrink-0 text-[14.5px] font-extrabold tabular-nums text-ink">$5,000</span>
     </div>''')}
   </div>
 
   <div class="mb-2 mt-5">{header("Owes a pledge", "2", "target")}</div>
   {rail("target", '''<div class="flex items-start justify-between gap-3">
     <div class="min-w-0">
-      <div class="text-[13px] font-bold text-ink">Example Corp</div>
-      <div class="mt-0.5 text-[11.5px] leading-tight text-muted">$12,000 promised in January, $4,000 paid. Due 31 Dec.</div>
+      <div class="text-[14.5px] font-bold text-ink">Example Corp</div>
+      <div class="mt-0.5 text-[12.5px] leading-tight text-muted">$12,000 promised in January, $4,000 paid. Due 31 Dec.</div>
     </div>
-    <span class="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">$8,000</span>
+    <span class="flex-shrink-0 text-[14.5px] font-extrabold tabular-nums text-ink">$8,000</span>
   </div>''')}
 
   <div class="mb-2 mt-5">{header("All donors", "62", "contact")}</div>
   <div class="flex flex-col gap-2">
     {rail("contact", '''<div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <div class="text-[13px] font-bold text-ink">A. Placeholder</div>
-        <div class="mt-0.5 text-[11.5px] text-muted">4 gifts &middot; first Mar 2024 &middot; last Jul 2026</div>
+        <div class="text-[14.5px] font-bold text-ink">A. Placeholder</div>
+        <div class="mt-0.5 text-[12.5px] text-muted">4 gifts &middot; first Mar 2024 &middot; last Jul 2026</div>
       </div>
       <div class="flex-shrink-0 text-right">
-        <div class="text-[13px] font-extrabold tabular-nums text-ink">$3,500</div>
-        <div class="text-[10.5px] text-muted">lifetime</div>
+        <div class="text-[14.5px] font-extrabold tabular-nums text-ink">$3,500</div>
+        <div class="text-[11.5px] text-muted">lifetime</div>
       </div>
     </div>''')}
     {rail("contact", '''<div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <div class="text-[13px] font-bold text-ink">B. Placeholder</div>
-        <div class="mt-0.5 text-[11.5px] text-muted">1 gift &middot; Aug 2026 &middot; in kind</div>
+        <div class="text-[14.5px] font-bold text-ink">B. Placeholder</div>
+        <div class="mt-0.5 text-[12.5px] text-muted">1 gift &middot; Aug 2026 &middot; in kind</div>
       </div>
       <div class="flex-shrink-0 text-right">
-        <div class="text-[13px] font-extrabold tabular-nums text-muted">$0</div>
-        <div class="text-[10.5px] text-muted">$850 in kind</div>
+        <div class="text-[14.5px] font-extrabold tabular-nums text-muted">$0</div>
+        <div class="text-[11.5px] text-muted">$850 in kind</div>
       </div>
     </div>''')}
   </div>
@@ -215,69 +215,69 @@ SCREENS["donors"] = ("Donors", f"""
 # ----------------------------------------------------------- 3 record a gift
 SCREENS["gift"] = ("Record a gift", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Fundraising</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Record a gift</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">Money that has actually arrived. A promise goes in as a pledge instead.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Fundraising</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Record a gift</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">Money that has actually arrived. A promise goes in as a pledge instead.</p>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Amount</label>
-    <input value="$250.00" class="{INPUT} text-[18px] font-bold tabular-nums" />
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Amount</label>
+    <input value="$250.00" class="{INPUT} text-[20px] font-bold tabular-nums" />
   </div>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Donor</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Donor</label>
     <input value="Sample Family Fund" class="{INPUT}" />
-    <p class="mt-1 text-[11.5px] leading-tight text-muted">Leave blank for cash in a bucket at an event. It still counts in the total and not in the supporter count.</p>
+    <p class="mt-1 text-[12.5px] leading-tight text-muted">Leave blank for cash in a bucket at an event. It still counts in the total and not in the supporter count.</p>
   </div>
 
   <div class="mb-4 grid grid-cols-2 gap-2">
     <div>
-      <label class="mb-1.5 block text-[11px] font-bold text-muted">Received</label>
+      <label class="mb-1.5 block text-[12px] font-bold text-muted">Received</label>
       <input value="2026-09-16" class="{INPUT} tabular-nums" />
     </div>
     <div>
-      <label class="mb-1.5 block text-[11px] font-bold text-muted">Method</label>
+      <label class="mb-1.5 block text-[12px] font-bold text-muted">Method</label>
       <input value="Stripe" class="{INPUT}" />
     </div>
   </div>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Category</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Category</label>
     <input value="{CATEGORIES[0]}" class="{INPUT}" />
-    <p class="mt-1 text-[11.5px] leading-tight text-muted">The same five rows as the P&amp;L the board already sees.</p>
+    <p class="mt-1 text-[12.5px] leading-tight text-muted">The same five rows as the P&amp;L the board already sees.</p>
   </div>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Campaign</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Campaign</label>
     <input value="Year-end appeal" class="{INPUT}" />
   </div>
 
   <div class="mb-4">{rail("place", '''<div class="flex items-start gap-3">
     <span class="mt-0.5 h-[22px] w-[22px] flex-shrink-0 rounded-[6px] border-2 border-line"></span>
-    <div class="min-w-0 flex-1"><div class="text-[13px] font-bold text-ink">This is a gift in kind</div>
-    <div class="mt-0.5 text-[11.5px] leading-tight text-muted">Goods or services rather than money. Counted as support, never as cash, and it needs a description of what was given.</div></div>
+    <div class="min-w-0 flex-1"><div class="text-[14.5px] font-bold text-ink">This is a gift in kind</div>
+    <div class="mt-0.5 text-[12.5px] leading-tight text-muted">Goods or services rather than money. Counted as support, never as cash, and it needs a description of what was given.</div></div>
   </div>''')}</div>
 
   <div class="mb-4">{rail("contact", '''<div class="flex items-start gap-3">
     <span class="mt-0.5 h-[22px] w-[22px] flex-shrink-0 rounded-[6px] border-2 border-line"></span>
-    <div class="min-w-0 flex-1"><div class="text-[13px] font-bold text-ink">Pay down a pledge</div>
-    <div class="mt-0.5 text-[11.5px] leading-tight text-muted">Example Corp still owes $8,000 of a $12,000 promise. Linking this payment reduces what is outstanding instead of leaving it open.</div></div>
+    <div class="min-w-0 flex-1"><div class="text-[14.5px] font-bold text-ink">Pay down a pledge</div>
+    <div class="mt-0.5 text-[12.5px] leading-tight text-muted">Example Corp still owes $8,000 of a $12,000 promise. Linking this payment reduces what is outstanding instead of leaving it open.</div></div>
   </div>''')}</div>
 
-  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Record it</button>
+  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Record it</button>
 </main>
 """)
 
 # ---------------------------------------------------------------- 4 grants
 SCREENS["grants"] = ("Grants", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Fundraising</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Grants</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">Built for when you start applying. Nothing here yet.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Fundraising</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Grants</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">Built for when you start applying. Nothing here yet.</p>
 
   <div class="rounded-[12px] border-2 border-dashed border-line bg-paper px-4 py-8 text-center">
-    <div class="text-[14px] font-extrabold text-ink">No grants tracked yet</div>
-    <div class="mx-auto mt-2 max-w-[280px] text-[12px] leading-tight text-muted">
+    <div class="text-[15px] font-extrabold text-ink">No grants tracked yet</div>
+    <div class="mx-auto mt-2 max-w-[280px] text-[13px] leading-tight text-muted">
       A grant has a life before any money exists: researching, applied, waiting on a decision, then a report due months after the cheque clears. Those dates are the part that gets missed.
     </div>
   </div>
@@ -286,24 +286,24 @@ SCREENS["grants"] = ("Grants", f"""
   <div class="flex flex-col gap-2 opacity-60">
     {rail("contact", f'''<div class="min-w-0">
       <div class="flex items-start justify-between gap-3">
-        <div class="text-[13px] font-bold text-ink">Example Foundation</div>
+        <div class="text-[14.5px] font-bold text-ink">Example Foundation</div>
         {chip("Applied", "contact")}
       </div>
-      <div class="mt-1 text-[11.5px] leading-tight text-muted">$25,000 requested &middot; submitted 3 Aug &middot; decision expected Oct</div>
+      <div class="mt-1 text-[12.5px] leading-tight text-muted">$25,000 requested &middot; submitted 3 Aug &middot; decision expected Oct</div>
     </div>''')}
     {rail("committed", f'''<div class="min-w-0">
       <div class="flex items-start justify-between gap-3">
-        <div class="text-[13px] font-bold text-ink">Sample Trust</div>
+        <div class="text-[14.5px] font-bold text-ink">Sample Trust</div>
         {chip("Awarded", "committed")}
       </div>
-      <div class="mt-1 text-[11.5px] leading-tight text-muted">$10,000 awarded &middot; report due 31 Jan</div>
+      <div class="mt-1 text-[12.5px] leading-tight text-muted">$10,000 awarded &middot; report due 31 Jan</div>
     </div>''')}
   </div>
 
   <div class="mt-3">{note("Awarded money still arrives as an ordinary gift in the Foundation Grants category, linked back to the application, so an award is never counted both as a win and as revenue.", "contact")}</div>
 
   <div class="mt-5">
-    <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Track a grant</button>
+    <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Track a grant</button>
   </div>
 </main>
 """)
@@ -311,26 +311,26 @@ SCREENS["grants"] = ("Grants", f"""
 
 # ---------------------------------------------------------------- 5 budget
 _BUDGET_ROWS = "".join(
-    '<div><label class="mb-1.5 block text-[11px] font-bold text-muted">' + c + '</label>'
+    '<div><label class="mb-1.5 block text-[12px] font-bold text-muted">' + c + '</label>'
     '<input value="$' + v + '" class="' + INPUT + ' tabular-nums" /></div>'
     for c, v in zip(CATEGORIES, ["60,000", "30,000", "45,000", "25,000", "25,000"])
 )
 
 _BUDGET_TOTAL = rail("contact",
     '<div class="flex items-center justify-between gap-3">'
-    '<div class="text-[13px] font-bold text-ink">Total</div>'
-    '<div class="text-[15px] font-extrabold tabular-nums text-ink">$185,000</div></div>')
+    '<div class="text-[14.5px] font-bold text-ink">Total</div>'
+    '<div class="text-[16px] font-extrabold tabular-nums text-ink">$185,000</div></div>')
 
 SCREENS["budget"] = ("Set the budget", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Fundraising</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">2026 budget</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">The full-year target per category, as the board approved it. Everything on the overview is measured against these.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Fundraising</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">2026 budget</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">The full-year target per category, as the board approved it. Everything on the overview is measured against these.</p>
   <div class="flex flex-col gap-3">{_BUDGET_ROWS}</div>
   <div class="mt-4">{_BUDGET_TOTAL}</div>
   <div class="mt-3">{note("Leave a category at zero and the overview says no target rather than showing it at 0%. Those are different statements and only one of them is a problem.", "contact")}</div>
   <div class="mt-5">
-    <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Save the budget</button>
+    <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Save the budget</button>
   </div>
 </main>
 """)
@@ -338,91 +338,91 @@ SCREENS["budget"] = ("Set the budget", f"""
 # -------------------------------------------------------------- 6 campaign
 SCREENS["campaign"] = ("New campaign", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Fundraising</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">New campaign</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">An event, an appeal, or anything with a goal and an end date.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Fundraising</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">New campaign</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">An event, an appeal, or anything with a goal and an end date.</p>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Name</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Name</label>
     <input value="Bridge Invitational" class="{INPUT}" />
   </div>
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Kind</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Kind</label>
     <input value="Event" class="{INPUT}" />
   </div>
   <div class="mb-4 grid grid-cols-2 gap-2">
-    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Starts</label>
+    <div><label class="mb-1.5 block text-[12px] font-bold text-muted">Starts</label>
     <input value="2026-06-01" class="{INPUT} tabular-nums" /></div>
-    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Ends</label>
+    <div><label class="mb-1.5 block text-[12px] font-bold text-muted">Ends</label>
     <input value="2026-08-13" class="{INPUT} tabular-nums" /></div>
   </div>
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Goal</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Goal</label>
     <input value="$25,000" class="{INPUT} tabular-nums" />
-    <p class="mt-1 text-[11.5px] leading-tight text-muted">Measured against cash raised. Pledges show beside the bar, never inside it.</p>
+    <p class="mt-1 text-[12.5px] leading-tight text-muted">Measured against cash raised. Pledges show beside the bar, never inside it.</p>
   </div>
-  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Create it</button>
+  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Create it</button>
 </main>
 """)
 
 # ---------------------------------------------------------------- 7 pledge
 SCREENS["pledge"] = ("Record a pledge", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Fundraising</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Record a pledge</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">Money promised. It will not count as raised until a payment against it actually arrives.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Fundraising</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Record a pledge</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">Money promised. It will not count as raised until a payment against it actually arrives.</p>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Who promised it</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Who promised it</label>
     <input value="Example Corp" class="{INPUT}" />
-    <p class="mt-1 text-[11.5px] leading-tight text-muted">Required, unlike a gift. An anonymous promise is not one anybody can follow up on.</p>
+    <p class="mt-1 text-[12.5px] leading-tight text-muted">Required, unlike a gift. An anonymous promise is not one anybody can follow up on.</p>
   </div>
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Amount</label>
-    <input value="$12,000" class="{INPUT} text-[18px] font-bold tabular-nums" />
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Amount</label>
+    <input value="$12,000" class="{INPUT} text-[20px] font-bold tabular-nums" />
   </div>
   <div class="mb-4 grid grid-cols-2 gap-2">
-    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Promised</label>
+    <div><label class="mb-1.5 block text-[12px] font-bold text-muted">Promised</label>
     <input value="2026-01-15" class="{INPUT} tabular-nums" /></div>
-    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Due</label>
+    <div><label class="mb-1.5 block text-[12px] font-bold text-muted">Due</label>
     <input value="2026-12-31" class="{INPUT} tabular-nums" /></div>
   </div>
   <div class="mb-4">{note("Leave the due date blank if none was given. It will show as outstanding and never as overdue, which is the honest reading.", "contact")}</div>
-  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Record the pledge</button>
+  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Record the pledge</button>
 </main>
 """)
 
 # ----------------------------------------------------------- 8 track a grant
 SCREENS["grantform"] = ("Track a grant", f"""
 <main class="px-4 pt-2 pb-6">
-  <div class="mb-4"><a href="#" class="text-[13px] font-bold text-muted">&larr; Grants</a></div>
-  <h1 class="mb-1 text-[20px] font-extrabold text-ink">Track a grant</h1>
-  <p class="mb-5 text-[12.5px] leading-tight text-muted">The application. Money arrives later as an ordinary gift in the Foundation Grants category.</p>
+  <div class="mb-4"><a href="#" class="text-[14.5px] font-bold text-muted">&larr; Grants</a></div>
+  <h1 class="mb-1 text-[22px] font-extrabold text-ink">Track a grant</h1>
+  <p class="mb-5 text-[13.5px] leading-tight text-muted">The application. Money arrives later as an ordinary gift in the Foundation Grants category.</p>
 
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Funder</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Funder</label>
     <input value="Example Foundation" class="{INPUT}" />
   </div>
   <div class="mb-4">
-    <label class="mb-1.5 block text-[11px] font-bold text-muted">Where it stands</label>
+    <label class="mb-1.5 block text-[12px] font-bold text-muted">Where it stands</label>
     <input value="Researching" class="{INPUT}" />
   </div>
   <div class="mb-4 grid grid-cols-2 gap-2">
-    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Requesting</label>
+    <div><label class="mb-1.5 block text-[12px] font-bold text-muted">Requesting</label>
     <input value="$25,000" class="{INPUT} tabular-nums" /></div>
-    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Deadline</label>
+    <div><label class="mb-1.5 block text-[12px] font-bold text-muted">Deadline</label>
     <input value="2026-11-01" class="{INPUT} tabular-nums" /></div>
   </div>
 
   <div class="mb-2">{header("Dates that bite later", None, "time")}</div>
-  <p class="mb-3 text-[12px] leading-tight text-muted">Most of a grant's life happens before any money exists, and these are the ones that get missed.</p>
+  <p class="mb-3 text-[13px] leading-tight text-muted">Most of a grant's life happens before any money exists, and these are the ones that get missed.</p>
   <div class="mb-4 grid grid-cols-2 gap-2">
-    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Decision expected</label>
+    <div><label class="mb-1.5 block text-[12px] font-bold text-muted">Decision expected</label>
     <input placeholder="optional" class="{INPUT} tabular-nums" /></div>
-    <div><label class="mb-1.5 block text-[11px] font-bold text-muted">Report due</label>
+    <div><label class="mb-1.5 block text-[12px] font-bold text-muted">Report due</label>
     <input placeholder="optional" class="{INPUT} tabular-nums" /></div>
   </div>
-  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[14px] font-bold text-solid-accent-on">Track it</button>
+  <button class="w-full rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on">Track it</button>
 </main>
 """)
 

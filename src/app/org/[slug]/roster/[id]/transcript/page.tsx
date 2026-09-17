@@ -52,12 +52,12 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
   return (
     <main className="px-4 pb-24 pt-2">
       <div className="mb-2">
-        <Link href={`/org/${slug}/roster/${id}`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/roster/${id}`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
           &larr; {athlete.name}
         </Link>
       </div>
-      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Transcript</h1>
-      <div className="mb-5 text-[12.5px] font-bold text-muted">
+      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Transcript</h1>
+      <div className="mb-5 text-[13.5px] font-bold text-muted">
         {courses.length} courses &middot; {core?.counted.length ?? 0} counted by the NCAA
       </div>
 
@@ -81,19 +81,19 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
                   <RailCard key={c.id} role={role} kind={miss ? "blocked" : "course"}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-[13px] font-bold leading-tight text-ink">{c.title}</div>
-                        <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                        <div className="text-[14.5px] font-bold leading-tight text-ink">{c.title}</div>
+                        <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                           {SUBJECT[c.subject] ?? c.subject} &middot; {Number(c.credit)} credit
                           {c.weighted ? " · weighted" : ""}
                         </div>
                         {/* The reason, on the row it belongs to. A list
                             of excluded titles at the bottom of another
                             screen makes you match them up yourself. */}
-                        {miss && <div className="mt-1 text-[11.5px] font-semibold leading-tight text-tint-accent-on">{miss.reason}</div>}
+                        {miss && <div className="mt-1 text-[12.5px] font-semibold leading-tight text-tint-accent-on">{miss.reason}</div>}
                       </div>
                       <div className="flex-shrink-0 text-right">
-                        <div className="text-[14px] font-extrabold tabular-nums text-ink">{c.grade}</div>
-                        {hit && <div className="text-[10.5px] font-bold text-muted">{hit.points.toFixed(1)} pts</div>}
+                        <div className="text-[15px] font-extrabold tabular-nums text-ink">{c.grade}</div>
+                        {hit && <div className="text-[11.5px] font-bold text-muted">{hit.points.toFixed(1)} pts</div>}
                       </div>
                     </div>
                   </RailCard>
@@ -112,10 +112,10 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
           <div className="flex flex-col gap-2">
             {view.skipped.map((s, i) => (
               <RailCard key={i} role="offer" kind="warning">
-                <div className="text-[13px] font-bold leading-tight text-ink">
+                <div className="text-[14.5px] font-bold leading-tight text-ink">
                   {s.title} &middot; {s.grade}
                 </div>
-                <div className="mt-0.5 text-[11.5px] leading-tight text-muted">{s.reason}</div>
+                <div className="mt-0.5 text-[12.5px] leading-tight text-muted">{s.reason}</div>
               </RailCard>
             ))}
           </div>
@@ -124,7 +124,7 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
 
       <Link
         href={`/org/${slug}/roster/${id}/eligibility`}
-        className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[14px] font-bold text-ink"
+        className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
       >
         NCAA eligibility
       </Link>
