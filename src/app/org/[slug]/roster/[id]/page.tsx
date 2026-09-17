@@ -162,11 +162,26 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
           routinely a point apart, and lives behind this link rather than
           being implied by the one on this line. */}
       <Link href={`/org/${slug}/roster/${id}/eligibility`} className="mt-3 block">
-        <RailCard role="contact">
+        <RailCard role="contact" kind="checklist">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[14px] font-semibold text-ink">NCAA eligibility</div>
-              <div className="text-[11.5px] text-muted">Core-course GPA, qualifier status and the five-year clock</div>
+              <div className="text-[11.5px] text-muted">Core GPA, qualifier status and the clock</div>
+            </div>
+            <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">&rsaquo;</span>
+          </div>
+        </RailCard>
+      </Link>
+
+      {/* The working behind that verdict. Separate link because the
+          question "what is my core GPA" and the question "why is it
+          lower than my transcript" want different screens. */}
+      <Link href={`/org/${slug}/roster/${id}/transcript`} className="mt-2 block">
+        <RailCard role="contact" kind="course">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[14px] font-semibold text-ink">Transcript</div>
+              <div className="text-[11.5px] text-muted">Every course, and what the NCAA counted</div>
             </div>
             <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">&rsaquo;</span>
           </div>

@@ -113,6 +113,7 @@ export function coursesFromTranscript(
       credit: row.credit,
       grade,
       weighted: row.weighted ?? false,
+      term: row.term ?? null,
       // Left undefined on purpose: nobody has checked this course
       // against the school's NCAA-approved list yet, and undefined is
       // reported as unchecked rather than treated as approved.

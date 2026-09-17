@@ -149,8 +149,8 @@ describe("LAW: both halves of a shared-and-org table pair are read together", ()
   // shared table with verified_at null, so a screen that labels every
   // shared row "verified" lets OCR of a phone photo outrank a table a
   // coordinator typed off the school's printed legend.
-  it("the eligibility screen tells a confirmed shared scale from an unconfirmed one", () => {
-    const page = readFileSync(join(SRC, "app", "org", "[slug]", "roster", "[id]", "eligibility", "page.tsx"), "utf8");
+  it("the eligibility loader tells a confirmed shared scale from an unconfirmed one", () => {
+    const page = readFileSync(join(SRC, "lib", "data", "loadEligibility.ts"), "utf8");
     const code = page.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
     expect(code).toMatch(/verified_at/);
   });

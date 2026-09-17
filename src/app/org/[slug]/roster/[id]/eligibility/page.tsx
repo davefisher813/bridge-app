@@ -17,12 +17,11 @@ import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { SectionHeader, EmptyState } from "@/components/catalog";
+import { SectionHeader, EmptyState, RailCard } from "@/components/catalog";
 import { GpaPair, NoteRail, SubjectRow, VerdictCard } from "@/components/EligibilityVerdict";
 import { DocumentUploader } from "@/components/DocumentUploader";
-import { buildEligibilityView, type AthleteCourseRow, type GradingScaleRow } from "@/lib/data/ncaaAdapters";
-import type { ApprovedCourseList } from "@/lib/fit/ncaa/approvedCourses";
-import { DIVISION_STANDARDS, normalizeDivision } from "@/lib/fit/ncaa/initialEligibility";
+import { loadEligibility } from "@/lib/data/loadEligibility";
+import { DIVISION_STANDARDS } from "@/lib/fit/ncaa/initialEligibility";
 import type { SubjectArea } from "@/lib/fit/ncaa/coreGpa";
 
 export const dynamic = "force-dynamic";
@@ -49,25 +48,8 @@ const SUBJECT_LABEL: Record<SubjectArea, string> = {
 // so it comes off their targets. The strictest live target wins, because
 // clearing D1 clears D2, and a screen that quietly judged a D1 recruit
 // against the easier D2 bar would be worse than useless.
-const DIVISION_RANK: Record<string, number> = { D1: 3, D2: 2, D3: 1 };
-
-// Reuses the engine's own normalizer rather than keeping a second regex
-// here. The copy that used to live in this file missed the "DI" and
-// "DII" spellings, so a D1 target written that way silently produced no
-// division at all and the page said there was nothing to judge against.
-function pickDivision(divisions: string[]): string {
-  let best = "";
-  let bestRank = 0;
-  for (const raw of divisions) {
-    const key = normalizeDivision(raw);
-    if (!key) continue;
-    if (DIVISION_RANK[key]! > bestRank) {
-      bestRank = DIVISION_RANK[key]!;
-      best = key;
-    }
-  }
-  return best;
-}
+// pickDivision moved to src/lib/data/loadEligibility.ts, where the
+// transcript and approvals screens use the same one.
 
 export default async function EligibilityPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
@@ -78,167 +60,14 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   const user = await requireRole(org.id, ["owner", "staff", "member"]);
   const canUpload = (STAFF_ROLES as string[]).includes(user.role);
 
-  const supabase = await createClient();
-  const [{ data: athlete }, { data: courseRows }, { data: targetRows }] = await Promise.all([
-    supabase
-      .from("athletes")
-      .select("id, name, gpa, gpa_verified, date_of_birth, first_full_time_enrollment, intended_enrollment")
-      .eq("id", id)
-      .eq("org_id", org.id)
-      .is("deleted_at", null)
-      .single(),
-    supabase
-      .from("athlete_courses")
-      .select("id, title, subject, credit, grade, term, school_name, weighted, ncaa_approved, duplicate_of")
-      .eq("athlete_id", id)
-      .eq("org_id", org.id)
-      .order("term", { ascending: true }),
-    supabase.from("recruiting_targets").select("schools(division)").eq("athlete_id", id).eq("org_id", org.id),
-  ]);
-
-  if (!athlete) notFound();
-
-  const courses = (courseRows ?? []) as AthleteCourseRow[];
-
-  // Matched on the normalized key, because the adapter compares
-  // case-insensitively and an exact-match query here filtered the rows
-  // out before the adapter ever saw them, making its own
-  // case-insensitivity dead code.
-  const schoolKeys = [...new Set(courses.map((c) => c.school_name?.trim().toLowerCase()).filter((s): s is string => !!s))];
-
-  // BOTH tables, each labelled with where it came from. Two things were
-  // wrong here and they compounded:
-  //
-  //   1. Only the shared table was queried, so an org that entered its
-  //      own scale (migration 0009, the whole point of that feature)
-  //      saved it, saw it listed, and watched the core GPA not move.
-  //   2. Neither query set `origin`, because no such column exists: the
-  //      app derives the label. The result was cast to GradingScaleRow
-  //      anyway, so every row arrived with origin undefined,
-  //      resolveScale() matched none of them and returned null, and
-  //      EVERY school on EVERY athlete fell through to the assumed
-  //      ten-point default. The grading-scale feature was inert in the
-  //      product while reporting itself as working.
-  //
-  // The cast is gone. The rows are mapped, so a missing field is a type
-  // error rather than a silent undefined.
-  const [{ data: sharedRows }, { data: orgRows }] = schoolKeys.length
-    ? await Promise.all([
-        supabase
-          .from("high_school_grading_scales")
-          .select("school_name, bands, reports_weighted_grades, weighting_is_class_rank_only, weight_bonus, source_note, verified_at")
-          .in("school_name_key", schoolKeys),
-        supabase
-          .from("org_grading_scales")
-          .select("school_name, bands, reports_weighted_grades, weighting_is_class_rank_only, weight_bonus, source_note")
-          .eq("org_id", org.id)
-          .in("school_name_key", schoolKeys),
-      ])
-    : [{ data: [] }, { data: [] }];
-
-  type ScaleQueryRow = {
-    school_name: string;
-    bands: unknown;
-    reports_weighted_grades: boolean;
-    weighting_is_class_rank_only: boolean;
-    weight_bonus: number | string;
-    source_note: string | null;
-    verified_at?: string | null;
-  };
-  const label = (rows: ScaleQueryRow[] | null, origin: "verified" | "org"): GradingScaleRow[] =>
-    (rows ?? []).map((r) => ({
-      school_name: r.school_name,
-      bands: r.bands,
-      reports_weighted_grades: r.reports_weighted_grades,
-      weighting_is_class_rank_only: r.weighting_is_class_rank_only,
-      weight_bonus: r.weight_bonus,
-      source_note: r.source_note,
-      origin,
-    }));
-
-  // NOT every shared row is verified. src/lib/actions/documents.ts saves
-  // a table Doc AI read off a transcript into the shared table with
-  // verified_at null, so "shared" and "confirmed with the school" are
-  // different claims and only the column tells them apart. Labelling
-  // every shared row verified would let a scale OCR'd from a parent's
-  // phone photo outrank a table a coordinator typed off the school's own
-  // printed legend, which is backwards.
-  //
-  // Precedence, in the order resolveScale() reads the array: a confirmed
-  // shared table, then this org's own entry, then an unconfirmed shared
-  // one, then the assumed default. The middle two share the "org" label
-  // because they are the same claim: a real table nobody has verified.
-  const sharedAll = (sharedRows ?? []) as ScaleQueryRow[];
-  const scales = [
-    ...label(sharedAll.filter((r) => r.verified_at != null), "verified"),
-    ...label(orgRows as ScaleQueryRow[] | null, "org"),
-    ...label(sharedAll.filter((r) => r.verified_at == null), "org"),
-  ];
-
-  // The approved lists for those same schools, portal first. Without
-  // these every course stays unchecked and the core GPA reports itself
-  // as an estimate, which was true of every athlete in the product until
-  // migration 0014.
-  const [{ data: sharedLists }, { data: orgLists }] = schoolKeys.length
-    ? await Promise.all([
-        supabase
-          .from("ncaa_approved_course_lists")
-          .select("school_name, ceeb_code, is_complete, source_note, ncaa_approved_courses(title, subject, max_credit, weighted)")
-          .in("school_name_key", schoolKeys),
-        supabase
-          .from("org_approved_course_lists")
-          .select("school_name, ceeb_code, is_complete, source_note, org_approved_courses(title, subject, max_credit, weighted)")
-          .eq("org_id", org.id)
-          .in("school_name_key", schoolKeys),
-      ])
-    : [{ data: [] }, { data: [] }];
-
-  type ListQueryRow = {
-    school_name: string;
-    ceeb_code: string | null;
-    is_complete: boolean;
-    source_note: string | null;
-    ncaa_approved_courses?: Array<{ title: string; subject: string; max_credit: number | string | null; weighted: boolean }>;
-    org_approved_courses?: Array<{ title: string; subject: string; max_credit: number | string | null; weighted: boolean }>;
-  };
-  const toList = (rows: ListQueryRow[] | null, source: "ncaa_portal" | "org"): ApprovedCourseList[] =>
-    (rows ?? []).map((r) => ({
-      schoolName: r.school_name,
-      ceebCode: r.ceeb_code ?? undefined,
-      isComplete: r.is_complete,
-      source,
-      sourceNote: r.source_note ?? undefined,
-      courses: (r.ncaa_approved_courses ?? r.org_approved_courses ?? []).map((c) => ({
-        title: c.title,
-        subject: c.subject as SubjectArea,
-        maxCredit: c.max_credit === null ? undefined : Number(c.max_credit),
-        weighted: c.weighted,
-      })),
-    }));
-  const approvedLists = [
-    ...toList(sharedLists as ListQueryRow[] | null, "ncaa_portal"),
-    ...toList(orgLists as ListQueryRow[] | null, "org"),
-  ];
-
-  const divisions = (targetRows ?? []).flatMap((t) => {
-    const s = (t as { schools?: { division?: string } | { division?: string }[] }).schools;
-    const one = Array.isArray(s) ? s[0] : s;
-    return one?.division ? [one.division] : [];
-  });
-  const division = pickDivision(divisions);
-
-  const view = buildEligibilityView({
-    courses,
-    scales,
-    approvedLists,
-    division,
-    athlete: {
-      dateOfBirth: athlete.date_of_birth,
-      firstFullTimeEnrollment: athlete.first_full_time_enrollment,
-      intendedEnrollment: athlete.intended_enrollment,
-    },
-    today: new Date().toISOString().slice(0, 10),
-  });
+  // One loader, shared with the transcript and approvals screens. The
+  // query used to live inline here; the moment a second page needed the
+  // same thing, a second copy was the obvious move, and a second copy
+  // that reads one grading-scale table instead of two is the bug that
+  // sat in this very file for a release.
+  const bundle = await loadEligibility(org.id, id, new Date().toISOString().slice(0, 10));
+  if (!bundle) notFound();
+  const { athlete, view, division, courses } = bundle;
 
   const { eligibility, ageClock } = view;
   const std = eligibility.division ? DIVISION_STANDARDS[eligibility.division] : null;
@@ -370,6 +199,59 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                   </Link>
                 )}
               </NoteRail>
+            </div>
+          )}
+
+          {/* Against the school's NCAA approved list. Until migration
+              0014 nothing set the approval flag, so every core GPA in
+              the product carried an "estimate" warning. This is the row
+              that says whether it still does. */}
+          {view.approvals.length > 0 && (
+            <>
+              <div className="mb-2 mt-5">
+                <SectionHeader label="Against the approved list" role="committed" kind="checklist" />
+              </div>
+              <Link href={`/org/${slug}/roster/${id}/eligibility/approvals`} className="block">
+                <RailCard
+                  role={view.approvals.some((a) => a.match.status === "unknown" || a.match.status === "ambiguous") ? "offer" : "committed"}
+                  kind="checklist"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-bold leading-tight text-ink">
+                        {view.approvals.filter((a) => a.match.status === "approved").length} confirmed on the list
+                      </div>
+                      <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                        {view.approvals.filter((a) => a.match.status === "not_approved").length} not approved
+                        {(() => {
+                          const open = view.approvals.filter((a) => a.match.status === "unknown" || a.match.status === "ambiguous").length;
+                          return open > 0 ? ` · ${open} unchecked` : "";
+                        })()}
+                      </div>
+                    </div>
+                    <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">&rsaquo;</span>
+                  </div>
+                </RailCard>
+              </Link>
+            </>
+          )}
+
+          {view.schoolsMissingApprovedList.length > 0 && (
+            <div className="mt-3">
+              <RailCard role="offer" kind="warning">
+                <div className="text-[12.5px] font-bold leading-tight text-ink">
+                  {view.schoolsMissingApprovedList.join(" and ")} {view.schoolsMissingApprovedList.length > 1 ? "have" : "has"} no approved
+                  list on file
+                </div>
+                {canUpload && (
+                  <Link
+                    href={`/org/${slug}/approved-courses/new?school=${encodeURIComponent(view.schoolsMissingApprovedList[0] ?? "")}`}
+                    className="-mb-2 mt-1 inline-flex min-h-[44px] items-center pr-3 text-[12.5px] font-extrabold text-tint-accent-on"
+                  >
+                    Enter the approved list
+                  </Link>
+                )}
+              </RailCard>
             </div>
           )}
 

@@ -167,11 +167,12 @@ needs anything from Dave. All are read views over data the schema
 already holds.
 
 Recruiting:
-- `courses` the transcript, per term, with what the NCAA counted
-- `approvals` every course against the school's approved list
+- ~~`courses`~~ done 2026-09-17: `/roster/[id]/transcript`
+- ~~`approvals`~~ done 2026-09-17: `/roster/[id]/eligibility/approvals`
 - `dimension` one fit dimension's full reasons and warnings
 - `caveats` the eligibility caveats in full, on their own page
-- `comms` the contact log for a target
+- `comms` the contact log for a target (the last five are on the target
+  page already; this is the full log)
 - `school` a school's profile, money and depth chart
 
 Fundraising:

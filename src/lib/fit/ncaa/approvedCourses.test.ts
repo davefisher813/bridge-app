@@ -208,3 +208,24 @@ describe("approvedListProblem", () => {
     expect(approvedListProblem({ courses: three, isComplete: false })).toBeNull();
   });
 });
+
+// Added 2026-09-17 with the transcript screen. A counted course has to be
+// traceable back to the transcript row it came from, and the only other
+// key is the title, which both halves of a year-long course share.
+describe("a counted course carries its term", () => {
+  it("keeps the two halves of a year-long course apart", async () => {
+    const { coursesFromTranscript } = await import("./fromTranscript");
+    const converted = coursesFromTranscript(
+      [
+        { title: "English 11", subject: "english", credit: 0.5, grade: "A", weighted: false, term: "24-25 S1" },
+        { title: "English 11", subject: "english", credit: 0.5, grade: "C", weighted: false, term: "24-25 S2" },
+      ],
+      { gradingScale: null, schoolName: "Cardinal Ridge" },
+    );
+    const terms = converted.courses.map((c) => c.term);
+    expect(terms).toEqual(["24-25 S1", "24-25 S2"]);
+    // Keyed on title alone these collapse to one entry and the screen
+    // shows the same grade twice.
+    expect(new Set(converted.courses.map((c) => c.title + "|" + c.term)).size).toBe(2);
+  });
+});

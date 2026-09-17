@@ -72,6 +72,12 @@ export interface CoreCourse {
   // will be awarded for only one of the two courses (the higher grade
   // may count)". 2026-27 Guide for the College-Bound Student-Athlete.
   duplicateOf?: string;
+  // The term it was taken in, carried through from the transcript. Not
+  // used in any calculation: it is here so a caller can tell the two
+  // halves of a year-long course apart when correlating a result back to
+  // the row it came from. Without it the only key is the title, and both
+  // halves of "English 11" answer to that.
+  term?: string | null;
 }
 
 // Per-subject credit minimums for the division being evaluated. Passed

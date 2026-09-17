@@ -512,8 +512,12 @@ describe("LAW: a real grading scale is never silently replaced by the assumed de
 });
 
 describe("LAW: the eligibility screen reads the org's own grading scales", () => {
+  // The queries moved into src/lib/data/loadEligibility.ts on
+  // 2026-09-17, when the transcript and approvals screens needed the
+  // same thing. One loader is the point: a second inline copy that
+  // reads one scale table instead of two is the original bug.
   it("queries both tables and labels each with its origin", () => {
-    const page = readFileSync(join(SRC, "app", "org", "[slug]", "roster", "[id]", "eligibility", "page.tsx"), "utf8");
+    const page = readFileSync(join(SRC, "lib", "data", "loadEligibility.ts"), "utf8");
     const code = page.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
     expect(code).toMatch(/from\("high_school_grading_scales"\)/);
     // Without this the org-scoped entry screen from migration 0009 saves

@@ -1405,3 +1405,28 @@ verified, which let a scale OCR'd from a parent's phone photo outrank a
 table a coordinator typed off the school's printed legend. Precedence is
 now: confirmed shared, then the org's own entry, then unconfirmed shared,
 then the assumed default.
+
+## 2026-09-17 - One loader for every screen that needs a core GPA
+
+**Decision.** `src/lib/data/loadEligibility.ts` owns the query behind the
+eligibility verdict, the transcript and the per-course approval check:
+the athlete, the courses, both grading-scale tables with their origin
+labels, both approved-list tables, the division, and the built view. The
+eligibility page no longer carries it inline.
+
+**Reason.** Three screens want the same thing. Left inline on one page,
+the second screen's obvious move is a second copy, and a second copy that
+reads one grading-scale table instead of two is exactly the bug that sat
+in that file for a release. `pickDivision` was already a second copy of
+the engine's normalizer once, and had drifted.
+
+**Consequences.** The laws that check both scale tables are read, and
+that a confirmed shared scale is told from an unconfirmed one, now point
+at the loader rather than the page. Both were re-proven to fail on a
+planted violation at the new location.
+
+`CoreCourse` gained an optional `term`, carried through from the
+transcript and used in no calculation. Without it the only key back to
+the transcript row is the title, and both halves of a year-long course
+answer to that, so the transcript screen would show one half's grade
+against both rows.
