@@ -1587,3 +1587,61 @@ written; `loadTarget.ts` inherited it by copy an hour after.
 `force-dynamic` server components, so nothing in the repo ever executes
 one. `npm run build` type-checks them and never runs them. A real
 rendering harness against a seeded database is the next honest gap.
+
+## 2026-09-17: every page is executed by a test, against a fake client
+
+**Decision.** `src/laws/pageRender.test.ts` calls every page function
+directly, renders the element tree it returns to a string, and asserts on
+the output. `src/testing/fakeSupabase.ts` stands in for the client and
+`src/testing/fixture.ts` is the invented dataset. 33 routes, plus the
+awkward-row, module-gate, signed-out and member-role cases.
+
+**Reason.** Nothing in the repo had ever executed a page. Every one is a
+`force-dynamic` server component, so `npm run build` type-checks them and
+stops. The click-through prototype is a second implementation of the same
+screens sharing the engine modules and none of the page code, so it
+proves nothing about them.
+
+That left a class of bug with no check anywhere: a field read off a null
+row, an embed mapped as an array when PostgREST returned an object, a `!`
+on something genuinely absent. None of it is visible to tsc through an
+`as` cast, and each one is a blank screen.
+
+**How it works.** The pages are async functions returning ordinary JSX,
+so awaiting the function is enough and React never has to resolve an
+async component. `notFound()` and `redirect()` throw sentinels, as Next
+does, so a page that bails is asserted on rather than counted as a pass.
+
+**Consequences.**
+
+- The fake reproduces PostgREST's embed shape rather than always
+  returning an array: many-to-one arrives as an object, one-to-many as an
+  array. Always returning an array is precisely the assumption the
+  `unwrap()` helpers in three files exist to survive, so a fake that did
+  that would hide the bug it is meant to catch.
+- It throws on any builder method it does not implement rather than
+  returning an empty result. An empty result would render a blank page
+  and pass.
+- The fixture is deliberately awkward: an athlete with no GPA, a target
+  with no coach, a gift with no donor, a donor on no board, a seat with
+  no donor record, a course at a school with no grading scale, a failed
+  document. A fixture where every row is complete tests only the happy
+  path, which is not where a page throws.
+- A separate assertion checks the hand-written page list against the
+  filesystem, because a list written by hand rots the moment somebody
+  adds a route. A planted `plantscreen/page.tsx` was caught by name. The
+  list stays hand-written rather than globbed: a glob would let a new
+  page join without anybody deciding what its arguments are.
+- Writing the fixture found one bug in the fixture itself, which is
+  worth recording because it is the kind of thing a reader will hit:
+  `route` and `status` are separate enums in 0007, and putting the route
+  value "review" into `status` made the queue render nothing.
+
+**Three plants, and two of them failed the first time.** A field read off
+a possibly-null row passed, because the fixture had no donor without a
+board seat. An embed treated as an array passed, because the assertion
+checked only the page title and the row degraded to "Unknown athlete"
+rather than throwing. Both were gaps in the harness, not in the code, and
+both are fixed: the fixture gained the missing row and the assertion now
+checks the row rather than the heading. A plant that does not fail is the
+only way to find out that a test was never testing anything.
