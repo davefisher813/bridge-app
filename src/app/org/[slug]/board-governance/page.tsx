@@ -171,6 +171,18 @@ export default async function BoardGovernancePage({
               </Link>
             </div>
           )}
+
+          {/* Organized by board above, and by who is behind here. The
+              second is the question a chair asks first, and answering it
+              from the board list means opening every board in turn. */}
+          <div className="mt-2">
+            <Link
+              href={`/org/${slug}/board-governance/members`}
+              className="block rounded-[8px] bg-paper py-3 text-center text-[14px] font-bold text-ink"
+            >
+              Every seat
+            </Link>
+          </div>
         </>
       )}
     </main>

@@ -170,6 +170,53 @@ export function giveGetProgress(input: GiveGetInput): GiveGetProgress {
   };
 }
 
+// Every gift attached to this seat, with whether it counted toward the
+// commitment and, when it did not, why.
+//
+// The seat screen needs this and must not filter the list itself. A
+// screen that showed only the counted gifts would leave a member asking
+// where their January cheque went; a screen that showed all of them with
+// no marking would not add up to the percentage printed above it. Both
+// are the same bug, which is a total and a list that disagree, and the
+// fix is to show every gift and say which ones count.
+export type GiftCredit = "given" | "raised";
+
+export type GiftExclusion = "in_kind" | "outside_period";
+
+export interface CreditedGift {
+  gift: Gift;
+  credit: GiftCredit;
+  counted: boolean;
+  excludedBecause?: GiftExclusion;
+}
+
+export function creditedGifts(input: GiveGetInput): CreditedGift[] {
+  const { member, gifts, solicitedBy, periodStart, periodEnd } = input;
+  const out: CreditedGift[] = [];
+
+  for (const g of gifts) {
+    const isTheirs = member.donorId !== null && g.donorId === member.donorId;
+    const theySolicited = solicitedBy[g.id] === member.id;
+    if (!isTheirs && !theySolicited) continue;
+
+    // Their own gift is "given" even when they are also credited with
+    // soliciting it, matching giveGetProgress, which counts it once and
+    // counts it there.
+    const credit: GiftCredit = isTheirs ? "given" : "raised";
+
+    // Order matters only for which reason is shown first. In-kind is
+    // named ahead of the date because it is the one people argue with:
+    // a donated case of food is real support and still does not
+    // discharge a cash commitment.
+    if (g.method === "in_kind") out.push({ gift: g, credit, counted: false, excludedBecause: "in_kind" });
+    else if (g.receivedOn < periodStart || g.receivedOn > periodEnd)
+      out.push({ gift: g, credit, counted: false, excludedBecause: "outside_period" });
+    else out.push({ gift: g, credit, counted: true });
+  }
+
+  return out.sort((a, b) => b.gift.receivedOn.localeCompare(a.gift.receivedOn));
+}
+
 export interface BoardSummary {
   boardId: string;
   seatsFilled: number;

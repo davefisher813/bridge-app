@@ -367,6 +367,11 @@ const DATA = {
     { id: "gf-7", orgId: "org-bridge", amountCents: 300000, receivedOn: "2026-06-01", category: "board", method: "check", donorId: "dn-4", campaignId: null, pledgeId: "pl-1", solicitedBy: null },
     { id: "gf-8", orgId: "org-bridge", amountCents: 150000, receivedOn: "2026-09-02", category: "individual", method: "stripe", donorId: "dn-5", campaignId: "cm-2", pledgeId: null, solicitedBy: "bm-2" },
     { id: "gf-9", orgId: "org-bridge", amountCents: 75000, receivedOn: "2026-09-05", category: "individual", method: "cash", donorId: null, campaignId: "cm-2", pledgeId: null, solicitedBy: null },
+    // The two gifts that attach to a seat and do not count toward it,
+    // one for each reason. Without them the seat screen never renders
+    // the "not counted" state and nobody sees whether it reads clearly.
+    { id: "gf-10", orgId: "org-bridge", amountCents: 120000, receivedOn: "2026-05-20", category: "corporate", method: "in_kind", donorId: "dn-3", campaignId: null, pledgeId: null, solicitedBy: "bm-1" },
+    { id: "gf-11", orgId: "org-bridge", amountCents: 250000, receivedOn: "2025-11-12", category: "board", method: "check", donorId: "dn-2", campaignId: null, pledgeId: null, solicitedBy: null },
   ],
 
   pledges: [

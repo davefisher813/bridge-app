@@ -15,7 +15,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, type GiftRow } from "@/lib/data/fundraisingAdapters";
-import { formatMoney, formatMoneyShort, CATEGORY_LABEL, type GiftCategory } from "@/lib/fundraising/rollup";
+import { formatMoney, formatMoneyShort, CATEGORY_LABEL, METHOD_LABEL, type GiftCategory } from "@/lib/fundraising/rollup";
 import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
 import { RowGlyph } from "@/components/RowGlyph";
 
@@ -84,7 +84,7 @@ export default async function GiftsPage({
                   <div className="min-w-0">
                     <div className="text-[13px] font-bold leading-tight text-ink">{name}</div>
                     <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
-                      {g.receivedOn} &middot; {inKind ? "in kind" : g.method}
+                      {g.receivedOn} &middot; {METHOD_LABEL[g.method] ?? g.method}
                       {g.campaignId ? ` · ${campaignName.get(g.campaignId) ?? "campaign"}` : ""}
                     </div>
                   </div>

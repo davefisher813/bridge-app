@@ -1,0 +1,190 @@
+// Every seat across every board, in one list.
+//
+// The governance overview is organized by board, which is right for
+// asking how the Executive Board is doing and wrong for the question a
+// chair actually asks first: who is behind. Answering that today means
+// opening five boards and holding five lists in your head.
+//
+// So this is the same seats, sorted by how far behind they are rather
+// than by which board they sit on, with the board named on each row. The
+// sort is the whole point of the screen: alphabetical would just be the
+// board pages stapled together.
+
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { getOrgBySlug } from "@/lib/org/membership";
+import { requireRole } from "@/lib/auth/guard";
+import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
+import { RowGlyph } from "@/components/RowGlyph";
+import { TINT } from "@/components/statusHue";
+import { formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
+import { type SeatStatus } from "@/lib/governance/giveGet";
+import { loadGovernance } from "@/lib/data/governanceView";
+
+export const dynamic = "force-dynamic";
+
+const STATUS_LABEL: Record<SeatStatus, string> = {
+  prospect: "Prospect",
+  active: "Active",
+  emeritus: "Emeritus",
+  resigned: "Resigned",
+};
+
+function roleFor(percent: number | null): "committed" | "offer" | "target" {
+  if (percent === null) return "target";
+  return percent >= 75 ? "committed" : "offer";
+}
+
+export default async function AllSeatsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ year?: string }>;
+}) {
+  const { slug } = await params;
+  const { year } = await searchParams;
+  const org = await getOrgBySlug(slug);
+  if (!org) notFound();
+  if (!org.modules.board_governance) notFound();
+  await requireRole(org.id, ["owner", "staff", "member"]);
+
+  const fiscalYear = Number(year) || new Date().getFullYear();
+  const view = await loadGovernance(org.id, fiscalYear);
+
+  const boardName = new Map(view.boards.map((b) => [b.id, b.name]));
+
+  const seats = view.boards.flatMap((b) => view.membersByBoard.get(b.id) ?? []);
+  const active = seats.filter((m) => m.status === "active");
+  const other = seats.filter((m) => m.status !== "active");
+
+  // Furthest behind first. A seat with no commitment has no percentage,
+  // and sorts to the end rather than to the front: nothing is expected
+  // of it, so it is not the chair's problem.
+  const byNeed = [...active].sort((a, a2) => {
+    const pa = view.progressByMember.get(a.id)?.percent;
+    const pb = view.progressByMember.get(a2.id)?.percent;
+    if (pa === null || pa === undefined) return 1;
+    if (pb === null || pb === undefined) return -1;
+    return pa - pb || a.name.localeCompare(a2.name);
+  });
+
+  const rank = (s: SeatStatus) => (s === "prospect" ? 0 : s === "emeritus" ? 1 : 2);
+  const byStatus = [...other].sort((a, b) => rank(a.status) - rank(b.status) || a.name.localeCompare(b.name));
+
+  const committedCents = active.reduce((s, m) => s + m.commitmentCents, 0);
+  const raisedCents = active.reduce((s, m) => s + (view.progressByMember.get(m.id)?.totalCents ?? 0), 0);
+  const meeting = active.filter((m) => view.progressByMember.get(m.id)?.met).length;
+  const shortfall = Math.max(0, committedCents - raisedCents);
+
+  return (
+    <main className="px-4 pb-24 pt-2">
+      <div className="mb-2">
+        <Link
+          href={`/org/${slug}/board-governance`}
+          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted"
+        >
+          &larr; Board
+        </Link>
+      </div>
+      <h1 className="mb-1 text-[20px] font-extrabold text-ink">Every seat</h1>
+      <p className="mb-5 text-[12.5px] leading-tight text-muted">
+        {fiscalYear}, across all {view.boards.length} {view.boards.length === 1 ? "board" : "boards"}. Furthest behind first.
+      </p>
+
+      {seats.length === 0 ? (
+        <EmptyState icon={<RowGlyph kind="people" role="neutral" className="h-7 w-7" />} title="No seats yet">
+          Add a board and its seats, and every one of them shows up here with its give/get progress.
+        </EmptyState>
+      ) : (
+        <>
+          {active.length > 0 && (
+            <div className="mb-4">
+              <RailCard role={shortfall > 0 ? "offer" : "committed"} kind="board">
+                <div className="text-[13px] font-bold text-ink">
+                  {meeting} of {active.length} active {active.length === 1 ? "seat has" : "seats have"} met their commitment
+                </div>
+                <div className="mt-1 text-[11.5px] leading-tight text-muted">
+                  {formatMoney(raisedCents)} of {formatMoney(committedCents)} committed.
+                  {shortfall > 0 ? ` ${formatMoney(shortfall)} outstanding across the board.` : ""}
+                </div>
+              </RailCard>
+            </div>
+          )}
+
+          {byNeed.length > 0 && (
+            <>
+              <div className="mb-2">
+                <SectionHeader label="Active seats" count={byNeed.length} role="contact" kind="people" />
+              </div>
+              <div className="flex flex-col gap-2">
+                {byNeed.map((m) => {
+                  const p = view.progressByMember.get(m.id);
+                  const role = roleFor(p?.percent ?? null);
+                  return (
+                    <Link key={m.id} href={`/org/${slug}/board-governance/${m.boardId}/seats/${m.id}`} className="block">
+                      <RailCard role={role} kind="people">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[13px] font-bold leading-tight text-ink">{m.name}</div>
+                            <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                              {boardName.get(m.boardId) ?? "Board"}
+                              {m.roleTitle ? ` · ${m.roleTitle}` : ""}
+                            </div>
+                            {p && p.commitmentCents > 0 && (
+                              <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                                {formatMoneyShort(p.totalCents)} of {formatMoneyShort(p.commitmentCents)}
+                                {p.raisedCents > 0 ? ` · ${formatMoneyShort(p.raisedCents)} brought in` : ""}
+                              </div>
+                            )}
+                          </div>
+                          <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
+                            {p?.percent == null ? "no target" : `${p.percent}%`}
+                          </span>
+                        </div>
+                      </RailCard>
+                    </Link>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Kept on the screen and kept out of the numbers above.
+              A prospect has not joined and an emeritus member is not on
+              the hook, so counting either would make the board look
+              further behind than it is. Hiding them instead would lose
+              the prospect list, which is the thing a chair recruits
+              from. */}
+          {byStatus.length > 0 && (
+            <>
+              <div className="mb-2 mt-5">
+                <SectionHeader label="Not carrying a commitment" count={byStatus.length} role="target" kind="people" />
+              </div>
+              <div className="flex flex-col gap-2">
+                {byStatus.map((m) => (
+                  <Link key={m.id} href={`/org/${slug}/board-governance/${m.boardId}/seats/${m.id}`} className="block">
+                    <RailCard role="target" kind="people">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] font-bold leading-tight text-ink">{m.name}</div>
+                          <div className="mt-0.5 text-[11.5px] leading-tight text-muted">
+                            {boardName.get(m.boardId) ?? "Board"}
+                            {m.roleTitle ? ` · ${m.roleTitle}` : ""}
+                          </div>
+                        </div>
+                        <span className={`inline-flex flex-shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${TINT.low}`}>
+                          {STATUS_LABEL[m.status]}
+                        </span>
+                      </div>
+                    </RailCard>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </main>
+  );
+}

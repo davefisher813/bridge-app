@@ -30,6 +30,7 @@ import {
   GIFT_CATEGORIES,
 } from "../src/lib/fundraising/rollup";
 import {
+  creditedGifts,
   giveGetProgress,
   summarizeBoard,
   BOARD_KIND_LABEL,
@@ -55,6 +56,7 @@ declare global {
       toCents: typeof toCents;
       CATEGORY_LABEL: typeof CATEGORY_LABEL;
       GIFT_CATEGORIES: typeof GIFT_CATEGORIES;
+      creditedGifts: typeof creditedGifts;
       giveGetProgress: typeof giveGetProgress;
       summarizeBoard: typeof summarizeBoard;
       BOARD_KIND_LABEL: typeof BOARD_KIND_LABEL;
@@ -82,6 +84,7 @@ window.Engines = {
   toCents,
   CATEGORY_LABEL,
   GIFT_CATEGORIES,
+  creditedGifts,
   giveGetProgress,
   summarizeBoard,
   BOARD_KIND_LABEL,

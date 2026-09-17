@@ -33,7 +33,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
       .eq("org_id", org.id)
       .order("received_on", { ascending: false }),
     supabase.from("pledges").select("id, amount, promised_on, due_on, status, donor_id, campaign_id").eq("org_id", org.id),
-    supabase.from("board_members").select("id, name, role_title, status, donor_id").eq("org_id", org.id).eq("donor_id", id),
+    supabase.from("board_members").select("id, board_id, name, role_title, status, donor_id").eq("org_id", org.id).eq("donor_id", id),
   ]);
 
   if (!donor) notFound();
@@ -43,7 +43,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
   const totals = donorTotals(id, allGifts, allPledges, fiscalYear);
   const gifts = allGifts.filter((g) => g.donorId === id);
   const pledges = allPledges.filter((p) => p.donorId === id);
-  const seat = (seatRows ?? [])[0] as { id: string; name: string; role_title: string | null } | undefined;
+  const seat = (seatRows ?? [])[0] as { id: string; board_id: string; name: string; role_title: string | null } | undefined;
   const d = donor as { name: string; donor_type: string; email: string | null; phone: string | null };
 
   return (
@@ -89,7 +89,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
           unrelated numbers. */}
       {seat && (
         <div className="mb-5">
-          <Link href={`/org/${slug}/board-governance`} className="block">
+          <Link href={`/org/${slug}/board-governance/${seat.board_id}/seats/${seat.id}`} className="block">
             <RailCard role="people" kind="people">
               <div className="text-[13px] font-bold leading-tight text-ink">Sits on a board</div>
               <div className="mt-0.5 text-[11.5px] leading-tight text-muted">{seat.role_title ?? seat.name}</div>

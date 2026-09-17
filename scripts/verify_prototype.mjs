@@ -266,6 +266,25 @@ await tap("text=Renata Coyle");
 t = await text();
 check("a seat opens its own give/get", has(t, "Renata Coyle") && has(t, "Brought in"));
 
+// The seat screen and the Executive Board's chair, who has both kinds
+// of excluded gift on her seat. A list that quietly dropped them would
+// leave her asking where they went; a list that showed them unmarked
+// would not add up to the percentage above it.
+await tap("text=\u2190 Baseball Board");
+await tap("text=\u2190 Board");
+await tap("text=Executive Board");
+await tap("text=Priya Raman");
+t = await text();
+check("a seat shows the gifts behind its percentage", has(t, "Priya Raman") && /Given/.test(t));
+check("an in-kind gift on a seat says it does not count", /In kind, so it does not count/.test(t));
+check("a gift from another year on a seat says so", /Outside this year/.test(t));
+
+await tap("text=\u2190 Executive Board");
+await tap("text=\u2190 Board");
+await tap("text=Every seat");
+t = await text();
+check("every seat lists across boards", has(t, "Priya Raman") && has(t, "Renata Coyle"));
+
 // ── Documents ────────────────────────────────────────────────────────
 await tap("button:has-text('More')");
 await tap("text=Documents");

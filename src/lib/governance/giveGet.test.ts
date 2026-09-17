@@ -261,3 +261,85 @@ describe("the tiers from the governance document", () => {
     expect(DEFAULT_SEATS.sport).toEqual({ min: 3, max: 5 });
   });
 });
+
+// Added 2026-09-17 with the seat screen. The screen prints a percentage
+// and, below it, the gifts that produced it. Those two are only
+// trustworthy together if they cannot disagree, which is what this
+// pins.
+describe("creditedGifts", () => {
+  const base = {
+    pledges: [] as Pledge[],
+    periodStart: "2026-01-01",
+    periodEnd: "2026-12-31",
+  };
+
+  it("marks their own gift given and somebody else's raised", async () => {
+    const { creditedGifts } = await import("./giveGet");
+    const mine = gift({ donorId: "d1", amountCents: 1_000_00 });
+    const theirs = gift({ donorId: "d9", amountCents: 2_000_00 });
+    const list = creditedGifts({
+      ...base,
+      member: member(),
+      gifts: [mine, theirs],
+      solicitedBy: { [theirs.id]: "m1" },
+    });
+    expect(list).toHaveLength(2);
+    expect(list.find((c) => c.gift.id === mine.id)!.credit).toBe("given");
+    expect(list.find((c) => c.gift.id === theirs.id)!.credit).toBe("raised");
+  });
+
+  it("leaves an unrelated gift out entirely", async () => {
+    const { creditedGifts } = await import("./giveGet");
+    const list = creditedGifts({
+      ...base,
+      member: member(),
+      gifts: [gift({ donorId: "d9" })],
+      solicitedBy: {},
+    });
+    expect(list).toEqual([]);
+  });
+
+  // The whole point. A shown gift that did not count says so, and the
+  // ones that did count add up to exactly the number printed above them.
+  it("keeps the shown list and the counted total in agreement", async () => {
+    const { creditedGifts } = await import("./giveGet");
+    const gifts = [
+      gift({ donorId: "d1", amountCents: 1_000_00, receivedOn: "2026-03-01" }),
+      gift({ donorId: "d1", amountCents: 500_00, receivedOn: "2026-03-02", method: "in_kind" }),
+      gift({ donorId: "d1", amountCents: 700_00, receivedOn: "2025-12-31" }),
+      gift({ donorId: "d7", amountCents: 2_000_00, receivedOn: "2026-06-01" }),
+    ];
+    const solicitedBy = { [gifts[3].id]: "m1" };
+    const m = member();
+    const list = creditedGifts({ ...base, member: m, gifts, solicitedBy });
+    const p = giveGetProgress({ ...base, member: m, gifts, solicitedBy });
+
+    expect(list).toHaveLength(4);
+    const counted = list.filter((c) => c.counted);
+    expect(counted.reduce((s, c) => s + c.gift.amountCents, 0)).toBe(p.totalCents);
+    expect(list.find((c) => c.excludedBecause === "in_kind")).toBeDefined();
+    expect(list.find((c) => c.excludedBecause === "outside_period")).toBeDefined();
+  });
+
+  it("counts a gift they made and also solicited once, as given", async () => {
+    const { creditedGifts } = await import("./giveGet");
+    const g = gift({ donorId: "d1", amountCents: 3_000_00 });
+    const m = member();
+    const list = creditedGifts({ ...base, member: m, gifts: [g], solicitedBy: { [g.id]: "m1" } });
+    expect(list).toHaveLength(1);
+    expect(list[0].credit).toBe("given");
+    const p = giveGetProgress({ ...base, member: m, gifts: [g], solicitedBy: { [g.id]: "m1" } });
+    expect(p.totalCents).toBe(3_000_00);
+  });
+
+  it("lists newest first", async () => {
+    const { creditedGifts } = await import("./giveGet");
+    const list = creditedGifts({
+      ...base,
+      member: member(),
+      gifts: [gift({ receivedOn: "2026-02-01" }), gift({ receivedOn: "2026-08-01" })],
+      solicitedBy: {},
+    });
+    expect(list[0].gift.receivedOn).toBe("2026-08-01");
+  });
+});

@@ -111,8 +111,11 @@ export default async function BoardPage({
         {ordered.map((m) => {
           const p = view.progressByMember.get(m.id);
           const memberRole = m.status === "active" ? roleFor(p?.percent ?? null) : "target";
-          return (
-            <RailCard key={m.id} role={memberRole}>
+          // The percentage is only worth printing if it can be opened.
+          // A member told they are at 40% with no way to see which gifts
+          // got them there cannot spot a missing one.
+          const card = (
+            <RailCard role={memberRole}>
               <div className="min-w-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -148,6 +151,11 @@ export default async function BoardPage({
                 )}
               </div>
             </RailCard>
+          );
+          return (
+            <Link key={m.id} href={`/org/${slug}/board-governance/${board.id}/seats/${m.id}`} className="block">
+              {card}
+            </Link>
           );
         })}
       </div>

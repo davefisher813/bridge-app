@@ -194,9 +194,15 @@ not a staff one: those three links sit outside the `canEdit` block on
 the fundraising index. A board member who is shown a total can see what
 it is made of, which is the point of showing them a total.
 
-Governance:
-- `member` a board seat's give/get, and the gifts credited to it
-- `members` every seat across every board in one list
+Governance: both done 2026-09-17.
+- ~~`member`~~ `/board-governance/[id]/seats/[memberId]`. Shows every
+  gift attached to the seat, including the ones that did not count,
+  each marked with the reason. `creditedGifts()` does the marking and a
+  test pins the counted rows to the same total `giveGetProgress()`
+  reports, so the list and the percentage above it cannot disagree.
+- ~~`members`~~ `/board-governance/members`, sorted by who is furthest
+  behind rather than alphabetically. That sort is the screen: the board
+  pages are already the by-board view.
 
 Prototype-only by design, not gaps: the bug flagger and the "How this
 works" guide.

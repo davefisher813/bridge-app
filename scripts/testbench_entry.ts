@@ -29,7 +29,7 @@ import { parseApprovedListPaste, parseIsSaveable } from "../src/lib/fit/ncaa/app
 import { letterFromScale } from "../src/lib/fit/ncaa/fromTranscript";
 import { checkIngestedRecord } from "../src/lib/docai/acceptance";
 import { summarize as summarizeFundraising, toCents as moneyToCents, campaignProgress } from "../src/lib/fundraising/rollup";
-import { giveGetProgress, summarizeBoard } from "../src/lib/governance/giveGet";
+import { creditedGifts, giveGetProgress, summarizeBoard } from "../src/lib/governance/giveGet";
 import { MAX_INGEST_BYTES } from "../src/lib/docai/limits";
 
 // ---------------------------------------------------------------- assertions
@@ -480,6 +480,33 @@ function runSuite(): Check[] {
     const s = summarizeBoard(board, [seat("m1", "active"), seat("m2", "prospect"), seat("m3", "emeritus")], []);
     if (s.seatsFilled !== 1) return `counted ${s.seatsFilled} filled seats, expected 1`;
     if (s.committedCents !== 500000) return `committed ${s.committedCents}, expected 500000`;
+    return null;
+  });
+
+  check("Board give/get", "the gifts a seat shows add up to the percentage above them", () => {
+    // The seat screen prints a percentage and lists the gifts behind
+    // it. The list includes gifts that did not count, each marked with
+    // a reason, so a member can see nothing was lost. Those two are only
+    // trustworthy together if the counted rows sum to exactly the total.
+    const member = { id: "m1", boardId: "b1", name: "X", donorId: "d1", roleTitle: null, status: "active" as const, termStart: null, termEnd: null, commitmentCents: 1000000 };
+    const g = (id: string, cents: number, on: string, method: "check" | "in_kind", donorId: string) =>
+      ({ id, amountCents: cents, receivedOn: on, category: "board" as const, method, donorId, campaignId: null, pledgeId: null });
+    const gifts = [
+      g("g1", 100000, "2026-03-01", "check", "d1"),
+      g("g2", 50000, "2026-03-02", "in_kind", "d1"),
+      g("g3", 70000, "2025-12-31", "check", "d1"),
+      g("g4", 200000, "2026-06-01", "check", "d7"),
+      g("g5", 900000, "2026-06-02", "check", "d9"),
+    ];
+    const input = { member, gifts, pledges: [], solicitedBy: { g4: "m1" }, periodStart: "2026-01-01", periodEnd: "2026-12-31" };
+    const list = creditedGifts(input);
+    const p = giveGetProgress(input);
+
+    if (list.length !== 4) return `listed ${list.length} gifts on the seat, expected 4 (g5 belongs to nobody here)`;
+    const counted = list.filter((c) => c.counted).reduce((s2, c) => s2 + c.gift.amountCents, 0);
+    if (counted !== p.totalCents) return `the listed gifts total ${counted} and the screen prints ${p.totalCents}`;
+    if (!list.some((c) => c.excludedBecause === "in_kind")) return "the in-kind gift was not shown as excluded";
+    if (!list.some((c) => c.excludedBecause === "outside_period")) return "last year's gift was not shown as excluded";
     return null;
   });
 

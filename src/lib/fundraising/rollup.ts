@@ -39,6 +39,19 @@ export const CATEGORY_LABEL: Record<GiftCategory, string> = {
 
 export type GiftMethod = "stripe" | "check" | "cash" | "in_kind" | "other";
 
+// Beside CATEGORY_LABEL rather than in a screen, because more than one
+// screen prints a method and two of them spelled it differently the
+// first time: the ledger showed the raw "in_kind" and the seat screen
+// wanted "In kind". A label is data about the value, so it lives with
+// the value.
+export const METHOD_LABEL: Record<GiftMethod, string> = {
+  stripe: "Card",
+  check: "Check",
+  cash: "Cash",
+  in_kind: "In kind",
+  other: "Other",
+};
+
 export interface Gift {
   id: string;
   // Cents. Negative is a refund or correction, which keeps a reversal in

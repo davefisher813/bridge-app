@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { solicitedByMap, toBoardMembers, toBoards, type BoardMemberRow, type BoardRow } from "@/lib/data/governanceAdapters";
 import { giveGetProgress, summarizeBoard, type Board, type BoardMember, type BoardSummary, type GiveGetProgress } from "@/lib/governance/giveGet";
+import type { Gift, Pledge } from "@/lib/fundraising/rollup";
 
 export interface GovernanceView {
   boards: Board[];
@@ -17,6 +18,17 @@ export interface GovernanceView {
   summaryByBoard: Map<string, BoardSummary>;
   periodStart: string;
   periodEnd: string;
+
+  // The rows the progress was computed from, returned rather than
+  // re-queried by the seat screen. A seat's page has to show the gifts
+  // behind its own percentage, and a second query written to find them
+  // is a second set of filters that can disagree with the first. It is
+  // the same reason this loader exists at all.
+  gifts: Gift[];
+  pledges: Pledge[];
+  solicitedBy: Record<string, string | null>;
+  pledgeSolicitedBy: Record<string, string | null>;
+  donorNames: Map<string, string>;
 }
 
 export async function loadGovernance(orgId: string, fiscalYear: number): Promise<GovernanceView> {
@@ -27,7 +39,7 @@ export async function loadGovernance(orgId: string, fiscalYear: number): Promise
   const periodStart = `${fiscalYear}-01-01`;
   const periodEnd = `${fiscalYear}-12-31`;
 
-  const [{ data: boardRows }, { data: memberRows }, { data: giftRows }, { data: pledgeRows }] = await Promise.all([
+  const [{ data: boardRows }, { data: memberRows }, { data: giftRows }, { data: pledgeRows }, { data: donorRows }] = await Promise.all([
     supabase.from("boards").select("id, name, kind, sport, give_get_amount, min_seats, max_seats").eq("org_id", orgId).order("sort_order"),
     supabase
       .from("board_members")
@@ -39,6 +51,9 @@ export async function loadGovernance(orgId: string, fiscalYear: number): Promise
       .select("id, amount, received_on, category, method, donor_id, campaign_id, pledge_id, solicited_by")
       .eq("org_id", orgId),
     supabase.from("pledges").select("id, amount, promised_on, due_on, status, donor_id, campaign_id, solicited_by").eq("org_id", orgId),
+    // Names only. A seat's page names the donor behind each gift, and
+    // looking one up per row would be a query per gift.
+    supabase.from("donors").select("id, name").eq("org_id", orgId),
   ]);
 
   const boards = toBoards(boardRows as BoardRow[] | null);
@@ -77,5 +92,20 @@ export async function loadGovernance(orgId: string, fiscalYear: number): Promise
     );
   }
 
-  return { boards, membersByBoard, progressByMember, summaryByBoard, periodStart, periodEnd };
+  const donorNames = new Map<string, string>();
+  for (const d of (donorRows ?? []) as Array<{ id: string; name: string }>) donorNames.set(d.id, d.name);
+
+  return {
+    boards,
+    membersByBoard,
+    progressByMember,
+    summaryByBoard,
+    periodStart,
+    periodEnd,
+    gifts,
+    pledges,
+    solicitedBy,
+    pledgeSolicitedBy,
+    donorNames,
+  };
 }

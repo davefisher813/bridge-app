@@ -319,6 +319,28 @@ function giveGetFor(memberId) {
   });
 }
 
+// The same input giveGetFor builds, handed to the shipped
+// creditedGifts. The prototype used to filter the seat's gifts with its
+// own one-line condition, which meant the list on the screen and the
+// percentage above it were produced by two different rules.
+function creditedFor(memberId) {
+  const m = byOrg(db.boardMembers).find((x) => x.id === memberId);
+  if (!m) return [];
+  const solicitedBy = {};
+  for (const g of byOrg(db.gifts)) solicitedBy[g.id] = g.solicitedBy;
+  const pledgeSolicitedBy = {};
+  for (const p of byOrg(db.pledges)) pledgeSolicitedBy[p.id] = p.solicitedBy;
+  return E.creditedGifts({
+    member: m,
+    gifts: byOrg(db.gifts),
+    pledges: byOrg(db.pledges),
+    solicitedBy,
+    pledgeSolicitedBy,
+    periodStart: `${FISCAL_YEAR}-01-01`,
+    periodEnd: `${FISCAL_YEAR}-12-31`,
+  });
+}
+
 function boardSummary(boardId) {
   const b = byOrg(db.boards).find((x) => x.id === boardId);
   const members = byOrg(db.boardMembers).filter((m) => m.boardId === boardId);
@@ -1912,7 +1934,7 @@ SCREENS.member = () => {
   const m = byOrg(db.boardMembers).find((x) => x.id === state.params.id);
   const b = byOrg(db.boards).find((x) => x.id === m.boardId);
   const p = giveGetFor(m.id);
-  const gifts = byOrg(db.gifts).filter((g) => g.solicitedBy === m.id || (m.donorId && g.donorId === m.donorId));
+  const credited = creditedFor(m.id);
   const role = m.status === "active" ? pctRole(p.percent) : "target";
 
   return `
@@ -1946,24 +1968,31 @@ SCREENS.member = () => {
         : ""
     }
 
-    <div class="mb-2 mt-5">${header("Gifts counted", gifts.length, "committed")}</div>
+    <div class="mb-2 mt-5">${header("Gifts on this seat", credited.length, "committed", "money")}</div>
     <div class="flex flex-col gap-2">${
-      gifts.length
-        ? gifts
-            .map((g) => {
-              const theirs = m.donorId && g.donorId === m.donorId;
+      credited.length
+        ? credited
+            .map((c) => {
+              const g = c.gift;
+              const note = c.excludedBecause === "in_kind"
+                ? "Not counted. In kind, so it does not count toward a cash commitment."
+                : c.excludedBecause === "outside_period"
+                  ? "Not counted. Outside this year, so it counts toward the year it was received."
+                  : "";
+              const meta = `${esc(new Date(g.receivedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))} &middot; ${esc(
+                g.donorId ? donor(g.donorId).name : "Anonymous",
+              )}${note ? "<br>" + esc(note) : ""}`;
               return row(
-                theirs ? "committed" : "visit",
-                theirs ? "Given" : "Brought in",
-                `${esc(new Date(g.receivedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))} &middot; ${esc(
-                  g.donorId ? donor(g.donorId).name : "Anonymous",
-                )}`,
-                `<span class="flex-shrink-0 text-[14px] font-extrabold tabular-nums text-ink">${E.formatMoney(g.amountCents)}</span>`,
+                !c.counted ? "target" : c.credit === "given" ? "committed" : "visit",
+                c.credit === "given" ? "Given" : "Brought in",
+                meta,
+                `<span class="flex-shrink-0 text-[14px] font-extrabold tabular-nums ${c.counted ? "text-ink" : "text-muted"}">${E.formatMoney(g.amountCents)}</span>`,
                 g.donorId ? `go('donor',{id:'${g.donorId}'})` : null,
+                c.credit === "given" ? "money" : "people",
               );
             })
             .join("")
-        : emptyState("Nothing counted", "No gift is credited to this seat yet.")
+        : emptyState("Nothing credited", "No gift is recorded against this seat yet.")
     }</div>
   `;
 };
@@ -2107,6 +2136,8 @@ SCREENS.governance = () => {
         );
       })
       .join("")}</div>
+
+    <div class="mt-5">${button("Every seat", "go('members')", "secondary")}</div>
   `;
 };
 
