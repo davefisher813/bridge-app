@@ -86,7 +86,7 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
           <div className="flex flex-col gap-2">
             {rows.map((a) => {
               const row = (
-                <RailCard role={statusRole(a.status)}>
+                <RailCard role={statusRole(a.status)} kind="athlete">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Avatar name={a.name} />

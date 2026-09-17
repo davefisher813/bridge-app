@@ -38,7 +38,6 @@ def parse_map(name):
 
 SOLID = parse_map("SOLID")
 TINT = parse_map("TINT")
-RAIL = parse_map("RAIL")
 DOT = parse_map("DOT")
 
 # The real thresholds, read out of the shipped module rather than
@@ -70,7 +69,7 @@ def header(label, count=None, role="accent"):
 
 
 def rail(role, inner):
-    return f'<div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 {RAIL[role]}">{inner}</div>'
+    return f'<div class="rounded-[10px] bg-paper px-3.5 py-3">{inner}</div>'
 
 
 def badge(role, glyph):

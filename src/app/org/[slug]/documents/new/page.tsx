@@ -1,3 +1,4 @@
+import { RowGlyph } from "@/components/RowGlyph";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -26,12 +27,15 @@ export default async function NewDocumentPage({ params }: { params: Promise<{ sl
       </p>
 
       {stubbed && (
-        <div className="mb-5 rounded-[10px] border-l-[5px] border-l-ios-yellow bg-paper px-3.5 py-3">
+        <div className="mb-5 flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
+          <span className="mt-[1px]"><RowGlyph kind="warning" role="time" /></span>
+          <div className="min-w-0 flex-1">
           <div className="text-[14.5px] font-bold text-ink">Simulated reading</div>
           <div className="mt-0.5 text-[12.5px] text-muted">
             No AI model is connected yet, so nothing is actually read off the page. The whole flow runs and the results are made up.
           </div>
         </div>
+          </div>
       )}
 
       <DocumentUploader slug={slug} />

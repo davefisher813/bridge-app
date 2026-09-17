@@ -1,3 +1,4 @@
+import { RowGlyph } from "@/components/RowGlyph";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -66,7 +67,7 @@ function DocumentRow({ slug, doc, role }: { slug: string; doc: DocRow; role: Rol
   const pct = doc.provenance?.confidence != null ? Math.round(doc.provenance.confidence * 100) : null;
   return (
     <Link href={`/org/${slug}/documents/${doc.id}`} className="block">
-      <RailCard role={role}>
+      <RailCard role={role} kind="document">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="truncate text-[15px] font-bold text-ink">
@@ -118,12 +119,15 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
       </div>
 
       {stubbed && (
-        <div className="mb-4 rounded-[10px] border-l-[5px] border-l-ios-yellow bg-paper px-3.5 py-3">
+        <div className="mb-4 flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
+          <span className="mt-[1px]"><RowGlyph kind="warning" role="time" /></span>
+          <div className="min-w-0 flex-1">
           <div className="text-[14.5px] font-bold text-ink">Simulated reading</div>
           <div className="mt-0.5 text-[12.5px] text-muted">
             No AI model is connected yet. Anything here was made up by the stand-in, not read off a page.
           </div>
         </div>
+          </div>
       )}
 
       {rows.length === 0 ? (

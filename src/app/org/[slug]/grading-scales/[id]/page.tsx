@@ -52,7 +52,7 @@ export default async function EditGradingScalePage({ params }: { params: Promise
       {notes.length > 0 && (
         <div className="mb-5 flex flex-col gap-2">
           {notes.map((n, i) => (
-            <RailCard key={i} role="offer">
+            <RailCard key={i} role="offer" kind="warning">
               <div className="text-[13.5px] leading-tight text-ink">{n}</div>
             </RailCard>
           ))}

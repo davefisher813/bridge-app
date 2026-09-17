@@ -165,7 +165,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
               <div className="flex flex-col gap-2">
                 {group.rows.map((r) => {
                   const row = (
-                    <RailCard role={statusRole(r.status)}>
+                    <RailCard role={statusRole(r.status)} kind="school">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="text-[16px] font-semibold text-ink">

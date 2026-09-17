@@ -83,7 +83,7 @@ export default async function BoardPage({
       </p>
 
       <div className="mb-4">
-        <RailCard role={role}>
+        <RailCard role={role} kind="money">
           <div className="min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="text-[14.5px] font-bold text-ink">
@@ -123,7 +123,7 @@ export default async function BoardPage({
           // A member told they are at 40% with no way to see which gifts
           // got them there cannot spot a missing one.
           const card = (
-            <RailCard role={memberRole}>
+            <RailCard role={memberRole} kind="people">
               <div className="min-w-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

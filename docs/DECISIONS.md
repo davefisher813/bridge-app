@@ -1436,8 +1436,13 @@ against both rows.
 **Decision.** Three changes Dave asked for in one pass, after clicking
 through the prototype on his phone.
 
-1. No pill, chip, badge or group tab carries a `bg-tint-*` or
-   `bg-solid-*` fill. Each is a glyph in the role's hue plus a plain
+1. No pill, chip, badge, group tab or card carries a `bg-tint-*`,
+   `bg-solid-*` or `border-l-[5px]` fill. The 5px rail went in the same
+   pass, an hour later, when Dave looked at the roster and said "there's
+   color right here": it was the last coloured block left, and on that
+   row it was the third thing on one line saying status, after the avatar
+   and the stage pill. `RAIL` is deleted from `statusHue.ts` rather than
+   left unused. Each is a glyph in the role's hue plus a plain
    label, which is the anatomy the type glyph already used. `Chip` in
    `src/components/catalog.tsx` is the single implementation.
 2. Every `text-[Npx]` moved up one step of the scale, in a single pass.
@@ -1466,10 +1471,13 @@ both saying status.
   text. The first build of the bare coloured score number produced
   twenty-six AA failures. A glyph takes `FG`; a word or a number takes
   `TEXT_ON`.
-- Three laws in `src/laws/stylingLaws.test.ts` hold the line: no fill in
-  a `rounded-full` class string, no `${TINT[...]}` interpolated into one,
-  and no text size in the same class string as an `FG` lookup. All three
-  were planted, watched to fail, and reverted.
+- Five laws in `src/laws/stylingLaws.test.ts` hold the line: no fill in a
+  `rounded-full` class string, no `${TINT[...]}` interpolated into one,
+  no text size in the same class string as an `FG` lookup, no
+  `border-l-[5px]` or `border-l-ios-*` anywhere, and no `RAIL` map to
+  rebuild one from. All five were planted, watched to fail, and reverted.
+  The rail law immediately found six hand-written rails outside
+  `RailCard` that nobody had been looking at.
 - Selectable controls (subject picker, stage picker, Doc AI categories)
   show "chosen" with a ring rather than a fill. A control has to show
   state; it does not have to show it with a coloured block.

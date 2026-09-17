@@ -189,7 +189,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       ) : (
         <div className="flex flex-col gap-2">
           {needsFollowUp.map((t) => (
-            <RailCard key={t.id} role={statusRole(t.status)}>
+            <RailCard key={t.id} role={statusRole(t.status)} kind="school">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-[15px] font-bold text-ink">{t.athleteName}</div>
@@ -217,7 +217,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       ) : (
         <div className="flex flex-col gap-2">
           {upcomingVisits.map((v) => (
-            <RailCard key={v.id} role="visit">
+            <RailCard key={v.id} role="visit" kind="visit">
               <div className="text-[15px] font-bold text-ink">Visit &middot; {v.schoolName}</div>
               <div className="text-[12.5px] text-muted">
                 {new Date(v.visitDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} &middot;{" "}
@@ -226,7 +226,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
             </RailCard>
           ))}
           {upcomingWindows.map((w) => (
-            <RailCard key={`${w.sport}-${w.division}-${w.window_label}`}>
+            <RailCard key={`${w.sport}-${w.division}-${w.window_label}`} role="time" kind="clock">
               <div className="text-[15px] font-bold text-ink">Transfer portal opens</div>
               <div className="text-[12.5px] text-muted">
                 {w.sport} {w.division} &middot; {w.window_label} &middot; in {daysUntil(w.opens_on)} days

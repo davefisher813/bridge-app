@@ -137,7 +137,7 @@ export default async function BoardGovernancePage({
               const role = roleFor(s.percent);
               return (
                 <Link key={b.id} href={`/org/${slug}/board-governance/${b.id}`} className="block">
-                  <RailCard role={role}>
+                  <RailCard role={role} kind="governance">
                     <div className="min-w-0">
                       <div className="flex items-start justify-between gap-3">
                         <div className="text-[14.5px] font-bold text-ink">{b.name}</div>

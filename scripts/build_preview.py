@@ -55,18 +55,18 @@ SCREENS["today"] = ("Today", "dark", """
 
   <div class="mb-2 mt-6">__SH_FOLLOWUP__</div>
   <div class="flex flex-col gap-2">
-    __RAIL_AVA__
-    __RAIL_MARCUS__
+    
+    
     <a href="#" class="mt-1 self-end text-[13px] font-bold text-accent">View board &rarr;</a>
   </div>
 
   <div class="mb-2 mt-6">__SH_UPCOMING__</div>
   <div class="flex flex-col gap-2">
-    <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_visit__">
+    <div class="rounded-[10px] bg-paper px-3.5 py-3">
       <div class="text-[15px] font-bold text-ink">Visit &middot; Fairview State</div>
       <div class="text-[12.5px] text-muted">Fri, Sep 19 &middot; Marcus Bell</div>
     </div>
-    <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_time__">
+    <div class="rounded-[10px] bg-paper px-3.5 py-3">
       <div class="text-[15px] font-bold text-ink">Transfer portal opens</div>
       <div class="text-[12.5px] text-muted">Baseball D1 &middot; Fall window &middot; in 42 days</div>
     </div>
@@ -114,7 +114,7 @@ SCREENS["athlete"] = ("Athlete detail", "dark", """
   <div class="mt-8">
     <div class="mb-2">__SH_COLLEGES__</div>
     <div class="flex flex-col gap-2">
-      <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_visit__">
+      <div class="rounded-[10px] bg-paper px-3.5 py-3">
         <div class="flex items-center justify-between gap-3">
           <div>
             <div class="text-[15px] font-semibold text-ink">Fairview State</div>
@@ -123,7 +123,7 @@ SCREENS["athlete"] = ("Athlete detail", "dark", """
           __PILL_VISIT__
         </div>
       </div>
-      <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_offer__">
+      <div class="rounded-[10px] bg-paper px-3.5 py-3">
         <div class="flex items-center justify-between gap-3">
           <div>
             <div class="text-[15px] font-semibold text-ink">Northgate College</div>
@@ -138,7 +138,7 @@ SCREENS["athlete"] = ("Athlete detail", "dark", """
   <div class="mt-8">
     <div class="mb-2">__SH_CONTACTS__</div>
     <div class="flex flex-col gap-2">
-      <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_people__">
+      <div class="rounded-[10px] bg-paper px-3.5 py-3">
         <div class="flex items-start justify-between gap-3">
           <div>
             <div class="text-[14.5px] font-bold text-ink">Coach Rivera</div>
@@ -244,7 +244,7 @@ SCREENS["more"] = ("More", "dark", """
 <main class="px-4 pt-2">
   <div class="mb-3">__SH_MORE__</div>
   <div class="flex flex-col gap-2">
-    <div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 __RAIL_neutral__">
+    <div class="rounded-[10px] bg-paper px-3.5 py-3">
       <div class="text-[15px] font-semibold text-ink">Dave Fisher</div>
       <div class="text-[13px] text-muted">Bridge Foundation for Student Athletes</div>
     </div>
@@ -309,7 +309,6 @@ _HUE_SRC = open("src/components/statusHue.ts").read()
 STATUS_ROLE = _parse_ts_map(_HUE_SRC, "STATUS_ROLE")
 SOLID = _parse_ts_map(_HUE_SRC, "SOLID")
 TINT = _parse_ts_map(_HUE_SRC, "TINT")
-RAIL_MAP = _parse_ts_map(_HUE_SRC, "RAIL")
 DOT_MAP = _parse_ts_map(_HUE_SRC, "DOT")
 
 STAGE_KIND = _parse_ts_map(_HUE_SRC, "STAGE_KIND")
@@ -325,7 +324,6 @@ def glyph(kind, role="neutral", size=20):
             f'stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 {FG[role]}" '
             f'style="width:{size}px;height:{size}px">{d}</svg>')
 
-RAIL = RAIL_MAP
 HUE_OF = STATUS_ROLE
 
 
@@ -346,17 +344,12 @@ def avatar(name):
     )
 
 
-RAIL = {
-    "target": "border-l-ios-gray", "contact": "border-l-ios-blue", "visit": "border-l-ios-mint",
-    "offer": "border-l-ios-orange", "committed": "border-l-ios-green", "accent": "border-l-ios-red",
-    "neutral": "border-l-ios-gray",
-}
 HUE_OF = {"Active": "committed", "In Contact": "contact", "Visit": "visit",
           "Offer": "offer", "Committed": "committed", "Target": "target"}
 
 
 def roster_row(name, meta, gpa, status):
-    return f"""<a href="#" class="block"><div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 {RAIL[HUE_OF[status]]}">
+    return f"""<a href="#" class="block"><div class="rounded-[10px] bg-paper px-3.5 py-3">
   <div class="flex items-center justify-between">
     <div class="flex items-center gap-3">{avatar(name)}
       <div><div class="text-[16px] font-semibold text-ink">{name}</div>
@@ -385,7 +378,7 @@ TAG_STYLE = {"Safety": "text-ios-green", "Fit": "text-ink", "Reach": "text-muted
 
 
 def board_row(athlete, school, meta, score, tag, status):
-    return f"""<a href="#" class="block"><div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 {RAIL[HUE_OF[status]]}">
+    return f"""<a href="#" class="block"><div class="rounded-[10px] bg-paper px-3.5 py-3">
   <div class="flex items-center justify-between gap-3">
     <div>
       <div class="text-[16px] font-semibold text-ink">{athlete} <span class="font-normal text-muted">to</span> {school}</div>
@@ -403,7 +396,7 @@ def group_tab(label, count, hue):
 
 
 def rail_card(hue, inner):
-    return f'<div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 {RAIL[hue]}">{inner}</div>'
+    return f'<div class="rounded-[10px] bg-paper px-3.5 py-3">{inner}</div>'
 
 
 def followup(name, sub, status):
@@ -430,14 +423,13 @@ def step(kind, label, first=False):
 
 
 FRAGMENTS = {
-    **{f"__RAIL_{role}__": cls for role, cls in RAIL_MAP.items()},
     "__SH_FOLLOWUP__": section_header("Needs follow-up", 2),
     "__SH_UPCOMING__": section_header("Upcoming", 2),
     "__SH_COLLEGES__": section_header("Colleges", 2),
     "__SH_CONTACTS__": section_header("Contacts", 1),
     "__SH_MORE__": section_header("More"),
-    "__RAIL_AVA__": followup("Ava Thompson", "Riverside University &middot; no update in 14 days", "In Contact"),
-    "__RAIL_MARCUS__": followup("Marcus Bell", "Fairview State &middot; no update in 9 days", "Visit"),
+    "": followup("Ava Thompson", "Riverside University &middot; no update in 14 days", "In Contact"),
+    "": followup("Marcus Bell", "Fairview State &middot; no update in 9 days", "Visit"),
     "__ROW_MARCUS__": roster_row("Marcus Bell", "Baseball &middot; SS &middot; High School", "3.62", "Active"),
     "__ROW_AVA__": roster_row("Ava Thompson", "Softball &middot; OF &middot; High School", "3.91", "Active"),
     "__ROW_DIEGO__": roster_row("Diego Marin", "Baseball &middot; RHP &middot; Transfer (JUCO)", "3.10", "Committed"),

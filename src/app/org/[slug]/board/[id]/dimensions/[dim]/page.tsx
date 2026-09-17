@@ -109,7 +109,7 @@ export default async function DimensionPage({ params }: { params: Promise<{ slug
       ) : (
         <div className="flex flex-col gap-2">
           {d.reasons.map((r, i) => (
-            <RailCard key={i} role={role}>
+            <RailCard key={i} role={role} kind={meta.kind}>
               <div className="text-[13.5px] leading-relaxed text-ink">{r}</div>
             </RailCard>
           ))}

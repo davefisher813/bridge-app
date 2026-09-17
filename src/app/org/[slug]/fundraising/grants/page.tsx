@@ -174,7 +174,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
               </div>
               <div className="mb-5 flex flex-col gap-2">
                 {soon.map((g) => (
-                  <RailCard key={g.id} role="offer">
+                  <RailCard key={g.id} role="offer" kind="grant">
                     <div className="text-[14.5px] font-bold text-ink">{g.funder_name}</div>
                     <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
                       {g.report_due_on && g.report_due_on <= today
@@ -196,7 +196,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
             {grants.map((g) => {
               const detail = detailFor(g);
               return (
-                <RailCard key={g.id} role={STATUS_ROLE[g.status] === "high" ? "committed" : "contact"}>
+                <RailCard key={g.id} role={STATUS_ROLE[g.status] === "high" ? "committed" : "contact"} kind="grant">
                   <div className="min-w-0">
                     <div className="flex items-start justify-between gap-3">
                       <div className="text-[14.5px] font-bold text-ink">{g.funder_name}</div>

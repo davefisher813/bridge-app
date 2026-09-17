@@ -116,24 +116,15 @@ export const TINT: Record<Role, string> = {
   neutral: "bg-tint-neutral text-tint-neutral-on",
 };
 
-// The 5px left rail on a card. A rail is a border, not a filled surface
-// carrying text, so it takes the primitive rather than a pair.
-export const RAIL: Record<Role, string> = {
-  target: "border-l-ios-gray",
-  contact: "border-l-ios-blue",
-  visit: "border-l-ios-mint",
-  offer: "border-l-ios-orange",
-  committed: "border-l-ios-green",
-  high: "border-l-ios-green",
-  mid: "border-l-ios-yellow",
-  low: "border-l-ios-gray",
-  time: "border-l-ios-yellow",
-  people: "border-l-ios-teal",
-  place: "border-l-ios-indigo",
-  accent: "border-l-ios-red",
-  danger: "border-l-ios-pink",
-  neutral: "border-l-ios-gray",
-};
+// RAIL is gone as of 2026-09-17. It was the 5px coloured left border on
+// a card, and it was the last coloured block in the app after the pills
+// lost their fills. Dave, pointing at the roster: "there's color right
+// here." On that screen it was the third thing on one line saying
+// status, after the avatar and the stage pill.
+//
+// Deleted rather than left unused, so it cannot come back by autocomplete.
+// A card is paper; the type glyph carries the hue. stylingLaws.test.ts
+// fails the build on a border-l-[5px] in any class string.
 
 // The dot on a section header, same idea as the rail.
 export const DOT: Record<Role, string> = {

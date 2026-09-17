@@ -1,5 +1,6 @@
 "use client";
 
+import { RowGlyph } from "@/components/RowGlyph";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ingestFile } from "@/lib/docai/ingest";
@@ -180,10 +181,13 @@ export function DocumentUploader({ slug, boundTo }: DocumentUploaderProps) {
       </div>
 
       {error && (
-        <div className="rounded-[10px] border-l-[5px] border-l-ios-pink bg-paper px-3.5 py-3">
+        <div className="flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
+          <span className="mt-[1px]"><RowGlyph kind="warning" role="danger" /></span>
+          <div className="min-w-0 flex-1">
           <div className="text-[14.5px] font-bold text-ink">Could not read that</div>
           <div className="mt-0.5 text-[12.5px] text-muted">{error}</div>
         </div>
+          </div>
       )}
 
       <button type="button" onClick={onSubmit} disabled={!files.length || busy} className={`${submitClass} w-full disabled:opacity-50`}>

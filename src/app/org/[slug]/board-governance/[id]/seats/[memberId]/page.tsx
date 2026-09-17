@@ -183,7 +183,7 @@ export default async function SeatPage({
 
       {member.donorId === null && (
         <div className="mb-5">
-          <RailCard role="offer">
+          <RailCard role="offer" kind="warning">
             <div className="text-[14.5px] font-bold text-ink">No donor record linked</div>
             <div className="mt-1 text-[12.5px] leading-tight text-muted">
               Their own giving cannot be found without one, so only gifts they are credited with bringing in are counted here.

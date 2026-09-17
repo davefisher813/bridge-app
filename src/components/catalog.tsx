@@ -4,20 +4,31 @@
 // places drifts in six directions.
 
 import type { ReactNode } from "react";
-import { DOT, RAIL, TEXT_ON, scoreRole, type Role } from "@/components/statusHue";
+import { DOT, TEXT_ON, scoreRole, type Role } from "@/components/statusHue";
 import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 
-// C2, revised 2026-09-16. Was a solid card with a 5px coloured left rail.
-// Dave, after clicking through the prototype: "let's use icons like Jarvis
-// does to identify categories instead of the color highlight." The stripe
-// only ever said status, so a list of eight rows was eight stripes and no
-// indication of what any of them was. Passing `kind` swaps the stripe for
-// the type glyph, which keeps the status in its colour and adds the thing
-// the stripe could never say.
+// C2, revised twice.
 //
-// The stripe is still here, and still the default, for rows that are a
-// sentence rather than a record: a warning, a note, a piece of prose. A
-// glyph there labels a paragraph, which is not what a type mark is for.
+// 2026-09-16, Dave: "let's use icons like Jarvis does to identify
+// categories instead of the color highlight." The glyph landed and the
+// 5px coloured rail stayed as the default for rows that were a sentence
+// rather than a record.
+//
+// 2026-09-17, Dave, pointing at the roster: "there's color right here."
+// He was right and the earlier reasoning was wrong. A rail on a prose row
+// is still a coloured block saying status, sitting next to rows whose
+// status is a glyph, which is the same inconsistency the pills had. And
+// on the roster it was worse than inconsistent: the row already carried
+// an avatar AND a status pill, so the rail was the third thing on one
+// line saying the same word.
+//
+// So the rail is gone. A card is paper. `kind` adds the type glyph when
+// a mark helps a reader scan; without one the card is plain, which is
+// right for a row that already has its own mark (an avatar) and for a
+// paragraph, where a glyph would be labelling prose.
+//
+// `role` still colours the glyph, so a row that was orange is still
+// orange. Nothing had to be relearned, there is just less of it.
 export function RailCard({
   role = "accent",
   kind,
@@ -27,7 +38,7 @@ export function RailCard({
   kind?: RowKind;
   children: ReactNode;
 }) {
-  if (!kind) return <div className={`min-h-[44px] rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL[role]}`}>{children}</div>;
+  if (!kind) return <div className="min-h-[44px] rounded-[10px] bg-paper px-3.5 py-3">{children}</div>;
   return (
     <div className="flex min-h-[44px] items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
       <span className="mt-[1px]">

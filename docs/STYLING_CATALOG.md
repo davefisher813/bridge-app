@@ -21,7 +21,7 @@ adding it here first.
 | Status pills | P1 | Glyph in the stage hue, plain label (was: solid fill) |
 | Section headers | H1 | Colored dot, dotted rule, trailing count |
 | Metadata icon badges | B1 | Bare glyph, one hue per field type (was: solid square) |
-| Cards and rows | C2 | Solid card, colored type glyph (was: left border rail) |
+| Cards and rows | C2 | Paper card, colored type glyph; no rail (see below) |
 | Fit score | S2 | The number alone in the band hue (was: tinted pill) |
 | Avatars | AV1 | Gradient fill with initials |
 | Primary buttons | BT3 | Solid rounded rectangle |
@@ -44,9 +44,19 @@ fills on the pills, so for a day a row carried a bare coloured mark at one
 end and a filled coloured block at the other, both meaning status. That is
 the inconsistency he is pointing at, and he is right about it.
 
-**The rule now, everywhere:** a pill, chip, badge or tab is a glyph in the
-role's hue plus a label in `--ink`. No `bg-tint-*` and no `bg-solid-*`
-behind any of them. `Chip` in `src/components/catalog.tsx` is the one
+Then, an hour later, looking at the roster: "there's color right here."
+The 5px coloured left rail was still on every card without a `kind`, and
+on a roster row it was the third thing on one line saying status, after
+the avatar and the stage pill. The earlier reasoning for keeping it, that
+a prose row needs a colour because a glyph would be labelling a
+paragraph, was wrong: what a prose row needs is no mark, not a coloured
+one.
+
+**The rule now, everywhere:** a card is paper. A pill, chip, badge or tab
+is a glyph in the role's hue plus a label in `--ink`. No `bg-tint-*`, no
+`bg-solid-*` and no `border-l-[5px]` behind any of them. `RAIL` is
+deleted from `statusHue.ts` rather than left unused, so it cannot come
+back by autocomplete. `Chip` in `src/components/catalog.tsx` is the one
 implementation; `StatusPill`, `GroupTab` and the per-screen status chips
 all render it.
 

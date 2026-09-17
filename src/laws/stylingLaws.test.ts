@@ -357,6 +357,45 @@ describe("LAW: a row you can tap is at least a thumb tall", () => {
   });
 });
 
+describe("LAW: a card is paper, never a coloured block", () => {
+  // Dave, 2026-09-17, looking at the roster after the pills lost their
+  // fills: "there's color right here." The 5px left rail was the last
+  // one standing, and on that screen it was the third thing on one line
+  // saying status, after the avatar and the stage pill.
+  //
+  // This is the same law as the pill one, one component later, and it is
+  // written separately because the shapes differ: a rail is a border, a
+  // pill is a fill, and a single regex for both would be loose enough to
+  // miss one of them.
+  //
+  // Verified this law bites: put `border-l-[5px] border-l-ios-blue` back
+  // on RailCard's no-kind branch, ran `npx vitest run stylingLaws`,
+  // watched it fail naming catalog.tsx, reverted.
+  it("no card carries a coloured left border", () => {
+    const violations: string[] = [];
+    for (const f of SOURCES) {
+      for (const lit of stringLiterals(read(f))) {
+        if (/\bborder-l-\[5px\]/.test(lit) || /\bborder-l-ios-/.test(lit)) {
+          violations.push(`${rel(f)}: a coloured rail: "${lit.slice(0, 60)}"`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  // The interpolated form, as with the pills. A RAIL map would be the
+  // obvious way to bring this back, so the map itself is gone from
+  // statusHue.ts and this catches anyone rebuilding one.
+  it("no RAIL map exists to interpolate from", () => {
+    const hue = read(join(SRC, "components", "statusHue.ts"));
+    const code = hue
+      .split("\n")
+      .filter((l) => !l.trim().startsWith("//"))
+      .join("\n");
+    expect(code).not.toMatch(/export const RAIL\b/);
+  });
+});
+
 describe("LAW: a pill is a glyph and a label, never a coloured block", () => {
   // Dave, 2026-09-17, looking at the roster: "make sure there's no color
   // highlights on the pills, we said we were going with icons, make sure

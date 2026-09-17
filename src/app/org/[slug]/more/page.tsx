@@ -26,7 +26,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
       <div className="flex flex-col gap-2">
         {canEdit && (
           <Link href={`/org/${slug}/documents`} className="block">
-            <RailCard role="place">
+            <RailCard role="place" kind="org">
               <div className="text-[15px] font-semibold text-ink">Documents</div>
               <div className="text-[13px] text-muted">Read a transcript or an offer letter into an athlete&apos;s record</div>
             </RailCard>
@@ -34,7 +34,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
         )}
         {org.modules.donor_fundraising && (
           <Link href={`/org/${slug}/fundraising`} className="block">
-            <RailCard role="committed">
+            <RailCard role="committed" kind="money">
               <div className="text-[15px] font-semibold text-ink">Fundraising</div>
               <div className="text-[13px] text-muted">Donors, gifts, pledges and the year against budget</div>
             </RailCard>
@@ -42,7 +42,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
         )}
         {org.modules.board_governance && (
           <Link href={`/org/${slug}/board-governance`} className="block">
-            <RailCard role="people">
+            <RailCard role="people" kind="governance">
               <div className="text-[15px] font-semibold text-ink">Board</div>
               <div className="text-[13px] text-muted">Seats and give/get progress across every tier</div>
             </RailCard>
@@ -66,7 +66,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
             <div className="text-[13px] text-muted">Which courses the NCAA counts at each school</div>
           </RailCard>
         </Link>
-        <RailCard role="neutral">
+        <RailCard role="neutral" kind="settings">
           <div className="text-[15px] font-semibold text-ink">{user.full_name || user.email}</div>
           {/* The org's own word for the role, not the enum value.
               Bridge says Executive Director, Elite Squad says Coach, and

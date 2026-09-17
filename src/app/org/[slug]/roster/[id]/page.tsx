@@ -200,7 +200,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
           <div className="flex flex-col gap-2">
             {targets.map((t) => (
               <Link key={t.id} href={`/org/${slug}/board/${t.id}/edit`} className="block">
-                <RailCard role={statusRole(t.status)}>
+                <RailCard role={statusRole(t.status)} kind="school">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-[15px] font-semibold text-ink">{t.school?.name ?? "Unknown school"}</div>
@@ -231,7 +231,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
           ) : (
             <div className="flex flex-col gap-2">
               {contacts.map((c) => (
-                <RailCard key={c.id} role="people">
+                <RailCard key={c.id} role="people" kind="people">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-[14.5px] font-bold text-ink">{c.name}</div>
@@ -275,7 +275,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
         ) : (
           <div className="flex flex-col gap-2">
             {visits.map((v) => (
-              <RailCard key={v.id} role="place">
+              <RailCard key={v.id} role="place" kind="visit">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[14.5px] font-bold text-ink">
                     {schoolNameByTargetId.get(v.target_id) ?? "Unknown school"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}

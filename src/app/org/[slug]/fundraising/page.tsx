@@ -150,7 +150,7 @@ export default async function FundraisingPage({
           this whole feature to make. */}
       {s.outstandingPledgeCents > 0 && (
         <div className="mb-4">
-          <RailCard role="offer">
+          <RailCard role="offer" kind="pledge">
             <div className="text-[14.5px] font-bold text-ink">{formatMoney(s.outstandingPledgeCents)} promised, not received</div>
             <div className="mt-1 text-[13px] leading-tight text-muted">
               Not counted in the {formatMoneyShort(s.totalCashCents)} above.
@@ -171,7 +171,7 @@ export default async function FundraisingPage({
           // either believe or do not, which is the whole complaint about
           // the spreadsheet this replaces.
           const card = (
-            <RailCard role={role}>
+            <RailCard role={role} kind="money">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="text-[14.5px] font-bold text-ink">{c.label}</div>
@@ -205,7 +205,7 @@ export default async function FundraisingPage({
           <div className="mb-2 mt-5">
             <SectionHeader label="In kind" role="place" />
           </div>
-          <RailCard role="place">
+          <RailCard role="place" kind="grant">
             <div className="text-[14.5px] font-bold text-ink">{formatMoney(s.totalInKindCents)} donated in goods and services</div>
             <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
               Counted as support, never as cash. Total support for the year is {formatMoneyShort(s.totalSupportCents)}.

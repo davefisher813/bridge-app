@@ -1,5 +1,6 @@
 "use client";
 
+import { RowGlyph } from "@/components/RowGlyph";
 import { useActionState } from "react";
 import { GIFT_CATEGORIES, CATEGORY_LABEL, formatMoney, toCents } from "@/lib/fundraising/rollup";
 import type { FundraisingActionState } from "@/lib/actions/fundraising";
@@ -61,8 +62,9 @@ export function BudgetForm({
         ))}
       </div>
 
-      <div className="rounded-[10px] border-l-[5px] border-l-ios-blue bg-paper px-3.5 py-3">
-        <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
+        <span className="mt-[1px]"><RowGlyph kind="money" role="contact" /></span>
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
           <div className="text-[14.5px] font-bold text-ink">Total for {fiscalYear}</div>
           <div className="text-[16px] font-extrabold tabular-nums text-ink">{formatMoney(totalCents)}</div>
         </div>

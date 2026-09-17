@@ -125,7 +125,7 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
           <div className="flex flex-col gap-2">
             {blockedList.map((b) => {
               const body = (
-                <RailCard role="offer">
+                <RailCard role="offer" kind="warning">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-[14.5px] font-bold text-ink">{b.name}</div>
@@ -165,7 +165,7 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
             const bands = parseBands(s.bands);
             const bonus = Number(s.weight_bonus);
             const body = (
-              <RailCard role="contact">
+              <RailCard role="contact" kind="scale">
                 <div className="min-w-0">
                   <div className="text-[14.5px] font-bold text-ink">{s.school_name}</div>
                   <div className="mt-0.5 text-[12.5px] leading-tight text-muted">{summarize(bands)}</div>
@@ -190,7 +190,7 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
       )}
 
       <div className="mt-4">
-        <RailCard role="contact">
+        <RailCard role="contact" kind="scale">
           <div className="text-[13.5px] leading-tight text-ink">
             Only this org uses these. Another organization with an athlete at the same school keeps its own, so a mistake here cannot
             change anyone else&apos;s eligibility verdict. A table confirmed with the school and shared across the platform still wins

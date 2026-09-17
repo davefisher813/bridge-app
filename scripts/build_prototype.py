@@ -46,7 +46,7 @@ def parse_map(name):
 
 
 MAPS = "\n".join(
-    f"const {name} = {json.dumps(parse_map(name))};" for name in ("SOLID", "TINT", "RAIL", "DOT", "FG", "TEXT_ON", "STATUS_ROLE", "STAGE_KIND")
+    f"const {name} = {json.dumps(parse_map(name))};" for name in ("SOLID", "TINT", "DOT", "FG", "TEXT_ON", "STATUS_ROLE", "STAGE_KIND")
 )
 
 # The type glyphs, read from the same file the app's RowGlyph imports.

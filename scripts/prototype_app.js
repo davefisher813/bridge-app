@@ -386,10 +386,13 @@ function stageKindOf(label) {
 
 function rail(role, inner, onclick, kind) {
   const click = onclick ? ` onclick="${onclick}" style="cursor:pointer"` : "";
-  // No kind given: keep the rail. Used by the few surfaces where the row
-  // is a sentence rather than a record, and a glyph would be labelling
-  // prose.
-  if (!kind) return `<div class="min-h-[44px] rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL[role]}"${click}>${inner}</div>`;
+  // The 5px coloured rail is gone as of 2026-09-17. Dave, pointing at
+  // the roster: "there's color right here." It was the last coloured
+  // block left, and on a roster row it was the third thing on one line
+  // saying status, after the avatar and the pill. No kind now means a
+  // plain paper card, which is right for a row carrying its own mark and
+  // for a paragraph, where a glyph would be labelling prose.
+  if (!kind) return `<div class="min-h-[44px] rounded-[10px] bg-paper px-3.5 py-3"${click}>${inner}</div>`;
   return `<div class="flex min-h-[44px] items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3"${click}>
     <span class="mt-[1px]">${glyph(kind, role)}</span>
     <div class="min-w-0 flex-1">${inner}</div>
@@ -2501,7 +2504,7 @@ SCREENS.bugs = () => {
         ? emptyState("Nothing flagged yet", "Tap the flag button on any screen when something looks wrong. It records the screen you were on, so you only have to describe the problem.")
         : `<div class="flex flex-col gap-2">${list
             .map(
-              (b) => `<div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL.offer}">
+              (b) => `<div class="rounded-[10px] bg-paper px-3.5 py-3">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
                     <div class="text-[14.5px] font-bold leading-tight text-ink">${esc(b.note)}</div>

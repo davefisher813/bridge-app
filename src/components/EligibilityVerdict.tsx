@@ -9,7 +9,7 @@
 
 import type { ReactNode } from "react";
 import { Chip } from "@/components/catalog";
-import type { RowKind } from "@/components/RowGlyph";
+import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 import type { EligibilityStatus } from "@/lib/fit/ncaa/initialEligibility";
 
 // Score-axis roles only. A status never borrows a Stage colour, because
@@ -83,9 +83,15 @@ export function GpaPair({ coreGpa, transcriptGpa, needed }: { coreGpa: number | 
 }
 
 export function SubjectRow({ label, credits, gpa, role }: { label: string; credits: string; gpa: string; role: "committed" | "offer" | "target" }) {
-  const rail = role === "committed" ? "border-l-ios-green" : role === "offer" ? "border-l-ios-orange" : "border-l-ios-gray";
+  // No rail as of 2026-09-17. The subject glyph carries the hue, which
+  // is also the only mark on the row that says what the row is about.
+  const kind: RowKind = role === "committed" ? "check" : role === "offer" ? "warning" : "stage_none";
   return (
-    <div className={`rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${rail}`}>
+    <div className="flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
+      <span className="mt-[1px]">
+        <RowGlyph kind={kind} role={role} />
+      </span>
+      <div className="min-w-0 flex-1">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[14.5px] font-bold text-ink">{label}</div>
@@ -93,18 +99,11 @@ export function SubjectRow({ label, credits, gpa, role }: { label: string; credi
         </div>
         <span className="text-[14.5px] font-extrabold tabular-nums text-ink">{gpa}</span>
       </div>
+      </div>
     </div>
   );
 }
 
 export function NoteRail({ role, children }: { role: "contact" | "offer" | "target" | "time"; children: ReactNode }) {
-  const rail =
-    role === "contact"
-      ? "border-l-ios-blue"
-      : role === "offer"
-        ? "border-l-ios-orange"
-        : role === "time"
-          ? "border-l-ios-yellow"
-          : "border-l-ios-gray";
-  return <div className={`rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${rail}`}>{children}</div>;
+  return <div className="rounded-[10px] bg-paper px-3.5 py-3">{children}</div>;
 }
