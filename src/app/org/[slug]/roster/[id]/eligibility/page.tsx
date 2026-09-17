@@ -141,7 +141,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
     return (
       <main className="px-4 pt-2 pb-6">
         <div className="mb-4">
-          <Link href={back} className="text-[13px] font-bold text-muted">
+          <Link href={back} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
             &larr; {athlete.name}
           </Link>
         </div>
@@ -176,7 +176,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={back} className="text-[13px] font-bold text-muted">
+        <Link href={back} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
           &larr; {athlete.name}
         </Link>
       </div>
@@ -254,7 +254,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                 {canUpload && (
                   <Link
                     href={`/org/${slug}/grading-scales/new?school=${encodeURIComponent(view.schoolsMissingScale[0] ?? "")}&returnTo=${encodeURIComponent(`/org/${slug}/roster/${id}/eligibility`)}`}
-                    className="mt-2 inline-block text-[12px] font-extrabold text-solid-accent"
+                    className="mt-2 inline-block text-[12px] font-extrabold text-tint-accent-on"
                   >
                     Enter the grading scale
                   </Link>

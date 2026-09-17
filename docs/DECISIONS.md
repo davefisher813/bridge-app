@@ -1278,3 +1278,41 @@ somewhere reachable, which is what lets a row carry a fact instead of a
 justification. The caveats page also carries the actions the caveats
 imply (enter a grading scale, enter an approved list), so reading them
 leads somewhere.
+
+## 2026-09-17 - An audit that renders every screen, not just the ones somebody walks
+
+**Decision.** `scripts/audit_prototype.mjs` renders all 103 prototype
+screens in both themes and both organizations (412 renders) and inspects
+what the browser computed: every token utility resolves to a real value,
+every glyph has a drawing, no sideways scroll at phone width, body text
+clears WCAG AA against the surface it actually sits on, every tappable
+row is at least 44px, nothing throws, nothing renders empty. It runs as
+the last step of `scripts/build_previews.sh`.
+
+**Reason.** `verify_prototype.mjs` walks the paths a person takes and
+asserts behaviour, which is the right tool for "does the app do the right
+thing" and the wrong one for "does it look right where nobody looked."
+The type glyphs shipped rendering black because `text-ios-orange` was in
+the class list and absent from the stylesheet. No assertion about markup
+would have caught it, and no walkthrough visits every screen in both
+themes.
+
+**Consequences.** The first run found three real defects, all invisible
+to the existing tests and all now laws:
+
+- `text-solid-accent` used as a text colour in 16 places. A solid fill
+  exists to be painted behind its paired `-on` foreground; used as text
+  it bypasses the pairing and read 4.65:1 on white and 3.74:1 on the dark
+  card, so it passed in light and failed in dark. Replaced with
+  `text-tint-accent-on`, which is the themed, paired, legible foreground
+  for that hue (6.87 and 6.24).
+- `--muted` at #6b7280 cleared AA on `--paper` (4.83:1) and missed it on
+  `--bg` (4.40:1). Muted text on the page background is most of the app:
+  every section header, every back link, every date. Darkened to
+  #646e7a, which clears both.
+- The back link was 15px tall on all 23 screens that have one, and it is
+  the control people use most. Stage chips were 17px, inline actions
+  18px, rows 43px. All now clear Apple's 44px minimum.
+
+The audit exits non-zero on any finding, so the preview build fails
+rather than publishing a screen nobody can read.

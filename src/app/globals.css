@@ -29,7 +29,14 @@
   --ink: #0a0a0a;
   --bg: #f4f4f5;
   --paper: #ffffff;
-  --muted: #6b7280;
+  /* Darkened from #6b7280 on 2026-09-17. The old value cleared AA on
+     --paper (4.83:1) and missed it on --bg (4.40:1), and muted text on
+     the page background is most of the app: every section header, every
+     back link, every date. Found by scripts/audit_prototype.mjs, which
+     checks computed contrast on every screen rather than on the two
+     surfaces somebody thought to check. This clears both (5.18 and
+     4.71). Dark was already fine at 6.86 and 7.70. */
+  --muted: #646e7a;
   --line: #e5e7eb;
 
   /* Aliases the components use for text, borders and rules. */

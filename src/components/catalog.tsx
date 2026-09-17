@@ -27,9 +27,9 @@ export function RailCard({
   kind?: RowKind;
   children: ReactNode;
 }) {
-  if (!kind) return <div className={`rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL[role]}`}>{children}</div>;
+  if (!kind) return <div className={`min-h-[44px] rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL[role]}`}>{children}</div>;
   return (
-    <div className="flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
+    <div className="flex min-h-[44px] items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
       <span className="mt-[1px]">
         <RowGlyph kind={kind} role={role} />
       </span>

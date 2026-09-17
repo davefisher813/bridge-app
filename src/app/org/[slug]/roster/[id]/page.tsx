@@ -136,7 +136,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Link href={`/org/${slug}/roster`} className="text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/roster`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
           &larr; Athletes
         </Link>
         {canEdit && (
@@ -168,7 +168,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
               <div className="text-[14px] font-semibold text-ink">NCAA eligibility</div>
               <div className="text-[11.5px] text-muted">Core-course GPA, qualifier status and the five-year clock</div>
             </div>
-            <span className="text-[13px] font-bold text-muted">&rsaquo;</span>
+            <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">&rsaquo;</span>
           </div>
         </RailCard>
       </Link>

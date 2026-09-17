@@ -52,4 +52,7 @@ python3 scripts/build_prototype.py
 echo "==> Tapping through the prototype in a real browser"
 node scripts/verify_prototype.mjs
 
+echo "==> Auditing every screen in both themes and both orgs"
+node scripts/audit_prototype.mjs
+
 echo "==> Done. Publish the HTML files above as artifacts."

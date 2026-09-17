@@ -282,3 +282,77 @@ describe("LAW: there is one icon set and everything reads it", () => {
     expect(missing).toEqual([]);
   });
 });
+
+// ── Findings from the 2026-09-17 audit ───────────────────────────────
+// scripts/audit_prototype.mjs renders every screen in both themes and
+// both organizations and inspects what the browser computed. These three
+// are what it found. They are laws now so the audit does not have to be
+// the only thing standing between them and a rerun.
+describe("LAW: a solid fill is never used as a text colour", () => {
+  // A solid fill exists to be painted behind its paired -on foreground.
+  // Used as text on a paper surface it bypasses the pairing entirely:
+  // --solid-accent reads 4.65:1 on white and 3.74:1 on the dark card, so
+  // it passed in light and failed in dark, in fourteen places, for weeks.
+  it("no bare text-solid-* class outside the SOLID pairing map", () => {
+    const offenders: string[] = [];
+    for (const file of walk(SRC).concat([join(ROOT, "scripts/prototype_app.js")])) {
+      if (/statusHue\.ts$|formStyles\.ts$|stylingLaws\.test\.ts$/.test(file)) continue;
+      if (!/\.(tsx?|js)$/.test(file)) continue;
+      const src = readFileSync(file, "utf8");
+      for (const m of src.matchAll(/text-solid-([a-z]+)(?!-on)\b/g)) offenders.push(`${file.replace(ROOT, "")}: ${m[0]}`);
+    }
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("LAW: muted text clears AA on the page, not just on a card", () => {
+  // The old --muted cleared 4.5:1 against --paper and missed it against
+  // --bg, and muted text on the page background is most of the app:
+  // every section header, every back link, every date.
+  it("light muted reads on both surfaces", () => {
+    const light = css.slice(css.indexOf(":root {"), css.indexOf('[data-theme="dark"]'));
+    const muted = light.match(/--muted:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    const bg = light.match(/--bg:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    const paper = light.match(/--paper:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(muted && bg && paper).toBeTruthy();
+    expect(Number(contrast(muted!, bg!).toFixed(2))).toBeGreaterThanOrEqual(4.5);
+    expect(Number(contrast(muted!, paper!).toFixed(2))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("dark muted reads on both surfaces", () => {
+    const dark = css.slice(css.indexOf('[data-theme="dark"]'));
+    const muted = dark.match(/--muted:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    const bg = dark.match(/--bg:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    const paper = dark.match(/--paper:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(muted && bg && paper).toBeTruthy();
+    expect(Number(contrast(muted!, bg!).toFixed(2))).toBeGreaterThanOrEqual(4.5);
+    expect(Number(contrast(muted!, paper!).toFixed(2))).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("LAW: a row you can tap is at least a thumb tall", () => {
+  // 44px is Apple's minimum. The back link was 15px on every screen in
+  // the app, which is the control people use most.
+  it("the shared card and every back link carry the minimum", () => {
+    // Both branches of RailCard, not just one: the stripe form and the
+    // glyph form are separate return statements and only one of them
+    // carrying the minimum is the bug this law is for.
+    const catalog = readFileSync(join(SRC, "components/catalog.tsx"), "utf8");
+    const railCard = catalog.slice(catalog.indexOf("export function RailCard"), catalog.indexOf("export function Avatar"));
+    const returns = railCard.match(/min-h-\[44px\]/g) ?? [];
+    expect(returns.length).toBeGreaterThanOrEqual(2);
+
+    const thin: string[] = [];
+    for (const file of walk(join(SRC, "app"))) {
+      if (!file.endsWith(".tsx")) continue;
+      const src = readFileSync(file, "utf8");
+      if (!src.includes("&larr;")) continue;
+      // The back link's own className, identified by the text style it
+      // has always used.
+      for (const m of src.matchAll(/className="([^"]*text-\[13px\] font-bold text-muted[^"]*)"/g)) {
+        if (!m[1].includes("min-h-[44px]")) thin.push(file.replace(ROOT, ""));
+      }
+    }
+    expect(thin).toEqual([]);
+  });
+});

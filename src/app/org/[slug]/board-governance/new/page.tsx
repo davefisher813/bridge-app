@@ -15,7 +15,7 @@ export default async function NewBoardPage({ params }: { params: Promise<{ slug:
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={`/org/${slug}/board-governance`} className="text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/board-governance`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
           &larr; Board
         </Link>
       </div>

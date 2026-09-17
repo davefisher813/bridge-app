@@ -45,7 +45,7 @@ export default async function NewSeatPage({ params }: { params: Promise<{ slug: 
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={`/org/${slug}/board-governance/${board.id}`} className="text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/board-governance/${board.id}`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
           &larr; {board.name}
         </Link>
       </div>

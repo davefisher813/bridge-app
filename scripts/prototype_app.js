@@ -346,8 +346,8 @@ function rail(role, inner, onclick, kind) {
   // No kind given: keep the rail. Used by the few surfaces where the row
   // is a sentence rather than a record, and a glyph would be labelling
   // prose.
-  if (!kind) return `<div class="rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL[role]}"${click}>${inner}</div>`;
-  return `<div class="flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3"${click}>
+  if (!kind) return `<div class="min-h-[44px] rounded-[10px] border-l-[5px] bg-paper px-3.5 py-3 ${RAIL[role]}"${click}>${inner}</div>`;
+  return `<div class="flex min-h-[44px] items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3"${click}>
     <span class="mt-[1px]">${glyph(kind, role)}</span>
     <div class="min-w-0 flex-1">${inner}</div>
   </div>`;
@@ -414,7 +414,10 @@ function bar(pct, role) {
   return `<div class="mt-2 h-1.5 overflow-hidden rounded-full bg-line"><div class="h-full rounded-full ${DOT[role]}" style="width:${w}%"></div></div>`;
 }
 function backLink(label) {
-  return `<div class="mb-4"><a onclick="back()" class="cursor-pointer text-[13px] font-bold text-muted">&larr; ${esc(label)}</a></div>`;
+  // -my-2 py-2 keeps the 44px touch target without adding 16px of space
+  // above every screen title: the box grows, the layout does not.
+  return `<div class="mb-2"><a onclick="back()"
+    class="-my-2 inline-flex min-h-[44px] cursor-pointer items-center py-2 pr-3 text-[13px] font-bold text-muted">&larr; ${esc(label)}</a></div>`;
 }
 function button(label, onclick, kind = "primary") {
   const cls =
@@ -716,7 +719,7 @@ SCREENS.eligibility = () => {
         ? `<div class="mb-3">${rail(
             "offer",
             `<div class="text-[12.5px] font-bold leading-tight text-ink">${esc(view.schoolsMissingScale.join(" and "))} ${view.schoolsMissingScale.length > 1 ? "have" : "has"} no grading scale on file</div>
-             <div class="mt-2 text-[12px] font-extrabold text-solid-accent" onclick="event.stopPropagation();go('scales')">Enter the grading scale</div>`,
+             <div class="-mb-2 mt-1 inline-flex min-h-[44px] cursor-pointer items-center pr-3 text-[12.5px] font-extrabold text-tint-accent-on" onclick="event.stopPropagation();go('scales')">Enter the grading scale</div>`,
           )}</div>`
         : ""
     }
@@ -728,7 +731,7 @@ SCREENS.eligibility = () => {
             `<div class="text-[12.5px] font-bold leading-tight text-ink">${esc(view.schoolsMissingApprovedList.join(" and "))} ${
               view.schoolsMissingApprovedList.length > 1 ? "have" : "has"
             } no NCAA approved-course list on file</div>
-             <div class="mt-2 text-[12px] font-extrabold text-solid-accent" onclick="event.stopPropagation();go('approvedLists')">Enter the approved list</div>`,
+             <div class="-mb-2 mt-1 inline-flex min-h-[44px] cursor-pointer items-center pr-3 text-[12.5px] font-extrabold text-tint-accent-on" onclick="event.stopPropagation();go('approvedLists')">Enter the approved list</div>`,
           )}</div>`
         : ""
     }
@@ -905,7 +908,7 @@ SCREENS.target = () => {
     <div class="mb-5 flex flex-wrap gap-2">
       ${STAGES.map(
         (g) =>
-          `<button onclick="setStatus('${t.id}','${g}')" class="rounded-full px-3 py-1.5 text-[11.5px] font-bold ${
+          `<button onclick="setStatus('${t.id}','${g}')" class="inline-flex min-h-[44px] items-center rounded-full px-4 text-[12px] font-bold ${
             t.status === g ? SOLID[STATUS_ROLE[g]] : "bg-paper text-muted"
           }">${esc(g)}</button>`,
       ).join("")}
@@ -1184,7 +1187,7 @@ SCREENS.approvedLists = () => {
           !l ? "offer" : l.isComplete ? "committed" : "target",
           esc(name),
           !l ? "Nothing on file" : `${l.courses.length} courses &middot; ${l.isComplete ? "complete" : "partial"}`,
-          !l ? `<span class="flex-shrink-0 text-[12px] font-extrabold text-solid-accent">Add</span>` : "",
+          !l ? `<span class="flex-shrink-0 text-[12px] font-extrabold text-tint-accent-on">Add</span>` : "",
           `go('approvedList',{school:'${esc(name)}'})`,
           "checklist",
         );
@@ -1561,7 +1564,7 @@ SCREENS.scales = () => {
                  `<div class="flex items-center justify-between gap-3">
                    <div class="min-w-0"><div class="text-[13px] font-bold text-ink">${esc(n)}</div>
                    <div class="text-[11.5px] text-muted">Running on the assumed ten-point scale</div></div>
-                   <span class="text-[12px] font-extrabold text-solid-accent">Add</span>
+                   <span class="text-[12px] font-extrabold text-tint-accent-on">Add</span>
                  </div>`,
                  `go('scaleEdit',{school:'${esc(n)}'})`,
                  "scale",
@@ -2415,7 +2418,7 @@ function render() {
   document.getElementById("tabbar").innerHTML = TABS.map(
     (t) =>
       `<button onclick="tab('${t.key}')" class="flex-1 py-2 text-[10.5px] font-bold ${
-        activeTab === t.key ? "text-solid-accent" : "text-muted"
+        activeTab === t.key ? "text-tint-accent-on" : "text-muted"
       }">${t.label}</button>`,
   ).join("");
 

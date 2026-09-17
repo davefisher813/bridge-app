@@ -103,7 +103,7 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
   return (
     <main className="px-4 pt-2 pb-6">
       <div className="mb-4">
-        <Link href={`/org/${slug}/more`} className="text-[13px] font-bold text-muted">
+        <Link href={`/org/${slug}/more`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[13px] font-bold text-muted">
           &larr; More
         </Link>
       </div>
@@ -134,7 +134,7 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
                         {b.courses === 1 ? "course" : "courses"} waiting
                       </div>
                     </div>
-                    {canEdit && <span className="flex-shrink-0 text-[12px] font-extrabold text-solid-accent">Add</span>}
+                    {canEdit && <span className="flex-shrink-0 text-[12px] font-extrabold text-tint-accent-on">Add</span>}
                   </div>
                 </RailCard>
               );

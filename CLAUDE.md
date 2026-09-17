@@ -32,6 +32,8 @@ Two different things, and both are required:
 
 - **The click-through prototype** (`scripts/build_prototype.py` + `prototype_entry.ts`, `prototype_data.js`, `prototype_app.js`) is the whole app, tappable, on invented data. It bundles the same shipped modules the bench does, so every number in it is computed rather than written into the mock data: change a grading scale and a core GPA moves, record an in-kind gift and it stays out of the cash total. `scripts/verify_prototype.mjs` taps through every screen in headless Chromium and fails the build if anything throws or a number does not move when it should. Mock data is invented, always: no real athlete, donor or board member goes in a prototype.
 
+- **The audit** (`scripts/audit_prototype.mjs`) renders every prototype screen in both themes and both orgs and inspects what the browser COMPUTED, not what the markup says: unresolved Tailwind classes, empty glyphs, AA contrast against the surface the text actually sits on, 44px touch targets, sideways scroll, screens that throw or render empty. It runs last in `build_previews.sh` and fails the build on any finding. It exists because the walkthrough only visits the paths a person takes: the type glyphs shipped rendering black, with a correct-looking class list and a class Tailwind had never generated. A class assertion cannot catch that; a computed-style assertion can.
+
 Anything new that is pure logic belongs in the bench too, with real assertions, not a screenshot of it working.
 
 ## Standing autonomy: keep building without per-step check-ins
