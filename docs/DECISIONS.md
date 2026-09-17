@@ -1495,3 +1495,49 @@ is exactly the "it is different here" reasoning that produced the
 inconsistency in the first place, and the stage is now the most legible
 mark on the row anyway, since it is the only one with both a shape and a
 hue.
+
+## 2026-09-17: org_members stays service-role only, and the RLS suite checks policy SHAPE
+
+**Decision.** `scripts/rls_test.sql` gained a structural check: every table
+carrying `org_id` must have a SELECT policy, an INSERT policy, and no
+`for all` policy. `org_members` is the one exemption, with its reason in
+the script.
+
+**Reason.** The suite had 69 hand-written assertions and one structural
+one ("has RLS and at least one policy"). "At least one policy" is weaker
+than it sounds in two directions, and both have already happened in this
+repo:
+
+- Too few. A table with only a SELECT policy is readable and writable by
+  nobody. A feature built on one saves nothing and reports no error,
+  which is the shape of the grading-scale bug that produced
+  `src/laws/dataLaws.test.ts`.
+- Too many. A single `for all` policy satisfies "has a policy" and lets
+  any MEMBER write, which is exactly what migration 0010 was written to
+  undo. Nothing had stopped one coming back since.
+
+Running it immediately found `org_members` with a SELECT policy and
+nothing else.
+
+**That one is deliberate, and now says so.** Membership is what grants
+access to everything else, and the row carries its own `role` column. An
+INSERT policy keyed off `_staff_org_ids()` would let any staff member
+write themselves a second row as owner of their own org. There is no
+invitation flow yet; when there is, it belongs behind the service role or
+a SECURITY DEFINER function that cannot be handed a role, not behind an
+ordinary policy.
+
+**Consequences.**
+
+- The check covers tables that do not exist yet, which is the point. A
+  planted `plant_notes` table with a read policy and nothing else was
+  caught by name; no hand-written assertion could have, because no
+  hand-written assertion exists for a table nobody has written.
+- Three assertions written in the same pass, about the shared NCAA
+  approved-list table being readable by all and writable by none, were
+  deleted rather than kept: lines 387 to 400 already covered exactly that
+  and the plants proved it. Two checks that pass for the same reason are
+  one check and a maintenance cost.
+- All fourteen migrations apply cleanly to a real Postgres 16 and the
+  whole suite passes, which is also the first time `0013` and `0014` have
+  been run end to end in this session rather than trusted.

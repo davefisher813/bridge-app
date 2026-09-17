@@ -926,3 +926,68 @@ begin
   end if;
   raise notice 'PASS: every table carrying org_id has row level security and at least one policy';
 end $$;
+
+-- "At least one policy" is weaker than it sounds, in two directions, and
+-- both have already happened once in this repo.
+--
+-- Too few: a table with only a SELECT policy is readable and can never
+-- be written by anybody through the API. A feature built on one saves
+-- nothing and reports no error, which is the exact shape of the
+-- grading-scale bug that produced src/laws/dataLaws.test.ts.
+--
+-- Too many: a single `for all` policy satisfies "has a policy" and lets
+-- any MEMBER write, which is what migration 0010 was written to undo.
+-- Nothing has stopped one coming back since.
+do $$
+declare
+  problems text[] := '{}';
+  t record;
+  cmds text[];
+  -- Tables an org genuinely cannot write through the ordinary client,
+  -- each with the reason, so that adding to this list is a decision
+  -- rather than a way to silence the check.
+  --
+  -- org_members is the one that matters and it is deliberate. Membership
+  -- is what grants access to everything else, and the row carries its own
+  -- `role` column, so an INSERT policy keyed off _staff_org_ids() would
+  -- let any staff member write themselves a second row as owner of their
+  -- own org. There is no invitation flow yet; when there is, it belongs
+  -- behind the service role or a SECURITY DEFINER function that cannot be
+  -- handed a role, not behind an ordinary policy.
+  write_exempt text[] := array['org_members'];
+begin
+  for t in
+    select c.relname as name
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relkind = 'r'
+      and exists (
+        select 1 from pg_attribute a
+        where a.attrelid = c.oid and a.attname = 'org_id' and a.attnum > 0 and not a.attisdropped
+      )
+    order by c.relname
+  loop
+    select array_agg(distinct p.cmd) into cmds
+    from pg_policies p where p.schemaname = 'public' and p.tablename = t.name;
+
+    -- ALL is never right on an org-scoped table: read is by membership
+    -- and write is by staff, so one policy cannot express both.
+    if 'ALL' = any(cmds) then
+      problems := problems || (t.name || ': has a `for all` policy, which cannot separate read-by-member from write-by-staff');
+    end if;
+
+    if not ('SELECT' = any(cmds)) then
+      problems := problems || (t.name || ': no SELECT policy, so the org cannot read its own rows');
+    end if;
+
+    if not ('INSERT' = any(cmds)) and not (t.name = any(write_exempt)) then
+      problems := problems || (t.name || ': no INSERT policy, so staff cannot create a row and nothing will say so');
+    end if;
+  end loop;
+
+  if array_length(problems, 1) > 0 then
+    raise exception 'FAIL: % policy problem(s): %', array_length(problems, 1), array_to_string(problems, '; ');
+  end if;
+  raise notice 'PASS: every org-scoped table separates read-by-member from write-by-staff, with no `for all` policy';
+end $$;
