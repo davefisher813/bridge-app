@@ -39,8 +39,12 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
   const pursued = schools.filter((s) => countBySchool.has(s.id));
   const rest = schools.filter((s) => !countBySchool.has(s.id));
 
+  // Every row on this list was a dead end until 2026-09-17. A school
+  // record is the input to half the fit engine, so "what does this school
+  // actually say" had no answer in the product.
   const row = (s: (typeof schools)[number], mine: boolean) => (
-    <RailCard key={s.id} role={mine ? "contact" : "target"} kind="school">
+    <Link key={s.id} href={`/org/${slug}/schools/${s.id}`} className="block">
+    <RailCard role={mine ? "contact" : "target"} kind="school">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[14.5px] font-bold leading-tight text-ink">{s.name}</div>
@@ -56,6 +60,7 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
         )}
       </div>
     </RailCard>
+    </Link>
   );
 
   return (

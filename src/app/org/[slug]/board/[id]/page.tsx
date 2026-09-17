@@ -103,7 +103,9 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
 
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[22px] font-extrabold leading-tight text-ink">{school.name}</h1>
+          <h1 className="text-[22px] font-extrabold leading-tight text-ink">
+            <Link href={`/org/${slug}/schools/${school.id}`}>{school.name}</Link>
+          </h1>
           <div className="text-[13.5px] font-bold text-muted">
             {school.division} &middot; {athlete.name}
           </div>
@@ -132,8 +134,11 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
           const d = fit[key] as DimensionResult | undefined;
           if (!d) return null;
           const role = d.veto ? "offer" : d.score >= 70 ? "committed" : d.score >= 40 ? "contact" : "target";
-          return (
-            <RailCard key={key} role={role} kind={d.veto ? "warning" : kind}>
+          // One reason shown and the rest behind a tap. The reasons ARE
+          // the argument: a financial 42 is a number, and "average aid
+          // covers only 18% of cost" is the sentence somebody acts on.
+          const card = (
+            <RailCard role={role} kind={d.veto ? "warning" : kind}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-[14.5px] font-bold leading-tight text-ink">{label}</div>
@@ -146,7 +151,17 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
               {/* A veto is not a low score, it is an override, so it says
                   so rather than being inferred from a small number. */}
               {d.veto && <div className="mt-1.5 text-[12.5px] font-semibold leading-tight text-tint-accent-on">Overrides the blend: {d.veto}</div>}
+              {(d.reasons.length > 1 || d.warnings.length > 0) && (
+                <div className="mt-1.5 text-[12.5px] font-bold leading-tight text-muted">
+                  {d.reasons.length + d.warnings.length} {d.reasons.length + d.warnings.length === 1 ? "note" : "notes"} in full
+                </div>
+              )}
             </RailCard>
+          );
+          return (
+            <Link key={key} href={`/org/${slug}/board/${id}/dimensions/${key}`} className="block">
+              {card}
+            </Link>
           );
         })}
       </div>
@@ -187,6 +202,17 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
             </div>
           </RailCard>
         ))}
+        {/* Five is a preview. The count is what somebody reads and the
+            gap since the last one is what they act on, and neither of
+            those fits in a preview. */}
+        {comms.length + visits.length > 0 && (
+          <Link
+            href={`/org/${slug}/board/${id}/communications`}
+            className="flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
+          >
+            The whole log
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">

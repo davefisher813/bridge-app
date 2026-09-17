@@ -166,14 +166,27 @@ that exist in it and have no page in the real app yet. None of them
 needs anything from Dave. All are read views over data the schema
 already holds.
 
-Recruiting:
-- ~~`courses`~~ done 2026-09-17: `/roster/[id]/transcript`
-- ~~`approvals`~~ done 2026-09-17: `/roster/[id]/eligibility/approvals`
-- `dimension` one fit dimension's full reasons and warnings
-- `caveats` the eligibility caveats in full, on their own page
-- `comms` the contact log for a target (the last five are on the target
-  page already; this is the full log)
-- `school` a school's profile, money and depth chart
+Recruiting: all six done 2026-09-17.
+- ~~`courses`~~ `/roster/[id]/transcript`
+- ~~`approvals`~~ `/roster/[id]/eligibility/approvals`
+- ~~`dimension`~~ `/board/[id]/dimensions/[dim]`. The reasons are the
+  argument: a financial 42 is a number, "average aid covers only 18% of
+  cost" is the sentence somebody acts on. Reasons and warnings are kept
+  apart, because a reason is why the number is what it is and a warning
+  is what could still change it.
+- ~~`caveats`~~ `/roster/[id]/eligibility/caveats`, split into what the
+  app could not read and what is true about the athlete's standing. The
+  first group is clearable and is listed first for that reason.
+- ~~`comms`~~ `/board/[id]/communications`, with visits folded in and the
+  gap since the last contact on top. The count is the part nobody can
+  act on.
+- ~~`school`~~ `/schools/[id]`. Every row on the schools list was a dead
+  end. The D3 rule is enforced on the screen as well as in the engine.
+
+`loadTarget.ts` was factored out in the same pass, for the same reason
+`loadEligibility.ts` exists: three screens now want the same sixty-line
+scoreFit call, and a second copy is one visit count away from showing a
+different score for the same target on two pages with nothing failing.
 
 Fundraising: all four done 2026-09-17.
 - ~~`gifts`~~ `/fundraising/gifts`, filterable by `?category=` and
@@ -206,6 +219,12 @@ Governance: both done 2026-09-17.
 
 Prototype-only by design, not gaps: the bug flagger and the "How this
 works" guide.
+
+**The list is empty as of 2026-09-17.** Every screen in the approved
+prototype now has a page in the real app. The next answer to "what is
+left" is not on this list, it is in docs/CURRENT_STATE.md: no Supabase
+project, no deployment, no environment file, no git remote, and no API
+key for Doc AI. None of those is a screen.
 
 Done 2026-09-17, closing the two largest holes: `board/[id]`, a read
 view of a recruiting target (tapping a row went straight to the edit

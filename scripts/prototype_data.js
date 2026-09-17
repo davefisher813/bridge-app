@@ -419,7 +419,6 @@ const DATA = {
     { id: "cm3", targetId: "tg-1", kind: "visit", direction: "out", at: "2026-08-19", summary: "Unofficial visit, met the pitching staff" },
     { id: "cm4", targetId: "tg-1", kind: "email", direction: "out", at: "2026-07-30", summary: "Sent summer showcase schedule" },
     { id: "cm5", targetId: "tg-1", kind: "email", direction: "in", at: "2026-06-11", summary: "Asked for a transcript through junior year" },
-    { id: "cm6", targetId: "tg-1", kind: "camp", direction: "out", at: "2026-05-24", summary: "Attended the prospect camp on campus" },
     { id: "cm7", targetId: "tg-2", kind: "email", direction: "out", at: "2026-08-02", summary: "Introduction and highlight link" },
     { id: "cm8", targetId: "tg-2", kind: "email", direction: "in", at: "2026-08-09", summary: "Acknowledged, no roster need until next cycle" },
     { id: "cm9", targetId: "tg-3", kind: "visit", direction: "out", at: "2026-09-12", summary: "Official visit scheduled for the 27th" },
@@ -432,5 +431,16 @@ const DATA = {
     { id: "cm16", targetId: "tg-6", kind: "email", direction: "out", at: "2026-07-21", summary: "Sent transfer portal timeline questions" },
     { id: "cm17", targetId: "tg-7", kind: "call", direction: "in", at: "2026-09-11", summary: "Offer extended, decision by November" },
     { id: "cm18", targetId: "tg-8", kind: "email", direction: "out", at: "2026-05-30", summary: "First contact, no reply yet" },
+  ],
+
+  // The real schema keeps visits in their own table (migrations/0006),
+  // with a type and an impression that a bare communication row cannot
+  // carry. The prototype had none, so the contact log could not show the
+  // folded-in shape the real screen uses.
+  visits: [
+    { id: "vs1", targetId: "tg-1", visitType: "unofficial", at: "2026-08-19", impression: "Met the pitching staff. Facility is strong, the coach was direct about where he fits." },
+    { id: "vs2", targetId: "tg-1", visitType: "camp", at: "2026-05-24", impression: "Prospect camp on campus. Threw well in front of two of their assistants." },
+    { id: "vs3", targetId: "tg-3", visitType: "official", at: "2026-09-12", impression: null },
+    { id: "vs4", targetId: "tg-5", visitType: "official", at: "2026-08-22", impression: "Second visit, with family. They committed the following week." },
   ],
 };

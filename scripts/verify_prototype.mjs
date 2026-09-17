@@ -336,7 +336,7 @@ t = await text();
 check("a target opens", has(t, "How the score is built"));
 await tap("text=Academic");
 t = await text();
-check("a score dimension opens its reasons", has(t, "Academic") && has(t, "Reasons"));
+check("a score dimension opens its reasons", has(t, "Academic") && has(t, "Why") && has(t, "How sure"));
 await tap("a:has-text('Corville')");
 // The second match, not the first: the school name is both the page
 // heading and the row under More, and only the row navigates.
@@ -345,7 +345,7 @@ await page.waitForTimeout(60);
 t = await text();
 check("a school page opens", has(t, "Corville College") && has(t, "Money"));
 // The D3 law holds in the prototype because it runs the shipped rule.
-check("a D3 school shows no scholarship claim", has(t, "Not offered at D3"), t.slice(0, 200));
+check("a D3 school shows no scholarship claim", has(t, "No athletic scholarships at D3"), t.slice(0, 200));
 
 await tap("button:has-text('Board')");
 await tap("text=Jonah Petrakis");

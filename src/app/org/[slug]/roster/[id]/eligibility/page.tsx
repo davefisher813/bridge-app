@@ -296,11 +296,23 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
               being computed and never rendered. */}
           {[...view.adapterWarnings, ...eligibility.warnings].length > 0 && (
             <div className="mt-3 flex flex-col gap-2">
-              {[...view.adapterWarnings, ...eligibility.warnings].map((w, i) => (
+              {[...view.adapterWarnings, ...eligibility.warnings].slice(0, 3).map((w, i) => (
                 <NoteRail key={i} role="offer">
                   <div className="text-[13.5px] leading-tight text-ink">{w}</div>
                 </NoteRail>
               ))}
+              {/* Three, then the rest on their own page. A verdict with
+                  nine caveats stacked under it reads as a wall nobody
+                  finishes, and the caveats page sorts them into the ones
+                  somebody can clear today and the ones they cannot. */}
+              <Link
+                href={`/org/${slug}/roster/${id}/eligibility/caveats`}
+                className="flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
+              >
+                {[...view.adapterWarnings, ...eligibility.warnings].length > 3
+                  ? `All ${[...view.adapterWarnings, ...eligibility.warnings].length} things to know`
+                  : "Things to know, and what to do"}
+              </Link>
             </div>
           )}
 

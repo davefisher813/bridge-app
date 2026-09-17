@@ -998,41 +998,66 @@ SCREENS.dimension = () => {
   const fit = fitFor(t);
   const key = state.params.dim;
   const d = fit[key];
-  const LABEL = { academic: "Academic", athletic: "Athletic", financial: "Financial", eligibility: "Eligibility" };
+  const META = {
+    academic: { label: "Academic", kind: "course", asks: "Can they get in, and stay in." },
+    athletic: { label: "Athletic", kind: "target", asks: "Do the measurables reach this level of play." },
+    financial: { label: "Financial", kind: "money", asks: "What this actually costs the family." },
+    eligibility: { label: "Eligibility", kind: "checklist", asks: "Whether the NCAA lets them compete, and when." },
+  };
+  const CONF = {
+    high: "Based on data specific to this school and this athlete.",
+    medium: "Based on partial data. Some of it is a division default rather than this school's own numbers.",
+    low: "Mostly division defaults. Treat the score as a starting point, not a finding.",
+    unknown: "Not enough on file to judge. The score is a placeholder, not a measurement.",
+  };
+  const m = META[key] || { label: key, kind: "note", asks: "" };
+  const role = d.veto ? "offer" : d.score >= 70 ? "committed" : d.score >= 40 ? "contact" : "target";
 
   return `
     ${backLink(school(t.schoolId).name)}
-    <div class="mb-4 flex items-center justify-between gap-3">
-      <h1 class="text-[22px] font-extrabold text-ink">${esc(LABEL[key] || key)}</h1>
-      <span class="text-[28px] font-black leading-none tabular-nums text-ink">${d.score}</span>
+    <div class="mb-1 flex items-start justify-between gap-3">
+      <h1 class="text-[22px] font-extrabold leading-tight text-ink">${esc(m.label)}</h1>
+      <span class="flex-shrink-0 text-[28px] font-black leading-none tabular-nums ${TEXT_ON[scoreRole(d.score)]}">${d.score}</span>
     </div>
+    <p class="mb-5 text-[13.5px] leading-tight text-muted">${esc(m.asks)} ${esc(athlete(t.athleteId).name)} at ${esc(school(t.schoolId).name)}.</p>
 
-    ${d.veto ? `<div class="mb-4">${rail("offer", `<div class="text-[14.5px] font-bold leading-tight text-ink">Veto: ${esc(d.veto)}</div>`)}</div>` : ""}
+    ${
+      d.veto
+        ? `<div class="mb-5">${rail(
+            "offer",
+            `<div class="text-[14.5px] font-bold leading-tight text-ink">This one overrides the others</div>
+             <div class="mt-1 text-[13px] leading-relaxed text-muted">A veto is not a low score averaged in with the rest. The overall fit was set by this dimension alone, because nothing the athlete does elsewhere gets past it.</div>`,
+            null,
+            "warning",
+          )}</div>`
+        : ""
+    }
 
-    <div class="mb-2">${header("Reasons", d.reasons.length, "committed")}</div>
+    <div class="mb-2">${header("Why", d.reasons.length, role, m.kind)}</div>
     <div class="flex flex-col gap-2">
       ${
         d.reasons.length
-          ? d.reasons.map((r) => rail("committed", `<div class="text-[13.5px] leading-tight text-ink">${esc(r)}</div>`)).join("")
-          : emptyState("No reasons", "The engine returned a score without a stated reason.")
+          ? d.reasons.map((r) => rail(role, `<div class="text-[13.5px] leading-relaxed text-ink">${esc(r)}</div>`)).join("")
+          : emptyState("No reason given", "The engine returned a score without a stated reason, which normally means it had nothing specific to this school to work from.")
       }
     </div>
 
     ${
       d.warnings.length
-        ? `<div class="mb-2 mt-5">${header("Warnings", d.warnings.length, "offer")}</div>
+        ? `<div class="mb-2 mt-5">${header("What could still change this", d.warnings.length, "offer", "warning")}</div>
            <div class="flex flex-col gap-2">${d.warnings
-             .map((w) => rail("offer", `<div class="text-[13.5px] leading-tight text-ink">${esc(w)}</div>`))
+             .map((w) => rail("offer", `<div class="text-[13.5px] leading-relaxed text-ink">${esc(w)}</div>`, null, "warning"))
              .join("")}</div>`
         : ""
     }
 
-    <div class="mb-2 mt-5">${header("Confidence", null, "contact")}</div>
+    <div class="mb-2 mt-5">${header("How sure", null, "contact", "info")}</div>
     ${rail(
       "contact",
-      `<div class="flex items-center justify-between gap-3">
-        <span class="text-[14.5px] font-bold text-ink">${esc(String(d.confidence))}</span>
-      </div>`,
+      `<div class="text-[14.5px] font-bold capitalize text-ink">${esc(String(d.confidence))}</div>
+       <div class="mt-1 text-[13px] leading-relaxed text-muted">${esc(CONF[d.confidence] || "No confidence reported.")}</div>`,
+      null,
+      "info",
     )}
   `;
 };
@@ -1043,40 +1068,138 @@ SCREENS.school = () => {
   const fin = s.financials || {};
   const ac = s.academics || {};
   const at = s.athletics || {};
-  // A D3 school never shows a scholarship claim, whatever the record says.
-  const showsAid = s.division !== "D3";
+  const AID = { full: "Full scholarships available", partial: "Partial scholarships available", none: "No athletic aid, academic only" };
+  const OUTLOOK = { realistic: "Realistic shot at playing time", competitive: "Competitive for playing time", difficult: "Difficult to break into" };
+  // A D3 school never shows a scholarship claim, whatever the record
+  // says. It is a law in the repo for the same reason it is a rule here:
+  // printing the field tells a family money exists that does not.
+  const d3 = /D3|DIVISION 3|DIVISION III/i.test(s.division || "");
+  const cost = fin.outstateTotal || fin.instateTotal;
+  const aid = d3 ? (fin.avgMeritAid || 0) + (fin.avgNeedAid || 0) : fin.avgAthleticAid || 0;
+  const coverage = cost && aid ? Math.round((aid / cost) * 100) : null;
+  const stale = s.profileDate ? Math.floor((new Date(TODAY) - new Date(s.profileDate)) / 86400000) : null;
+  const dollars = (d) => "$" + Math.round(d).toLocaleString("en-US");
 
   return `
-    ${backLink("Back")}
+    ${backLink("Schools")}
     <h1 class="mb-1 text-[22px] font-extrabold leading-tight text-ink">${esc(s.name)}</h1>
-    <div class="mb-4 text-[13.5px] font-bold text-muted">${esc(s.division)}${s.conference ? " &middot; " + esc(s.conference) : ""}</div>
-
-    <div class="mb-5 grid grid-cols-3 gap-2">
-      ${tile("Avg GPA", ac.gpaAvg != null ? ac.gpaAvg.toFixed(2) : "None")}
-      ${tile("Min GPA", ac.gpaMin != null ? ac.gpaMin.toFixed(2) : "None")}
-      ${tile("Open spots", fin.rosterSpotsOpen != null ? String(fin.rosterSpotsOpen) : "None")}
-    </div>
-
-    <div class="mb-2">${header("Money", null, "committed")}</div>
-    <div class="flex flex-col gap-2">
-      ${row("committed", "Athletic aid", "", `<span class="text-[13.5px] font-bold text-ink">${showsAid ? esc(String(fin.athleticScholarship || "none")) : "Not offered at D3"}</span>`)}
-      ${showsAid && fin.avgAthleticAid ? row("committed", "Average award", "", `<span class="text-[13.5px] font-bold tabular-nums text-ink">${money(fin.avgAthleticAid * 100)}</span>`) : ""}
-      ${fin.instateTotal ? row("contact", "In state", "", `<span class="text-[13.5px] font-bold tabular-nums text-ink">${money(fin.instateTotal * 100)}</span>`) : ""}
-      ${fin.outstateTotal ? row("contact", "Out of state", "", `<span class="text-[13.5px] font-bold tabular-nums text-ink">${money(fin.outstateTotal * 100)}</span>`) : ""}
-    </div>
+    <div class="mb-5 text-[13.5px] font-bold text-muted">${esc(s.division)}${s.conference ? " &middot; " + esc(s.conference) : ""}</div>
 
     ${
-      at.positionDepth
-        ? `<div class="mb-2 mt-5">${header("Depth chart", null, "visit")}</div>
-           ${rail("visit", `<div class="text-[13.5px] leading-tight text-ink">${esc(at.positionDepth)}</div>`)}`
+      stale !== null && stale >= 90
+        ? `<div class="mb-5">${rail(
+            "offer",
+            `<div class="text-[14.5px] font-bold leading-tight text-ink">This profile is ${stale} days old</div>
+             <div class="mt-1 text-[13px] leading-relaxed text-muted">Every fit score against this school is built on the numbers below. Refresh them before anyone leans on one.</div>`,
+            null,
+            "warning",
+          )}</div>`
         : ""
     }
 
-    <div class="mb-2 mt-5">${header("Your athletes here", here.length, "contact")}</div>
+    <div class="mb-5 grid grid-cols-3 gap-2">
+      ${tile("Avg GPA", ac.gpaAvg != null ? ac.gpaAvg.toFixed(2) : "None", "admitted")}
+      ${tile("Min GPA", ac.gpaMin != null ? ac.gpaMin.toFixed(2) : "None", "floor")}
+      ${tile("Spots", fin.rosterSpotsOpen != null ? String(fin.rosterSpotsOpen) : "None", fin.rosterSpotsOpen != null ? "reported open" : "not reported")}
+    </div>
+
+    ${
+      ac.satRange || ac.actRange
+        ? `<div class="mb-5">${rail(
+            "contact",
+            `<div class="text-[13.5px] leading-relaxed text-ink">${[ac.satRange ? "SAT " + esc(ac.satRange) : "", ac.actRange ? "ACT " + esc(ac.actRange) : ""]
+              .filter(Boolean)
+              .join(" &middot; ")}</div>
+             <div class="mt-0.5 text-[13px] leading-relaxed text-muted">The middle 50% of admitted students. Above the top number is a real advantage; below the bottom one is a real headwind.</div>`,
+            null,
+            "course",
+          )}</div>`
+        : ""
+    }
+
+    <div class="mb-2">${header("Money", null, "committed", "money")}</div>
+    <div class="flex flex-col gap-2">
+      ${rail(
+        d3 ? "place" : "committed",
+        `<div class="text-[14.5px] font-bold leading-tight text-ink">${
+          d3 ? "No athletic scholarships at D3" : esc(AID[fin.athleticScholarship] || "Athletic aid not recorded")
+        }</div>
+         <div class="mt-0.5 text-[13px] leading-relaxed text-muted">${
+           d3
+             ? "NCAA rules, not this school's choice. Academic and need-based aid still apply and are often substantial."
+             : "From this school's profile. Confirm with the coaching staff before a family plans around it."
+         }</div>`,
+        null,
+        "money",
+      )}
+      ${
+        aid
+          ? rail(
+              "committed",
+              `<div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-[14.5px] font-bold leading-tight text-ink">${d3 ? "Average academic and need aid" : "Average athletic award"}</div>
+                  ${coverage !== null ? `<div class="mt-0.5 text-[13px] leading-relaxed text-muted">Covers about ${coverage}% of the cost of attendance.</div>` : ""}
+                </div>
+                <span class="flex-shrink-0 text-[15px] font-extrabold tabular-nums text-ink">${dollars(aid)}</span>
+              </div>`,
+              null,
+              "grant",
+            )
+          : ""
+      }
+      ${
+        fin.instateTotal
+          ? row("contact", "In state", "", `<span class="flex-shrink-0 text-[15px] font-extrabold tabular-nums text-ink">${dollars(fin.instateTotal)}</span>`, null, "school")
+          : ""
+      }
+      ${
+        fin.outstateTotal
+          ? row("contact", "Out of state", "", `<span class="flex-shrink-0 text-[15px] font-extrabold tabular-nums text-ink">${dollars(fin.outstateTotal)}</span>`, null, "school")
+          : ""
+      }
+      ${
+        !fin.instateTotal && !fin.outstateTotal
+          ? rail("target", `<div class="text-[13.5px] leading-relaxed text-ink">No cost of attendance on file, so the financial dimension of every fit score here is running on defaults.</div>`)
+          : ""
+      }
+    </div>
+
+    ${
+      at.positionDepth || at.playingTimeOutlook
+        ? `<div class="mb-2 mt-5">${header("Depth chart", null, "visit", "athlete")}</div>
+           ${rail(
+             "visit",
+             `${at.playingTimeOutlook ? `<div class="text-[14.5px] font-bold leading-tight text-ink">${esc(OUTLOOK[at.playingTimeOutlook] || at.playingTimeOutlook)}</div>` : ""}
+              ${at.positionDepth ? `<div class="mt-1 text-[13.5px] leading-relaxed text-ink">${esc(at.positionDepth)}</div>` : ""}`,
+             null,
+             "athlete",
+           )}`
+        : ""
+    }
+
+    ${
+      (s.conflicts || []).length
+        ? `<div class="mb-2 mt-5">${header("Flags on this school", s.conflicts.length, "offer", "warning")}</div>
+           <div class="flex flex-col gap-2">${s.conflicts
+             .map((c) =>
+               rail(
+                 c.severity === "conflict" ? "offer" : "contact",
+                 `<div class="text-[13.5px] leading-relaxed text-ink">${esc(c.message)}</div>`,
+                 null,
+                 c.severity === "conflict" ? "blocked" : "warning",
+               ),
+             )
+             .join("")}</div>`
+        : ""
+    }
+
+    <div class="mb-2 mt-5">${header("Your athletes here", here.length, "contact", "athlete")}</div>
     <div class="flex flex-col gap-2">
       ${
         here.length
-          ? here
+          ? [...here]
+              .sort((x, y) => fitFor(y).score - fitFor(x).score)
               .map((t) =>
                 row(
                   STATUS_ROLE[t.status],
@@ -1084,54 +1207,101 @@ SCREENS.school = () => {
                   esc(t.status),
                   `<span class="flex-shrink-0 text-[17px] font-black tabular-nums ${TEXT_ON[scoreRole(fitFor(t).score)]}">${fitFor(t).score}</span>`,
                   `go('target',{id:'${t.id}'})`,
+                  "athlete",
                 ),
               )
               .join("")
-          : emptyState("Nobody here yet", "No athlete on this roster is targeting this school.")
+          : emptyState(
+              "Nobody here yet",
+              "No athlete on your roster is targeting this school. Adding one from their profile puts it on the board with a fit score.",
+            )
       }
     </div>
   `;
 };
 
-// The contact log. The target screen used to show a count and stop there.
+// The contact log. The target screen used to show a count and stop
+// there. The count is the part you cannot act on; the gap since the last
+// one is the part you can. Visits are folded in with the calls and
+// emails, because keeping them on a separate list is how they get
+// forgotten.
 SCREENS.comms = () => {
   const t = byOrg(db.targets).find((x) => x.id === state.params.id);
   const s = school(t.schoolId);
   const a = athlete(t.athleteId);
-  const log = db.communications.filter((c) => c.targetId === t.id).sort((x, y) => y.at.localeCompare(x.at));
-  const KIND = { email: "people", call: "contact", text: "contact", visit: "visit", camp: "visit" };
+  const KIND = {
+    call: { label: "Call", kind: "people", role: "contact" },
+    text: { label: "Text", kind: "message", role: "contact" },
+    email: { label: "Email", kind: "message", role: "contact" },
+    visit: { label: "Visit (logged)", kind: "visit", role: "visit" },
+    other: { label: "Contact", kind: "message", role: "contact" },
+  };
+  const VISIT = { official: "Official visit", unofficial: "Unofficial visit", junior_day: "Junior day", camp: "Camp", other: "Visit" };
+
+  const entries = [
+    ...db.communications
+      .filter((c) => c.targetId === t.id)
+      .map((c) => ({ at: c.at, detail: c.summary, ...(KIND[c.kind] || KIND.other) })),
+    ...(db.visits || [])
+      .filter((v) => v.targetId === t.id)
+      .map((v) => ({ at: v.at, detail: v.impression || null, label: VISIT[v.visitType] || VISIT.other, kind: "visit", role: "visit" })),
+  ];
+  const dated = entries.filter((e) => e.at).sort((x, y) => y.at.localeCompare(x.at));
+  const undated = entries.filter((e) => !e.at);
+  const gap = dated.length ? Math.floor((new Date(TODAY) - new Date(dated[0].at)) / 86400000) : null;
 
   return `
     ${backLink(s.name)}
-    <h1 class="mb-1 text-[22px] font-extrabold text-ink">${esc(t.coachName || "Contact")}</h1>
+    <h1 class="mb-1 text-[22px] font-extrabold leading-tight text-ink">${esc(t.coachName || "Contact log")}</h1>
     <div class="mb-5 text-[13.5px] font-bold text-muted">${esc(s.name)} &middot; ${esc(a.name)}</div>
 
-    <div class="mb-2">${header("History", log.length, "people")}</div>
+    ${
+      gap !== null
+        ? `<div class="mb-5">${rail(
+            gap > 60 ? "offer" : "contact",
+            `<div class="text-[14.5px] font-bold leading-tight text-ink">${
+              gap === 0 ? "Last contact today" : gap === 1 ? "Last contact yesterday" : gap + " days since the last contact"
+            }</div>
+             <div class="mt-1 text-[13px] leading-relaxed text-muted">${entries.length} ${entries.length === 1 ? "entry" : "entries"} on file.${
+               gap > 60 ? " A gap this long is usually worth a note rather than a wait." : ""
+             }</div>`,
+            null,
+            gap > 60 ? "warning" : "clock",
+          )}</div>`
+        : ""
+    }
+
+    <div class="mb-2">${header("History", entries.length, "people", "people")}</div>
     <div class="flex flex-col gap-2">
       ${
-        log.length
-          ? log
-              .map((c) =>
+        entries.length
+          ? [...dated, ...undated]
+              .map((e) =>
                 rail(
-                  KIND[c.kind] || "people",
+                  e.role,
                   `<div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                      <div class="text-[14.5px] font-bold leading-tight text-ink">${esc(c.summary)}</div>
-                      <div class="mt-0.5 text-[12.5px] text-muted">${esc(c.direction === "in" ? "From them" : "From us")}</div>
+                    <div class="min-w-0 flex-1">
+                      <div class="text-[14.5px] font-bold leading-tight text-ink">${esc(e.label)}</div>
+                      ${e.detail ? `<div class="mt-0.5 text-[13px] leading-relaxed text-muted">${esc(e.detail)}</div>` : ""}
                     </div>
-                    <span class="flex-shrink-0 text-[12.5px] font-bold text-muted">${esc(new Date(c.at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))}</span>
+                    <span class="flex-shrink-0 text-[12.5px] font-bold text-muted">${
+                      e.at ? esc(new Date(e.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })) : "no date"
+                    }</span>
                   </div>`,
+                  null,
+                  e.kind,
                 ),
               )
               .join("")
-          : emptyState("Nothing logged", "No calls, emails or visits recorded against this school yet.")
+          : emptyState(
+              "Nothing logged",
+              "No calls, emails or visits are recorded against this school yet. Logging them is also what moves the fit score: sustained contact and a completed visit both count as signals.",
+            )
       }
     </div>
   `;
 };
 
-// Every course on file, which is where a wrong core GPA actually gets
-// traced back to. Counted and not counted are the engine's own verdict.
 SCREENS.courses = () => {
   const a = athlete(state.params.id);
   const { view } = eligibilityFor(a.id);
@@ -1314,25 +1484,78 @@ SCREENS.caveats = () => {
   const a = athlete(state.params.id);
   const { view } = eligibilityFor(a.id);
   const e = view.eligibility;
-  const all = [...view.adapterWarnings, ...e.warnings];
+  // Two sources, deliberately kept apart in the data and joined only on
+  // the screen. An adapter warning is about what the app could not read;
+  // an eligibility warning is about the athlete's standing. They read as
+  // one list and are cleared in completely different ways.
+  const dataCaveats = view.adapterWarnings;
+  const standing = e.warnings;
+  const total = dataCaveats.length + standing.length;
 
   return `
     ${backLink("NCAA eligibility")}
-    <h1 class="mb-1 text-[22px] font-extrabold text-ink">Things to know</h1>
-    <div class="mb-5 text-[13.5px] font-bold text-muted">${esc(a.name)} &middot; ${all.length} ${all.length === 1 ? "item" : "items"}</div>
+    <h1 class="mb-1 text-[22px] font-extrabold leading-tight text-ink">Things to know</h1>
+    <div class="mb-5 text-[13.5px] font-bold text-muted">${esc(a.name)} &middot; ${total} ${total === 1 ? "item" : "items"}</div>
 
-    <div class="flex flex-col gap-2">${all
-      .map((w) => rail("offer", `<div class="text-[13.5px] leading-relaxed text-ink">${esc(w)}</div>`, null, "warning"))
-      .join("")}</div>
+    ${
+      total === 0
+        ? emptyState(
+            "Nothing outstanding",
+            "Every core course is matched to an approved list and every school has a grading scale on file. The verdict is built on real data rather than defaults.",
+          )
+        : `
+      ${
+        dataCaveats.length
+          ? `<div class="mb-2">${header("What the app could not read", dataCaveats.length, "offer", "warning")}</div>
+             <div class="flex flex-col gap-2">${dataCaveats
+               .map((w) => rail("offer", `<div class="text-[13.5px] leading-relaxed text-ink">${esc(w)}</div>`, null, "warning"))
+               .join("")}</div>
+             <div class="mt-2">${rail(
+               "contact",
+               `<div class="text-[13px] leading-relaxed text-ink">These are gaps in what has been entered, not findings about the athlete. Each one is something the verdict is currently guessing at, and each one can be closed.</div>`,
+               null,
+               "info",
+             )}</div>`
+          : ""
+      }
+      ${
+        standing.length
+          ? `<div class="mb-2 mt-5">${header("About their standing", standing.length, "contact", "checklist")}</div>
+             <div class="flex flex-col gap-2">${standing
+               .map((w) => rail("contact", `<div class="text-[13.5px] leading-relaxed text-ink">${esc(w)}</div>`, null, "checklist"))
+               .join("")}</div>`
+          : ""
+      }`
+    }
 
     <div class="mb-2 mt-5">${header("What to do", null, "accent", "info")}</div>
     <div class="flex flex-col gap-2">
-      ${view.schoolsMissingScale.length ? row("offer", "Enter a grading scale", esc(view.schoolsMissingScale.join(", ")), "", "go('scales')", "scale") : ""}
-      ${view.schoolsMissingApprovedList.length ? row("offer", "Enter an approved list", esc(view.schoolsMissingApprovedList.join(", ")), "", "go('approvedLists')", "checklist") : ""}
-      ${row("contact", "See the transcript", "", "", `go('courses',{id:'${a.id}'})`, "course")}
+      ${
+        view.schoolsMissingScale.length
+          ? rail(
+              "offer",
+              `<div class="text-[14.5px] font-bold leading-tight text-ink">Enter a grading scale</div>
+               <div class="mt-0.5 text-[13px] leading-relaxed text-muted">${esc(view.schoolsMissingScale.join(", "))}. Until then the core GPA assumes a ten-point scale, which is wrong at plenty of schools and wrong by enough to move a verdict.</div>`,
+              "go('scales')",
+              "scale",
+            )
+          : ""
+      }
+      ${
+        view.schoolsMissingApprovedList.length
+          ? rail(
+              "offer",
+              `<div class="text-[14.5px] font-bold leading-tight text-ink">Enter an approved course list</div>
+               <div class="mt-0.5 text-[13px] leading-relaxed text-muted">${esc(view.schoolsMissingApprovedList.join(", "))}. Without one, no course can be confirmed as counting, so the core GPA is an estimate over everything on the transcript.</div>`,
+              "go('approvedLists')",
+              "checklist",
+            )
+          : ""
+      }
+      ${row("contact", "See the transcript", "Every course the core GPA counted, and every one it did not", "", `go('courses',{id:'${a.id}'})`, "course")}
     </div>
 
-    <p class="mt-5 text-[12px] leading-relaxed text-muted">A projection until every core credit is final. Confirm with the NCAA Eligibility Center before anyone signs anything.</p>
+    <p class="mt-5 text-[13px] leading-relaxed text-muted">A projection until every core credit is final. Confirm with the NCAA Eligibility Center before anyone signs anything.</p>
   `;
 };
 
