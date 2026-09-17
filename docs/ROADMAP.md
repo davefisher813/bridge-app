@@ -157,6 +157,42 @@ down because each needs a decision, not because they were missed.
   is created. The size cap moved to `src/lib/docai/limits.ts` so both
   sides share one number instead of keeping two copies.
 
+## The gap between the prototype and the real app
+
+Kept here because "what is left" was answered wrongly once, on
+2026-09-17, by looking at this file's Next-up list and not at the
+screens. The prototype is the approved product; these are the screens
+that exist in it and have no page in the real app yet. None of them
+needs anything from Dave. All are read views over data the schema
+already holds.
+
+Recruiting:
+- `courses` the transcript, per term, with what the NCAA counted
+- `approvals` every course against the school's approved list
+- `dimension` one fit dimension's full reasons and warnings
+- `caveats` the eligibility caveats in full, on their own page
+- `comms` the contact log for a target
+- `school` a school's profile, money and depth chart
+
+Fundraising:
+- `gifts` the gift ledger, filterable by category and method
+- `pledges` what is promised and unpaid
+- `donor` one supporter's gifts, pledges and lifetime total
+- `campaign` a campaign's own gifts against its goal
+
+Governance:
+- `member` a board seat's give/get, and the gifts credited to it
+- `members` every seat across every board in one list
+
+Prototype-only by design, not gaps: the bug flagger and the "How this
+works" guide.
+
+Done 2026-09-17, closing the two largest holes: `board/[id]`, a read
+view of a recruiting target (tapping a row went straight to the edit
+form, so the fit score the board is built on was not readable anywhere,
+and members could not open it at all), and `schools`, the list (there
+was a `/schools/new` and no list to see what you had added).
+
 ## Next up
 
 1. ~~**Check courses against each school's NCAA-approved list.**~~ Logic

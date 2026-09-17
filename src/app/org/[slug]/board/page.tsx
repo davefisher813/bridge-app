@@ -183,12 +183,14 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
                       </div>
                     </RailCard>
                   );
-                  return canEdit ? (
-                    <Link key={r.id} href={`/org/${slug}/board/${r.id}/edit`} className="block">
+                  // Every row opens the read view now, whatever the
+                  // role. It used to link to the edit form and only for
+                  // staff, so a member could see a score on the board
+                  // and had no way to find out what it was made of.
+                  return (
+                    <Link key={r.id} href={`/org/${slug}/board/${r.id}`} className="block">
                       {row}
                     </Link>
-                  ) : (
-                    <div key={r.id}>{row}</div>
                   );
                 })}
               </div>

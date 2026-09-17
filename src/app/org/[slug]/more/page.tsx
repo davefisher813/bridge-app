@@ -54,6 +54,12 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
             <div className="text-[12px] text-muted">How each school&apos;s numbers become letters</div>
           </RailCard>
         </Link>
+        <Link href={`/org/${slug}/schools`} className="block">
+          <RailCard role="place" kind="school">
+            <div className="text-[14px] font-semibold text-ink">Schools</div>
+            <div className="text-[12px] text-muted">The shared database, and who you are recruiting</div>
+          </RailCard>
+        </Link>
         <Link href={`/org/${slug}/approved-courses`} className="block">
           <RailCard role="visit" kind="checklist">
             <div className="text-[14px] font-semibold text-ink">Approved lists</div>
