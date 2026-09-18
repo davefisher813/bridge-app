@@ -30,6 +30,22 @@
 export type Row = Record<string, unknown>;
 export type Dataset = Record<string, Row[]>;
 
+// Every write the fake was asked to perform, in order. Rendering a page
+// never writes, so for the read harness this stays empty and proves it.
+// For the action harness it is the whole point: an action's job is to
+// authorize, validate, and then write the right row to the right table
+// with the right org_id, and none of that is observable any other way.
+export interface RecordedWrite {
+  op: "insert" | "update" | "upsert" | "delete";
+  table: string;
+  rows: Row[];
+  // The filters in force when an update or delete ran. An action that
+  // forgets `.eq("org_id", ...)` writes across orgs, and the only place
+  // that is visible is here.
+  filters: Array<{ column: string; value: unknown }>;
+  onConflict?: string;
+}
+
 // Which embedded name resolves to which table, and whether it comes back
 // as one row or many. Taken from the foreign keys in migrations/, so a
 // join the app writes and the schema does not have is a loud failure
@@ -57,6 +73,24 @@ const EMBEDS: Record<string, Record<string, EmbedSpec>> = {
     org_approved_courses: { table: "org_approved_courses", foreignKey: "list_id", many: true },
   },
   documents: {
+    athletes: { table: "athletes", foreignKey: "athlete_id", many: false },
+  },
+  board_members: {
+    boards: { table: "boards", foreignKey: "board_id", many: false },
+    donors: { table: "donors", foreignKey: "donor_id", many: false },
+  },
+  gifts: {
+    donors: { table: "donors", foreignKey: "donor_id", many: false },
+    campaigns: { table: "campaigns", foreignKey: "campaign_id", many: false },
+  },
+  pledges: {
+    donors: { table: "donors", foreignKey: "donor_id", many: false },
+    campaigns: { table: "campaigns", foreignKey: "campaign_id", many: false },
+  },
+  contacts: {
+    schools: { table: "schools", foreignKey: "school_id", many: false },
+  },
+  athlete_courses: {
     athletes: { table: "athletes", foreignKey: "athlete_id", many: false },
   },
 };
@@ -89,12 +123,14 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
   private orderBy: { column: string; ascending: boolean } | null = null;
   private limitTo: number | null = null;
   private wantsSingle: "single" | "maybe" | null = null;
-  private writes: { op: "insert" | "update" | "upsert" | "delete"; values?: Row | Row[] } | null = null;
+  private writes: { op: "insert" | "update" | "upsert" | "delete"; values?: Row | Row[]; onConflict?: string } | null = null;
 
   constructor(
     private data: Dataset,
     private table: string,
     private onUnsupported: (what: string) => never,
+    private recorded: RecordedWrite[],
+    private failOn: (table: string, op: string) => string | null,
   ) {}
 
   select(list?: string) {
@@ -145,8 +181,8 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
     this.writes = { op: "update", values };
     return this;
   }
-  upsert(values: Row | Row[]) {
-    this.writes = { op: "upsert", values };
+  upsert(values: Row | Row[], opts?: { onConflict?: string }) {
+    this.writes = { op: "upsert", values, onConflict: opts?.onConflict };
     return this;
   }
   delete() {
@@ -187,7 +223,7 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
           ? child.filter((c) => c[spec.foreignKey] === row.id)
           : child.filter((c) => c.id === row[spec.foreignKey]);
         const inner = related.map((c) => {
-          const q = new FakeQuery(this.data, spec.table, this.onUnsupported);
+          const q = new FakeQuery(this.data, spec.table, this.onUnsupported, this.recorded, this.failOn);
           q.selectList = embed[2];
           return q.project(c);
         });
@@ -205,10 +241,39 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
     const table = this.data[this.table];
     if (!table) this.onUnsupported(`table "${this.table}" is not in the fixture`);
 
-    // A write is accepted and reported as succeeding without mutating
-    // anything. Rendering a page never writes, and a test that DID write
-    // through this would be testing the fake rather than the action.
-    if (this.writes) return { data: null, error: null };
+    if (this.writes) {
+      const forced = this.failOn(this.table, this.writes.op);
+      if (forced) return { data: null, error: { message: forced } };
+
+      const values = this.writes.values;
+      const rows = values === undefined ? [] : Array.isArray(values) ? values : [values];
+      this.recorded.push({
+        op: this.writes.op,
+        table: this.table,
+        rows,
+        filters: this.filters.map((f) => ({ column: f.column, value: f.value })),
+        onConflict: this.writes.onConflict,
+      });
+
+      // The row is written into the dataset so that a chained
+      // `.select().single()` gets something back, which several actions
+      // rely on to learn the new row's id. An id is minted here when the
+      // caller did not supply one, the way a default would.
+      const inserted: Row[] = [];
+      if (this.writes.op !== "delete") {
+        for (const r of rows) {
+          const row = { id: r.id ?? `fake-${this.table}-${table.length + inserted.length + 1}`, ...r };
+          table.push(row);
+          inserted.push(row);
+        }
+      }
+
+      if (this.wantsSingle) {
+        const one = inserted[0] ?? null;
+        return { data: one ? this.project(one) : null, error: null };
+      }
+      return { data: inserted.map((r) => this.project(r)), error: null };
+    }
 
     let rows = table.filter((r) => this.matches(r));
     if (this.orderBy) {
@@ -245,6 +310,12 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
 export interface FakeClientOptions {
   // The signed-in user. Null renders the signed-out path.
   userId: string | null;
+  // Collects every write. Pass one in to assert on what an action did.
+  recorded?: RecordedWrite[];
+  // Force a database error on one table and operation, so the error
+  // branch of an action is reachable. Every action has one and none of
+  // them had ever run.
+  failOn?: (table: string, op: string) => string | null;
 }
 
 export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
@@ -255,9 +326,12 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
     throw new Error(`fakeSupabase does not implement: ${what}`);
   };
 
+  const recorded = opts.recorded ?? [];
+  const failOn = opts.failOn ?? (() => null);
+
   return {
     from(table: string) {
-      return new FakeQuery(data, table, unsupported);
+      return new FakeQuery(data, table, unsupported, recorded, failOn);
     },
     auth: {
       async getUser() {

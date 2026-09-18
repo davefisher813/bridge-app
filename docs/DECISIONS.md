@@ -1645,3 +1645,50 @@ rather than throwing. Both were gaps in the harness, not in the code, and
 both are fixed: the fixture gained the missing row and the assertion now
 checks the row rather than the heading. A plant that does not fail is the
 only way to find out that a test was never testing anything.
+
+## 2026-09-18: the server actions are executed by a test, and vitest went to 5
+
+**Decision.** `src/laws/actionRun.test.ts` runs the server actions against
+the same fake client the page harness uses, now extended to record every
+write. The fifteen form screens joined the render harness at the same
+time, and nothing in `src/app` is exempt from it any more.
+
+**Reason.** The actions were the largest untested surface in the repo.
+What was tested is the pure validation module each one calls, which is
+the easy half. The untested half is the glue, and the glue is where the
+dangerous mistakes live: the authorization check, the org stamp on the
+row, the cross-org guard on a foreign key, the error branch.
+
+A missing `org_id` on an insert is not a crash. It is a row in the wrong
+org that reads back as missing data weeks later, and nothing in the type
+system has an opinion about it.
+
+**Six laws, each planted and watched to fail:** a created row carries its
+org; a member cannot write; a module-gated action checks the gate; a
+foreign key from another org is refused; an update is scoped to the org
+and not just the id; the error branch reports rather than redirecting.
+Plus one on `revalidatePath`, because forgetting it produces the most
+confusing bug a form can have: it saved, and the screen says it did not.
+
+**One test was passing for the wrong reason and the plant is what found
+it.** The cross-org guard test used `"foreign-athlete"` as an id. The
+form parser rejects a malformed UUID before the guard is ever reached, so
+removing the guard entirely did not fail the test. It uses real UUIDs
+now, and asserts the guard's own message rather than merely that some
+error came back.
+
+**The fake gained a `boards` embed** because a form screen asked for one
+and the fake threw by name rather than returning an empty object. That is
+the behaviour it was built for, working.
+
+**vitest 2 to 5.** `npm audit` reported 5 vulnerabilities including one
+critical, all in vite and vitest, both dev-only and never shipped. The
+fix needed a major bump. All 585 tests, the build, the RLS suite and the
+prototype audit pass on the new version unchanged. `npm audit` now
+reports zero.
+
+**Consequence worth noting.** The render harness has no exemptions left.
+The forms were excluded on the grounds that "a render proves nothing
+about a form that has to be posted", which was true of the posting and
+false of everything else: a form that throws while listing the athletes
+to choose from never gets as far as being posted.

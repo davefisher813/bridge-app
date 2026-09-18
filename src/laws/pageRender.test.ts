@@ -108,6 +108,27 @@ const PAGES: Array<{ name: string; path: string; props: Record<string, unknown>;
   { name: "document", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.document }) }, expect: /fixture.pdf/ },
   { name: "documentFailed", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "doc-failed" }) }, expect: /legible/ },
   { name: "budget", path: "@/app/org/[slug]/fundraising/budget/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /udget/ },
+
+  // The form screens. Added 2026-09-18 with the action harness: they had
+  // been excluded on the grounds that "a render proves nothing about a
+  // form that has to be posted", which is true of the posting and false
+  // of everything else. A form that throws while listing the athletes to
+  // choose from never gets as far as being posted.
+  { name: "new-athlete", path: "@/app/org/[slug]/roster/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /form|input/i },
+  { name: "edit-athlete", path: "@/app/org/[slug]/roster/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete/ },
+  { name: "new-target", path: "@/app/org/[slug]/board/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture Athlete/ },
+  { name: "edit-target", path: "@/app/org/[slug]/board/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) }, expect: /Fixture/ },
+  { name: "new-school", path: "@/app/org/[slug]/schools/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /form|input/i },
+  { name: "new-gift", path: "@/app/org/[slug]/fundraising/gifts/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Donor/ },
+  { name: "new-pledge", path: "@/app/org/[slug]/fundraising/pledges/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Donor/ },
+  { name: "new-donor", path: "@/app/org/[slug]/fundraising/donors/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /form|input/i },
+  { name: "new-campaign", path: "@/app/org/[slug]/fundraising/campaigns/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /form|input/i },
+  { name: "new-grant", path: "@/app/org/[slug]/fundraising/grants/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /form|input/i },
+  { name: "new-board", path: "@/app/org/[slug]/board-governance/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /form|input/i },
+  { name: "new-seat", path: "@/app/org/[slug]/board-governance/[id]/seats/new/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.board }) }, expect: /form|input/i },
+  { name: "new-scale", path: "@/app/org/[slug]/grading-scales/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /form|input/i },
+  { name: "new-approved-list", path: "@/app/org/[slug]/approved-courses/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ school: "Unscaled High School" }) }, expect: /Unscaled High School/ },
+  { name: "new-document", path: "@/app/org/[slug]/documents/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /form|input|upload/i },
 ];
 
 beforeEach(() => {
@@ -150,11 +171,10 @@ describe("LAW: the list above covers every page in the app", () => {
     walk(appDir);
 
     const covered = new Set(PAGES.map((x) => x.path.replace(/^@\/app\//, "").replace(/\/page$/, "")));
-    // Form and action screens are covered by their own tests rather than
-    // here: a render proves nothing about a form that has to be posted,
-    // and listing them would be a count rather than a check.
-    const FORMS = /\/(new|edit)$/;
-    const missing = found.filter((f) => !covered.has(f) && !FORMS.test(f) && f !== "" && !f.startsWith("unauthorized") && !f.startsWith("login") && !f.startsWith("auth"));
+    // Nothing is exempt any more. The forms used to be, on the grounds
+    // that a render proves nothing about a post, which was true of the
+    // post and false of the rest of the screen.
+    const missing = found.filter((f) => !covered.has(f) && f !== "" && !f.startsWith("unauthorized") && !f.startsWith("login") && !f.startsWith("auth"));
 
     expect(missing).toEqual([]);
   });
@@ -190,6 +210,16 @@ describe("LAW: the awkward rows render too", () => {
     });
     expect(html).toMatch(/Fixture Lapsed Donor/);
     expect(html).not.toMatch(/Sits on a board/);
+  });
+
+  it("the approved-list form 404s with no school named", async () => {
+    // Not a workaround for the test: a list belongs to one school, and a
+    // form with no school is a form that cannot be saved. Pinned because
+    // the alternative (rendering an empty form) is the kind of thing that
+    // gets "fixed" by somebody who does not know why the check is there.
+    await expect(
+      render("@/app/org/[slug]/approved-courses/new/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }),
+    ).rejects.toThrow(NOT_FOUND);
   });
 
   it("a board seat with no donor record says so rather than reporting zero", async () => {

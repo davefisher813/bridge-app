@@ -221,10 +221,13 @@ Prototype-only by design, not gaps: the bug flagger and the "How this
 works" guide.
 
 **The list is empty as of 2026-09-17.** Every screen in the approved
-prototype now has a page in the real app. The next answer to "what is
-left" is not on this list, it is in docs/CURRENT_STATE.md: no Supabase
-project, no deployment, no environment file, no git remote, and no API
-key for Doc AI. None of those is a screen.
+prototype now has a page in the real app.
+
+**And as of 2026-09-18 the untested surface is empty too.** Every page
+and every server action is executed by a test. So the next answer to
+"what is left" is not on this list and is not code: no Supabase project,
+no deployment, no environment file, no git remote, no API key for Doc AI.
+Each needs a decision or a credential from Dave, not an afternoon.
 
 Done 2026-09-17, closing the two largest holes: `board/[id]`, a read
 view of a recruiting target (tapping a row went straight to the edit
