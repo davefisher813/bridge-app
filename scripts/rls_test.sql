@@ -419,8 +419,10 @@ do $$
 declare n int;
 begin
   select count(*) into n from users;
-  if n <> 1 then raise exception 'FAIL: user1 saw % users rows via users_self, expected 1 (only their own)', n; end if;
-  raise notice 'PASS: users_self restricts to the caller''s own row';
+  -- Own row plus the Bridge member's (migration 0018: colleagues see
+  -- each other). Elite Squad's owner stays invisible; asserted below.
+  if n <> 2 then raise exception 'FAIL: user1 saw % users rows, expected 2 (self and the Bridge member)', n; end if;
+  raise notice 'PASS: profile rows are limited to the caller and their colleagues';
 end $$;
 
 do $$
@@ -1130,4 +1132,39 @@ begin
   raise notice 'PASS: anonymous session sees zero document objects';
 end $$;
 
+reset role;
+
+-- ── Migration 0018: sign-in is mirrored, and colleagues can see each other ──
+reset role;
+update auth.users set last_sign_in_at = now() where id = '00000000-0000-0000-0000-000000000004';
+do $$
+declare t timestamptz;
+begin
+  select last_sign_in_at into t from public.users where id = '00000000-0000-0000-0000-000000000004';
+  if t is null then raise exception 'FAIL: a sign-in on auth.users did not reach public.users'; end if;
+  raise notice 'PASS: last_sign_in_at follows auth.users onto the profile row';
+end $$;
+
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge owner
+do $$
+declare n int; other int;
+begin
+  select count(*) into n from users;
+  -- Self, plus user3 who is a Bridge member. Not user2 (Elite only) and
+  -- not user4 (no org at all).
+  if n <> 2 then raise exception 'FAIL: Bridge owner sees % profile rows, expected 2 (self and the Bridge member)', n; end if;
+  select count(*) into other from users where id = '00000000-0000-0000-0000-000000000002';
+  if other <> 0 then raise exception 'FAIL: Bridge owner can read Elite Squad''s owner profile'; end if;
+  raise notice 'PASS: a member reads the profiles of people in a shared org and nobody else''s';
+end $$;
+
+do $$
+declare affected int;
+begin
+  update users set full_name = 'Renamed By Colleague' where id = '00000000-0000-0000-0000-000000000003';
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'FAIL: a colleague could rewrite another member''s profile'; end if;
+  raise notice 'PASS: reading a colleague''s profile does not mean writing it';
+end $$;
 reset role;

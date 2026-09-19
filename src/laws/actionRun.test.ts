@@ -575,3 +575,33 @@ describe("LAW: the auth callback verifies, then lands on this site only", () => 
     expect(writes).toEqual([]);
   });
 });
+
+describe("LAW: a resend is the ordinary magic link, sent for a colleague", () => {
+  it("resendInvite sends a link to the invited person's address, without the service role", async () => {
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env.NEXT_PUBLIC_SITE_URL = "https://app.example.test";
+    const { resendInvite } = await import("@/lib/actions/members");
+    const r = await resendInvite(ORG_WITH_MODULES, MEMBER_ID);
+    expect(r.ok).toBe(true);
+    const otp = writes.find((w) => w.table === "auth:otp");
+    expect(otp?.rows[0]).toMatchObject({ email: "member@example.test", shouldCreateUser: false });
+  });
+
+  it("a member cannot resend", async () => {
+    currentUser = MEMBER_ID;
+    const { resendInvite } = await import("@/lib/actions/members");
+    await expect(resendInvite(ORG_WITH_MODULES, OWNER_ID)).rejects.toThrow(REDIRECT + "/unauthorized");
+    expect(writes).toEqual([]);
+  });
+
+  it("the form wrappers report back in the query string", async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-only";
+    const { changeMemberRoleForm, removeMemberForm } = await import("@/lib/actions/members");
+    const changed = await run(() => changeMemberRoleForm(ORG_WITH_MODULES, MEMBER_ID, form({ role: "staff" })));
+    expect(changed.redirect).toBe(`/org/${ORG_WITH_MODULES}/members/${MEMBER_ID}?notice=Role%20updated.`);
+    const refused = await run(() => removeMemberForm(ORG_WITH_MODULES, OWNER_ID));
+    expect(refused.redirect).toMatch(new RegExp(`^/org/${ORG_WITH_MODULES}/members/${OWNER_ID}\\?error=`));
+    const removed = await run(() => removeMemberForm(ORG_WITH_MODULES, MEMBER_ID));
+    expect(removed.redirect).toBe(`/org/${ORG_WITH_MODULES}/members?notice=Removed.`);
+  });
+});

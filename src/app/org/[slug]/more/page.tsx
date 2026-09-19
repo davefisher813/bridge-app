@@ -48,6 +48,14 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
             </RailCard>
           </Link>
         )}
+        {user.role === "owner" && (
+          <Link href={`/org/${slug}/members`} className="block">
+            <RailCard role="people" kind="people">
+              <div className="text-[15px] font-semibold text-ink">Members</div>
+              <div className="text-[13px] text-muted">Who can sign in, and what each person can do</div>
+            </RailCard>
+          </Link>
+        )}
         <Link href={`/org/${slug}/grading-scales`} className="block">
           <RailCard role="contact" kind="scale">
             <div className="text-[15px] font-semibold text-ink">Grading scales</div>

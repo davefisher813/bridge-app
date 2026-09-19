@@ -138,3 +138,47 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
   revalidatePath(`/org/${slug}/members`);
   return { ok: true, removedSelf: caller.id === userId };
 }
+
+// A fresh sign-in link for somebody who was invited and has not come in
+// yet. It is the ordinary magic link sent on their behalf, so it needs
+// no service role: an existing account can always be sent a link.
+export async function resendInvite(slug: string, userId: string): Promise<{ ok: boolean; error?: string }> {
+  const org = await getOrgBySlug(slug);
+  if (!org) return { ok: false, error: "Organization not found." };
+  await requireOwner(org.id);
+
+  const supabase = await createClient();
+  const { data: person } = await supabase.from("users").select("email").eq("id", userId).maybeSingle();
+  const email = (person as { email: string } | null)?.email;
+  if (!email) return { ok: false, error: "That person is not in this organization." };
+
+  const origin = await siteOrigin();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: `${origin}/auth/callback`, shouldCreateUser: false },
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+// The form-shaped wrappers the screens post to. Each turns a result into
+// a redirect with a notice or an error in the query string, which is how
+// a plain form on a server component reports back without client state.
+const q = (s: string) => encodeURIComponent(s);
+
+export async function changeMemberRoleForm(slug: string, userId: string, formData: FormData): Promise<void> {
+  const r = await changeMemberRole(slug, userId, formData.get("role"));
+  redirect(`/org/${slug}/members/${userId}?${r.ok ? `notice=${q("Role updated.")}` : `error=${q(r.error ?? "Could not change the role.")}`}`);
+}
+
+export async function removeMemberForm(slug: string, userId: string): Promise<void> {
+  const r = await removeMember(slug, userId);
+  if (!r.ok) redirect(`/org/${slug}/members/${userId}?error=${q(r.error ?? "Could not remove them.")}`);
+  if (r.removedSelf) redirect("/");
+  redirect(`/org/${slug}/members?notice=${q("Removed.")}`);
+}
+
+export async function resendInviteForm(slug: string, userId: string): Promise<void> {
+  const r = await resendInvite(slug, userId);
+  redirect(`/org/${slug}/members?${r.ok ? `notice=${q("A new sign-in link is on its way.")}` : `error=${q(r.error ?? "Could not send the link.")}`}`);
+}

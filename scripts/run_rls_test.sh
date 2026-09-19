@@ -34,6 +34,7 @@ su postgres -c "psql -d $DB -f migrations/0014_approved_course_lists.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0015_helpers_out_of_the_exposed_schema.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0016_fk_indexes_and_initplan_policies.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0017_users_trigger_and_documents_bucket.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0018_members_see_each_other.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

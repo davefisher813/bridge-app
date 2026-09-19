@@ -22,15 +22,16 @@ person to get in.
   `https://commit-app-nu.vercel.app`, deployed from `main`. Vercel
   Authentication is off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
-  us-west-2). 17 migrations applied. 27 tables, RLS on every one, 84 table
+  us-west-2). 18 migrations applied. 27 tables, RLS on every one, 85 table
   policies plus 3 on the `documents` storage bucket.
-- **Accounts:** dave@bffsa.org, owner of both orgs, signs in with a
-  password today. Magic link is built and becomes the default once the
-  sign-in screen ships (see below).
+- **Accounts:** dave@bffsa.org, owner of both orgs. Magic link is the
+  default sign-in; the password still works behind "Use a password
+  instead". Both need the Supabase Auth URL settings below before a link
+  lands anywhere useful.
 
 ## What exists
 
-**50 pages**, 17 migrations, 617 tests in 42 files, 10 law files.
+**53 pages**, 18 migrations, 626 tests in 42 files, 10 law files.
 
 ### Recruiting
 
@@ -72,14 +73,16 @@ chrome. Viewport and Apple web app metadata, a manifest, and icons
 generated at build from the stylesheet's own tokens, so Add to Home
 Screen on an iPhone installs a dark, chromeless app.
 
-### Membership, half built
+### Membership
 
-The actions exist and are tested: an owner invites by email (an existing
-account is added directly, a new address gets Supabase's invitation),
-changes a role, removes a membership, and can never leave the org
-without an owner. `sendMagicLink` and `/auth/callback` exist. The
-members screen and the magic link sign-in form are drawn in a preview
-and wait on Dave's reaction before their code is written, per CLAUDE.md.
+Owner-only, under More. The members list (people, and invited people
+who have never signed in, with Resend), an invite form, and a
+one-person screen to change a role or remove access. An org can never
+be left without an owner. An existing account is added directly; a new
+address gets Supabase's invitation email. "Invited" is read off a
+mirror of `auth.users.last_sign_in_at` kept by the profile trigger, and
+colleagues can read each other's profile rows (migration 0018). Built
+from the preview Dave approved 2026-09-19.
 
 ---
 
@@ -163,9 +166,10 @@ above it.
 
 ## Immediate next steps
 
-1. Dave reacts to the members preview; the members screen and the magic
-   link sign-in form get built, on the actions that already exist.
-2. Dave sets the three dashboard items above.
+1. Dave sets the three dashboard items above. Until then invites and
+   magic links do not send.
+2. The click-through prototype does not include the members screens
+   yet; `scripts/prototype_app.js` needs them added.
 3. School CSV import, so the board has something to target.
 4. Cleanup pass: one page loader, `cache()` on the org and user lookups,
    shared icons, split `documents.ts`, then the `@supabase/ssr` and `zod`

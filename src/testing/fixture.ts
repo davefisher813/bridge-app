@@ -58,11 +58,12 @@ export function buildFixture(): Dataset {
       },
     ],
     users: [
-      { id: OWNER, email: "owner@example.test", full_name: "Example Owner" },
-      { id: MEMBER, email: "member@example.test", full_name: "Example Member" },
+      { id: OWNER, email: "owner@example.test", full_name: "Example Owner", last_sign_in_at: "2026-09-01T12:00:00.000Z" },
+      // Never signed in: the members screen lists them as invited.
+      { id: MEMBER, email: "member@example.test", full_name: "Example Member", last_sign_in_at: null },
       // Belongs to the other org only: the person an owner adds to
       // Bridge without an invitation email, because the account exists.
-      { id: OUTSIDER, email: "outsider@example.test", full_name: "Example Outsider" },
+      { id: OUTSIDER, email: "outsider@example.test", full_name: "Example Outsider", last_sign_in_at: "2026-09-02T12:00:00.000Z" },
     ],
     orgs: [
       {

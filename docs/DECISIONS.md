@@ -1837,3 +1837,24 @@ blank screen, which on a phone reads as the app having died. Add to Home
 Screen with no manifest or icon installs a generic Safari tile. The
 no-raw-hex law exists so a colour has one source; reading the stylesheet
 keeps it that way for the two places CSS variables cannot reach.
+
+## 2026-09-19: previews carry options, not one direction
+
+**Decision.** Every screen preview from now on is a small catalog:
+where a real choice exists (a layout, a control, a wording), the artifact
+shows two or three rendered options and Dave selects inside the page.
+Written into CLAUDE.md under the preview rule.
+
+**Reason.** The members preview showed one direction with a list of
+"decisions baked in". Dave approved it and corrected the format in the
+same breath: "Always send previews I can select w options." The catalog
+rule already said this for the styling contract; it now applies to every
+preview.
+
+**Consequences.** The members screens, invite, one-person view and the
+magic link sign-in were built as approved. Two things the preview could
+not show were decided in code and are worth knowing: "invited" means the
+person has never signed in, read off a mirror of `auth.users.last_sign_in_at`
+kept by the profile trigger (migration 0018); and members of an org can
+now read each other's profile rows, which the list needs and which
+`users_self` alone forbade.

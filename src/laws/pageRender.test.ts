@@ -75,6 +75,9 @@ const p = (o: Record<string, string>) => Promise.resolve(o);
 // which is the same as not testing it.
 const PAGES: Array<{ name: string; path: string; props: Record<string, unknown>; expect: RegExp }> = [
   { name: "today", path: "@/app/org/[slug]/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture/ },
+  { name: "members", path: "@/app/org/[slug]/members/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Example Owner[\s\S]*Invited[\s\S]*Example Member/ },
+  { name: "invite", path: "@/app/org/[slug]/members/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Send Invite/ },
+  { name: "member", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: MEMBER_ID }), searchParams: p({}) }, expect: /Example Member[\s\S]*Coordinator[\s\S]*Remove From/ },
   { name: "roster", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Athlete/ },
   { name: "athlete", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete/ },
   { name: "eligibility", path: "@/app/org/[slug]/roster/[id]/eligibility/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /core/i },
@@ -320,5 +323,25 @@ describe("LAW: the screens around the pages render too", () => {
     const html = await renderElement("@/app/org/[slug]/loading", {});
     expect(html).toMatch(/bg-paper/);
     expect(html).toMatch(/aria-busy/);
+  });
+});
+
+describe("LAW: the members screens are the owner's alone", () => {
+  it("a member is turned away from the list", async () => {
+    currentUser = MEMBER_ID;
+    await expect(render("@/app/org/[slug]/members/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) })).rejects.toThrow(REDIRECT + "/unauthorized");
+  });
+
+  it("the only owner is told why they cannot be removed", async () => {
+    const html = await render("@/app/org/[slug]/members/[userId]/page", { params: p({ slug: ORG_WITH_MODULES, userId: OWNER_ID }), searchParams: p({}) });
+    expect(html).toMatch(/only Executive Director/);
+    expect(html).not.toMatch(/Remove From/);
+  });
+
+  it("the sign-in screen leads with the magic link and keeps the password behind a tap", async () => {
+    const html = await render("@/app/login/page", { searchParams: p({}) });
+    expect(html).toMatch(/Email Me a Link/);
+    expect(html).toMatch(/Use a password instead/);
+    expect(html).not.toMatch(/type="password"/);
   });
 });

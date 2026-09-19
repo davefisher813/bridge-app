@@ -31,6 +31,7 @@ $$;
 -- documents policies sit on. Both are shaped just far enough here that
 -- the migration applies and the policies can be exercised as app_user.
 alter table auth.users add column if not exists raw_user_meta_data jsonb not null default '{}'::jsonb;
+alter table auth.users add column if not exists last_sign_in_at timestamptz;
 
 create schema if not exists storage;
 create table if not exists storage.buckets (

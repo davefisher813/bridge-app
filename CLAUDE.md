@@ -15,6 +15,14 @@ Owner: Dave Fisher, personally. Explicitly not built with Bridge/BFFSA resources
 
 Dave wants to see and adjust a screen before it's built, not after ("I would like visual previews at some point too so we can adjust before anything gets built" - Dave, 2026-09). For any new screen (not a small edit to one that already exists and was already previewed): publish a static HTML mockup via the Artifact tool first, built from the real tokens in `src/app/globals.css` and the real markup patterns already in use, and let Dave react before writing the actual page. Roster and Board were built before this was said explicitly, so they got a retroactive preview instead - don't let that happen again for a screen that doesn't exist yet.
 
+**Every preview offers choices, tappable inside the artifact.** "Always
+send previews I can select w options" - Dave, 2026-09-19, approving the
+members preview, which had shown one direction. A preview is a small
+catalog: two or three real renderings per decision worth making (a
+layout, a control, a wording), selectable in the page, so Dave picks
+rather than reacts. One direction with a list of "decisions baked in" is
+what he corrected.
+
 ## Design direction: catalog of options, not revisions of one guess
 
 When the question is what something should look like, don't revise a single guessed direction. Build a catalog of real rendered options, component by component, let Dave select, then lock the selection in as a written contract. This is how JARVIS works and Dave asked for it here by name ("we are going to need to create a styling catalog contract like we do with Jarvis before we move forward... build me a catalog with options to select from. Needs visuals. Once I select we will lock it in" - Dave, 2026-09, after two rejected revisions of a single direction). The catalog must be selectable inside the artifact itself, tappable, not a list of codes for him to type back. docs/STYLING_CATALOG.md is the result and is now locked.
