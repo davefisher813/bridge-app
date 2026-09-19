@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { CONTACT_ROLES } from "@/lib/validation/contact";
 import type { ContactActionState } from "@/lib/actions/contacts";
-import { errorClass, fieldClass, inputClass, labelClass, submitSmallClass } from "@/components/formStyles";
+import { Button, Field, Form, Grid2, SelectField } from "@/components/kit";
 
 type ServerAction = (prevState: ContactActionState, formData: FormData) => Promise<ContactActionState>;
 
@@ -28,66 +28,33 @@ export function ContactForm({ action, schools }: { action: ServerAction; schools
   const err = (key: string) => state.errors[key];
 
   return (
-    <form action={formAction} className="flex flex-col gap-3 rounded-[16px] border border-line bg-bg/50 p-3.5">
-      {state.errors.form && <div className="text-[13.5px] font-semibold text-danger">{state.errors.form}</div>}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelClass} htmlFor="name">
-            Name
-          </label>
-          <input className={fieldClass(err("name"))} id="name" name="name" placeholder="T. Reilly" required />
-          {err("name") && <p className={errorClass}>{err("name")}</p>}
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="role">
-            Role
-          </label>
-          <select className={inputClass} id="role" name="role" defaultValue="hs_coach">
-            {CONTACT_ROLES.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABEL[r]}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div>
-        <label className={labelClass} htmlFor="schoolId">
-          School (if a college coach)
-        </label>
-        <select className={inputClass} id="schoolId" name="schoolId" defaultValue="">
-          <option value="">No school</option>
-          {schools.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
+    <Form action={formAction} error={state.errors.form}>
+      <Grid2>
+        <Field name="name" label="Name" placeholder="T. Reilly" required error={err("name")} />
+        <SelectField name="role" label="Role" defaultValue="hs_coach">
+          {CONTACT_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABEL[r]}
             </option>
           ))}
-        </select>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelClass} htmlFor="email">
-            Email
-          </label>
-          <input className={fieldClass(err("email"))} id="email" name="email" type="email" />
-          {err("email") && <p className={errorClass}>{err("email")}</p>}
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="phone">
-            Phone
-          </label>
-          <input className={inputClass} id="phone" name="phone" type="tel" />
-        </div>
-      </div>
-      <div>
-        <label className={labelClass} htmlFor="notes">
-          Notes
-        </label>
-        <input className={inputClass} id="notes" name="notes" />
-      </div>
-      <button type="submit" disabled={pending} className={submitSmallClass}>
-        {pending ? "Adding..." : "Add contact"}
-      </button>
-    </form>
+        </SelectField>
+      </Grid2>
+      <SelectField name="schoolId" label="School (if a college coach)" defaultValue="">
+        <option value="">No school</option>
+        {schools.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.label}
+          </option>
+        ))}
+      </SelectField>
+      <Grid2>
+        <Field name="email" label="Email" type="email" inputMode="email" error={err("email")} />
+        <Field name="phone" label="Phone" type="tel" inputMode="tel" />
+      </Grid2>
+      <Field name="notes" label="Notes" />
+      <Button variant="secondary" disabled={pending}>
+        {pending ? "Adding..." : "Add Contact"}
+      </Button>
+    </Form>
   );
 }

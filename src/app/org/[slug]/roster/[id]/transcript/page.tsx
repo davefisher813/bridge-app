@@ -6,13 +6,11 @@
 // totals; this is the row-by-row working behind them.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { loadEligibility } from "@/lib/data/loadEligibility";
-import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { RowGlyph } from "@/components/RowGlyph";
-import type { SubjectArea } from "@/lib/fit/ncaa/coreGpa";
+import { Body, EmptyState, Label, LinkButton, Row, Screen, Section } from "@/components/kit";
+import { Note } from "@/components/EligibilityVerdict";
 
 export const dynamic = "force-dynamic";
 
@@ -50,84 +48,63 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
   const terms = [...byTerm.keys()].sort().reverse();
 
   return (
-    <main className="px-4 pb-24 pt-2">
-      <div className="mb-2">
-        <Link href={`/org/${slug}/roster/${id}`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; {athlete.name}
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Transcript</h1>
-      <div className="mb-5 text-[13.5px] font-bold text-muted">
-        {courses.length} courses &middot; {core?.counted.length ?? 0} counted by the NCAA
-      </div>
-
+    <Screen
+      title="Transcript"
+      back={{ href: `/org/${slug}/roster/${id}`, label: athlete.name }}
+      lede={`${courses.length} courses · ${core?.counted.length ?? 0} counted by the NCAA`}
+    >
       {courses.length === 0 ? (
-        <EmptyState icon={<RowGlyph kind="course" role="neutral" className="h-7 w-7" />} title="No courses on file">
+        <EmptyState kind="course" title="No courses on file">
           Upload a transcript from the athlete&apos;s page and the courses land here.
         </EmptyState>
       ) : (
         terms.map((term) => (
-          <div key={term} className="mb-4">
-            <div className="mb-2">
-              <SectionHeader label={term} count={byTerm.get(term)!.length} role="contact" kind="course" />
-            </div>
-            <div className="flex flex-col gap-2">
-              {byTerm.get(term)!.map((c) => {
-                const key = c.title + "|" + (c.term ?? "");
-                const hit = countedBy.get(key);
-                const miss = excludedBy.get(key);
-                const role = hit ? "committed" : miss ? "target" : "contact";
-                return (
-                  <RailCard key={c.id} role={role} kind={miss ? "blocked" : "course"}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-[14.5px] font-bold leading-tight text-ink">{c.title}</div>
-                        <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                          {SUBJECT[c.subject] ?? c.subject} &middot; {Number(c.credit)} credit
-                          {c.weighted ? " · weighted" : ""}
-                        </div>
-                        {/* The reason, on the row it belongs to. A list
-                            of excluded titles at the bottom of another
-                            screen makes you match them up yourself. */}
-                        {miss && <div className="mt-1 text-[12.5px] font-semibold leading-tight text-tint-accent-on">{miss.reason}</div>}
-                      </div>
-                      <div className="flex-shrink-0 text-right">
-                        <div className="text-[15px] font-extrabold tabular-nums text-ink">{c.grade}</div>
-                        {hit && <div className="text-[11.5px] font-bold text-muted">{hit.points.toFixed(1)} pts</div>}
-                      </div>
-                    </div>
-                  </RailCard>
-                );
-              })}
-            </div>
-          </div>
+          <Section key={term} label={term} count={byTerm.get(term)!.length} role="contact" kind="course">
+            {byTerm.get(term)!.map((c) => {
+              const key = c.title + "|" + (c.term ?? "");
+              const hit = countedBy.get(key);
+              const miss = excludedBy.get(key);
+              const role = hit ? "committed" : miss ? "target" : "contact";
+              // The reason, on the row it belongs to. A list of excluded
+              // titles at the bottom of another screen makes you match
+              // them up yourself.
+              const line = `${SUBJECT[c.subject] ?? c.subject} · ${Number(c.credit)} credit${c.weighted ? " · weighted" : ""}`;
+              return (
+                <Row
+                  key={c.id}
+                  kind={miss ? "blocked" : "course"}
+                  role={role}
+                  title={c.title}
+                  meta={miss ? `${line} · ${miss.reason}` : line}
+                  wrap={Boolean(miss)}
+                  trailing={
+                    <>
+                      <Body weight="bold" numeric>
+                        {c.grade}
+                      </Body>
+                      {hit && <Label>{hit.points.toFixed(1)} pts</Label>}
+                    </>
+                  }
+                />
+              );
+            })}
+          </Section>
         ))
       )}
 
       {view.skipped.length > 0 && (
-        <>
-          <div className="mb-2 mt-5">
-            <SectionHeader label="Could not be read" count={view.skipped.length} role="offer" kind="warning" />
-          </div>
-          <div className="flex flex-col gap-2">
-            {view.skipped.map((s, i) => (
-              <RailCard key={i} role="offer" kind="warning">
-                <div className="text-[14.5px] font-bold leading-tight text-ink">
-                  {s.title} &middot; {s.grade}
-                </div>
-                <div className="mt-0.5 text-[12.5px] leading-tight text-muted">{s.reason}</div>
-              </RailCard>
-            ))}
-          </div>
-        </>
+        <Section label="Could not be read" count={view.skipped.length} role="offer" kind="warning">
+          {view.skipped.map((s, i) => (
+            <Note key={i} title={`${s.title} · ${s.grade}`}>
+              {s.reason}
+            </Note>
+          ))}
+        </Section>
       )}
 
-      <Link
-        href={`/org/${slug}/roster/${id}/eligibility`}
-        className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
-      >
-        NCAA eligibility
-      </Link>
-    </main>
+      <LinkButton href={`/org/${slug}/roster/${id}/eligibility`} variant="secondary">
+        NCAA Eligibility
+      </LinkButton>
+    </Screen>
   );
 }

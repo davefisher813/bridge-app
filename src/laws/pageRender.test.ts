@@ -81,7 +81,7 @@ const PAGES: Array<{ name: string; path: string; props: Record<string, unknown>;
   { name: "roster", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Athlete/ },
   { name: "athlete", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete/ },
   { name: "eligibility", path: "@/app/org/[slug]/roster/[id]/eligibility/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /core/i },
-  { name: "caveats", path: "@/app/org/[slug]/roster/[id]/eligibility/caveats/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Things to know/ },
+  { name: "caveats", path: "@/app/org/[slug]/roster/[id]/eligibility/caveats/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Things to Know/i },
   { name: "approvals", path: "@/app/org/[slug]/roster/[id]/eligibility/approvals/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /approv/i },
   { name: "transcript", path: "@/app/org/[slug]/roster/[id]/transcript/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /English 11/ },
   { name: "board", path: "@/app/org/[slug]/board/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture State University/ },

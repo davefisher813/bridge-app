@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -7,6 +6,7 @@ import { updateAthlete } from "@/lib/actions/athletes";
 import { AthleteForm, type AthleteFormInitialValues } from "@/components/AthleteForm";
 import { safeParseAthleteDetail } from "@/lib/fit/schema";
 import type { RecruitType } from "@/lib/fit/types";
+import { Screen } from "@/components/kit";
 
 interface AthleteEditRow {
   id: string;
@@ -91,14 +91,8 @@ export default async function EditAthletePage({ params }: { params: Promise<{ sl
   const action = updateAthlete.bind(null, slug, athlete.id);
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4 flex items-center gap-3">
-        <Link href={`/org/${slug}/roster`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Athletes
-        </Link>
-      </div>
-      <h1 className="mb-4 text-[22px] font-extrabold text-ink">Edit {athlete.name}</h1>
-      <AthleteForm action={action} initialValues={initialValues} submitLabel="Save changes" />
-    </main>
+    <Screen title={`Edit ${athlete.name}`} back={{ href: `/org/${slug}/roster/${athlete.id}`, label: athlete.name }}>
+      <AthleteForm action={action} initialValues={initialValues} submitLabel="Save Changes" />
+    </Screen>
   );
 }

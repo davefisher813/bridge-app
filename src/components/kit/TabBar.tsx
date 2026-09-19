@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 
 // Today / Athletes / Board / More. Fixed to the screen above the iPhone's
-// home indicator (Dave's pick, 2026-09-19): the old bar was sticky and
-// rode Safari's own bar up and down as it collapsed. Every Screen pads
+// home indicator (Dave's pick, 2026-09-19): the old bar scrolled with
+// the page and rode Safari's own bar up and down as it collapsed. Every Screen pads
 // its bottom by the bar's height plus the safe area, so nothing hides
 // behind it.
 const TABS: { href: string; label: string; kind: RowKind }[] = [

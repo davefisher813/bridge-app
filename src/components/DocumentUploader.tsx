@@ -1,13 +1,12 @@
 "use client";
 
-import { RowGlyph } from "@/components/RowGlyph";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ingestFile } from "@/lib/docai/ingest";
 import type { DocCategoryId, IngestedRecord, SourceRole, StoredRecord } from "@/lib/docai/types";
 import { processDocument } from "@/lib/actions/documents";
 import { createClient } from "@/lib/supabase/client";
-import { fieldClass, labelClass, submitClass } from "@/components/formStyles";
+import { Button, Choice, ChoiceRow, FileField, Label, Notice, SelectField, Stack } from "@/components/kit";
 
 // A client component because ingestion is: src/lib/docai/ingest.ts needs
 // File, FileReader, createImageBitmap and canvas, none of which exist on
@@ -65,7 +64,6 @@ export interface DocumentUploaderProps {
 
 export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState<DocCategoryId | null>(boundTo?.category ?? null);
   const [sourceRole, setSourceRole] = useState<SourceRole>("coordinator");
   const [files, setFiles] = useState<File[]>([]);
@@ -140,96 +138,53 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <Stack gap={4}>
       {!boundTo && (
-      <div>
-        <label className={labelClass}>What is it</label>
-        <div className="flex flex-wrap gap-1.5">
-          {CATEGORIES.map((c) => {
-            const on = c.id === category;
-            return (
-              <button
-                key={c.label}
-                type="button"
-                onClick={() => setCategory(c.id)}
-                className={`rounded-full border px-3 py-1.5 text-[13px] font-bold ${on ? "border-accent text-ink ring-2 ring-accent" : "border-line text-muted"}`}
-              >
+        <Stack gap={2}>
+          <Label>What is it</Label>
+          <ChoiceRow>
+            {CATEGORIES.map((c) => (
+              <Choice key={c.label} on={c.id === category} onClick={() => setCategory(c.id)}>
                 {c.label}
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-2 text-[12px] text-muted">
-          {category === null
-            ? "It will work out the type itself. Pick one above to force it."
-            : "Forced. It will be read as this even if it looks like something else."}
-        </p>
-      </div>
+              </Choice>
+            ))}
+          </ChoiceRow>
+          <Label>{category === null ? "It will work out the type itself. Pick one above to force it." : "Forced. It will be read as this even if it looks like something else."}</Label>
+        </Stack>
       )}
 
-      <div>
-        <label className={labelClass} htmlFor="sourceRole">
-          Where it came from
-        </label>
-        <select
-          id="sourceRole"
-          className={fieldClass(false)}
-          value={sourceRole}
-          onChange={(e) => setSourceRole(e.target.value as SourceRole)}
-        >
-          {SOURCE_ROLES.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.label}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-[12px] text-muted">
-          Changes how far the result is trusted. Something a parent sent is weighted lower than something you uploaded.
-        </p>
-      </div>
+      <SelectField
+        name="sourceRole"
+        label="Where it came from"
+        value={sourceRole}
+        onChange={(e) => setSourceRole(e.target.value as SourceRole)}
+        hint="Changes how far the result is trusted. Something a parent sent is weighted lower than something you uploaded."
+      >
+        {SOURCE_ROLES.map((r) => (
+          <option key={r.id} value={r.id}>
+            {r.label}
+          </option>
+        ))}
+      </SelectField>
 
-      <div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="application/pdf,image/jpeg,image/png,image/heic,image/heif"
-          multiple
-          className="hidden"
-          onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-        />
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="w-full rounded-[12px] border-2 border-dashed border-line bg-paper px-4 py-9 text-center"
-        >
-          <div className="mb-2 flex justify-center text-muted">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-8 w-8">
-              <path d="M12 16V4M7.5 8.5L12 4l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M4 15v3.5A1.5 1.5 0 005.5 20h13a1.5 1.5 0 001.5-1.5V15" strokeLinecap="round" />
-            </svg>
-          </div>
-          <div className="text-[14.5px] font-extrabold text-ink">
-            {files.length ? `${files.length} file${files.length === 1 ? "" : "s"} chosen` : "Take a photo or choose a file"}
-          </div>
-          <div className="mt-1 text-[12.5px] text-muted">
-            {files.length ? files.map((f) => f.name).join(", ") : "PDF, JPEG, PNG or HEIC"}
-          </div>
-        </button>
-      </div>
+      <FileField
+        name="files"
+        label={files.length ? `${files.length} file${files.length === 1 ? "" : "s"} chosen` : "Take a photo or choose a file"}
+        hint={files.length ? files.map((f) => f.name).join(", ") : "PDF, JPEG, PNG or HEIC"}
+        accept="application/pdf,image/jpeg,image/png,image/heic,image/heif"
+        multiple
+        onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+      />
 
       {error && (
-        <div className="flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
-          <span className="mt-[1px]"><RowGlyph kind="warning" role="danger" /></span>
-          <div className="min-w-0 flex-1">
-          <div className="text-[14.5px] font-bold text-ink">Could not read that</div>
-          <div className="mt-0.5 text-[12.5px] text-muted">{error}</div>
-        </div>
-          </div>
+        <Notice tone="danger" title="Could not read that">
+          {error}
+        </Notice>
       )}
 
-      <button type="button" onClick={onSubmit} disabled={!files.length || busy} className={`${submitClass} w-full disabled:opacity-50`}>
-        {busy ? (stage ?? "Working") : "Read document"}
-      </button>
-    </div>
+      <Button type="button" onClick={onSubmit} disabled={!files.length || busy}>
+        {busy ? (stage ?? "Working") : "Read Document"}
+      </Button>
+    </Stack>
   );
 }

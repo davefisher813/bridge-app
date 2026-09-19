@@ -1,20 +1,9 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
-import { Avatar, EmptyState, RailCard } from "@/components/catalog";
-import { statusRole } from "@/components/statusHue";
-
-function RosterIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
-      <circle cx="12" cy="8" r="3.4" />
-      <path d="M5 20c1-4 4-6 7-6s6 2 7 6" strokeLinecap="round" />
-    </svg>
-  );
-}
+import { Avatar, Body, EmptyState, LinkButton, Row, Screen, Section, TextLink } from "@/components/kit";
 
 interface AthleteRow {
   id: string;
@@ -33,10 +22,7 @@ const RECRUIT_TYPE_LABEL: Record<string, string> = {
   transfer_grad: "Transfer (Grad)",
 };
 
-// First real screen against docs/DESIGN_SYSTEM.md's chassis rule: a
-// plain list is full-bleed rows, not a card per athlete. Add/edit now
-// exists (src/app/org/[slug]/roster/new, .../[id]/edit) - staff/owner
-// only; members still see the read-only list.
+// The roster. Staff and owners add and edit; members read.
 export default async function RosterPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const org = await getOrgBySlug(slug);
@@ -56,64 +42,33 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
   const rows = (athletes ?? []) as AthleteRow[];
 
   return (
-    <main>
-      <div className="px-4 pt-4">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="text-[14.5px] font-bold uppercase tracking-[0.04em] text-muted">Athletes</div>
-          <div className="flex items-center gap-3">
-            <div className="text-[13px] text-muted">{rows.length}</div>
-            {canEdit && (
-              <Link href={`/org/${slug}/roster/new`} className="text-[13px] font-bold text-accent">
-                + Add
-              </Link>
-            )}
-          </div>
-        </div>
-
+    <Screen title="Athletes" action={canEdit ? <TextLink href={`/org/${slug}/roster/new`}>+ Add</TextLink> : undefined}>
+      <Section label="Roster" count={rows.length} role="people" kind="athlete">
         {rows.length === 0 ? (
-          <EmptyState icon={<RosterIcon />} title="No athletes yet">
-            {canEdit ? (
-              <Link href={`/org/${slug}/roster/new`} className="font-bold text-accent">
-                Add your first athlete &rarr;
-              </Link>
-            ) : (
-              "Ask an owner or coordinator to add one."
-            )}
+          <EmptyState kind="athlete" title="No athletes yet">
+            {canEdit ? "Add the first one below." : "Ask an owner or coordinator to add one."}
           </EmptyState>
         ) : (
-          // Catalog item C2: each athlete is a card with a rail in their
-          // own status hue, rather than a hairline-divided full-bleed row.
-          <div className="flex flex-col gap-2">
-            {rows.map((a) => {
-              const row = (
-                <RailCard role={statusRole(a.status)} kind="athlete">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Avatar name={a.name} />
-                      <div>
-                        <div className="text-[16px] font-semibold text-ink">{a.name}</div>
-                        <div className="text-[13px] text-muted">
-                          {a.sport}
-                          {a.position ? ` · ${a.position}` : ""} · {RECRUIT_TYPE_LABEL[a.recruit_type] ?? a.recruit_type}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="text-[14.5px] font-semibold tabular-nums text-ink">{a.gpa != null ? a.gpa.toFixed(2) : "–"}</div>
-                      <StatusPill status={a.status} />
-                    </div>
-                  </div>
-                </RailCard>
-              );
-              return (
-                <Link key={a.id} href={`/org/${slug}/roster/${a.id}`} className="block">
-                  {row}
-                </Link>
-              );
-            })}
-          </div>
+          rows.map((a) => (
+            <Row
+              key={a.id}
+              href={`/org/${slug}/roster/${a.id}`}
+              leading={<Avatar name={a.name} />}
+              title={a.name}
+              meta={`${a.sport}${a.position ? ` · ${a.position}` : ""} · ${RECRUIT_TYPE_LABEL[a.recruit_type] ?? a.recruit_type}`}
+              trailing={
+                <>
+                  <Body weight="semibold" numeric>
+                    {a.gpa != null ? Number(a.gpa).toFixed(2) : "–"}
+                  </Body>
+                  <StatusPill status={a.status} />
+                </>
+              }
+            />
+          ))
         )}
-      </div>
-    </main>
+      </Section>
+      {canEdit && rows.length === 0 && <LinkButton href={`/org/${slug}/roster/new`}>Add Your First Athlete</LinkButton>}
+    </Screen>
   );
 }

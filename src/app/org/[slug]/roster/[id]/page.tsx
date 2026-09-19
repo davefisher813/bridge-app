@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -8,35 +7,8 @@ import { ContactForm } from "@/components/ContactForm";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
-import { EmptyState, RailCard, SectionHeader } from "@/components/catalog";
+import { Body, Button, Card, Chevron, EmptyState, Form, Label, Row, Screen, Section, Stack, TextLink } from "@/components/kit";
 import { statusRole } from "@/components/statusHue";
-
-function SchoolIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
-      <path d="M12 4l9 4.5-9 4.5-9-4.5L12 4z" strokeLinejoin="round" />
-      <path d="M6 11v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ContactIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
-      <circle cx="9" cy="9" r="3.2" />
-      <path d="M3.5 19c.8-3.3 3-5 5.5-5s4.7 1.7 5.5 5M16 8h5M16 12h5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function VisitIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
-      <path d="M12 21s7-5.6 7-11a7 7 0 10-14 0c0 5.4 7 11 7 11z" strokeLinejoin="round" />
-      <circle cx="12" cy="10" r="2.4" />
-    </svg>
-  );
-}
 
 const RECRUIT_TYPE_LABEL: Record<string, string> = {
   hs: "High School",
@@ -74,14 +46,11 @@ function unwrap<T>(value: T | T[] | null): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
-// Athlete profile / detail screen (docs/ROADMAP.md). Colleges (the
-// athlete's own recruiting_targets, reusing the board's data rather than
-// duplicating it), Contacts (new, athlete-scoped), and Visits (new,
-// aggregated from target_visits across every target this athlete has) -
-// the three tabs from the full-preview mock, collapsed into sections on
-// one scrollable page rather than actual tabs, matching the rest of the
-// app's mobile-first single-column layout. JourneyStepper finally gets
-// wired to a real screen here - it only ever needed recruiting_targets.status.
+// Athlete profile / detail screen. Colleges (the athlete's own
+// recruiting_targets, reusing the board's data rather than duplicating
+// it), Contacts (athlete-scoped), and Visits (aggregated from
+// target_visits across every target this athlete has), as sections on
+// one scrollable page.
 export default async function AthleteDetailPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
@@ -134,163 +103,100 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
   const deleteContactAction = deleteContact.bind(null, slug, id);
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <Link href={`/org/${slug}/roster`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Athletes
-        </Link>
-        {canEdit && (
-          <Link href={`/org/${slug}/roster/${id}/edit`} className="text-[13px] font-bold text-accent">
-            Edit
-          </Link>
-        )}
-      </div>
-
-      <h1 className="text-[22px] font-extrabold text-ink">{athlete.name}</h1>
-      <div className="mt-1 text-[14.5px] text-muted">
-        {athlete.sport}
-        {athlete.position ? ` · ${athlete.position}` : ""} · {RECRUIT_TYPE_LABEL[athlete.recruit_type] ?? athlete.recruit_type}
-        {athlete.gpa != null ? ` · ${Number(athlete.gpa).toFixed(2)} school GPA` : ""}
-      </div>
-
-      <div className="mt-6 rounded-[12px] bg-paper p-4">
+    <Screen
+      title={athlete.name}
+      back={{ href: `/org/${slug}/roster`, label: "Athletes" }}
+      lede={`${athlete.sport}${athlete.position ? ` · ${athlete.position}` : ""} · ${RECRUIT_TYPE_LABEL[athlete.recruit_type] ?? athlete.recruit_type}${athlete.gpa != null ? ` · ${Number(athlete.gpa).toFixed(2)} school GPA` : ""}`}
+      action={canEdit ? <TextLink href={`/org/${slug}/roster/${id}/edit`}>Edit</TextLink> : undefined}
+    >
+      <Card>
         <JourneyStepper result={journey} />
-      </div>
+      </Card>
 
-      {/* The GPA above is the school's own number and is deliberately
-          labelled as such. An NCAA core GPA is a different figure,
-          routinely a point apart, and lives behind this link rather than
-          being implied by the one on this line. */}
-      <Link href={`/org/${slug}/roster/${id}/eligibility`} className="mt-3 block">
-        <RailCard role="contact" kind="checklist">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[15px] font-semibold text-ink">NCAA eligibility</div>
-              <div className="text-[12.5px] text-muted">Core GPA, qualifier status and the clock</div>
-            </div>
-            <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">&rsaquo;</span>
-          </div>
-        </RailCard>
-      </Link>
+      <Stack gap={3}>
+        <Row href={`/org/${slug}/roster/${id}/eligibility`} kind="checklist" role="contact" title="NCAA eligibility" meta="Core GPA, qualifier status and the clock" trailing={<Chevron />} />
+        <Row href={`/org/${slug}/roster/${id}/transcript`} kind="course" role="contact" title="Transcript" meta="Every course, and what the NCAA counted" trailing={<Chevron />} />
+      </Stack>
 
-      {/* The working behind that verdict. Separate link because the
-          question "what is my core GPA" and the question "why is it
-          lower than my transcript" want different screens. */}
-      <Link href={`/org/${slug}/roster/${id}/transcript`} className="mt-2 block">
-        <RailCard role="contact" kind="course">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[15px] font-semibold text-ink">Transcript</div>
-              <div className="text-[12.5px] text-muted">Every course, and what the NCAA counted</div>
-            </div>
-            <span className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">&rsaquo;</span>
-          </div>
-        </RailCard>
-      </Link>
-
-      <div className="mt-8">
-        <div className="mb-2">
-          <SectionHeader label="Colleges" count={targets.length} />
-        </div>
+      <Section label="Colleges" count={targets.length} role="target" kind="school">
         {targets.length === 0 ? (
-          <EmptyState icon={<SchoolIcon />} title="No colleges yet">
+          <EmptyState kind="school" title="No colleges yet">
             Add a target from the board to start tracking one.
           </EmptyState>
         ) : (
-          <div className="flex flex-col gap-2">
-            {targets.map((t) => (
-              <Link key={t.id} href={`/org/${slug}/board/${t.id}/edit`} className="block">
-                <RailCard role={statusRole(t.status)} kind="school">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-[15px] font-semibold text-ink">{t.school?.name ?? "Unknown school"}</div>
-                      <div className="text-[13px] text-muted">
-                        {t.school?.division ?? ""}
-                        {t.offer_type ? ` · ${t.offer_type} offer${t.offer_scholarship_percent ? ` (${t.offer_scholarship_percent}%)` : ""}` : ""}
-                      </div>
-                    </div>
-                    <StatusPill status={t.status} />
-                  </div>
-                </RailCard>
-              </Link>
-            ))}
-          </div>
+          targets.map((t) => (
+            <Row
+              key={t.id}
+              href={`/org/${slug}/board/${t.id}`}
+              kind="school"
+              role={statusRole(t.status)}
+              title={t.school?.name ?? "Unknown school"}
+              meta={`${t.school?.division ?? ""}${t.offer_type ? ` · ${t.offer_type} offer${t.offer_scholarship_percent ? ` (${t.offer_scholarship_percent}%)` : ""}` : ""}`}
+              trailing={<StatusPill status={t.status} />}
+            />
+          ))
         )}
-      </div>
+      </Section>
 
-      <div className="mt-8">
-        <div className="mb-2">
-          <SectionHeader label="Contacts" count={contacts.length} />
-        </div>
-        <div className="flex flex-col gap-3">
-          {canEdit && <ContactForm action={contactAction} schools={schools} />}
-          {contacts.length === 0 ? (
-            <EmptyState icon={<ContactIcon />} title="No contacts yet">
-              Coaches, parents and advisors for this athlete live here.
-            </EmptyState>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {contacts.map((c) => (
-                <RailCard key={c.id} role="people" kind="people">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-[14.5px] font-bold text-ink">{c.name}</div>
-                      <div className="text-[12.5px] text-muted">{CONTACT_ROLE_LABEL[c.role] ?? c.role}</div>
-                      {(c.email || c.phone) && (
-                        <div className="mt-1 text-[13px] text-muted">
-                          {c.email}
-                          {c.email && c.phone ? " · " : ""}
-                          {c.phone}
-                        </div>
-                      )}
-                      {c.notes && <p className="mt-1 text-[13px] text-muted">{c.notes}</p>}
-                    </div>
-                    {canEdit && (
-                      <form action={deleteContactAction.bind(null, c.id)}>
-                        <button type="submit" className="text-[12.5px] font-bold text-danger">
-                          Remove
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                </RailCard>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-8">
-        <div className="mb-2">
-          <SectionHeader label="Visits" count={visits.length} />
-        </div>
-        {visits.length === 0 ? (
-          <EmptyState icon={<VisitIcon />} title="No visits logged yet">
-            Log one from a target&apos;s{" "}
-            <Link href={`/org/${slug}/board`} className="font-bold text-accent">
-              edit page
-            </Link>
-            .
+      <Section label="Contacts" count={contacts.length} role="people" kind="people">
+        {contacts.length === 0 ? (
+          <EmptyState kind="people" title="No contacts yet">
+            Coaches, parents and advisors for this athlete live here.
           </EmptyState>
         ) : (
-          <div className="flex flex-col gap-2">
-            {visits.map((v) => (
-              <RailCard key={v.id} role="place" kind="visit">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[14.5px] font-bold text-ink">
-                    {schoolNameByTargetId.get(v.target_id) ?? "Unknown school"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}
-                  </span>
-                  <span className="flex-shrink-0 text-[12.5px] tabular-nums text-muted">
-                    {new Date(v.visit_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                  </span>
+          contacts.map((c) => (
+            <Card key={c.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <Body weight="bold">{c.name}</Body>
+                  <Label>{CONTACT_ROLE_LABEL[c.role] ?? c.role}</Label>
+                  {(c.email || c.phone) && (
+                    <Label>
+                      {c.email}
+                      {c.email && c.phone ? " · " : ""}
+                      {c.phone}
+                    </Label>
+                  )}
+                  {c.notes && <Label>{c.notes}</Label>}
                 </div>
-                {v.impression && <p className="mt-1 text-[13.5px] text-ink">{v.impression}</p>}
-                {v.next_step && <p className="mt-0.5 text-[13px] text-muted">Next: {v.next_step}</p>}
-              </RailCard>
-            ))}
-          </div>
+                {canEdit && (
+                  <Form action={deleteContactAction.bind(null, c.id)}>
+                    <Button variant="quiet" inline>
+                      Remove
+                    </Button>
+                  </Form>
+                )}
+              </div>
+            </Card>
+          ))
         )}
-      </div>
-    </main>
+        {canEdit && (
+          <Card>
+            <ContactForm action={contactAction} schools={schools} />
+          </Card>
+        )}
+      </Section>
+
+      <Section label="Visits" count={visits.length} role="place" kind="visit">
+        {visits.length === 0 ? (
+          <EmptyState kind="visit" title="No visits logged yet">
+            Log one from a target on the board.
+          </EmptyState>
+        ) : (
+          visits.map((v) => (
+            <Card key={v.id}>
+              <div className="flex items-start justify-between gap-3">
+                <Body weight="bold">
+                  {schoolNameByTargetId.get(v.target_id) ?? "Unknown school"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}
+                </Body>
+                <Label>{new Date(v.visit_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</Label>
+              </div>
+              {v.impression && <Body>{v.impression}</Body>}
+              {v.next_step && <Label>Next: {v.next_step}</Label>}
+            </Card>
+          ))
+        )}
+      </Section>
+    </Screen>
   );
 }

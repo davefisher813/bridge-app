@@ -1,4 +1,4 @@
-import { Chip } from "@/components/catalog";
+import { Chip } from "@/components/kit";
 import { stageKind, statusRole } from "@/components/statusHue";
 
 // Catalog item P1, rewritten 2026-09-17.

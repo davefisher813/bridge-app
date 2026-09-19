@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { RECRUIT_TYPES, ATHLETE_STATUSES } from "@/lib/validation/athlete";
 import type { AthleteActionState } from "@/lib/actions/athletes";
 import type { RecruitType } from "@/lib/fit/types";
-import { errorClass, fieldClass, inputClass, labelClass, submitClass } from "@/components/formStyles";
+import { Button, CheckField, Field, Form, Grid2, Label, SelectField, Stack } from "@/components/kit";
 
 type ServerAction = (prevState: AthleteActionState, formData: FormData) => Promise<AthleteActionState>;
 
@@ -43,6 +43,8 @@ export interface AthleteFormInitialValues {
 
 const EMPTY_STATE: AthleteActionState = { errors: {}, values: {} };
 
+// What a field shows: what the server sent back after a failed submit,
+// else what the record holds, else nothing.
 function field(state: AthleteActionState, initial: AthleteFormInitialValues, key: string): string {
   const fromState = state.values[key];
   if (fromState !== undefined) return String(fromState);
@@ -50,19 +52,9 @@ function field(state: AthleteActionState, initial: AthleteFormInitialValues, key
   return fromInitial === undefined || fromInitial === null ? "" : String(fromInitial);
 }
 
-export function AthleteForm({
-  action,
-  initialValues = {},
-  submitLabel,
-}: {
-  action: ServerAction;
-  initialValues?: AthleteFormInitialValues;
-  submitLabel: string;
-}) {
+export function AthleteForm({ action, initialValues = {}, submitLabel }: { action: ServerAction; initialValues?: AthleteFormInitialValues; submitLabel: string }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
-  const [recruitType, setRecruitType] = useState<RecruitType>(
-    (state.values.recruitType as RecruitType) || initialValues.recruitType || "hs"
-  );
+  const [recruitType, setRecruitType] = useState<RecruitType>((state.values.recruitType as RecruitType) || initialValues.recruitType || "hs");
   const [isInternational, setIsInternational] = useState<boolean>(
     state.values.isInternational !== undefined ? state.values.isInternational === "on" : !!initialValues.isInternational
   );
@@ -72,267 +64,100 @@ export function AthleteForm({
   const err = (key: string) => state.errors[key];
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
-      {state.errors.form && (
-        <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[14.5px] font-semibold text-danger">
-          {state.errors.form}
-        </div>
-      )}
-
-      <div>
-        <label className={labelClass} htmlFor="name">
-          Name
-        </label>
-        <input className={fieldClass(err("name"))} id="name" name="name" defaultValue={f("name")} placeholder="Jose Ulloa" required />
-        {err("name") && <p className={errorClass}>{err("name")}</p>}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelClass} htmlFor="sport">
-            Sport
-          </label>
-          <input className={fieldClass(err("sport"))} id="sport" name="sport" defaultValue={f("sport")} placeholder="Baseball" required />
-          {err("sport") && <p className={errorClass}>{err("sport")}</p>}
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="position">
-            Position
-          </label>
-          <input className={inputClass} id="position" name="position" defaultValue={f("position")} placeholder="RHP" />
-        </div>
-      </div>
-
-      <div>
-        <label className={labelClass} htmlFor="recruitType">
-          Recruit type
-        </label>
-        <select
-          className={inputClass}
-          id="recruitType"
-          name="recruitType"
-          value={recruitType}
-          onChange={(e) => setRecruitType(e.target.value as RecruitType)}
-        >
-          {RECRUIT_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
+    <Form action={formAction} error={state.errors.form}>
+      <Field name="name" label="Name" defaultValue={f("name")} placeholder="Jose Ulloa" required error={err("name")} />
+      <Grid2>
+        <Field name="sport" label="Sport" defaultValue={f("sport")} placeholder="Baseball" required error={err("sport")} />
+        <Field name="position" label="Position" defaultValue={f("position")} placeholder="RHP" />
+      </Grid2>
+      <SelectField name="recruitType" label="Recruit type" value={recruitType} onChange={(e) => setRecruitType(e.target.value as RecruitType)}>
+        {RECRUIT_TYPES.map((t) => (
+          <option key={t.value} value={t.value}>
+            {t.label}
+          </option>
+        ))}
+      </SelectField>
+      <Grid2>
+        <Field name="gpa" label="GPA" type="number" step="0.01" min="0" max="4" inputMode="decimal" defaultValue={f("gpa")} error={err("gpa")} />
+        <SelectField name="status" label="Status" defaultValue={f("status") || "Active"}>
+          {ATHLETE_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
             </option>
           ))}
-        </select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelClass} htmlFor="gpa">
-            GPA
-          </label>
-          <input className={fieldClass(err("gpa"))} id="gpa" name="gpa" type="number" step="0.01" min="0" max="4" defaultValue={f("gpa")} />
-          {err("gpa") && <p className={errorClass}>{err("gpa")}</p>}
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="status">
-            Status
-          </label>
-          <select className={inputClass} id="status" name="status" defaultValue={f("status") || "Active"}>
-            {ATHLETE_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <label className="flex items-center gap-2 text-[14.5px] font-semibold text-ink">
-        <input type="checkbox" name="gpaVerified" defaultChecked={f("gpaVerified") === "on" || !!initialValues.gpaVerified} className="h-4 w-4" />
-        GPA verified
-      </label>
+        </SelectField>
+      </Grid2>
+      <CheckField name="gpaVerified" label="GPA verified" defaultChecked={f("gpaVerified") === "on" || !!initialValues.gpaVerified} />
 
       {recruitType === "hs" ? (
-        <div className="flex flex-col gap-3 rounded-[16px] border border-line bg-bg/50 p-3.5">
-          <div className="text-[13px] font-bold uppercase tracking-[0.04em] text-muted">High school details</div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass} htmlFor="gradYear">
-                Grad year
-              </label>
-              <input className={inputClass} id="gradYear" name="gradYear" type="number" defaultValue={f("gradYear")} placeholder="2027" />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="desiredMajor">
-                Desired major
-              </label>
-              <input className={inputClass} id="desiredMajor" name="desiredMajor" defaultValue={f("desiredMajor")} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass} htmlFor="satTotal">
-                SAT total
-              </label>
-              <input className={fieldClass(err("satTotal"))} id="satTotal" name="satTotal" type="number" defaultValue={f("satTotal")} />
-              {err("satTotal") && <p className={errorClass}>{err("satTotal")}</p>}
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="actComposite">
-                ACT composite
-              </label>
-              <input className={fieldClass(err("actComposite"))} id="actComposite" name="actComposite" type="number" defaultValue={f("actComposite")} />
-              {err("actComposite") && <p className={errorClass}>{err("actComposite")}</p>}
-            </div>
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            <div>
-              <label className={labelClass} htmlFor="apCount">
-                AP
-              </label>
-              <input className={inputClass} id="apCount" name="apCount" type="number" min="0" defaultValue={f("apCount")} />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="ibCount">
-                IB
-              </label>
-              <input className={inputClass} id="ibCount" name="ibCount" type="number" min="0" defaultValue={f("ibCount")} />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="honorsCount">
-                Honors
-              </label>
-              <input className={inputClass} id="honorsCount" name="honorsCount" type="number" min="0" defaultValue={f("honorsCount")} />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="dualCount">
-                Dual enroll
-              </label>
-              <input className={inputClass} id="dualCount" name="dualCount" type="number" min="0" defaultValue={f("dualCount")} />
-            </div>
-          </div>
-        </div>
+        <Stack gap={3}>
+          <Label caps>High school details</Label>
+          <Grid2>
+            <Field name="gradYear" label="Grad year" type="number" inputMode="numeric" defaultValue={f("gradYear")} placeholder="2027" />
+            <Field name="desiredMajor" label="Desired major" defaultValue={f("desiredMajor")} />
+          </Grid2>
+          <Grid2>
+            <Field name="satTotal" label="SAT total" type="number" inputMode="numeric" defaultValue={f("satTotal")} error={err("satTotal")} />
+            <Field name="actComposite" label="ACT composite" type="number" inputMode="numeric" defaultValue={f("actComposite")} error={err("actComposite")} />
+          </Grid2>
+          <Grid2>
+            <Field name="apCount" label="AP courses" type="number" min="0" inputMode="numeric" defaultValue={f("apCount")} />
+            <Field name="ibCount" label="IB courses" type="number" min="0" inputMode="numeric" defaultValue={f("ibCount")} />
+          </Grid2>
+          <Grid2>
+            <Field name="honorsCount" label="Honors courses" type="number" min="0" inputMode="numeric" defaultValue={f("honorsCount")} />
+            <Field name="dualCount" label="Dual enrollment" type="number" min="0" inputMode="numeric" defaultValue={f("dualCount")} />
+          </Grid2>
+        </Stack>
       ) : (
-        <div className="flex flex-col gap-3 rounded-[16px] border border-line bg-bg/50 p-3.5">
-          <div className="text-[13px] font-bold uppercase tracking-[0.04em] text-muted">Transfer details</div>
-          <div>
-            <label className={labelClass} htmlFor="currentSchool">
-              Current school
-            </label>
-            <input className={fieldClass(err("currentSchool"))} id="currentSchool" name="currentSchool" defaultValue={f("currentSchool")} required={isTransfer} />
-            {err("currentSchool") && <p className={errorClass}>{err("currentSchool")}</p>}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass} htmlFor="currentDivision">
-                Current division
-              </label>
-              <input className={inputClass} id="currentDivision" name="currentDivision" defaultValue={f("currentDivision")} placeholder="D1" />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="collegeGpa">
-                College GPA
-              </label>
-              <input className={inputClass} id="collegeGpa" name="collegeGpa" type="number" step="0.01" min="0" max="4" defaultValue={f("collegeGpa")} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass} htmlFor="eligibilityYearsRemaining">
-                Eligibility years left
-              </label>
-              <input
-                className={fieldClass(err("eligibilityYearsRemaining"))}
-                id="eligibilityYearsRemaining"
-                name="eligibilityYearsRemaining"
-                type="number"
-                step="0.5"
-                min="0"
-                max="5"
-                defaultValue={f("eligibilityYearsRemaining")}
-                required={isTransfer}
-              />
-              {err("eligibilityYearsRemaining") && <p className={errorClass}>{err("eligibilityYearsRemaining")}</p>}
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="transferCount">
-                Prior transfers
-              </label>
-              <input className={fieldClass(err("transferCount"))} id="transferCount" name="transferCount" type="number" min="0" defaultValue={f("transferCount") || "0"} />
-              {err("transferCount") && <p className={errorClass}>{err("transferCount")}</p>}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass} htmlFor="creditHoursCompleted">
-                Credit hours completed
-              </label>
-              <input className={inputClass} id="creditHoursCompleted" name="creditHoursCompleted" type="number" min="0" defaultValue={f("creditHoursCompleted")} />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="portalEntryDate">
-                Portal entry date
-              </label>
-              <input className={inputClass} id="portalEntryDate" name="portalEntryDate" type="date" defaultValue={f("portalEntryDate")} />
-            </div>
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="desiredMajorTransfer">
-              Desired major
-            </label>
-            <input className={inputClass} id="desiredMajorTransfer" name="desiredMajor" defaultValue={f("desiredMajor")} />
-          </div>
+        <Stack gap={3}>
+          <Label caps>Transfer details</Label>
+          <Field name="currentSchool" label="Current school" defaultValue={f("currentSchool")} required={isTransfer} error={err("currentSchool")} />
+          <Grid2>
+            <Field name="currentDivision" label="Current division" defaultValue={f("currentDivision")} placeholder="D1" />
+            <Field name="collegeGpa" label="College GPA" type="number" step="0.01" min="0" max="4" inputMode="decimal" defaultValue={f("collegeGpa")} />
+          </Grid2>
+          <Grid2>
+            <Field
+              name="eligibilityYearsRemaining"
+              label="Eligibility years left"
+              type="number"
+              step="0.5"
+              min="0"
+              max="5"
+              inputMode="decimal"
+              defaultValue={f("eligibilityYearsRemaining")}
+              required={isTransfer}
+              error={err("eligibilityYearsRemaining")}
+            />
+            <Field name="transferCount" label="Prior transfers" type="number" min="0" inputMode="numeric" defaultValue={f("transferCount") || "0"} error={err("transferCount")} />
+          </Grid2>
+          <Grid2>
+            <Field name="creditHoursCompleted" label="Credit hours completed" type="number" min="0" inputMode="numeric" defaultValue={f("creditHoursCompleted")} />
+            <Field name="portalEntryDate" label="Portal entry date" type="date" defaultValue={f("portalEntryDate")} />
+          </Grid2>
+          <Field id="desiredMajorTransfer" name="desiredMajor" label="Desired major" defaultValue={f("desiredMajor")} />
           {recruitType === "transfer_grad" && (
-            <label className="flex items-center gap-2 text-[14.5px] font-semibold text-ink">
-              <input type="checkbox" name="degreeCompleted" defaultChecked={f("degreeCompleted") === "on" || !!initialValues.degreeCompleted} className="h-4 w-4" />
-              Degree completed
-            </label>
+            <CheckField name="degreeCompleted" label="Degree completed" defaultChecked={f("degreeCompleted") === "on" || !!initialValues.degreeCompleted} />
           )}
-        </div>
+        </Stack>
       )}
 
-      <label className="flex items-center gap-2 text-[14.5px] font-semibold text-ink">
-        <input
-          type="checkbox"
-          name="isInternational"
-          checked={isInternational}
-          onChange={(e) => setIsInternational(e.target.checked)}
-          className="h-4 w-4"
-        />
-        International athlete
-      </label>
+      <CheckField name="isInternational" label="International athlete" checked={isInternational} onChange={(e) => setIsInternational(e.target.checked)} />
 
       {isInternational && (
-        <div className="grid grid-cols-2 gap-3 rounded-[16px] border border-line bg-bg/50 p-3.5">
-          <div>
-            <label className={labelClass} htmlFor="toeflScore">
-              TOEFL
-            </label>
-            <input className={fieldClass(err("toeflScore"))} id="toeflScore" name="toeflScore" type="number" min="0" max="120" defaultValue={f("toeflScore")} />
-            {err("toeflScore") && <p className={errorClass}>{err("toeflScore")}</p>}
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="ieltsScore">
-              IELTS
-            </label>
-            <input className={fieldClass(err("ieltsScore"))} id="ieltsScore" name="ieltsScore" type="number" step="0.5" min="0" max="9" defaultValue={f("ieltsScore")} />
-            {err("ieltsScore") && <p className={errorClass}>{err("ieltsScore")}</p>}
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="f1VisaStatus">
-              F-1 visa status
-            </label>
-            <input className={inputClass} id="f1VisaStatus" name="f1VisaStatus" defaultValue={f("f1VisaStatus")} />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="ncaaEligibilityStatus">
-              NCAA eligibility status
-            </label>
-            <input className={inputClass} id="ncaaEligibilityStatus" name="ncaaEligibilityStatus" defaultValue={f("ncaaEligibilityStatus")} />
-          </div>
-        </div>
+        <Stack gap={3}>
+          <Label caps>International</Label>
+          <Grid2>
+            <Field name="toeflScore" label="TOEFL" type="number" min="0" max="120" inputMode="numeric" defaultValue={f("toeflScore")} error={err("toeflScore")} />
+            <Field name="ieltsScore" label="IELTS" type="number" step="0.5" min="0" max="9" inputMode="decimal" defaultValue={f("ieltsScore")} error={err("ieltsScore")} />
+          </Grid2>
+          <Field name="f1VisaStatus" label="F-1 visa status" defaultValue={f("f1VisaStatus")} />
+          <Field name="ncaaEligibilityStatus" label="NCAA Eligibility Center status" defaultValue={f("ncaaEligibilityStatus")} />
+        </Stack>
       )}
 
-      <button type="submit" disabled={pending} className={submitClass}>
-        {pending ? "Saving..." : submitLabel}
-      </button>
-    </form>
+      <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
+    </Form>
   );
 }

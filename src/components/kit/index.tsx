@@ -168,6 +168,7 @@ export function Row({
   meta,
   trailing,
   emphasis = "semibold",
+  wrap = false,
 }: {
   href?: string;
   kind?: RowKind;
@@ -177,13 +178,17 @@ export function Row({
   meta?: ReactNode;
   trailing?: ReactNode;
   emphasis?: "semibold" | "bold";
+  // A row is one line each by default. `wrap` lets the meta run on,
+  // for the one case where the second line is the point of the row: a
+  // reason, an instruction.
+  wrap?: boolean;
 }) {
   const body = (
     <div className="flex min-h-14 items-center gap-3 rounded bg-paper px-4 py-3">
       {leading ?? (kind ? <RowGlyph kind={kind} role={role} /> : null)}
       <div className="min-w-0 flex-1">
         <div className={`truncate text-body ${emphasis === "bold" ? "font-bold" : "font-semibold"} text-ink`}>{title}</div>
-        {meta && <div className="truncate text-label text-muted">{meta}</div>}
+        {meta && <div className={`${wrap ? "" : "truncate"} text-label text-muted`}>{meta}</div>}
       </div>
       {trailing && <div className="flex flex-shrink-0 flex-col items-end gap-1">{trailing}</div>}
     </div>
@@ -222,6 +227,16 @@ export function Chip({ label, kind, role = "neutral" }: { label: string; kind?: 
       {label}
     </span>
   );
+}
+
+// A big number: a GPA, a total, a count that is the point of a tile.
+export function Figure({ children, tone = "ink" }: { children: ReactNode; tone?: Tone }) {
+  return <div className={`text-title font-extrabold tabular-nums ${toneClass(tone)}`}>{children}</div>;
+}
+
+// The mark on a row that opens something.
+export function Chevron() {
+  return <span className="text-body font-bold text-muted">&rsaquo;</span>;
 }
 
 // The fit score: a number in the band's colour, one weight heavier than

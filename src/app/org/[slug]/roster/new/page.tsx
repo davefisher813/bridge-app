@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createAthlete } from "@/lib/actions/athletes";
 import { AthleteForm } from "@/components/AthleteForm";
+import { Screen } from "@/components/kit";
 
 export default async function NewAthletePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -14,14 +14,8 @@ export default async function NewAthletePage({ params }: { params: Promise<{ slu
   const action = createAthlete.bind(null, slug);
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4 flex items-center gap-3">
-        <Link href={`/org/${slug}/roster`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Athletes
-        </Link>
-      </div>
-      <h1 className="mb-4 text-[22px] font-extrabold text-ink">Add athlete</h1>
-      <AthleteForm action={action} submitLabel="Add athlete" />
-    </main>
+    <Screen title="Add Athlete" back={{ href: `/org/${slug}/roster`, label: "Athletes" }}>
+      <AthleteForm action={action} submitLabel="Add Athlete" />
+    </Screen>
   );
 }

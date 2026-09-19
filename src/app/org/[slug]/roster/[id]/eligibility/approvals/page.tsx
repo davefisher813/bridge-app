@@ -6,12 +6,12 @@
 // rows above the two that cost credits is the wrong way round.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { loadEligibility } from "@/lib/data/loadEligibility";
-import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { RowGlyph, type RowKind } from "@/components/RowGlyph";
+import { EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
+import { Note } from "@/components/EligibilityVerdict";
+import type { RowKind } from "@/components/RowGlyph";
 import type { Role } from "@/components/statusHue";
 
 export const dynamic = "force-dynamic";
@@ -34,22 +34,13 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
   const { athlete, view } = bundle;
 
   return (
-    <main className="px-4 pb-24 pt-2">
-      <div className="mb-2">
-        <Link
-          href={`/org/${slug}/roster/${id}/eligibility`}
-          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted"
-        >
-          &larr; NCAA eligibility
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Approved courses</h1>
-      <div className="mb-5 text-[13.5px] font-bold text-muted">
-        {athlete.name} &middot; {view.approvals.length} checked
-      </div>
-
+    <Screen
+      title="Approved Courses"
+      back={{ href: `/org/${slug}/roster/${id}/eligibility`, label: "NCAA Eligibility" }}
+      lede={`${athlete.name} · ${view.approvals.length} checked`}
+    >
       {view.approvals.length === 0 ? (
-        <EmptyState icon={<RowGlyph kind="checklist" role="neutral" className="h-7 w-7" />} title="Nothing to check">
+        <EmptyState kind="checklist" title="Nothing to check">
           No courses on file yet.
         </EmptyState>
       ) : (
@@ -57,54 +48,42 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
           const rows = view.approvals.filter((a) => a.match.status === status);
           if (rows.length === 0) return null;
           return (
-            <div key={status} className="mb-4">
-              <div className="mb-2">
-                <SectionHeader label={label} count={rows.length} role={role} kind={kind} />
-              </div>
-              <div className="flex flex-col gap-2">
-                {rows.map((a, i) => (
-                  <RailCard key={a.title + i} role={role} kind={kind}>
-                    <div className="text-[14.5px] font-bold leading-tight text-ink">{a.title}</div>
-                    <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                      {status === "approved"
-                        ? `${a.school} · ${a.match.how === "exact" ? "exact title" : "matched on the title"}`
-                        : status === "ambiguous"
-                          ? `Could be ${(a.match.candidates ?? []).join(" or ")}`
-                          : status === "not_approved"
-                            ? "Does not count toward the core GPA"
-                            : `No list on file for ${a.school}`}
-                    </div>
-                  </RailCard>
-                ))}
-              </div>
-            </div>
+            <Section key={status} label={label} count={rows.length} role={role} kind={kind}>
+              {rows.map((a, i) => (
+                <Row
+                  key={a.title + i}
+                  kind={kind}
+                  role={role}
+                  title={a.title}
+                  meta={
+                    status === "approved"
+                      ? `${a.school} · ${a.match.how === "exact" ? "exact title" : "matched on the title"}`
+                      : status === "ambiguous"
+                        ? `Could be ${(a.match.candidates ?? []).join(" or ")}`
+                        : status === "not_approved"
+                          ? "Does not count toward the core GPA"
+                          : `No list on file for ${a.school}`
+                  }
+                />
+              ))}
+            </Section>
           );
         })
       )}
 
       {view.approvalNotes.length > 0 && (
-        <>
-          <div className="mb-2 mt-5">
-            <SectionHeader label="Corrections the list made" count={view.approvalNotes.length} role="target" kind="note" />
-          </div>
-          <div className="flex flex-col gap-2">
-            {view.approvalNotes.map((n) => (
-              <RailCard key={n} role="target" kind="note">
-                <div className="text-[13.5px] leading-relaxed text-ink">{n}</div>
-              </RailCard>
-            ))}
-          </div>
-        </>
+        <Section label="Corrections the list made" count={view.approvalNotes.length} role="target" kind="note">
+          {view.approvalNotes.map((n) => (
+            <Note key={n}>{n}</Note>
+          ))}
+        </Section>
       )}
 
       {view.schoolsMissingApprovedList.length > 0 && (
-        <Link
-          href={`/org/${slug}/approved-courses`}
-          className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
-        >
+        <LinkButton href={`/org/${slug}/approved-courses`} variant="secondary">
           Enter a list for {view.schoolsMissingApprovedList[0]}
-        </Link>
+        </LinkButton>
       )}
-    </main>
+    </Screen>
   );
 }
