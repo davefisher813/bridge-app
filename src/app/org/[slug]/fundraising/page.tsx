@@ -12,42 +12,15 @@
 //   - An in-kind gift is support, never cash.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { DOT } from "@/components/statusHue";
+import { Body, Card, EmptyState, Label, LinkButton, Meter, Row, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
+import { Note } from "@/components/EligibilityVerdict";
 import { campaignProgress, formatMoney, formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 
 export const dynamic = "force-dynamic";
-
-function ChartIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
-      <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-[12px] bg-paper p-3.5">
-      <div className="text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted">{label}</div>
-      <div className="mt-1 text-[26px] font-black leading-tight tabular-nums text-ink">{value}</div>
-      {sub && <div className="mt-0.5 text-[11.5px] leading-tight text-muted">{sub}</div>}
-    </div>
-  );
-}
-
-function Bar({ percent, role }: { percent: number; role: "committed" | "offer" | "target" }) {
-  return (
-    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
-      <div className={`h-full rounded-full ${DOT[role]}`} style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
-    </div>
-  );
-}
 
 // Green once it is on track, amber while it is behind, gray when nobody
 // has set a target. Never red: the locked catalog keeps red for the
@@ -99,219 +72,173 @@ export default async function FundraisingPage({
 
   if (gifts.length === 0 && pledges.length === 0) {
     return (
-      <main className="px-4 pt-2 pb-6">
-        <h1 className="mb-1 text-[22px] font-extrabold text-ink">Fundraising</h1>
-        <p className="mb-5 text-[13.5px] leading-tight text-muted">{fiscalYear}, against the board budget.</p>
-        <EmptyState icon={<ChartIcon />} title="Nothing recorded yet">
+      <Screen title="Fundraising" lede={`${fiscalYear}, against the board budget.`}>
+        <EmptyState kind="money" title="Nothing recorded yet">
           Record the first gift and this starts reporting against your categories. Totals are calculated from the gifts themselves, so
           nothing here can go stale.
         </EmptyState>
         {canEdit && (
-          <div className="mt-5 flex flex-col gap-2">
-            <Link
-              href={`/org/${slug}/fundraising/gifts/new`}
-              className="rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
-            >
-              Record a gift
-            </Link>
-            <Link href={`/org/${slug}/fundraising/donors`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
+          <Stack>
+            <LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Add Gift</LinkButton>
+            <LinkButton href={`/org/${slug}/fundraising/donors`} variant="secondary">
               Donors
-            </Link>
-            <Link
-              href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`}
-              className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink"
-            >
-              Set the budget
-            </Link>
-          </div>
+            </LinkButton>
+            <LinkButton href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`} variant="secondary">
+              Set the Budget
+            </LinkButton>
+          </Stack>
         )}
-      </main>
+      </Screen>
     );
   }
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Fundraising</h1>
-      <p className="mb-5 text-[13.5px] leading-tight text-muted">
-        {fiscalYear}, against the board budget. Cash received only.
-      </p>
-
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <Tile label="Raised" value={formatMoneyShort(s.totalCashCents)} sub="cash in the door" />
-        <Tile
-          label="Budget"
-          value={formatMoneyShort(s.totalBudgetCents)}
-          sub={budgetPercent === null ? "no budget set" : `${budgetPercent}% of the year's target`}
-        />
-      </div>
+    <Screen title="Fundraising" lede={`${fiscalYear}, against the board budget. Cash received only.`}>
+      <Stack gap={2}>
+        <StatRow>
+          <Stat value={formatMoneyShort(s.totalCashCents)} label="Raised" role="committed" kind="money" />
+          <Stat value={formatMoneyShort(s.totalBudgetCents)} label="Budget" role="contact" kind="scale" />
+        </StatRow>
+        <Label>{budgetPercent === null ? "Cash in the door. No budget set for the year." : `Cash in the door, ${budgetPercent}% of the year's budget.`}</Label>
+      </Stack>
 
       {/* Beside the total, never inside it. Summing a promise into
           "raised" overstates the year, and it is the easiest mistake in
           this whole feature to make. */}
       {s.outstandingPledgeCents > 0 && (
-        <div className="mb-4">
-          <RailCard role="offer" kind="pledge">
-            <div className="text-[14.5px] font-bold text-ink">{formatMoney(s.outstandingPledgeCents)} promised, not received</div>
-            <div className="mt-1 text-[13px] leading-tight text-muted">
-              Not counted in the {formatMoneyShort(s.totalCashCents)} above.
-              {s.overduePledgeCents > 0 ? ` ${formatMoney(s.overduePledgeCents)} of it is past its due date.` : ""}
-            </div>
-          </RailCard>
-        </div>
+        <Row
+          kind="pledge"
+          role="offer"
+          emphasis="bold"
+          title={`${formatMoney(s.outstandingPledgeCents)} promised, not received`}
+          meta={`Not counted in the ${formatMoneyShort(s.totalCashCents)} above.${s.overduePledgeCents > 0 ? ` ${formatMoney(s.overduePledgeCents)} of it is past its due date.` : ""}`}
+          wrap
+        />
       )}
 
-      <div className="mb-2">
-        <SectionHeader label="By category" role="committed" />
-      </div>
-      <div className="flex flex-col gap-2">
+      <Section label="By category" role="committed" kind="money">
         {s.byCategory.map((c) => {
           const role = roleFor(c.percentOfBudget);
           // The category row is the natural way in to the gifts behind
           // the number. A percentage nobody can open is a number you
           // either believe or do not, which is the whole complaint about
           // the spreadsheet this replaces.
-          const card = (
-            <RailCard role={role} kind="money">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[14.5px] font-bold text-ink">{c.label}</div>
-                  <div className="mt-0.5 text-[12.5px] text-muted">
-                    {formatMoneyShort(c.receivedCents)}
-                    {c.budgetCents > 0 ? ` of ${formatMoneyShort(c.budgetCents)}` : " received, no target set"}
-                    {c.inKindCents > 0 ? ` · ${formatMoneyShort(c.inKindCents)} in kind` : ""}
-                  </div>
-                  <Bar percent={c.percentOfBudget ?? 0} role={role} />
-                </div>
-                <span className="flex-shrink-0 text-[14.5px] font-extrabold tabular-nums text-ink">
-                  {c.percentOfBudget === null ? "no target" : `${c.percentOfBudget}%`}
-                </span>
-              </div>
-            </RailCard>
-          );
           return (
-            <Link key={c.category} href={`/org/${slug}/fundraising/gifts?category=${c.category}`} className="block">
-              {card}
-            </Link>
+            <Card key={c.category} href={`/org/${slug}/fundraising/gifts?category=${c.category}`}>
+              <Stack gap={2}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <Body weight="bold" truncate>
+                      {c.label}
+                    </Body>
+                    <Label>
+                      {formatMoneyShort(c.receivedCents)}
+                      {c.budgetCents > 0 ? ` of ${formatMoneyShort(c.budgetCents)}` : " received, no target set"}
+                      {c.inKindCents > 0 ? ` · ${formatMoneyShort(c.inKindCents)} in kind` : ""}
+                    </Label>
+                  </div>
+                  <Body weight="bold" numeric tone={c.percentOfBudget === null ? "muted" : "ink"}>
+                    {c.percentOfBudget === null ? "no target" : `${c.percentOfBudget}%`}
+                  </Body>
+                </div>
+                <Meter parts={[{ role, fraction: (c.percentOfBudget ?? 0) / 100 }]} />
+              </Stack>
+            </Card>
           );
         })}
-      </div>
+      </Section>
 
       {/* Reported, and reported separately. A donated case of food is
           support and not something anyone can spend, and folding it into
           the cash figure tells a treasurer there is money that is not
           there. */}
       {s.totalInKindCents > 0 && (
-        <>
-          <div className="mb-2 mt-5">
-            <SectionHeader label="In kind" role="place" />
-          </div>
-          <RailCard role="place" kind="grant">
-            <div className="text-[14.5px] font-bold text-ink">{formatMoney(s.totalInKindCents)} donated in goods and services</div>
-            <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-              Counted as support, never as cash. Total support for the year is {formatMoneyShort(s.totalSupportCents)}.
-            </div>
-          </RailCard>
-        </>
+        <Section label="In kind" role="place" kind="grant">
+          <Row
+            kind="grant"
+            role="place"
+            emphasis="bold"
+            title={`${formatMoney(s.totalInKindCents)} donated in goods and services`}
+            meta={`Counted as support, never as cash. Total support for the year is ${formatMoneyShort(s.totalSupportCents)}.`}
+            wrap
+          />
+        </Section>
       )}
 
       {campaigns.length > 0 && (
-        <>
-          <div className="mb-2 mt-5">
-            <SectionHeader label="Campaigns" count={campaigns.length} role="visit" />
-          </div>
-          <div className="flex flex-col gap-2">
-            {campaigns.map((c) => {
-              const goalCents = c.goal_amount === null ? 0 : Math.round(Number(c.goal_amount) * 100);
-              const p = campaignProgress(c.id, goalCents, gifts, pledges);
-              const role = roleFor(p.percentOfGoal);
-              const card = (
-                <RailCard role={role}>
-                  <div className="min-w-0">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-[14.5px] font-bold text-ink">{c.name}</div>
-                      <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
-                        {p.percentOfGoal === null ? "no goal" : `${p.percentOfGoal}%`}
-                      </span>
+        <Section label="Campaigns" count={campaigns.length} role="visit" kind="campaign">
+          {campaigns.map((c) => {
+            const goalCents = c.goal_amount === null ? 0 : Math.round(Number(c.goal_amount) * 100);
+            const p = campaignProgress(c.id, goalCents, gifts, pledges);
+            const role = roleFor(p.percentOfGoal);
+            return (
+              <Card key={c.id} href={`/org/${slug}/fundraising/campaigns/${c.id}`}>
+                <Stack gap={2}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <Body weight="bold" truncate>
+                        {c.name}
+                      </Body>
+                      <Label>
+                        {formatMoneyShort(p.raisedCents)} raised
+                        {goalCents > 0 ? ` of a ${formatMoneyShort(goalCents)} goal` : ""}
+                        {p.pledgedCents > 0 ? ` · ${formatMoneyShort(p.pledgedCents)} pledged` : ""}
+                      </Label>
                     </div>
-                    <div className="mt-0.5 text-[12.5px] text-muted">
-                      {formatMoneyShort(p.raisedCents)} raised
-                      {goalCents > 0 ? ` of a ${formatMoneyShort(goalCents)} goal` : ""}
-                      {p.pledgedCents > 0 ? ` · ${formatMoneyShort(p.pledgedCents)} pledged` : ""}
-                    </div>
-                    <Bar percent={p.percentOfGoal ?? 0} role={role} />
+                    <Body weight="bold" numeric tone={p.percentOfGoal === null ? "muted" : "ink"}>
+                      {p.percentOfGoal === null ? "no goal" : `${p.percentOfGoal}%`}
+                    </Body>
                   </div>
-                </RailCard>
-              );
-              return (
-                <Link key={c.id} href={`/org/${slug}/fundraising/campaigns/${c.id}`} className="block">
-                  {card}
-                </Link>
-              );
-            })}
-          </div>
-          <div className="mt-3">
-            <RailCard role="contact">
-              <div className="text-[13.5px] leading-tight text-ink">
-                A campaign&apos;s percentage is cash raised against goal. Pledges are shown beside it and never inside it: a campaign with
-                promises covering its goal has not met its goal.
-              </div>
-            </RailCard>
-          </div>
-        </>
+                  <Meter parts={[{ role, fraction: (p.percentOfGoal ?? 0) / 100 }]} />
+                </Stack>
+              </Card>
+            );
+          })}
+          <Note>
+            A campaign&apos;s percentage is cash raised against goal. Pledges are shown beside it and never inside it: a campaign with
+            promises covering its goal has not met its goal.
+          </Note>
+        </Section>
       )}
 
-      <div className="mb-2 mt-5">
-        <SectionHeader label="This year" role="contact" />
-      </div>
-      <RailCard role="contact">
-        <div className="text-[13.5px] leading-tight text-ink">
-          {s.giftCount} {s.giftCount === 1 ? "gift" : "gifts"} from {s.donorCount} {s.donorCount === 1 ? "supporter" : "supporters"}.
-        </div>
-        <div className="mt-1 text-[12.5px] leading-tight text-muted">
+      <Section label="This year" role="contact" kind="people">
+        <Note title={`${s.giftCount} ${s.giftCount === 1 ? "gift" : "gifts"} from ${s.donorCount} ${s.donorCount === 1 ? "supporter" : "supporters"}.`}>
           Anonymous gifts count in the total and not in the supporter number, so the figure means people.
-        </div>
-      </RailCard>
+        </Note>
+      </Section>
 
       {/* Reading the ledger is not an editing right. A board member who
           can see the total can see what it is made of, which is the
           point of showing them a total at all. */}
-      <div className="mt-5 flex flex-col gap-2">
-        <Link href={`/org/${slug}/fundraising/gifts`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
-          All gifts
-        </Link>
-        <Link href={`/org/${slug}/fundraising/pledges`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
+      <Stack>
+        <LinkButton href={`/org/${slug}/fundraising/gifts`} variant="secondary">
+          All Gifts
+        </LinkButton>
+        <LinkButton href={`/org/${slug}/fundraising/pledges`} variant="secondary">
           Pledges
-        </Link>
-        <Link href={`/org/${slug}/fundraising/donors`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
+        </LinkButton>
+        <LinkButton href={`/org/${slug}/fundraising/donors`} variant="secondary">
           Donors
-        </Link>
-      </div>
+        </LinkButton>
+      </Stack>
 
       {canEdit && (
-        <div className="mt-2 flex flex-col gap-2">
-          <Link
-            href={`/org/${slug}/fundraising/gifts/new`}
-            className="rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
-          >
-            Record a gift
-          </Link>
-          <Link href={`/org/${slug}/fundraising/pledges/new`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
-            Record a pledge
-          </Link>
-          <Link href={`/org/${slug}/fundraising/campaigns/new`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
-            New campaign
-          </Link>
-          <Link href={`/org/${slug}/fundraising/grants`} className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
+        <Stack>
+          <LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Add Gift</LinkButton>
+          <LinkButton href={`/org/${slug}/fundraising/pledges/new`} variant="secondary">
+            Add Pledge
+          </LinkButton>
+          <LinkButton href={`/org/${slug}/fundraising/campaigns/new`} variant="secondary">
+            New Campaign
+          </LinkButton>
+          <LinkButton href={`/org/${slug}/fundraising/grants`} variant="secondary">
             Grants
-          </Link>
-          <Link
-            href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`}
-            className="rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink"
-          >
-            {s.totalBudgetCents > 0 ? "Edit the budget" : "Set the budget"}
-          </Link>
-        </div>
+          </LinkButton>
+          <LinkButton href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`} variant="secondary">
+            {s.totalBudgetCents > 0 ? "Edit the Budget" : "Set the Budget"}
+          </LinkButton>
+        </Stack>
       )}
-    </main>
+    </Screen>
   );
 }

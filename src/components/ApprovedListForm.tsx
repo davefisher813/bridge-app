@@ -21,9 +21,7 @@ import { useActionState, useMemo, useState } from "react";
 import { parseApprovedListPaste, describeParse, type ParsedRow } from "@/lib/fit/ncaa/approvedListPaste";
 import type { SubjectArea } from "@/lib/fit/ncaa/coreGpa";
 import type { ApprovedListActionState } from "@/lib/actions/approvedCourses";
-import { fieldClass, submitClass } from "@/components/formStyles";
-import { RailCard, SectionHeader } from "@/components/catalog";
-import { RowGlyph } from "@/components/RowGlyph";
+import { Body, Button, Card, CheckField, Choice, ChoiceRow, Field, Form, Grid2, Hidden, Inline, Label, Prose, Section, Stack, TextAreaField } from "@/components/kit";
 
 const SUBJECTS: Array<[SubjectArea, string]> = [
   ["english", "English"],
@@ -47,9 +45,7 @@ export function ApprovedListForm({
   const [state, formAction, pending] = useActionState(action, { errors: {} });
   const [paste, setPaste] = useState("");
   const [nextId, setNextId] = useState(1000);
-  const [rows, setRows] = useState<Row[]>(
-    (existing ?? []).map((c, i) => ({ ...c, problem: null, raw: c.title, id: i })),
-  );
+  const [rows, setRows] = useState<Row[]>((existing ?? []).map((c, i) => ({ ...c, problem: null, raw: c.title, id: i })));
   const [isComplete, setIsComplete] = useState(false);
 
   const parsed = useMemo(() => (paste.trim() ? parseApprovedListPaste(paste) : null), [paste]);
@@ -87,151 +83,91 @@ export function ApprovedListForm({
           : null;
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
-      <input type="hidden" name="schoolName" value={schoolName} />
+    <Form action={formAction} error={state.errors.form}>
+      <Hidden name="schoolName" value={schoolName} />
 
-      {state.errors.form && (
-        <div className="rounded-[10px] bg-tint-danger px-3.5 py-3 text-[13.5px] font-semibold text-tint-danger-on">{state.errors.form}</div>
-      )}
-
-      <div>
-        <label className="mb-1.5 block text-[12px] font-bold text-muted">PASTE THE LIST</label>
-        <textarea
-          value={paste}
-          onChange={(e) => setPaste(e.target.value)}
-          rows={5}
-          placeholder={"Select the table at web3.ncaa.org/hsportal and paste it here.\nEnglish 9\tEnglish\nAlgebra I\tMathematics"}
-          className={`${fieldClass(false)} resize-none font-mono text-[13px]`}
-        />
-        {parsed && (
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <span className="text-[12.5px] font-bold text-muted">{describeParse(parsed)}</span>
-            <button
-              type="button"
-              onClick={applyPaste}
-              className="inline-flex min-h-[44px] items-center rounded-[8px] bg-solid-accent px-4 text-[14.5px] font-bold text-solid-accent-on"
-            >
-              Use these
-            </button>
+      <TextAreaField
+        name="paste"
+        label="Paste the list"
+        value={paste}
+        onChange={(e) => setPaste(e.target.value)}
+        rows={5}
+        placeholder={"Select the table at web3.ncaa.org/hsportal and paste it here.\nEnglish 9\tEnglish\nAlgebra I\tMathematics"}
+      />
+      {parsed && (
+        <Inline>
+          <div className="min-w-0 flex-1">
+            <Label>{describeParse(parsed)}</Label>
           </div>
-        )}
-      </div>
+          <Button type="button" inline onClick={applyPaste}>
+            Use These
+          </Button>
+        </Inline>
+      )}
 
       {rows.length > 0 && (
-        <>
-          <SectionHeader label="Courses" count={rows.length} role={needAttention.length ? "offer" : "committed"} kind="checklist" />
-          <div className="flex flex-col gap-2">
-            {ordered.map((r) => {
-              const i = rows.indexOf(r);
-              const bad = r.subject === null || r.problem !== null;
-              return (
-                <RailCard key={r.id} role={bad ? "offer" : "committed"} kind={bad ? "warning" : "course"}>
-                  <input type="hidden" name={`title_${i}`} value={r.title} />
-                  <input type="hidden" name={`subject_${i}`} value={r.subject ?? ""} />
-                  <input type="hidden" name={`credit_${i}`} value={r.maxCredit ?? ""} />
-                  {r.weighted && <input type="hidden" name={`weighted_${i}`} value="on" />}
-
-                  <div className="flex items-start justify-between gap-3">
+        <Section label="Courses" count={rows.length} role={needAttention.length ? "offer" : "committed"} kind="checklist">
+          {ordered.map((r) => {
+            const i = rows.indexOf(r);
+            const bad = r.subject === null || r.problem !== null;
+            return (
+              <Card key={r.id}>
+                <Hidden name={`title_${i}`} value={r.title} />
+                <Hidden name={`subject_${i}`} value={r.subject ?? ""} />
+                <Hidden name={`credit_${i}`} value={r.maxCredit === null ? "" : String(r.maxCredit)} />
+                {r.weighted && <Hidden name={`weighted_${i}`} value="on" />}
+                <Stack gap={2}>
+                  <Inline align="start">
                     <div className="min-w-0 flex-1">
-                      <div className="text-[14.5px] font-bold leading-tight text-ink">{r.title || "Untitled"}</div>
-                      <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                        {r.maxCredit !== null && `${r.maxCredit} credit`}
-                        {r.maxCredit !== null && r.weighted && " · "}
-                        {r.weighted && "weighted"}
-                      </div>
+                      <Body weight="bold">{r.title || "Untitled"}</Body>
+                      <Label>
+                        {[r.maxCredit !== null ? `${r.maxCredit} credit` : null, r.weighted ? "weighted" : null].filter(Boolean).join(" · ") ||
+                          (bad ? "Needs a subject" : "Ready")}
+                      </Label>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => remove(r.id)}
-                      className="-my-2 inline-flex min-h-[44px] flex-shrink-0 items-center py-2 pl-3 text-[12.5px] font-bold text-muted"
-                    >
+                    <Button type="button" variant="quiet" inline onClick={() => remove(r.id)}>
                       Remove
-                    </button>
-                  </div>
-
-                  {r.problem && <div className="mt-1.5 text-[12.5px] font-semibold leading-tight text-tint-accent-on">{r.problem}</div>}
-
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    </Button>
+                  </Inline>
+                  {r.problem && <Label tone="danger">{r.problem}</Label>}
+                  <ChoiceRow>
                     {SUBJECTS.map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setSubject(r.id, value)}
-                        // A control, not a status read-out. Since the
-                        // 2026-09-17 pass no chip carries a fill, so
-                        // "chosen" is a ring rather than a coloured
-                        // block; the touch target and the weight change
-                        // do the rest.
-                        className={`inline-flex min-h-[44px] items-center rounded-full border px-3.5 text-[13px] font-bold ${
-                          r.subject === value ? "border-accent text-ink ring-2 ring-accent" : "border-line text-muted"
-                        }`}
-                      >
+                      <Choice key={value} on={r.subject === value} onClick={() => setSubject(r.id, value)}>
                         {label}
-                      </button>
+                      </Choice>
                     ))}
-                  </div>
-                </RailCard>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            onClick={addBlank}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[14.5px] font-bold text-ink"
-          >
-            Add a course by hand
-          </button>
-        </>
+                  </ChoiceRow>
+                </Stack>
+              </Card>
+            );
+          })}
+          <Button type="button" variant="secondary" onClick={addBlank}>
+            Add a Course by Hand
+          </Button>
+        </Section>
       )}
 
-      <div>
-        <label className="mb-1.5 block text-[12px] font-bold text-muted">CEEB CODE</label>
-        <input name="ceebCode" inputMode="numeric" placeholder="070415" className={fieldClass(false)} />
-      </div>
+      <Grid2>
+        <Field name="ceebCode" label="CEEB code" inputMode="numeric" placeholder="070415" />
+        <Field name="retrievedOn" label="Read off the portal on" type="date" />
+      </Grid2>
 
-      <div>
-        <label className="mb-1.5 block text-[12px] font-bold text-muted">READ OFF THE PORTAL ON</label>
-        <input name="retrievedOn" type="date" className={`${fieldClass(false)} tabular-nums`} />
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-[12px] font-bold text-muted">WHERE THIS CAME FROM</label>
-        <input
-          name="sourceNote"
-          placeholder="Transcribed from the NCAA portal"
-          className={fieldClass(state.errors.sourceNote)}
-        />
-        {state.errors.sourceNote && <p className="mt-1 text-[12.5px] font-semibold text-tint-danger-on">{state.errors.sourceNote}</p>}
-      </div>
+      <Field name="sourceNote" label="Where this came from" placeholder="Transcribed from the NCAA portal" error={state.errors.sourceNote} />
 
       {/* The one field that changes what the engine is allowed to conclude. */}
-      <label className="flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
-        <input
-          type="checkbox"
-          name="isComplete"
-          checked={isComplete}
-          onChange={(e) => setIsComplete(e.target.checked)}
-          className="mt-0.5 h-[20px] w-[20px] flex-shrink-0"
-        />
-        <span className="min-w-0">
-          <span className="block text-[14.5px] font-bold text-ink">This is the school&apos;s whole list</span>
-          <span className="mt-0.5 block text-[12.5px] leading-tight text-muted">
-            Only tick this if you copied all of it. A complete list means a course missing from it does not count toward the core GPA. A partial
-            one can confirm a course and never rules one out.
-          </span>
-        </span>
-      </label>
+      <CheckField
+        name="isComplete"
+        checked={isComplete}
+        onChange={(e) => setIsComplete(e.target.checked)}
+        label="This is the school's whole list"
+        hint="Only tick this if you copied all of it. A complete list means a course missing from it does not count toward the core GPA. A partial one can confirm a course and never rules one out."
+      />
 
-      {blockedBy && <div className="text-[12.5px] font-semibold text-muted">{blockedBy}</div>}
+      {blockedBy && <Label>{blockedBy}</Label>}
 
-      <button type="submit" disabled={pending || blockedBy !== null} className={submitClass}>
-        {pending ? "Saving..." : "Save the list"}
-      </button>
+      <Button disabled={pending || blockedBy !== null}>{pending ? "Saving..." : "Save the List"}</Button>
 
-      <p className="text-[12px] leading-relaxed text-muted">
-        <RowGlyph kind="info" role="neutral" className="mr-1 inline h-[13px] w-[13px] align-[-2px]" />
-        Saving recalculates every athlete at {schoolName} straight away.
-      </p>
-    </form>
+      <Prose>Saving recalculates every athlete at {schoolName} straight away.</Prose>
+    </Form>
   );
 }

@@ -249,7 +249,7 @@ describe("LAW: there is one icon set and everything reads it", () => {
   // back, and it would be invisible: the prototype would keep rendering
   // whatever it was given.
   it("no generator keeps its own copy of the drawings", () => {
-    const generators = ["scripts/build_prototype.py", "scripts/build_preview.py", "scripts/build_testbench.py"];
+    const generators = ["scripts/build_testbench.py", "scripts/preview/build_app_preview.ts", "scripts/audit_preview.mjs"];
     const offenders: string[] = [];
     for (const g of generators) {
       let src = "";
@@ -295,8 +295,8 @@ describe("LAW: a solid fill is never used as a text colour", () => {
   // it passed in light and failed in dark, in fourteen places, for weeks.
   it("no bare text-solid-* class outside the SOLID pairing map", () => {
     const offenders: string[] = [];
-    for (const file of walk(SRC).concat([join(ROOT, "scripts/prototype_app.js")])) {
-      if (/statusHue\.ts$|formStyles\.ts$|stylingLaws\.test\.ts$/.test(file)) continue;
+    for (const file of walk(SRC)) {
+      if (/statusHue\.ts$|stylingLaws\.test\.ts$/.test(file)) continue;
       if (!/\.(tsx?|js)$/.test(file)) continue;
       const src = readFileSync(file, "utf8");
       for (const m of src.matchAll(/text-solid-([a-z]+)(?!-on)\b/g)) offenders.push(`${file.replace(ROOT, "")}: ${m[0]}`);
@@ -332,27 +332,26 @@ describe("LAW: muted text clears AA on the page, not just on a card", () => {
 
 describe("LAW: a row you can tap is at least a thumb tall", () => {
   // 44px is Apple's minimum. The back link was 15px on every screen in
-  // the app, which is the control people use most.
-  it("the shared card and every back link carry the minimum", () => {
-    // Both branches of RailCard, not just one: the stripe form and the
-    // glyph form are separate return statements and only one of them
-    // carrying the minimum is the bug this law is for.
-    const catalog = readFileSync(join(SRC, "components/catalog.tsx"), "utf8");
-    const railCard = catalog.slice(catalog.indexOf("export function RailCard"), catalog.indexOf("export function Avatar"));
-    const returns = railCard.match(/min-h-\[44px\]/g) ?? [];
-    expect(returns.length).toBeGreaterThanOrEqual(2);
-
-    const thin: string[] = [];
-    for (const file of walk(join(SRC, "app"))) {
-      if (!file.endsWith(".tsx")) continue;
-      const src = readFileSync(file, "utf8");
-      if (!src.includes("&larr;")) continue;
-      // The back link's own className, identified by the text style it
-      // has always used.
-      for (const m of src.matchAll(/className="([^"]*text-\[13px\] font-bold text-muted[^"]*)"/g)) {
-        if (!m[1].includes("min-h-[44px]")) thin.push(file.replace(ROOT, ""));
-      }
-    }
+  // the app, which is the control people use most. Since the clean slate
+  // every tappable thing is drawn by the kit, so the kit is what carries
+  // the minimum: the row, the back link, the text link, both button
+  // shapes, the option and the choice chip.
+  //
+  // Verified this law bites: dropped min-h-14 from Row, ran
+  // `npx vitest run stylingLaws`, watched it fail naming Row, reverted.
+  it("every tappable kit shape carries the minimum", () => {
+    const kit = readFileSync(join(SRC, "components/kit/index.tsx"), "utf8");
+    const between = (from: string, to: string) => kit.slice(kit.indexOf(from), kit.indexOf(to));
+    const shapes: Array<[string, string, string]> = [
+      ["Screen back link", "export function Screen", "export function Panel"],
+      ["Row", "export function Row", "export function Stat"],
+      ["Button", "export function Button", "export function LinkButton"],
+      ["LinkButton", "export function LinkButton", "export function TextLink"],
+      ["TextLink", "export function TextLink", "// ── Fields"],
+      ["Option", "export function Option", "export function CheckField"],
+      ["Choice", "export function Choice", "// The form itself"],
+    ];
+    const thin = shapes.filter(([, from, to]) => !/min-h-1[1-9]\b/.test(between(from, to))).map(([name]) => name);
     expect(thin).toEqual([]);
   });
 });

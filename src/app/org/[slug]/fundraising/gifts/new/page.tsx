@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -7,6 +6,7 @@ import { recordGift } from "@/lib/actions/fundraising";
 import { GiftForm, type BoardMemberOption, type OpenPledge } from "@/components/GiftForm";
 import { outstandingOn } from "@/lib/fundraising/rollup";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
+import { Screen } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -69,17 +69,11 @@ export default async function NewGiftPage({ params }: { params: Promise<{ slug: 
   const action = recordGift.bind(null, slug);
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4">
-        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Fundraising
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Record a gift</h1>
-      <p className="mb-5 text-[13.5px] leading-tight text-muted">
-        Money that has actually arrived. A promise goes in as a pledge instead, so nothing counts it as raised before it lands.
-      </p>
-
+    <Screen
+      title="Add Gift"
+      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
+      lede="Money that has actually arrived. A promise goes in as a pledge instead, so nothing counts it as raised before it lands."
+    >
       <GiftForm
         action={action}
         donors={donors}
@@ -88,6 +82,6 @@ export default async function NewGiftPage({ params }: { params: Promise<{ slug: 
         boardMembers={boardMembers}
         today={new Date().toISOString().slice(0, 10)}
       />
-    </main>
+    </Screen>
   );
 }

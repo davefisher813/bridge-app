@@ -13,12 +13,11 @@
 // test pins the counted rows to the same total giveGetProgress reports.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
-import { Chip, RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { RowGlyph, type RowKind } from "@/components/RowGlyph";
-import { DOT } from "@/components/statusHue";
+import { Body, Card, Chip, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
+import { Note } from "@/components/EligibilityVerdict";
+import type { RowKind } from "@/components/RowGlyph";
 import { formatMoney, formatMoneyShort, CATEGORY_LABEL, METHOD_LABEL } from "@/lib/fundraising/rollup";
 import { creditedGifts, type SeatStatus } from "@/lib/governance/giveGet";
 import { loadGovernance } from "@/lib/data/governanceView";
@@ -51,27 +50,9 @@ function shortDate(iso: string): string {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
-function Bar({ percent, role }: { percent: number; role: "committed" | "offer" | "target" }) {
-  return (
-    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
-      <div className={`h-full rounded-full ${DOT[role]}`} style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
-    </div>
-  );
-}
-
 function roleFor(percent: number | null): "committed" | "offer" | "target" {
   if (percent === null) return "target";
   return percent >= 75 ? "committed" : "offer";
-}
-
-function Tile({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div className="rounded-[12px] bg-paper p-3.5">
-      <div className="text-[11px] font-bold uppercase tracking-[0.04em] text-muted">{label}</div>
-      <div className="mt-1 text-[20px] font-extrabold tabular-nums leading-tight text-ink">{value}</div>
-      <div className="mt-0.5 text-[11.5px] leading-tight text-muted">{sub}</div>
-    </div>
-  );
 }
 
 export default async function SeatPage({
@@ -114,172 +95,119 @@ export default async function SeatPage({
   const countedCount = credited.filter((c) => c.counted).length;
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4">
-        <Link
-          href={`/org/${slug}/board-governance/${board.id}`}
-          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted"
-        >
-          &larr; {board.name}
-        </Link>
-      </div>
-
-      <h1 className="mb-1 text-[22px] font-extrabold leading-tight text-ink">{member.name}</h1>
-      <div className="mb-5 flex flex-wrap items-center gap-2 text-[13.5px] font-bold text-muted">
-        <span>{member.roleTitle ?? "No role set"}</span>
-        <Chip label={STATUS_LABEL[member.status]} kind={SEAT_KIND[member.status]} role={member.status === "active" ? "committed" : "neutral"} />
-      </div>
-
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <Tile label="Given" value={formatMoneyShort(p.givenCents)} sub="their own money" />
-        <Tile label="Brought in" value={formatMoneyShort(p.raisedCents)} sub="credited to this seat" />
-      </div>
+    <Screen
+      title={member.name}
+      back={{ href: `/org/${slug}/board-governance/${board.id}`, label: board.name }}
+      lede={member.roleTitle ?? "No role set"}
+      action={<Chip label={STATUS_LABEL[member.status]} kind={SEAT_KIND[member.status]} role={member.status === "active" ? "committed" : "neutral"} />}
+    >
+      <StatRow>
+        <Stat value={formatMoneyShort(p.givenCents)} label="Given" role="committed" kind="money" />
+        <Stat value={formatMoneyShort(p.raisedCents)} label="Brought in" role="visit" kind="people" />
+      </StatRow>
 
       {/* Only an active seat carries a live commitment, so only an
           active seat gets a progress bar. A prospect shown at 0% reads
           as somebody who is behind rather than somebody who has not
           joined. */}
       {member.status === "active" ? (
-        <div className="mb-5">
-          <RailCard role={role} kind="money">
+        <Card>
+          <Stack gap={2}>
             <div className="flex items-start justify-between gap-3">
-              <div className="text-[14.5px] font-bold text-ink">
+              <Body weight="bold">
                 {p.commitmentCents === 0
                   ? "No commitment on this seat"
                   : p.met
                     ? `Commitment met: ${formatMoney(p.totalCents)} of ${formatMoney(p.commitmentCents)}`
                     : `${formatMoney(p.remainingCents)} still to go`}
-              </div>
-              <span className="flex-shrink-0 text-[14.5px] font-extrabold tabular-nums text-ink">
+              </Body>
+              <Body weight="bold" numeric>
                 {p.percent === null ? "no target" : `${p.percent}%`}
-              </span>
+              </Body>
             </div>
             {p.commitmentCents > 0 && (
-              <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
+              <Label>
                 {formatMoney(p.totalCents)} of {formatMoney(p.commitmentCents)} for {fiscalYear}. Giving and bringing in both count.
-              </div>
+              </Label>
             )}
-            {p.commitmentCents > 0 && <Bar percent={p.percent ?? 0} role={role} />}
+            {p.commitmentCents > 0 && <Meter parts={[{ role, fraction: (p.percent ?? 0) / 100 }]} />}
             {/* Beside the progress, never inside it. A promise does not
                 discharge a commitment. */}
-            {p.pledgedCents > 0 && (
-              <div className="mt-2 text-[12.5px] leading-tight text-muted">
-                {formatMoney(p.pledgedCents)} promised and not yet received. Not counted above.
-              </div>
-            )}
-          </RailCard>
-        </div>
+            {p.pledgedCents > 0 && <Label>{formatMoney(p.pledgedCents)} promised and not yet received. Not counted above.</Label>}
+          </Stack>
+        </Card>
       ) : (
-        <div className="mb-5">
-          <RailCard role="target">
-            <div className="text-[13.5px] leading-tight text-ink">
-              {member.status === "prospect"
-                ? "A prospect has not taken the seat yet, so no commitment is running and nothing counts against this year."
-                : "This seat is no longer active, so it carries no commitment for this year."}
-            </div>
-          </RailCard>
-        </div>
+        <Note>
+          {member.status === "prospect"
+            ? "A prospect has not taken the seat yet, so no commitment is running and nothing counts against this year."
+            : "This seat is no longer active, so it carries no commitment for this year."}
+        </Note>
       )}
 
       {member.donorId === null && (
-        <div className="mb-5">
-          <RailCard role="offer" kind="warning">
-            <div className="text-[14.5px] font-bold text-ink">No donor record linked</div>
-            <div className="mt-1 text-[12.5px] leading-tight text-muted">
-              Their own giving cannot be found without one, so only gifts they are credited with bringing in are counted here.
-            </div>
-          </RailCard>
-        </div>
+        <Notice tone="warning" title="No donor record linked">
+          Their own giving cannot be found without one, so only gifts they are credited with bringing in are counted here.
+        </Notice>
       )}
 
       {(member.termStart || member.termEnd) && (
-        <>
-          <div className="mb-2">
-            <SectionHeader label="Term" role="time" kind="clock" />
-          </div>
-          <div className="mb-5">
-            <RailCard role="time" kind="clock">
-              <div className="text-[14.5px] font-bold text-ink">
-                {member.termStart ? shortDate(member.termStart) : "Start not set"} to{" "}
-                {member.termEnd ? shortDate(member.termEnd) : "open ended"}
-              </div>
-            </RailCard>
-          </div>
-        </>
+        <Section label="Term" role="time" kind="clock">
+          <Row
+            kind="clock"
+            role="time"
+            title={`${member.termStart ? shortDate(member.termStart) : "Start not set"} to ${member.termEnd ? shortDate(member.termEnd) : "open ended"}`}
+          />
+        </Section>
       )}
 
-      <div className="mb-2">
-        <SectionHeader label="Gifts on this seat" count={credited.length} role="committed" kind="money" />
-      </div>
-      {credited.length === 0 ? (
-        <EmptyState icon={<RowGlyph kind="money" role="neutral" className="h-7 w-7" />} title="Nothing credited yet">
-          No gift is recorded against this seat. A gift counts here when this member is the donor, or when they are credited with bringing it
-          in on the gift itself.
-        </EmptyState>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {credited.map((c) => {
+      <Section label="Gifts on this seat" count={credited.length} role="committed" kind="money">
+        {credited.length === 0 ? (
+          <EmptyState kind="money" title="Nothing credited yet">
+            No gift is recorded against this seat. A gift counts here when this member is the donor, or when they are credited with bringing it in
+            on the gift itself.
+          </EmptyState>
+        ) : (
+          credited.map((c) => {
             const donorName = c.gift.donorId ? (view.donorNames.get(c.gift.donorId) ?? "Unknown donor") : "Anonymous";
             const rowRole = !c.counted ? "target" : c.credit === "given" ? "committed" : "visit";
-            const inner = (
-              <RailCard role={rowRole} kind={c.credit === "given" ? "money" : "people"}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[14.5px] font-bold text-ink">{c.credit === "given" ? "Given" : "Brought in"}</div>
-                    <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                      {donorName} &middot; {shortDate(c.gift.receivedOn)} &middot; {CATEGORY_LABEL[c.gift.category] ?? c.gift.category}
-                      {c.gift.method ? ` · ${METHOD_LABEL[c.gift.method] ?? c.gift.method}` : ""}
-                    </div>
-                    {/* Said on the row rather than in a footnote. The
-                        alternative is a member counting the list by hand
-                        and getting a different number from the one at
-                        the top of the screen. */}
-                    {!c.counted && c.excludedBecause && (
-                      <div className="mt-1 text-[12.5px] font-bold leading-tight text-muted">
-                        Not counted. {EXCLUSION_NOTE[c.excludedBecause]}.
-                      </div>
-                    )}
-                  </div>
-                  <span
-                    className={`flex-shrink-0 text-[15px] font-extrabold tabular-nums ${c.counted ? "text-ink" : "text-muted"}`}
-                  >
+            const detail = [donorName, shortDate(c.gift.receivedOn), CATEGORY_LABEL[c.gift.category] ?? c.gift.category, c.gift.method ? (METHOD_LABEL[c.gift.method] ?? c.gift.method) : null]
+              .filter(Boolean)
+              .join(" · ");
+            // Said on the row rather than in a footnote. The alternative
+            // is a member counting the list by hand and getting a
+            // different number from the one at the top of the screen.
+            const exclusion = !c.counted && c.excludedBecause ? ` Not counted. ${EXCLUSION_NOTE[c.excludedBecause]}.` : "";
+            return (
+              <Row
+                key={c.gift.id}
+                href={c.gift.donorId ? `/org/${slug}/fundraising/donors/${c.gift.donorId}` : undefined}
+                kind={c.credit === "given" ? "money" : "people"}
+                role={rowRole}
+                title={c.credit === "given" ? "Given" : "Brought in"}
+                meta={`${detail}.${exclusion}`}
+                wrap
+                trailing={
+                  <Body weight="bold" numeric tone={c.counted ? "ink" : "muted"}>
                     {formatMoney(c.gift.amountCents)}
-                  </span>
-                </div>
-              </RailCard>
+                  </Body>
+                }
+              />
             );
-            return c.gift.donorId ? (
-              <Link key={c.gift.id} href={`/org/${slug}/fundraising/donors/${c.gift.donorId}`} className="block">
-                {inner}
-              </Link>
-            ) : (
-              <div key={c.gift.id}>{inner}</div>
-            );
-          })}
-        </div>
-      )}
-
-      {credited.length > countedCount && (
-        <div className="mt-3">
-          <RailCard role="contact">
-            <div className="text-[13.5px] leading-tight text-ink">
-              {countedCount} of {credited.length} of these count toward {fiscalYear}. The rest are shown so nothing looks lost, and are
-              marked with the reason.
-            </div>
-          </RailCard>
-        </div>
-      )}
+          })
+        )}
+        {credited.length > countedCount && (
+          <Note>
+            {countedCount} of {credited.length} of these count toward {fiscalYear}. The rest are shown so nothing looks lost, and are marked with the
+            reason.
+          </Note>
+        )}
+      </Section>
 
       {canEdit && member.donorId && (
-        <div className="mt-5">
-          <Link
-            href={`/org/${slug}/fundraising/donors/${member.donorId}`}
-            className="block rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink"
-          >
-            Their donor record
-          </Link>
-        </div>
+        <LinkButton href={`/org/${slug}/fundraising/donors/${member.donorId}`} variant="secondary">
+          Their Donor Record
+        </LinkButton>
       )}
-    </main>
+    </Screen>
   );
 }

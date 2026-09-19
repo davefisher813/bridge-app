@@ -6,14 +6,12 @@
 // anyone needs to act on.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { formatMoney, outstandingOn } from "@/lib/fundraising/rollup";
-import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { RowGlyph } from "@/components/RowGlyph";
+import { Body, EmptyState, LinkButton, Row, Screen, Section, TextLink } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -50,77 +48,57 @@ export default async function PledgesPage({ params }: { params: Promise<{ slug: 
   const totalOutstanding = rows.reduce((s, r) => s + r.outstanding, 0);
 
   const row = (r: (typeof rows)[number], role: "offer" | "target" | "committed") => (
-    <RailCard key={r.p.id} role={role} kind="pledge">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[14.5px] font-bold leading-tight text-ink">
-            {r.p.donorId ? (donorName.get(r.p.donorId) ?? "Unknown donor") : "Anonymous"}
-          </div>
-          <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-            {formatMoney(r.p.amountCents)} promised
-            {r.p.dueOn ? ` · due ${r.p.dueOn}` : ""}
-          </div>
-        </div>
-        <span className="flex-shrink-0 text-[15px] font-extrabold tabular-nums text-ink">
+    <Row
+      key={r.p.id}
+      href={r.p.donorId ? `/org/${slug}/fundraising/donors/${r.p.donorId}` : undefined}
+      kind="pledge"
+      role={role}
+      title={r.p.donorId ? (donorName.get(r.p.donorId) ?? "Unknown donor") : "Anonymous"}
+      meta={`${formatMoney(r.p.amountCents)} promised${r.p.dueOn ? ` · due ${r.p.dueOn}` : ""}`}
+      trailing={
+        <Body weight="bold" numeric>
           {r.outstanding === 0 ? "Paid" : formatMoney(r.outstanding)}
-        </span>
-      </div>
-    </RailCard>
+        </Body>
+      }
+    />
   );
 
   return (
-    <main className="px-4 pb-24 pt-2">
-      <div className="mb-2">
-        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Fundraising
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Pledges</h1>
-      <div className="mb-5 text-[13.5px] font-bold text-muted">
-        {formatMoney(totalOutstanding)} outstanding. None of this is in the raised figure.
-      </div>
-
+    <Screen
+      title="Pledges"
+      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
+      lede={`${formatMoney(totalOutstanding)} outstanding. None of this is in the raised figure.`}
+      action={canEdit ? <TextLink href={`/org/${slug}/fundraising/pledges/new`}>+ Add</TextLink> : undefined}
+    >
       {rows.length === 0 ? (
-        <EmptyState icon={<RowGlyph kind="pledge" role="neutral" className="h-7 w-7" />} title="No pledges">
+        <EmptyState kind="pledge" title="No pledges">
           Nothing promised and unpaid.
         </EmptyState>
       ) : (
         <>
           {overdue.length > 0 && (
-            <>
-              <div className="mb-2">
-                <SectionHeader label="Overdue" count={overdue.length} role="offer" kind="warning" />
-              </div>
-              <div className="mb-5 flex flex-col gap-2">{overdue.map((r) => row(r, "offer"))}</div>
-            </>
+            <Section label="Overdue" count={overdue.length} role="offer" kind="warning">
+              {overdue.map((r) => row(r, "offer"))}
+            </Section>
           )}
           {open.length > 0 && (
-            <>
-              <div className="mb-2">
-                <SectionHeader label="Open" count={open.length} role="target" kind="pledge" />
-              </div>
-              <div className="mb-5 flex flex-col gap-2">{open.map((r) => row(r, "target"))}</div>
-            </>
+            <Section label="Open" count={open.length} role="target" kind="pledge">
+              {open.map((r) => row(r, "target"))}
+            </Section>
           )}
           {settled.length > 0 && (
-            <>
-              <div className="mb-2">
-                <SectionHeader label="Settled" count={settled.length} role="committed" kind="check" />
-              </div>
-              <div className="flex flex-col gap-2">{settled.map((r) => row(r, "committed"))}</div>
-            </>
+            <Section label="Settled" count={settled.length} role="committed" kind="check">
+              {settled.map((r) => row(r, "committed"))}
+            </Section>
           )}
         </>
       )}
 
       {canEdit && (
-        <Link
-          href={`/org/${slug}/fundraising/pledges/new`}
-          className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
-        >
-          Record a pledge
-        </Link>
+        <LinkButton href={`/org/${slug}/fundraising/pledges/new`} variant="secondary">
+          Add Pledge
+        </LinkButton>
       )}
-    </main>
+    </Screen>
   );
 }

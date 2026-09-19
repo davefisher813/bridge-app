@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { saveGradingScale } from "@/lib/actions/gradingScales";
 import { GradingScaleForm } from "@/components/GradingScaleForm";
 import { bandsToRows } from "@/lib/validation/gradingScale";
 import { TEN_POINT_STARTING_POINT } from "@/lib/fit/ncaa/gradingScale";
+import { Screen } from "@/components/kit";
 
 // Staff, not owner-only, and through the ordinary client rather than the
 // service role. That is the difference from /schools/new: this writes an
@@ -27,21 +27,14 @@ export default async function NewGradingScalePage({
   const action = saveGradingScale.bind(null, slug, null);
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4">
-        <Link href={`/org/${slug}/grading-scales`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Grading scales
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">{school || "Add a grading scale"}</h1>
-      <p className="mb-5 text-[13.5px] leading-tight text-muted">
-        Copy the table exactly as the school publishes it. Do not adjust it to look like other schools: the whole reason this is stored
-        per school is that schools differ.
-      </p>
-
+    <Screen
+      title={school || "Add a Grading Scale"}
+      back={{ href: `/org/${slug}/grading-scales`, label: "Grading Scales" }}
+      lede="Copy the table exactly as the school publishes it. Do not adjust it to look like other schools: the whole reason this is stored per school is that schools differ."
+    >
       <GradingScaleForm
         action={action}
-        submitLabel="Save and recalculate"
+        submitLabel="Save and Recalculate"
         returnTo={returnTo}
         defaults={{
           schoolName: school ?? "",
@@ -55,6 +48,6 @@ export default async function NewGradingScalePage({
           sourceNote: "",
         }}
       />
-    </main>
+    </Screen>
   );
 }

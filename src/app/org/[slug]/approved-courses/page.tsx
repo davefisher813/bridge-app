@@ -8,12 +8,10 @@
 // showed up was one line on one athlete's eligibility page.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { RowGlyph } from "@/components/RowGlyph";
+import { EmptyState, Label, Row, Screen, Section } from "@/components/kit";
 import { normalizeSchoolKey } from "@/lib/fit/ncaa/approvedCourses";
 
 export const dynamic = "force-dynamic";
@@ -80,64 +78,41 @@ export default async function ApprovedCoursesPage({ params }: { params: Promise<
   const countOf = (r: ListRow) => r.org_approved_courses?.[0]?.count ?? r.ncaa_approved_courses?.[0]?.count ?? 0;
 
   return (
-    <main className="px-4 pb-24 pt-3">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h1 className="text-[22px] font-extrabold text-ink">Approved lists</h1>
-        <span className="text-[13px] font-bold text-muted">{onFile.length}</span>
-      </div>
-
+    <Screen title="Approved Lists" back={{ href: `/org/${slug}/more`, label: "More" }} lede={`${onFile.length} on file`}>
       {missing.length > 0 && (
-        <>
-          <div className="mb-2">
-            <SectionHeader label="Needed now" count={missing.length} role="offer" kind="warning" />
-          </div>
-          <div className="mb-5 flex flex-col gap-2">
-            {missing.map(([key, name]) => (
-              <RailCard key={key} role="offer" kind="checklist">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[14.5px] font-bold leading-tight text-ink">{name}</div>
-                    <div className="mt-0.5 text-[12.5px] leading-tight text-muted">Every course here stays unchecked</div>
-                  </div>
-                  {canEdit && (
-                    <Link
-                      href={`/org/${slug}/approved-courses/new?school=${encodeURIComponent(name)}`}
-                      className="-my-2 inline-flex min-h-[44px] flex-shrink-0 items-center py-2 pl-3 text-[13px] font-extrabold text-tint-accent-on"
-                    >
-                      Add
-                    </Link>
-                  )}
-                </div>
-              </RailCard>
-            ))}
-          </div>
-        </>
+        <Section label="Needed now" count={missing.length} role="offer" kind="warning">
+          {missing.map(([key, name]) => (
+            <Row
+              key={key}
+              href={canEdit ? `/org/${slug}/approved-courses/new?school=${encodeURIComponent(name)}` : undefined}
+              kind="checklist"
+              role="offer"
+              title={name}
+              meta="Every course here stays unchecked"
+              trailing={canEdit ? <Label tone="accent">Add</Label> : undefined}
+            />
+          ))}
+        </Section>
       )}
 
-      <div className="mb-2">
-        <SectionHeader label="On file" count={onFile.length} role="committed" kind="checklist" />
-      </div>
-      {onFile.length === 0 ? (
-        <EmptyState icon={<RowGlyph kind="checklist" role="neutral" className="h-7 w-7" />} title="No approved lists yet">
-          The Eligibility Center publishes one per high school. Without it a core GPA is an estimate.
-        </EmptyState>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {onFile.map(({ row, origin }) => (
-            <Link key={row.id} href={`/org/${slug}/approved-courses/${row.id}?origin=${origin}`} className="block">
-              <RailCard role={row.is_complete ? "committed" : "target"} kind="checklist">
-                <div className="min-w-0">
-                  <div className="text-[14.5px] font-bold leading-tight text-ink">{row.school_name}</div>
-                  <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                    {countOf(row)} courses &middot; {row.is_complete ? "complete" : "partial"} &middot;{" "}
-                    {origin === "portal" ? "from the NCAA portal" : "entered here"}
-                  </div>
-                </div>
-              </RailCard>
-            </Link>
-          ))}
-        </div>
-      )}
-    </main>
+      <Section label="On file" count={onFile.length} role="committed" kind="checklist">
+        {onFile.length === 0 ? (
+          <EmptyState kind="checklist" title="No approved lists yet">
+            The Eligibility Center publishes one per high school. Without it a core GPA is an estimate.
+          </EmptyState>
+        ) : (
+          onFile.map(({ row, origin }) => (
+            <Row
+              key={row.id}
+              href={`/org/${slug}/approved-courses/${row.id}?origin=${origin}`}
+              kind="checklist"
+              role={row.is_complete ? "committed" : "target"}
+              title={row.school_name}
+              meta={`${countOf(row)} courses · ${row.is_complete ? "complete" : "partial"} · ${origin === "portal" ? "from the NCAA portal" : "entered here"}`}
+            />
+          ))
+        )}
+      </Section>
+    </Screen>
   );
 }

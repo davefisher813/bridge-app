@@ -7,11 +7,11 @@
 // existed at any school.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { RailCard, SectionHeader } from "@/components/catalog";
+import { LinkButton, Prose, Row, Screen, Section } from "@/components/kit";
+import { Note } from "@/components/EligibilityVerdict";
 import type { SubjectArea } from "@/lib/fit/ncaa/coreGpa";
 
 export const dynamic = "force-dynamic";
@@ -74,68 +74,37 @@ export default async function ApprovedListPage({
   }
 
   return (
-    <main className="px-4 pb-24 pt-2">
-      <div className="mb-2">
-        <Link
-          href={`/org/${slug}/approved-courses`}
-          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted"
-        >
-          &larr; Approved lists
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold leading-tight text-ink">{list.school_name}</h1>
-      <div className="mb-4 text-[13.5px] font-bold text-muted">
-        {courses.length} courses{list.ceeb_code ? ` · CEEB ${list.ceeb_code}` : ""}
-      </div>
-
-      <div className="mb-5">
-        <RailCard role={list.is_complete ? "committed" : "target"} kind={list.is_complete ? "check" : "note"}>
-          <div className="text-[14.5px] font-bold leading-tight text-ink">{list.is_complete ? "Complete list" : "Partial list"}</div>
-          <div className="mt-1 text-[13px] leading-tight text-muted">
-            {list.is_complete
-              ? "A course missing from it does not count toward the core GPA."
-              : "It can confirm a course. It never rules one out."}
-          </div>
-          {list.source_note && <div className="mt-1.5 text-[12.5px] leading-tight text-muted">&quot;{list.source_note}&quot;</div>}
-          {list.retrieved_on && <div className="mt-1 text-[12.5px] leading-tight text-muted">Read off the portal on {list.retrieved_on}</div>}
-        </RailCard>
-      </div>
+    <Screen
+      title={list.school_name}
+      back={{ href: `/org/${slug}/approved-courses`, label: "Approved Lists" }}
+      lede={`${courses.length} courses${list.ceeb_code ? ` · CEEB ${list.ceeb_code}` : ""}`}
+    >
+      <Note title={list.is_complete ? "Complete list" : "Partial list"}>
+        {list.is_complete ? "A course missing from it does not count toward the core GPA." : "It can confirm a course. It never rules one out."}
+        {list.source_note ? ` "${list.source_note}."` : ""}
+        {list.retrieved_on ? ` Read off the portal on ${list.retrieved_on}.` : ""}
+      </Note>
 
       {[...bySubject.entries()].map(([subject, rows]) => (
-        <div key={subject} className="mb-4">
-          <div className="mb-2">
-            <SectionHeader label={LABEL[subject]} count={rows.length} role="contact" kind="course" />
-          </div>
-          <div className="flex flex-col gap-2">
-            {rows.map((c) => (
-              <RailCard key={c.title} role="contact" kind="course">
-                <div className="text-[14.5px] font-bold leading-tight text-ink">{c.title}</div>
-                {(c.max_credit !== null || c.weighted) && (
-                  <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                    {c.max_credit !== null && `capped at ${c.max_credit}`}
-                    {c.max_credit !== null && c.weighted && " · "}
-                    {c.weighted && "weighted"}
-                  </div>
-                )}
-              </RailCard>
-            ))}
-          </div>
-        </div>
+        <Section key={subject} label={LABEL[subject]} count={rows.length} role="contact" kind="course">
+          {rows.map((c) => (
+            <Row
+              key={c.title}
+              kind="course"
+              role="contact"
+              title={c.title}
+              meta={[c.max_credit !== null ? `capped at ${c.max_credit}` : null, c.weighted ? "weighted" : null].filter(Boolean).join(" · ") || undefined}
+            />
+          ))}
+        </Section>
       ))}
 
       {canEdit && !fromPortal && (
-        <Link
-          href={`/org/${slug}/approved-courses/new?school=${encodeURIComponent(list.school_name)}`}
-          className="mt-2 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
-        >
-          Replace this list
-        </Link>
+        <LinkButton href={`/org/${slug}/approved-courses/new?school=${encodeURIComponent(list.school_name)}`} variant="secondary">
+          Replace This List
+        </LinkButton>
       )}
-      {fromPortal && (
-        <p className="mt-2 text-[12px] leading-relaxed text-muted">
-          Transcribed from the Eligibility Center and shared across every organization, so it is not editable here.
-        </p>
-      )}
-    </main>
+      {fromPortal && <Prose>Transcribed from the Eligibility Center and shared across every organization, so it is not editable here.</Prose>}
+    </Screen>
   );
 }

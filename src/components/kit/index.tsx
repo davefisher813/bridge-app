@@ -31,7 +31,7 @@ type Tone = "ink" | "muted" | "danger" | Role;
 function toneClass(tone: Tone): string {
   if (tone === "ink") return "text-ink";
   if (tone === "muted") return "text-muted";
-  if (tone === "danger") return "text-danger";
+  if (tone === "danger") return "text-tint-danger-on";
   return TEXT_ON[tone];
 }
 
@@ -245,13 +245,15 @@ export function Score({ score }: { score: number }) {
   return <span className={`text-body font-extrabold tabular-nums ${TEXT_ON[scoreRole(score)]}`}>{score}</span>;
 }
 
-// Initials on a fixed gradient. Fixed rather than per person, so a
-// roster does not read as a colour wheel.
+// Initials on one fixed hue. Fixed rather than per person, so a roster
+// does not read as a colour wheel; indigo rather than the old blue-to-
+// indigo gradient because white on systemBlue is 3.65:1 and the audit
+// reads the corner the text actually sits on.
 export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg" }) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const initials = ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "")).toUpperCase() || "?";
   const box = size === "lg" ? "h-12 w-12 text-body" : "h-8 w-8 text-label";
-  return <div className={`flex flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ios-blue to-ios-indigo font-extrabold text-white ${box}`}>{initials}</div>;
+  return <div className={`flex flex-shrink-0 items-center justify-center rounded-full bg-ios-indigo font-extrabold text-white ${box}`}>{initials}</div>;
 }
 
 // A glyph, a title, one line naming the next action. Never an empty
@@ -292,8 +294,8 @@ type ButtonVariant = "primary" | "secondary" | "destructive" | "quiet";
 const BUTTON: Record<ButtonVariant, string> = {
   primary: "bg-solid-accent text-solid-accent-on",
   secondary: "bg-paper text-ink",
-  destructive: "bg-paper text-danger",
-  quiet: "text-accent",
+  destructive: "bg-paper text-tint-danger-on",
+  quiet: "text-tint-accent-on",
 };
 
 export function Button({ variant = "primary", inline = false, className = "", children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; inline?: boolean }) {
@@ -318,7 +320,7 @@ export function LinkButton({ href, variant = "primary", inline = false, children
 // "View all" under a list. 44px tall so it is a real target.
 export function TextLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="-my-2 inline-flex min-h-11 items-center text-label font-bold text-accent">
+    <Link href={href} className="-my-2 inline-flex min-h-11 items-center text-label font-bold text-tint-accent-on">
       {children}
     </Link>
   );
@@ -342,7 +344,7 @@ function FieldFrame({ id, label, hint, error, children }: { id: string; label: R
         {label}
       </label>
       {children}
-      {error ? <p className="text-label font-semibold text-danger">{error}</p> : hint ? <p className="text-label text-muted">{hint}</p> : null}
+      {error ? <p className="text-label font-semibold text-tint-danger-on">{error}</p> : hint ? <p className="text-label text-muted">{hint}</p> : null}
     </div>
   );
 }

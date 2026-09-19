@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createDonor } from "@/lib/actions/fundraising";
 import { DonorForm } from "@/components/DonorForm";
+import { Screen } from "@/components/kit";
 
 export default async function NewDonorPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -15,17 +15,12 @@ export default async function NewDonorPage({ params }: { params: Promise<{ slug:
   const action = createDonor.bind(null, slug);
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4">
-        <Link href={`/org/${slug}/fundraising/donors`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Donors
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Add a donor</h1>
-      <p className="mb-5 text-[13.5px] leading-tight text-muted">
-        Their giving history builds itself from the gifts you record against them. Nothing about totals is typed in here.
-      </p>
+    <Screen
+      title="Add Donor"
+      back={{ href: `/org/${slug}/fundraising/donors`, label: "Donors" }}
+      lede="Their giving history builds itself from the gifts you record against them. Nothing about totals is typed in here."
+    >
       <DonorForm action={action} />
-    </main>
+    </Screen>
   );
 }

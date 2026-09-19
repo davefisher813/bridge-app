@@ -7,11 +7,11 @@
 // src/lib/actions/approvedCourses.ts and migrations/0014.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { saveApprovedList } from "@/lib/actions/approvedCourses";
 import { ApprovedListForm } from "@/components/ApprovedListForm";
+import { Screen } from "@/components/kit";
 
 export default async function NewApprovedListPage({
   params,
@@ -32,19 +32,8 @@ export default async function NewApprovedListPage({
   const action = saveApprovedList.bind(null, slug);
 
   return (
-    <main className="px-4 pb-24 pt-2">
-      <div className="mb-2">
-        <Link
-          href={`/org/${slug}/approved-courses`}
-          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted"
-        >
-          &larr; Approved lists
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold leading-tight text-ink">{schoolName}</h1>
-      <div className="mb-5 text-[13.5px] font-bold text-muted">Approved course list</div>
-
+    <Screen title={schoolName} back={{ href: `/org/${slug}/approved-courses`, label: "Approved Lists" }} lede="Approved course list">
       <ApprovedListForm action={action} schoolName={schoolName} />
-    </main>
+    </Screen>
   );
 }

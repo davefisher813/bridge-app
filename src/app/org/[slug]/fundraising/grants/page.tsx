@@ -11,12 +11,11 @@
 // counted both as a win here and as revenue there.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { Chip } from "@/components/catalog";
+import { Chip, EmptyState, LinkButton, Row, Screen, Section, TextLink } from "@/components/kit";
+import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
 import { formatMoneyShort } from "@/lib/fundraising/rollup";
 
@@ -57,15 +56,6 @@ const STATUS_ROLE: Record<GrantStatus, "high" | "mid" | "low"> = {
   declined: "low",
   closed: "low",
 };
-
-function DocIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
-      <path d="M6 3h8l4 4v14H6z" strokeLinejoin="round" />
-      <path d="M14 3v4h4M9 12h6M9 16h6" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 function shortDate(iso: string | null): string | null {
   if (!iso) return null;
@@ -139,93 +129,63 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
   });
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4">
-        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Fundraising
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Grants</h1>
-      <p className="mb-5 text-[13.5px] leading-tight text-muted">
-        The applications, not the money. Awarded funds are recorded as a gift in the Foundation Grants category, so nothing is counted
-        twice.
-      </p>
-
+    <Screen
+      title="Grants"
+      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
+      lede="The applications, not the money. Awarded funds are recorded as a gift in the Foundation Grants category, so nothing is counted twice."
+      action={canEdit ? <TextLink href={`/org/${slug}/fundraising/grants/new`}>+ Add</TextLink> : undefined}
+    >
       {grants.length === 0 ? (
         <>
-          <EmptyState icon={<DocIcon />} title="No grants tracked yet">
+          <EmptyState kind="grant" title="No grants tracked yet">
             A grant has a life before any money exists: researching, applied, waiting on a decision, then a report due months after the
             cheque clears. Those dates are the part that gets missed.
           </EmptyState>
-          <div className="mt-4">
-            <RailCard role="contact">
-              <div className="text-[13.5px] leading-tight text-ink">
-                Foundation Grants sits at zero on the overview until the first award arrives, which is accurate rather than a gap.
-              </div>
-            </RailCard>
-          </div>
+          <Note>Foundation Grants sits at zero on the overview until the first award arrives, which is accurate rather than a gap.</Note>
         </>
       ) : (
         <>
           {soon.length > 0 && (
-            <>
-              <div className="mb-2">
-                <SectionHeader label="Needs attention" count={soon.length} role="offer" />
-              </div>
-              <div className="mb-5 flex flex-col gap-2">
-                {soon.map((g) => (
-                  <RailCard key={g.id} role="offer" kind="grant">
-                    <div className="text-[14.5px] font-bold text-ink">{g.funder_name}</div>
-                    <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                      {g.report_due_on && g.report_due_on <= today
-                        ? `Report was due ${shortDate(g.report_due_on)}`
-                        : g.deadline_on && g.deadline_on <= today && !g.applied_on
-                          ? `Application deadline was ${shortDate(g.deadline_on)}`
-                          : `Decision was expected ${shortDate(g.decision_expected_on)}`}
-                    </div>
-                  </RailCard>
-                ))}
-              </div>
-            </>
+            <Section label="Needs attention" count={soon.length} role="offer" kind="warning">
+              {soon.map((g) => (
+                <Row
+                  key={g.id}
+                  kind="grant"
+                  role="offer"
+                  title={g.funder_name}
+                  meta={
+                    g.report_due_on && g.report_due_on <= today
+                      ? `Report was due ${shortDate(g.report_due_on)}`
+                      : g.deadline_on && g.deadline_on <= today && !g.applied_on
+                        ? `Application deadline was ${shortDate(g.deadline_on)}`
+                        : `Decision was expected ${shortDate(g.decision_expected_on)}`
+                  }
+                  wrap
+                />
+              ))}
+            </Section>
           )}
 
-          <div className="mb-2">
-            <SectionHeader label="All grants" count={grants.length} role="contact" />
-          </div>
-          <div className="flex flex-col gap-2">
+          <Section label="All grants" count={grants.length} role="contact" kind="grant">
             {grants.map((g) => {
               const detail = detailFor(g);
               return (
-                <RailCard key={g.id} role={STATUS_ROLE[g.status] === "high" ? "committed" : "contact"} kind="grant">
-                  <div className="min-w-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="text-[14.5px] font-bold text-ink">{g.funder_name}</div>
-                      <Chip
-                        label={STATUS_LABEL[g.status]}
-                        kind={GRANT_KIND[g.status]}
-                        role={STATUS_ROLE[g.status]}
-                        className="flex-shrink-0"
-                      />
-                    </div>
-                    {detail && <div className="mt-1 text-[12.5px] leading-tight text-muted">{detail}</div>}
-                  </div>
-                </RailCard>
+                <Row
+                  key={g.id}
+                  kind="grant"
+                  role={STATUS_ROLE[g.status] === "high" ? "committed" : "contact"}
+                  title={g.funder_name}
+                  meta={detail || undefined}
+                  trailing={<Chip label={STATUS_LABEL[g.status]} kind={GRANT_KIND[g.status]} role={STATUS_ROLE[g.status]} />}
+                  wrap
+                />
               );
             })}
-          </div>
+          </Section>
         </>
       )}
 
-      {canEdit && (
-        <div className="mt-5">
-          <Link
-            href={`/org/${slug}/fundraising/grants/new`}
-            className="block rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
-          >
-            Track a grant
-          </Link>
-        </div>
-      )}
-    </main>
+      {canEdit && <LinkButton href={`/org/${slug}/fundraising/grants/new`}>Track Grant</LinkButton>}
+    </Screen>
   );
 }

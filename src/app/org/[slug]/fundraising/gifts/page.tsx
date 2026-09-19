@@ -10,14 +10,12 @@
 // treasurer cannot spend it.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, type GiftRow } from "@/lib/data/fundraisingAdapters";
 import { formatMoney, formatMoneyShort, CATEGORY_LABEL, METHOD_LABEL, type GiftCategory } from "@/lib/fundraising/rollup";
-import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { RowGlyph } from "@/components/RowGlyph";
+import { Body, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -54,63 +52,47 @@ export default async function GiftsPage({
   const cashCents = gifts.filter((g) => g.method !== "in_kind").reduce((s, g) => s + g.amountCents, 0);
   const inKindCents = gifts.filter((g) => g.method === "in_kind").reduce((s, g) => s + g.amountCents, 0);
 
-  const heading = category ? (CATEGORY_LABEL[category as GiftCategory] ?? "Gifts") : method === "in_kind" ? "In kind" : "All gifts";
+  const heading = category ? (CATEGORY_LABEL[category as GiftCategory] ?? "Gifts") : method === "in_kind" ? "In Kind" : "All Gifts";
 
   return (
-    <main className="px-4 pb-24 pt-2">
-      <div className="mb-2">
-        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Fundraising
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">{heading}</h1>
-      <div className="mb-5 text-[13.5px] font-bold text-muted">
-        {gifts.length} {gifts.length === 1 ? "gift" : "gifts"} &middot; {formatMoneyShort(cashCents)} cash
-        {inKindCents > 0 ? ` · ${formatMoneyShort(inKindCents)} in kind` : ""}
-      </div>
-
+    <Screen
+      title={heading}
+      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
+      lede={`${gifts.length} ${gifts.length === 1 ? "gift" : "gifts"} · ${formatMoneyShort(cashCents)} cash${inKindCents > 0 ? ` · ${formatMoneyShort(inKindCents)} in kind` : ""}`}
+    >
       {gifts.length === 0 ? (
-        <EmptyState icon={<RowGlyph kind="money" role="neutral" className="h-7 w-7" />} title="Nothing here">
+        <EmptyState kind="money" title="Nothing here">
           {category || method ? "No gift matches this filter." : "No gifts recorded yet."}
         </EmptyState>
       ) : (
-        <div className="flex flex-col gap-2">
+        <Section label="Gifts" count={gifts.length} role="committed" kind="money">
           {gifts.map((g) => {
             const name = g.donorId ? (donorName.get(g.donorId) ?? "Unknown donor") : "Anonymous";
             const inKind = g.method === "in_kind";
-            const inner = (
-              <RailCard role={inKind ? "place" : "committed"} kind={inKind ? "grant" : "money"}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[14.5px] font-bold leading-tight text-ink">{name}</div>
-                    <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                      {g.receivedOn} &middot; {METHOD_LABEL[g.method] ?? g.method}
-                      {g.campaignId ? ` · ${campaignName.get(g.campaignId) ?? "campaign"}` : ""}
-                    </div>
-                  </div>
-                  <span className="flex-shrink-0 text-[15px] font-extrabold tabular-nums text-ink">{formatMoney(g.amountCents)}</span>
-                </div>
-              </RailCard>
-            );
-            return g.donorId ? (
-              <Link key={g.id} href={`/org/${slug}/fundraising/donors/${g.donorId}`} className="block">
-                {inner}
-              </Link>
-            ) : (
-              <div key={g.id}>{inner}</div>
+            return (
+              <Row
+                key={g.id}
+                href={g.donorId ? `/org/${slug}/fundraising/donors/${g.donorId}` : undefined}
+                kind={inKind ? "grant" : "money"}
+                role={inKind ? "place" : "committed"}
+                title={name}
+                meta={`${g.receivedOn} · ${METHOD_LABEL[g.method] ?? g.method}${g.campaignId ? ` · ${campaignName.get(g.campaignId) ?? "campaign"}` : ""}`}
+                trailing={
+                  <Body weight="bold" numeric>
+                    {formatMoney(g.amountCents)}
+                  </Body>
+                }
+              />
             );
           })}
-        </div>
+        </Section>
       )}
 
       {(category || method) && (
-        <Link
-          href={`/org/${slug}/fundraising/gifts`}
-          className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
-        >
-          Show every gift
-        </Link>
+        <LinkButton href={`/org/${slug}/fundraising/gifts`} variant="secondary">
+          Show Every Gift
+        </LinkButton>
       )}
-    </main>
+    </Screen>
   );
 }

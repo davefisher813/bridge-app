@@ -37,10 +37,13 @@ def parse_map(name):
 SOLID = parse_map("SOLID")
 TINT = parse_map("TINT")
 
-FIELD = ("w-full rounded-[10px] border-0 bg-paper px-3 py-2 text-[14.5px] text-ink "
+# The kit's own classes (src/components/kit/index.tsx), so the bench's
+# controls are drawn on the same scale as the app's. A class the app's
+# stylesheet does not carry renders as nothing here, which is the point.
+FIELD = ("w-full min-h-12 rounded border-0 bg-paper px-4 text-body text-ink "
          "focus:outline-none focus:ring-2 focus:ring-accent")
-LABEL = "mb-1 block text-[11.5px] font-bold uppercase tracking-[0.03em] text-muted"
-BTN = "rounded-[8px] bg-solid-accent px-4 py-2.5 text-[14.5px] font-bold text-solid-accent-on"
+LABEL = "mb-1 block text-label font-bold text-muted"
+BTN = "min-h-12 rounded bg-solid-accent px-4 text-body font-bold text-solid-accent-on"
 
 DIVISIONS = ["D1", "D2", "D3", "NAIA", "JUCO"]
 POSITIONS = ["SS", "RHP", "LHP", "C", "OF", "1B", "2B", "3B"]

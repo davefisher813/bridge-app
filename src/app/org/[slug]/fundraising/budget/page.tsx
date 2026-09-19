@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { setBudget } from "@/lib/actions/fundraising";
 import { BudgetForm } from "@/components/FundraisingForms";
+import { Screen } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -42,17 +42,12 @@ export default async function BudgetPage({
   const action = setBudget.bind(null, slug, fiscalYear);
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4">
-        <Link href={`/org/${slug}/fundraising`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Fundraising
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">{fiscalYear} budget</h1>
-      <p className="mb-5 text-[13.5px] leading-tight text-muted">
-        The full-year target per category, as the board approved it. Everything on the overview is measured against these.
-      </p>
+    <Screen
+      title={`${fiscalYear} Budget`}
+      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
+      lede="The full-year target per category, as the board approved it. Everything on the overview is measured against these."
+    >
       <BudgetForm action={action} fiscalYear={fiscalYear} current={current} />
-    </main>
+    </Screen>
   );
 }

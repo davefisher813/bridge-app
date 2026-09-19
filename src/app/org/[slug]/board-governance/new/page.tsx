@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createBoard } from "@/lib/actions/governance";
 import { BoardForm } from "@/components/GovernanceForms";
+import { Screen } from "@/components/kit";
 
 export default async function NewBoardPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -13,17 +13,12 @@ export default async function NewBoardPage({ params }: { params: Promise<{ slug:
   await requireRole(org.id, STAFF_ROLES);
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4">
-        <Link href={`/org/${slug}/board-governance`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Board
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">New board</h1>
-      <p className="mb-5 text-[13.5px] leading-tight text-muted">
-        Pick a tier and the amounts prefill from your governance document. Everything is editable.
-      </p>
+    <Screen
+      title="New Board"
+      back={{ href: `/org/${slug}/board-governance`, label: "Boards" }}
+      lede="Pick a tier and the amounts prefill from your governance document. Everything is editable."
+    >
       <BoardForm action={createBoard.bind(null, slug)} />
-    </main>
+    </Screen>
   );
 }

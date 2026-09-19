@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
-import { Chip, RailCard, SectionHeader } from "@/components/catalog";
+import { Avatar, Body, Card, Chip, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack, TextLink } from "@/components/kit";
+import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
-import { DOT } from "@/components/statusHue";
 import { formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
 import { BOARD_KIND_PURPOSE, type SeatStatus } from "@/lib/governance/giveGet";
 import { loadGovernance } from "@/lib/data/governanceView";
@@ -24,14 +23,6 @@ const STATUS_LABEL: Record<SeatStatus, string> = {
   emeritus: "Emeritus",
   resigned: "Resigned",
 };
-
-function Bar({ percent, role }: { percent: number; role: "committed" | "offer" | "target" }) {
-  return (
-    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
-      <div className={`h-full rounded-full ${DOT[role]}`} style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
-    </div>
-  );
-}
 
 function roleFor(percent: number | null): "committed" | "offer" | "target" {
   if (percent === null) return "target";
@@ -71,136 +62,81 @@ export default async function BoardPage({
   const role = roleFor(summary.percent);
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4">
-        <Link href={`/org/${slug}/board-governance`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Board
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">{board.name}</h1>
-      <p className="mb-5 text-[13.5px] leading-tight text-muted">
-        {formatMoneyShort(board.giveGetCents)} give/get per seat. {BOARD_KIND_PURPOSE[board.kind]}
-      </p>
-
-      <div className="mb-4">
-        <RailCard role={role} kind="money">
-          <div className="min-w-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="text-[14.5px] font-bold text-ink">
-                {formatMoneyShort(summary.raisedCents)} of {formatMoneyShort(summary.committedCents)}
-              </div>
-              <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
-                {summary.percent === null ? "no target" : `${summary.percent}%`}
-              </span>
-            </div>
-            <div className="mt-0.5 text-[12.5px] text-muted">
-              {summary.seatsFilled} {summary.seatsFilled === 1 ? "seat" : "seats"} filled &middot; {summary.seatsOpen} open &middot;{" "}
-              {summary.membersMeeting} of {summary.seatsFilled} fully met
-            </div>
-            <Bar percent={summary.percent ?? 0} role={role} />
+    <Screen
+      title={board.name}
+      back={{ href: `/org/${slug}/board-governance`, label: "Boards" }}
+      lede={`${formatMoneyShort(board.giveGetCents)} give/get per seat. ${BOARD_KIND_PURPOSE[board.kind]}`}
+      action={canEdit && !summary.atCapacity ? <TextLink href={`/org/${slug}/board-governance/${board.id}/seats/new`}>+ Add</TextLink> : undefined}
+    >
+      <Card>
+        <Stack gap={2}>
+          <div className="flex items-start justify-between gap-3">
+            <Body weight="bold">
+              {formatMoneyShort(summary.raisedCents)} of {formatMoneyShort(summary.committedCents)}
+            </Body>
+            <Body weight="bold" numeric>
+              {summary.percent === null ? "no target" : `${summary.percent}%`}
+            </Body>
           </div>
-        </RailCard>
-      </div>
+          <Label>
+            {summary.seatsFilled} {summary.seatsFilled === 1 ? "seat" : "seats"} filled &middot; {summary.seatsOpen} open &middot; {summary.membersMeeting} of{" "}
+            {summary.seatsFilled} fully met
+          </Label>
+          <Meter parts={[{ role, fraction: (summary.percent ?? 0) / 100 }]} />
+        </Stack>
+      </Card>
 
-      {summary.belowMinimum && (
-        <div className="mb-4">
-          <RailCard role="target">
-            <div className="text-[13.5px] leading-tight text-ink">
-              Below the floor of {board.minSeats} {board.minSeats === 1 ? "seat" : "seats"}.
-            </div>
-          </RailCard>
-        </div>
-      )}
+      {summary.belowMinimum && <Notice tone="warning" title={`Below the floor of ${board.minSeats} ${board.minSeats === 1 ? "seat" : "seats"}`} />}
 
-      <div className="mb-2">
-        <SectionHeader label="Seats" count={ordered.length} role="contact" />
-      </div>
-      <div className="flex flex-col gap-2">
+      <Section label="Seats" count={ordered.length} role="contact" kind="people">
+        {ordered.length === 0 && <EmptyState kind="people" title="No seats on this board yet" />}
         {ordered.map((m) => {
           const p = view.progressByMember.get(m.id);
-          const memberRole = m.status === "active" ? roleFor(p?.percent ?? null) : "target";
           // The percentage is only worth printing if it can be opened.
           // A member told they are at 40% with no way to see which gifts
           // got them there cannot spot a missing one.
-          const card = (
-            <RailCard role={memberRole} kind="people">
-              <div className="min-w-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[14.5px] font-bold text-ink">{m.name}</div>
-                    <div className="mt-0.5 text-[12.5px] text-muted">{m.roleTitle ?? "No role set"}</div>
-                  </div>
-                  {m.status === "active" ? (
-                    <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
-                      {p?.percent === null || p === undefined ? "no target" : `${p.percent}%`}
-                    </span>
-                  ) : (
-                    <Chip label={STATUS_LABEL[m.status]} kind={SEAT_KIND[m.status]} role="neutral" className="flex-shrink-0" />
-                  )}
-                </div>
-
-                {m.status === "active" && p && (
-                  <>
-                    <div className="mt-1.5 text-[12.5px] text-muted">
-                      {formatMoneyShort(p.givenCents)} given &middot; {formatMoneyShort(p.raisedCents)} brought in
-                      {m.donorId === null ? " · no donor record linked" : ""}
-                    </div>
-                    {/* Beside the progress, never inside it. A promise
-                        does not discharge a commitment. */}
-                    {p.pledgedCents > 0 && (
-                      <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                        {formatMoney(p.pledgedCents)} pledged, not yet received.
-                      </div>
-                    )}
-                    <Bar percent={p.percent ?? 0} role={memberRole} />
-                  </>
-                )}
-              </div>
-            </RailCard>
-          );
+          const lines: string[] = [m.roleTitle ?? "No role set"];
+          if (m.status === "active" && p) {
+            lines.push(`${formatMoneyShort(p.givenCents)} given`, `${formatMoneyShort(p.raisedCents)} brought in`);
+            if (m.donorId === null) lines.push("no donor record linked");
+            // Beside the progress, never inside it. A promise does not
+            // discharge a commitment.
+            if (p.pledgedCents > 0) lines.push(`${formatMoney(p.pledgedCents)} pledged, not yet received`);
+          }
           return (
-            <Link key={m.id} href={`/org/${slug}/board-governance/${board.id}/seats/${m.id}`} className="block">
-              {card}
-            </Link>
+            <Row
+              key={m.id}
+              href={`/org/${slug}/board-governance/${board.id}/seats/${m.id}`}
+              leading={<Avatar name={m.name} />}
+              title={m.name}
+              meta={lines.join(" · ")}
+              wrap
+              trailing={
+                m.status === "active" ? (
+                  <Body weight="bold" numeric>
+                    {p?.percent === null || p === undefined ? "no target" : `${p.percent}%`}
+                  </Body>
+                ) : (
+                  <Chip label={STATUS_LABEL[m.status]} kind={SEAT_KIND[m.status]} role="neutral" />
+                )
+              }
+            />
           );
         })}
-      </div>
+      </Section>
 
-      {ordered.length === 0 && (
-        <RailCard role="target">
-          <div className="text-[13.5px] leading-tight text-ink">No seats on this board yet.</div>
-        </RailCard>
-      )}
+      <Note>
+        Only an active seat counts toward the board&apos;s total. A prospect has not joined and an emeritus member is not on the hook, so counting
+        either would make the board look further behind than it is.
+      </Note>
 
-      <div className="mt-4">
-        <RailCard role="contact">
-          <div className="text-[13.5px] leading-tight text-ink">
-            Only an active seat counts toward the board&apos;s total. A prospect has not joined and an emeritus member is not on the hook,
-            so counting either would make the board look further behind than it is.
-          </div>
-        </RailCard>
-      </div>
-
-      {canEdit && !summary.atCapacity && (
-        <div className="mt-5">
-          <Link
-            href={`/org/${slug}/board-governance/${board.id}/seats/new`}
-            className="block rounded-[8px] bg-solid-accent py-3 text-center text-[15px] font-bold text-solid-accent-on"
-          >
-            Add a seat
-          </Link>
-        </div>
-      )}
+      {canEdit && !summary.atCapacity && <LinkButton href={`/org/${slug}/board-governance/${board.id}/seats/new`}>Add a Seat</LinkButton>}
 
       {canEdit && summary.atCapacity && (
-        <div className="mt-5">
-          <RailCard role="offer">
-            <div className="text-[13.5px] leading-tight text-ink">
-              This board is full at {board.maxSeats} active seats. Raise the cap to add another.
-            </div>
-          </RailCard>
-        </div>
+        <Notice tone="info" title={`This board is full at ${board.maxSeats} active seats`}>
+          Raise the cap to add another.
+        </Notice>
       )}
-    </main>
+    </Screen>
   );
 }

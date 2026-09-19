@@ -11,11 +11,11 @@
 // board pages stapled together.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
-import { Chip, RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { RowGlyph, type RowKind } from "@/components/RowGlyph";
+import { Avatar, Body, Chip, EmptyState, Row, Screen, Section } from "@/components/kit";
+import { Note } from "@/components/EligibilityVerdict";
+import type { RowKind } from "@/components/RowGlyph";
 import { formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
 import { type SeatStatus } from "@/lib/governance/giveGet";
 import { loadGovernance } from "@/lib/data/governanceView";
@@ -35,11 +35,6 @@ const STATUS_LABEL: Record<SeatStatus, string> = {
   emeritus: "Emeritus",
   resigned: "Resigned",
 };
-
-function roleFor(percent: number | null): "committed" | "offer" | "target" {
-  if (percent === null) return "target";
-  return percent >= 75 ? "committed" : "offer";
-}
 
 export default async function AllSeatsPage({
   params,
@@ -84,76 +79,49 @@ export default async function AllSeatsPage({
   const shortfall = Math.max(0, committedCents - raisedCents);
 
   return (
-    <main className="px-4 pb-24 pt-2">
-      <div className="mb-2">
-        <Link
-          href={`/org/${slug}/board-governance`}
-          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted"
-        >
-          &larr; Board
-        </Link>
-      </div>
-      <h1 className="mb-1 text-[22px] font-extrabold text-ink">Every seat</h1>
-      <p className="mb-5 text-[13.5px] leading-tight text-muted">
-        {fiscalYear}, across all {view.boards.length} {view.boards.length === 1 ? "board" : "boards"}. Furthest behind first.
-      </p>
-
+    <Screen
+      title="Every Seat"
+      back={{ href: `/org/${slug}/board-governance`, label: "Boards" }}
+      lede={`${fiscalYear}, across all ${view.boards.length} ${view.boards.length === 1 ? "board" : "boards"}. Furthest behind first.`}
+    >
       {seats.length === 0 ? (
-        <EmptyState icon={<RowGlyph kind="people" role="neutral" className="h-7 w-7" />} title="No seats yet">
+        <EmptyState kind="people" title="No seats yet">
           Add a board and its seats, and every one of them shows up here with its give/get progress.
         </EmptyState>
       ) : (
         <>
           {active.length > 0 && (
-            <div className="mb-4">
-              <RailCard role={shortfall > 0 ? "offer" : "committed"} kind="board">
-                <div className="text-[14.5px] font-bold text-ink">
-                  {meeting} of {active.length} active {active.length === 1 ? "seat has" : "seats have"} met their commitment
-                </div>
-                <div className="mt-1 text-[12.5px] leading-tight text-muted">
-                  {formatMoney(raisedCents)} of {formatMoney(committedCents)} committed.
-                  {shortfall > 0 ? ` ${formatMoney(shortfall)} outstanding across the board.` : ""}
-                </div>
-              </RailCard>
-            </div>
+            <Note title={`${meeting} of ${active.length} active ${active.length === 1 ? "seat has" : "seats have"} met their commitment`}>
+              {formatMoney(raisedCents)} of {formatMoney(committedCents)} committed.
+              {shortfall > 0 ? ` ${formatMoney(shortfall)} outstanding across the board.` : ""}
+            </Note>
           )}
 
           {byNeed.length > 0 && (
-            <>
-              <div className="mb-2">
-                <SectionHeader label="Active seats" count={byNeed.length} role="contact" kind="people" />
-              </div>
-              <div className="flex flex-col gap-2">
-                {byNeed.map((m) => {
-                  const p = view.progressByMember.get(m.id);
-                  const role = roleFor(p?.percent ?? null);
-                  return (
-                    <Link key={m.id} href={`/org/${slug}/board-governance/${m.boardId}/seats/${m.id}`} className="block">
-                      <RailCard role={role} kind="people">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[14.5px] font-bold leading-tight text-ink">{m.name}</div>
-                            <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                              {boardName.get(m.boardId) ?? "Board"}
-                              {m.roleTitle ? ` · ${m.roleTitle}` : ""}
-                            </div>
-                            {p && p.commitmentCents > 0 && (
-                              <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                                {formatMoneyShort(p.totalCents)} of {formatMoneyShort(p.commitmentCents)}
-                                {p.raisedCents > 0 ? ` · ${formatMoneyShort(p.raisedCents)} brought in` : ""}
-                              </div>
-                            )}
-                          </div>
-                          <span className="flex-shrink-0 text-[14.5px] font-extrabold tabular-nums text-ink">
-                            {p?.percent == null ? "no target" : `${p.percent}%`}
-                          </span>
-                        </div>
-                      </RailCard>
-                    </Link>
-                  );
-                })}
-              </div>
-            </>
+            <Section label="Active seats" count={byNeed.length} role="contact" kind="people">
+              {byNeed.map((m) => {
+                const p = view.progressByMember.get(m.id);
+                const lines: string[] = [`${boardName.get(m.boardId) ?? "Board"}${m.roleTitle ? ` · ${m.roleTitle}` : ""}`];
+                if (p && p.commitmentCents > 0) {
+                  lines.push(`${formatMoneyShort(p.totalCents)} of ${formatMoneyShort(p.commitmentCents)}${p.raisedCents > 0 ? ` · ${formatMoneyShort(p.raisedCents)} brought in` : ""}`);
+                }
+                return (
+                  <Row
+                    key={m.id}
+                    href={`/org/${slug}/board-governance/${m.boardId}/seats/${m.id}`}
+                    leading={<Avatar name={m.name} />}
+                    title={m.name}
+                    meta={lines.join(" · ")}
+                    wrap
+                    trailing={
+                      <Body weight="bold" numeric>
+                        {p?.percent == null ? "no target" : `${p.percent}%`}
+                      </Body>
+                    }
+                  />
+                );
+              })}
+            </Section>
           )}
 
           {/* Kept on the screen and kept out of the numbers above.
@@ -163,32 +131,21 @@ export default async function AllSeatsPage({
               the prospect list, which is the thing a chair recruits
               from. */}
           {byStatus.length > 0 && (
-            <>
-              <div className="mb-2 mt-5">
-                <SectionHeader label="Not carrying a commitment" count={byStatus.length} role="target" kind="people" />
-              </div>
-              <div className="flex flex-col gap-2">
-                {byStatus.map((m) => (
-                  <Link key={m.id} href={`/org/${slug}/board-governance/${m.boardId}/seats/${m.id}`} className="block">
-                    <RailCard role="target" kind="people">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[14.5px] font-bold leading-tight text-ink">{m.name}</div>
-                          <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                            {boardName.get(m.boardId) ?? "Board"}
-                            {m.roleTitle ? ` · ${m.roleTitle}` : ""}
-                          </div>
-                        </div>
-                        <Chip label={STATUS_LABEL[m.status]} kind={SEAT_KIND[m.status]} role="neutral" className="flex-shrink-0" />
-                      </div>
-                    </RailCard>
-                  </Link>
-                ))}
-              </div>
-            </>
+            <Section label="Not carrying a commitment" count={byStatus.length} role="target" kind="people">
+              {byStatus.map((m) => (
+                <Row
+                  key={m.id}
+                  href={`/org/${slug}/board-governance/${m.boardId}/seats/${m.id}`}
+                  leading={<Avatar name={m.name} />}
+                  title={m.name}
+                  meta={`${boardName.get(m.boardId) ?? "Board"}${m.roleTitle ? ` · ${m.roleTitle}` : ""}`}
+                  trailing={<Chip label={STATUS_LABEL[m.status]} kind={SEAT_KIND[m.status]} role="neutral" />}
+                />
+              ))}
+            </Section>
           )}
         </>
       )}
-    </main>
+    </Screen>
   );
 }
