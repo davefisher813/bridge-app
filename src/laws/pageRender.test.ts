@@ -278,3 +278,47 @@ describe("LAW: a member sees the read screens and not the write controls", () =>
     expect(asMember).not.toMatch(/roster\/new/);
   });
 });
+
+describe("LAW: the screens around the pages render too", () => {
+  // error.tsx, not-found.tsx and loading.tsx are not pages, so the
+  // coverage law above never sees them, and until 2026-09-19 none
+  // existed: a thrown error was Next's white default and a slow query
+  // was a blank screen. Each is rendered here the way Next would call it.
+  // These are client components with hooks, so unlike the async pages
+  // above they are mounted as elements and rendered by React itself.
+  async function renderElement(modulePath: string, props: Record<string, unknown>): Promise<string> {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { createElement } = await import("react");
+    const mod = (await import(/* @vite-ignore */ modulePath)) as { default: React.ComponentType<Record<string, unknown>> };
+    return renderToStaticMarkup(createElement(mod.default, props));
+  }
+
+  it("the org error screen offers a retry and keeps its tone", async () => {
+    const html = await renderElement("@/app/org/[slug]/error", { error: new Error("boom"), reset: () => {} });
+    expect(html).toMatch(/Something broke/);
+    expect(html).toMatch(/Try Again/);
+    expect(html).not.toMatch(/boom/);
+  });
+
+  it("the root error screen offers a retry", async () => {
+    const html = await renderElement("@/app/error", { error: new Error("boom"), reset: () => {} });
+    expect(html).toMatch(/Try Again/);
+  });
+
+  it("the org not-found screen links back to that org's Today", async () => {
+    const html = await renderElement("@/app/org/[slug]/not-found", {});
+    expect(html).toMatch(/Nothing here/);
+    expect(html).toMatch(/Back to Today/);
+  });
+
+  it("the root not-found screen links to the start", async () => {
+    const html = await renderElement("@/app/not-found", {});
+    expect(html).toMatch(/Nothing here/);
+  });
+
+  it("the org loading screen is paper, not empty", async () => {
+    const html = await renderElement("@/app/org/[slug]/loading", {});
+    expect(html).toMatch(/bg-paper/);
+    expect(html).toMatch(/aria-busy/);
+  });
+});

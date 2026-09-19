@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { cssToken } from "@/lib/theme/cssTokens";
 import "./globals.css";
 
 // Dave's call on the ChatGPT redesign conflict: Inter, heavy weight, for
@@ -19,6 +20,20 @@ const inter = localFont({
 export const metadata: Metadata = {
   title: "Recruiting Platform",
   description: "Recruiting and roster management platform (placeholder name).",
+  manifest: "/manifest.webmanifest",
+  // Installed from Safari's share sheet, the app runs without browser
+  // chrome and with a status bar that sits over the dark org screens.
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Recruiting" },
+};
+
+// The colour behind the status bar and the browser's own chrome. Sign-in
+// is light, the org screens are forced dark; the one theme colour is the
+// dark page, which is where a signed-in person spends their time.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: cssToken("bg", "dark"),
 };
 
 export default function RootLayout({
