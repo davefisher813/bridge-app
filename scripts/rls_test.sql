@@ -991,3 +991,44 @@ begin
   end if;
   raise notice 'PASS: every org-scoped table separates read-by-member from write-by-staff, with no `for all` policy';
 end $$;
+
+-- ── No membership helper is reachable over the REST API ───────────────
+-- PostgREST publishes every function in an exposed schema as an RPC
+-- endpoint, so a SECURITY DEFINER helper sitting in `public` answers HTTP
+-- requests from anon. Supabase's own advisor found this the first time
+-- these migrations ran against a real project; local Postgres cannot,
+-- because there is no PostgREST in front of it. Migration 0015 moved both
+-- helpers into `private`, which is not exposed. This asserts they stayed
+-- there, and that no policy quietly kept pointing at the old ones.
+do $$
+declare
+  leftover_functions text[];
+  leftover_policies text[];
+begin
+  select coalesce(array_agg(p.proname), '{}')
+    into leftover_functions
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname like '%\_org\_ids';
+
+  if array_length(leftover_functions, 1) > 0 then
+    raise exception 'FAIL: membership helper(s) still in the exposed public schema: %',
+      array_to_string(leftover_functions, ', ');
+  end if;
+
+  select coalesce(array_agg(c.relname || '.' || pol.polname), '{}')
+    into leftover_policies
+    from pg_policy pol
+    join pg_class c on c.oid = pol.polrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and (coalesce(pg_get_expr(pol.polqual, pol.polrelid), '') like '%public.%org_ids()%'
+        or coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), '') like '%public.%org_ids()%');
+
+  if array_length(leftover_policies, 1) > 0 then
+    raise exception 'FAIL: policy(ies) still calling a public membership helper: %',
+      array_to_string(leftover_policies, ', ');
+  end if;
+
+  raise notice 'PASS: both membership helpers live in the unexposed private schema and every policy calls them there';
+end $$;

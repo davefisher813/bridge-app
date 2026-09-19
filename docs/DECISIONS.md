@@ -1692,3 +1692,33 @@ The forms were excluded on the grounds that "a render proves nothing
 about a form that has to be posted", which was true of the posting and
 false of everything else: a form that throws while listing the athletes
 to choose from never gets as far as being posted.
+
+## 2026-09-19: membership helpers move to an unexposed schema
+
+**Decision.** `_member_org_ids()` and `_staff_org_ids()` move from
+`public` to a new `private` schema (migration 0015), and every policy is
+rewritten to call them there.
+
+**Reason.** PostgREST publishes every function in an exposed schema as an
+RPC endpoint. In `public`, both helpers were callable over HTTP at
+`/rest/v1/rpc/_member_org_ids` by anon and by any signed-in user, and
+both are SECURITY DEFINER. Found by Supabase's own security advisor the
+first time the migrations were applied to a real project, which is a
+class of finding local Postgres cannot produce because there is no
+PostgREST in front of it.
+
+**Alternative considered and rejected.** Revoking EXECUTE. A policy's
+USING clause is evaluated as the querying role, so a role without EXECUTE
+cannot be checked against a policy that calls the function: every
+org-scoped read would fail with a permission error instead of returning
+no rows. Verified rather than assumed.
+
+**Consequences.** The 78 affected policies are rewritten programmatically
+from the catalog rather than from a hand-written list, because they were
+written across three migrations in three shapes and a hand list silently
+misses one. The migration raises if it rewrites fewer than 40.
+`scripts/rls_test.sql` now asserts no `%_org_ids` function remains in
+`public` and no policy references one; skipping 0015 makes it fail.
+
+**What this says about the verification stack.** Six layers of local
+checking could not have found this. A real project is now the seventh.

@@ -1,18 +1,18 @@
 # Current state
 
-Last updated: 2026-09-18.
+Last updated: 2026-09-19.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Every screen in the approved prototype exists in the
 real app, every page and every server action is executed by a test, and
-the whole thing has never once talked to a real database, because no
-Supabase project exists.
+as of 2026-09-19 the schema is live on a real Supabase project with both
+orgs seeded and an owner account created.
 
 ---
 
 ## What exists
 
-**50 pages**, 14 migrations, 585 tests, 10 law files.
+**50 pages**, 15 migrations, 585 tests, 10 law files.
 
 ### Recruiting
 
@@ -71,7 +71,7 @@ it.
 2. **Laws** (`src/laws/`, 10 files) encode the rules from CLAUDE.md and
    BUSINESS_RULES.md as executable checks. Every law is planted, watched
    to fail, and reverted before it counts.
-3. **The RLS suite** (`scripts/run_rls_test.sh`) applies all 14
+3. **The RLS suite** (`scripts/run_rls_test.sh`) applies all 15
    migrations to a real Postgres and runs ~70 assertions as a
    non-superuser role: cross-org reads, cross-org writes, member versus
    staff, anonymous sessions, and a structural check that every
@@ -91,15 +91,44 @@ it.
 
 ---
 
+## The live database
+
+Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`, us-west-2),
+in Dave's own Supabase organization. Applied 2026-09-19.
+
+- All 15 migrations. 27 tables, row level security on every one of them,
+  84 policies.
+- Both orgs seeded. Bridge (slug `bridge`) with board governance and
+  donor fundraising on, Elite Squad NY (slug `elite-squad`) with both
+  off, which is the shape an ordinary travel org gets by default.
+- One account: dave@bffsa.org, owner of both orgs, email pre-confirmed,
+  no password (magic link). Created by SQL because `org_members` has no
+  INSERT policy on purpose, so the first member cannot be created any
+  other way.
+- Supabase's security advisor is clean apart from one Auth dashboard
+  setting (leaked-password protection, off), which does not apply while
+  sign-in is by magic link.
+
+Migration 0015 exists because of this project. Applying the schema to a
+real Supabase instance surfaced something local Postgres structurally
+cannot: PostgREST publishes every function in an exposed schema as an
+RPC endpoint, so both SECURITY DEFINER membership helpers were answering
+HTTP requests from anon. They now live in an unexposed `private` schema,
+and `scripts/rls_test.sql` asserts they stayed there.
+
+No real athlete, donor or board record is in this database. It holds two
+org rows and one account.
+
+---
+
 ## What does not exist
 
 ### Blocked on Dave
 
-- **No Supabase project.** Nothing has ever run against a real database
-  or a real login. The migrations are proven against local Postgres; the
-  auth flow is structurally verified and has never authenticated anybody.
 - **No deployment, no environment file, no git remote.** Local commits
-  only, per the never-push-without-a-word rule.
+  only, per the never-push-without-a-word rule. The database exists but
+  no running app has ever connected to it, so the auth flow is still
+  structurally verified rather than exercised: nobody has signed in.
 - **No API key for Doc AI**, so the model caller is a stand-in. Wiring a
   real one also needs a per-org budget store, since Bridge's
   localStorage-based tracking does not carry to a multi-tenant server.
