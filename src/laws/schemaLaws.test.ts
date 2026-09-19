@@ -211,3 +211,84 @@ describe("LAW: a query only asks for columns the schema has", () => {
     expect(skipped).toEqual([]);
   });
 });
+
+// ── Every foreign key has an index behind it ─────────────────────────
+//
+// Supabase's performance advisor, run against the live project the day
+// it existed (2026-09-19), listed nineteen foreign keys with no covering
+// index. Most were org_id: the column every page filters by and every
+// RLS policy checks. Migration 0016 added the indexes; this makes sure
+// the next table does not ship without one, because nothing else would
+// notice. A missing index is not an error and not a wrong answer. It is
+// a screen that gets slower every month.
+//
+// A foreign key is covered when it is the LEADING column of some index:
+// a plain index, a unique index, a primary key or a unique constraint. A
+// composite index whose second column is the key does not count, which
+// is also how Postgres sees it.
+
+interface ForeignKey {
+  table: string;
+  column: string;
+  file: string;
+}
+
+function collectForeignKeysAndIndexes(): { fks: ForeignKey[]; indexed: Set<string> } {
+  const fks: ForeignKey[] = [];
+  const indexed = new Set<string>();
+  const key = (t: string, c: string) => `${t}.${c}`;
+  const files = readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+
+  for (const f of files) {
+    const sql = readFileSync(join(MIGRATIONS, f), "utf8").replace(/^\s*--.*$/gm, "").replace(/--.*$/gm, "");
+
+    for (const m of sql.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?(\w+)\s*\(([\s\S]*?)\n\);/gi)) {
+      const table = m[1];
+      for (const raw of m[2].split("\n")) {
+        const line = raw.trim();
+        if (!line) continue;
+        const constraint = line.match(/^(?:constraint\s+\w+\s+)?(primary\s+key|unique)\s*\(\s*(\w+)/i);
+        if (constraint) {
+          indexed.add(key(table, constraint[2]));
+          continue;
+        }
+        const col = line.match(/^(\w+)\s+/);
+        if (!col) continue;
+        if (/\breferences\b/i.test(line)) fks.push({ table, column: col[1], file: f });
+        if (/\bprimary\s+key\b/i.test(line) || /\bunique\b/i.test(line)) indexed.add(key(table, col[1]));
+      }
+    }
+
+    for (const m of sql.matchAll(/alter\s+table\s+(\w+)\s+add\s+column\s+(?:if\s+not\s+exists\s+)?(\w+)\s+[^;]*\breferences\b/gi)) {
+      fks.push({ table: m[1], column: m[2], file: f });
+    }
+
+    for (const m of sql.matchAll(/create\s+(?:unique\s+)?index\s+(?:if\s+not\s+exists\s+)?\w+\s+on\s+(\w+)\s*(?:using\s+\w+\s*)?\(\s*(\w+)/gi)) {
+      indexed.add(key(m[1], m[2]));
+    }
+  }
+  return { fks, indexed };
+}
+
+describe("LAW: every foreign key is the leading column of an index", () => {
+  const { fks, indexed } = collectForeignKeysAndIndexes();
+
+  it("found the schema's foreign keys and indexes", () => {
+    expect(fks.length).toBeGreaterThan(40);
+    expect(indexed.size).toBeGreaterThan(40);
+    // The unique constraint on recruiting_targets (athlete_id, school_id)
+    // covers athlete_id and nothing else; the parser has to see both halves.
+    expect(indexed.has("recruiting_targets.athlete_id")).toBe(true);
+    expect(fks.some((k) => k.table === "recruiting_targets" && k.column === "school_id")).toBe(true);
+  });
+
+  // Verified this law bites: commented out the recruiting_targets_org_idx
+  // line in migration 0016, ran `npx vitest run schemaLaws`, watched it
+  // fail naming recruiting_targets.org_id, reverted.
+  it("no foreign key is unindexed", () => {
+    const missing = fks.filter((k) => !indexed.has(`${k.table}.${k.column}`)).map((k) => `${k.table}.${k.column} (${k.file})`);
+    expect(missing).toEqual([]);
+  });
+});
