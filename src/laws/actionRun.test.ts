@@ -529,10 +529,17 @@ describe("LAW: the magic link never creates an account and always comes back to 
   it("sendMagicLink asks for a link to /auth/callback with signups off", async () => {
     process.env.NEXT_PUBLIC_SITE_URL = "https://app.example.test";
     const { sendMagicLink } = await import("@/lib/auth/actions");
-    const r = await sendMagicLink({ sent: false, email: "", error: null }, form({ email: " Dave@Example.test " }));
+    const r = await sendMagicLink({ sent: false, email: "", error: null }, form({ email: " Owner@Example.test " }));
     expect(r.sent).toBe(true);
     const otp = writes.find((w) => w.table === "auth:otp");
-    expect(otp?.rows[0]).toMatchObject({ email: "dave@example.test", emailRedirectTo: "https://app.example.test/auth/callback", shouldCreateUser: false });
+    expect(otp?.rows[0]).toMatchObject({ email: "owner@example.test", emailRedirectTo: "https://app.example.test/auth/callback", shouldCreateUser: false });
+  });
+
+  it("an address with no account is told so, not shown 'check your email'", async () => {
+    const { sendMagicLink } = await import("@/lib/auth/actions");
+    const r = await sendMagicLink({ sent: false, email: "", error: null }, form({ email: "nobody@example.test" }));
+    expect(r.sent).toBe(false);
+    expect(r.error).toMatch(/no account for nobody@example.test/);
   });
 
   it("a bad address is refused before any call", async () => {

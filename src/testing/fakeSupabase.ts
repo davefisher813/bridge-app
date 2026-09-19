@@ -342,6 +342,12 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
       // was made with the right address and the right link.
       async signInWithOtp(args: { email: string; options?: Record<string, unknown> }) {
         recorded.push({ op: "insert", table: "auth:otp", rows: [{ email: args.email, ...(args.options ?? {}) }], filters: [] });
+        // What Supabase answers for an address with no account when
+        // shouldCreateUser is off. The wording is its own.
+        const known = (data.users ?? []).some((u) => u.email === args.email);
+        if (!known && args.options?.shouldCreateUser === false) {
+          return { data: { user: null, session: null }, error: { message: "Signups not allowed for otp" } };
+        }
         return { data: { user: null, session: null }, error: null };
       },
       async verifyOtp(args: { token_hash: string; type: string }) {

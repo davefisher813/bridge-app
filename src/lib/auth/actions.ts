@@ -32,9 +32,15 @@ export interface MagicLinkState {
 // The default way in. Nobody invited to an org ever sets a password:
 // they type their email, a link comes back, tapping it signs them in
 // through /auth/callback. shouldCreateUser is off because accounts are
-// created by an org owner, never by whoever types an address here; an
-// unknown address gets the same "check your email" screen as a known
-// one, so the form does not confirm which addresses have accounts.
+// created by an org owner, never by whoever types an address here.
+//
+// An unknown address is told so. The first version showed "check your
+// email" for any address so the form could not be used to learn which
+// ones exist; Dave then spent twenty minutes waiting for an email to an
+// address that was not the account (2026-09-19). This is a closed
+// system with accounts handed out by an owner, and a person locked out
+// of it needs the true reason more than a stranger needs to be denied
+// a yes-or-no.
 export async function sendMagicLink(_prev: MagicLinkState, formData: FormData): Promise<MagicLinkState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -46,7 +52,10 @@ export async function sendMagicLink(_prev: MagicLinkState, formData: FormData): 
     email,
     options: { emailRedirectTo: `${origin}/auth/callback`, shouldCreateUser: false },
   });
-  if (error && !/signups not allowed|user not found/i.test(error.message)) {
+  if (error) {
+    if (/signups not allowed|user not found|otp_disabled/i.test(error.message)) {
+      return { sent: false, email, error: `There is no account for ${email}. Check the spelling, or ask your organization's owner to invite you.` };
+    }
     return { sent: false, email, error: error.message };
   }
   return { sent: true, email, error: null };
