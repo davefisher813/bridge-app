@@ -258,12 +258,46 @@ localStorage), neither of which exist yet - Dave held this off pending
 a key. `pipeline.ts` is designed so that wiring is a matter of
 implementing one `ModelCaller` function, not a pipeline redesign.
 
+**Where the file goes (2026-09-19).** The browser uploads each
+ingested file to a private Supabase Storage bucket, `documents`, at
+`<org id>/<request id>/<n>-<name>`, and the server action receives a
+`StoredRecord`: the `IngestedRecord` with its bytes replaced by that
+path. The action reads the bytes back with the caller's own client, so
+the bucket's policies (staff of the org write, members read, keyed off
+the first path segment) decide what it may see, then runs the same
+acceptance checks on what arrived. Nothing about `src/lib/docai`
+changed: the pipeline still takes `IngestedRecord[]` with base64 in it.
+The bytes never cross a server action call because Next caps that body
+at 1MB and a scanned transcript is not. A law in `src/laws/dataLaws.test.ts`
+keeps it that way.
+
+## Auth
+
+Supabase Auth with `@supabase/ssr`. `src/middleware.ts` refreshes the
+session on every request and sends a signed-out person to `/login`;
+`/auth` and `/unauthorized` are the only other public paths.
+
+Two ways in. **Magic link** (`sendMagicLink` in `src/lib/auth/actions.ts`)
+is the default for everyone an org invites: `signInWithOtp` with
+`shouldCreateUser: false`, so the form never creates an account and
+never confirms which addresses have one. **Password** stays as a
+fallback for the one account that has one. Both land on
+`/auth/callback`, which accepts a `token_hash` (the shape the email
+templates should be set to, because a link tapped in Mail on an iPhone
+opens Safari rather than the app that asked) or a PKCE `code`, and only
+ever redirects to a path on this site.
+
+A trigger on `auth.users` (migration 0017, in the `private` schema)
+keeps `public.users` in step: id, email and a name carried on the
+invitation. Membership is a separate row in `org_members`, written only
+by the service role behind `requireOwner()` (`src/lib/actions/members.ts`),
+because the row grants everything and carries its own role. An org can
+never be left without an owner.
+
 ## What isn't built yet
 
-Doc AI's actual Anthropic API wiring (see above - a `ModelCaller`
-implementation, held pending an API key), board/governance module, a
-real fundraising data model behind `donor_fundraising`, and any
-deployment/hosting setup. Today roster (with a full athlete detail
-screen: journey stepper, colleges, contacts, visits), the recruiting
-board, communication and visit logging, and an owner-gated schools
-admin form exist as real UI. See docs/ROADMAP.md.
+Doc AI's actual Anthropic API wiring (a `ModelCaller` implementation
+plus a per-org budget table, held pending an API key), the members and
+magic link screens (actions exist; screens wait on the preview), a
+school import, and transfer window entry. See docs/ROADMAP.md and
+docs/CURRENT_STATE.md.

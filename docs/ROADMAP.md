@@ -316,3 +316,42 @@ was a `/schools/new` and no list to see what you had added).
 - Two-sided marketplace including college coach accounts.
 - Deployment/hosting decision (Vercel, matching tucci-admin, is the
   likely default but hasn't been discussed).
+
+## Done 2026-09-19, the first day on real infrastructure
+
+- ~~Push to GitHub, deploy to Vercel~~ `davefisher813/bridge-app`,
+  `commit-app-nu.vercel.app`. Vercel Authentication off.
+- ~~Index every foreign key, evaluate auth once per statement~~ Migration
+  0016, with a schema law so the next table cannot ship unindexed.
+- ~~Documents through Storage~~ Migration 0017. The 1MB server action
+  body would have refused every real scan; the original is now kept.
+- ~~Profile rows follow auth.users~~ Migration 0017, a trigger.
+- ~~Error, not-found, loading, and an installable home-screen app~~
+- ~~Membership actions, magic link, auth callback~~ The screens wait on
+  the preview.
+
+## Next up, revised 2026-09-19
+
+1. **Members screen and magic link sign-in form**, on the actions that
+   exist. Blocked on Dave's reaction to the preview.
+2. **School CSV import.** The database has zero schools and the only way
+   in is one form, owner-only. Until schools exist the board and Today
+   are empty by construction. Same paste-first pattern as the approved
+   course lists.
+3. **Transfer windows entry**, owner-only. Zero rows today, so every
+   transfer athlete's timing reads "unverified" forever.
+4. **Cleanup pass, no behaviour change.** One `loadOrgPage(slug, roles)`
+   helper for the four lines every page repeats; `cache()` on
+   `getOrgBySlug` and `getCurrentUser` (each runs twice per request);
+   one `icons.tsx` for the fifteen inline SVG functions; `unwrap()` in
+   one place; split the 845-line `documents.ts`; rename `middleware.ts`
+   to `proxy.ts`; `tsconfig` target to ES2022.
+5. **Dependency bumps.** `@supabase/ssr` 0.5 to 0.12, `zod` 3 to 4.
+   Tailwind 4 and TypeScript 7 wait.
+6. **Wire a real `ModelCaller`**, plus a per-org budget table, before an
+   Anthropic key goes anywhere near Vercel. `isStubbedModel()` keys off
+   the env var today and would hide the stand-in notice without changing
+   what runs.
+7. Either read `benchmark_sets` or drop the table.
+8. Search and filter on the roster, board, schools and donors once any
+   list passes a hundred rows.

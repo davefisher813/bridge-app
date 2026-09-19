@@ -41,3 +41,13 @@ Before this schema is applied to a real Supabase project, rerun this
 policy or to `_member_org_ids()`. RLS bugs are exactly the kind of
 thing that look fine until the second organization's data shows up
 next to the first one.
+
+## What the stub covers now (2026-09-19)
+
+`local_auth_stub.sql` also stands in for `auth.users.raw_user_meta_data`
+and for Supabase's `storage` schema (`buckets`, `objects`,
+`foldername()`), just far enough that migration 0017 applies and the
+`documents` bucket's policies run as `app_user`. `rls_test.sql` asserts
+the profile trigger and the bucket policies alongside everything else.
+Add each new migration to `run_rls_test.sh` in order; the script is the
+list.

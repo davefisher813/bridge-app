@@ -55,3 +55,15 @@ These are static/behavioral unit checks against the fit engine and
 source text. They cannot catch a wrong number in a real School or
 Athlete record, a UI screen that never renders a warning it computed, or
 a business rule nobody has told this file about yet.
+
+## Added 2026-09-19
+
+6. **Every foreign key is the leading column of an index.** Supabase's
+   advisor found nineteen that were not, most of them `org_id`. The
+   schema law reads every `references` and every index out of the
+   migrations and compares. `schemaLaws.test.ts`, planted and reverted.
+7. **A server action takes a storage path, never file bytes.** Next caps
+   an action's body at 1MB; a document is 4MB. Files go through the
+   `documents` bucket and the action reads them back. No exported action
+   may accept an `IngestedRecord` or a `base64` field.
+   `dataLaws.test.ts`, planted and reverted.

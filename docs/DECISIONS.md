@@ -1722,3 +1722,118 @@ misses one. The migration raises if it rewrites fewer than 40.
 
 **What this says about the verification stack.** Six layers of local
 checking could not have found this. A real project is now the seventh.
+
+## 2026-09-19: the first real deployment, and what it found
+
+**Decision.** The code lives at `github.com/davefisher813/bridge-app`
+on `main`, production is the Vercel project `commit-app`, and Vercel
+Authentication is off. dave@bffsa.org signs in with a password set
+directly in the database, because the sign-in screen was email and
+password while every document said magic link.
+
+**Reason.** The GitHub integration available to the session could push
+to `bridge-app` and could not create a repository, so the existing empty
+repo was used with the real history force-pushed over its one README
+commit. Renaming a repo later is one field with redirects, and Vercel
+tracks the repo by id, so the name did not need deciding to ship.
+
+**Consequences.** An audit of the whole app against the live project
+followed and produced the four changes below in one sitting. The
+handoff document written for a session on Dave's machine was deleted;
+docs/SETUP_CHECKLIST.md now carries the three dashboard settings only
+Dave can set.
+
+## 2026-09-19: every foreign key is indexed, and auth is evaluated once
+
+**Decision.** Migration 0016 indexes the nineteen foreign keys Supabase's
+performance advisor listed as uncovered, most of them `org_id`, and
+rewrites the seven policies that called `auth.uid()` or `auth.role()`
+bare to call them in a subselect. A schema law now fails if any column
+declared with `references` is not the leading column of an index.
+
+**Reason.** Every page filters by `org_id` and every RLS policy checks
+it; with no index that is a sequential scan per query and another per
+policy evaluation. Bare `auth.uid()` in a policy is re-evaluated per
+row. Neither shows on two orgs and zero athletes, which is exactly why
+it needed a law rather than a memory.
+
+## 2026-09-19: documents go through Storage, never through the action body
+
+**Decision.** The browser uploads each file to a private `documents`
+bucket under `<org id>/<request id>/<n>-<name>` and hands the server
+action a `StoredRecord` (an `IngestedRecord` with the bytes replaced by
+the path). The action reads the bytes back with the caller's own client
+and runs the same acceptance checks on what arrived. The row records
+`storage_paths`. A law forbids any exported action from accepting an
+`IngestedRecord` or a `base64` field.
+
+**Reason.** Next caps a server action's request body at 1MB. The app's
+own document limit is 4MB, and base64 adds a third. Every real scanned
+transcript would have failed on the way in, and the harness could not
+see it because the fake client never crosses HTTP. The original file was
+also discarded after extraction, which is the one thing a coordinator
+wants back the day an extraction is questioned.
+
+**Alternative considered and rejected.** Raising `bodySizeLimit`. It
+moves the ceiling rather than removing it, still discards the original,
+and still routes megabytes through a serverless function invocation.
+
+**Consequences.** The bucket's policies key off the first path segment
+the way every table policy keys off `org_id`, and the RLS suite gained a
+storage stub so they are exercised as a non-superuser: staff write inside
+their org, members read, nobody else sees anything. The fake client
+gained `storage.from().download()` and `.upload()`.
+
+## 2026-09-19: profile rows follow auth.users
+
+**Decision.** A trigger on `auth.users` (insert, and update of email)
+creates and maintains the matching `public.users` row, reading a name
+from `raw_user_meta_data.full_name`. Existing auth rows were backfilled.
+
+**Reason.** `public.users` was a mirror nothing wrote to. The one row in
+it was typed by hand. Any account created by an invitation or the
+dashboard would have had no profile row, `org_members`' foreign key
+would have refused it, and `getCurrentUser()` would have shown a blank
+name.
+
+## 2026-09-19: membership is written by the service role, behind requireOwner
+
+**Decision.** `inviteMember`, `changeMemberRole` and `removeMember` are
+owner-only server actions that write `org_members` through the admin
+client. An org can never be left without an owner: the only owner
+cannot be demoted or removed, including by themselves. Without the
+service role key each action returns a message saying so. An existing
+account is added directly; a new address gets Supabase's invitation
+email. Magic link is the default way in for everyone invited;
+`sendMagicLink` runs with account creation off so the form never
+creates a user and never confirms which addresses exist. `/auth/callback`
+accepts both a `token_hash` and a PKCE `code`, and only ever lands on a
+path of this site.
+
+**Reason.** `org_members` deliberately has no write policy (2026-09-17):
+a row there grants everything and carries its own role. The gate is the
+owner check in the action and the hand is the service role, which is the
+shape that entry already prescribed. Token hash over PKCE because a link
+tapped in Mail on an iPhone opens Safari, not the installed app that
+asked for it, and PKCE needs them to be the same browser.
+
+**Consequences.** The screens (members list, invite, the magic link
+sign-in form) are drawn in a preview and wait on Dave, per the
+visual-preview rule. The password stays as a fallback for the one
+account that has one. Three Supabase dashboard settings are owed by
+Dave and listed in docs/SETUP_CHECKLIST.md.
+
+## 2026-09-19: the screens around the pages, and icons from the tokens
+
+**Decision.** `error.tsx`, `not-found.tsx` and `loading.tsx` exist at the
+root and inside the org chrome. The root layout exports viewport and
+Apple web app metadata; `manifest.ts`, `icon.tsx` and `apple-icon.tsx`
+are generated at build. The few server files that need a literal colour
+read it out of `globals.css` through `src/lib/theme/cssTokens.ts` rather
+than repeating the hex.
+
+**Reason.** A thrown error was Next's white default and a slow query a
+blank screen, which on a phone reads as the app having died. Add to Home
+Screen with no manifest or icon installs a generic Safari tile. The
+no-raw-hex law exists so a colour has one source; reading the stylesheet
+keeps it that way for the two places CSS variables cannot reach.
