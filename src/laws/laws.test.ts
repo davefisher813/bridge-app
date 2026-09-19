@@ -92,8 +92,13 @@ describe("LAW: the server never trusts the client's account of an uploaded file"
     // Order matters as much as presence. Validating after the row is
     // created leaves a stuck document behind for every refusal, and
     // validating after the pipeline runs defeats the point entirely.
-    const validateAt = source.indexOf("validateRecords(input.records)");
-    const insertAt = source.indexOf('.from("documents")');
+    // Measured inside processDocument itself: the bucket the files are
+    // read back from (migration 0017) is also called "documents", and a
+    // helper above the action reads from it before any row is written.
+    const bodyAt = source.indexOf("export async function processDocument");
+    expect(bodyAt).toBeGreaterThan(-1);
+    const validateAt = source.indexOf("validateRecords(records)", bodyAt);
+    const insertAt = source.indexOf('.from("documents")', bodyAt);
     expect(validateAt).toBeGreaterThan(-1);
     expect(insertAt).toBeGreaterThan(-1);
     expect(validateAt).toBeLessThan(insertAt);

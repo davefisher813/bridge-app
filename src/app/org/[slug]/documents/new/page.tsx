@@ -38,7 +38,7 @@ export default async function NewDocumentPage({ params }: { params: Promise<{ sl
           </div>
       )}
 
-      <DocumentUploader slug={slug} />
+      <DocumentUploader slug={slug} orgId={org.id} />
     </main>
   );
 }

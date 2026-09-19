@@ -44,6 +44,13 @@ export interface IngestedRecord {
   fallbackReason?: string;
 }
 
+// What the server receives once the browser has put a file in Storage:
+// everything an IngestedRecord carries except the bytes, plus where the
+// bytes are. The server reads them back and rebuilds the IngestedRecord
+// the pipeline expects. Base64 never rides a request body: a server
+// action's body is capped at 1MB by Next and a scanned transcript is not.
+export type StoredRecord = Omit<IngestedRecord, "base64"> & { storagePath: string };
+
 export type SourceRole = "admin" | "coordinator" | "email" | "parent" | "athlete";
 
 export interface TriageResult {

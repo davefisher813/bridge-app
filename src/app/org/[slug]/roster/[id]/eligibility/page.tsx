@@ -104,6 +104,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
             </p>
             <DocumentUploader
               slug={slug}
+              orgId={org.id}
               boundTo={{ athleteId: id, athleteName: athlete.name, category: "transcript", returnTo: `/org/${slug}/roster/${id}/eligibility` }}
             />
           </>
@@ -400,6 +401,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           </p>
           <DocumentUploader
             slug={slug}
+            orgId={org.id}
             boundTo={{ athleteId: id, athleteName: athlete.name, category: "transcript", returnTo: `/org/${slug}/roster/${id}/eligibility` }}
           />
         </>

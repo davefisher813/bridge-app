@@ -21,7 +21,7 @@ import {
 } from "@/lib/docai/acceptance";
 import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
-import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole } from "@/lib/docai/types";
+import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole, StoredRecord } from "@/lib/docai/types";
 
 // The caller side of src/lib/docai. The pipeline deliberately returns a
 // result and never writes anything, because org_id, RLS and the athlete
@@ -112,6 +112,35 @@ function validateRecords(records: IngestedRecord[]): string | null {
   return null;
 }
 
+// A storage path the browser is allowed to have produced: this org's
+// folder, then the upload's request id, then a file name, with nothing
+// that could climb out of the folder.
+const STORAGE_PATH = /^[0-9a-f-]{36}\/[A-Za-z0-9_-]+\/[A-Za-z0-9._-]+$/;
+
+type StorageReader = {
+  storage: { from(bucket: string): { download(path: string): Promise<{ data: Blob | null; error: { message: string } | null }> } };
+};
+
+async function readStoredRecords(
+  supabase: StorageReader,
+  orgId: string,
+  stored: StoredRecord[]
+): Promise<{ ok: true; records: IngestedRecord[] } | { ok: false; error: string }> {
+  const records: IngestedRecord[] = [];
+  for (const r of stored) {
+    if (!STORAGE_PATH.test(r.storagePath) || !r.storagePath.startsWith(`${orgId}/`)) {
+      return { ok: false, error: `${r.originalName || "That file"} was not uploaded to this organization's folder.` };
+    }
+    const { data, error } = await supabase.storage.from("documents").download(r.storagePath);
+    if (error || !data) {
+      return { ok: false, error: `${r.originalName || "That file"} could not be read back after upload. Try again.` };
+    }
+    const { storagePath: _path, ...rest } = r;
+    records.push({ ...rest, base64: Buffer.from(await data.arrayBuffer()).toString("base64") });
+  }
+  return { ok: true, records };
+}
+
 // Roster rows the resolver needs to match a name to an athlete, and the
 // richer context the extraction prompt gets. Both come from the same
 // query; the resolver deliberately sees less.
@@ -138,7 +167,10 @@ async function loadRoster(orgId: string): Promise<{ roster: ResolverAthlete[]; c
 export async function processDocument(
   slug: string,
   input: {
-    records: IngestedRecord[];
+    // Where the browser put each file in the documents bucket. The bytes
+    // are read back from Storage here, never carried in this call: a
+    // server action's body is capped at 1MB and a document is not.
+    records: StoredRecord[];
     sourceRole: SourceRole;
     // Null means "work out what this is". Dave wanted both ways in.
     requestedCategory: DocCategoryId | null;
@@ -157,16 +189,28 @@ export async function processDocument(
   await requireRole(org.id, STAFF_ROLES);
 
   if (!input.records.length) return { ok: false, error: "No files were uploaded." };
+  if (input.records.length > MAX_RECORDS_PER_UPLOAD) {
+    return { ok: false, error: `That is ${input.records.length} files at once. Upload up to ${MAX_RECORDS_PER_UPLOAD} at a time.` };
+  }
+
+  const supabase = await createClient();
+
+  // The bytes, read back from the bucket with the caller's own client,
+  // so Storage's policies decide whether they may see the file at all.
+  // The org prefix is checked here too, so a path into another org's
+  // folder is refused by name rather than surfacing as a download error.
+  const fetched = await readStoredRecords(supabase, org.id, input.records);
+  if (!fetched.ok) return { ok: false, error: fetched.error };
+  const records = fetched.records;
 
   // Everything the client checked, checked again here from the bytes
   // that actually arrived. ingest.ts runs in the browser, so a direct
   // call to this action skipped the size cap, the format sniffing and
   // the HEIC refusal entirely. See src/lib/docai/acceptance.ts.
-  const rejection = validateRecords(input.records);
+  const rejection = validateRecords(records);
   if (rejection) return { ok: false, error: rejection };
 
-  const first = input.records[0]!;
-  const supabase = await createClient();
+  const first = records[0]!;
 
   // The row exists before the pipeline runs, so a crash mid-extraction
   // leaves a visible failed document rather than nothing at all.
@@ -181,6 +225,7 @@ export async function processDocument(
       source_role: input.sourceRole,
       status: "processing",
       request_id: first.requestId,
+      storage_paths: input.records.map((r) => r.storagePath),
     })
     .select("id")
     .single();
@@ -198,7 +243,7 @@ export async function processDocument(
   let categoryId = input.requestedCategory;
   let detectedType: string | null = null;
   if (!categoryId) {
-    const detected = await detectCategory({ records: input.records, callModel });
+    const detected = await detectCategory({ records, callModel });
     detectedType = detected.triage?.detectedType ?? null;
     if (!detected.categoryId) {
       await supabase
@@ -271,7 +316,7 @@ export async function processDocument(
 
   const result = await runExtractionPipeline({
     categoryId,
-    records: input.records,
+    records,
     sourceRole: input.sourceRole,
     roster,
     rosterContext: context,

@@ -24,3 +24,33 @@ $$;
 create or replace function set_test_user(u uuid) returns void language sql as $$
   select set_config('app.current_uid', coalesce(u::text, ''), false)
 $$;
+
+-- What migration 0017 needs from auth and storage, added 2026-09-19.
+-- Supabase's auth.users carries the sign-up metadata the profile trigger
+-- reads a name out of, and its storage schema owns the bucket the
+-- documents policies sit on. Both are shaped just far enough here that
+-- the migration applies and the policies can be exercised as app_user.
+alter table auth.users add column if not exists raw_user_meta_data jsonb not null default '{}'::jsonb;
+
+create schema if not exists storage;
+create table if not exists storage.buckets (
+  id                 text primary key,
+  name               text not null,
+  public             boolean not null default false,
+  file_size_limit    bigint,
+  allowed_mime_types text[]
+);
+create table if not exists storage.objects (
+  id         uuid primary key default gen_random_uuid(),
+  bucket_id  text references storage.buckets(id),
+  name       text not null,
+  owner      uuid,
+  created_at timestamptz not null default now()
+);
+alter table storage.objects enable row level security;
+
+-- Same contract as Supabase's: every path segment but the last.
+create or replace function storage.foldername(name text) returns text[]
+  language sql immutable as $$
+  select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1]
+$$;

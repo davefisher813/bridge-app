@@ -4,8 +4,9 @@ import { RowGlyph } from "@/components/RowGlyph";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ingestFile } from "@/lib/docai/ingest";
-import type { DocCategoryId, IngestedRecord, SourceRole } from "@/lib/docai/types";
+import type { DocCategoryId, IngestedRecord, SourceRole, StoredRecord } from "@/lib/docai/types";
 import { processDocument } from "@/lib/actions/documents";
+import { createClient } from "@/lib/supabase/client";
 import { fieldClass, labelClass, submitClass } from "@/components/formStyles";
 
 // A client component because ingestion is: src/lib/docai/ingest.ts needs
@@ -36,8 +37,25 @@ function newRequestId(): string {
   return `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// The bytes go to the documents bucket from here, under this org's
+// folder, and the server reads them back. They never ride the server
+// action call: Next caps that body at 1MB and a scanned transcript is
+// three or four times that. See migrations/0017.
+function base64ToBlob(base64: string, mediaType: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mediaType });
+}
+
+function safeFileName(name: string): string {
+  const cleaned = name.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^[._]+/, "");
+  return cleaned.slice(0, 80) || "file";
+}
+
 export interface DocumentUploaderProps {
   slug: string;
+  orgId: string;
   // Bound to one athlete: the category is fixed, the athlete is pinned
   // rather than matched by name, and the user goes back where they
   // started instead of to the documents list. Used by the eligibility
@@ -45,7 +63,7 @@ export interface DocumentUploaderProps {
   boundTo?: { athleteId: string; athleteName: string; category: DocCategoryId; returnTo: string };
 }
 
-export function DocumentUploader({ slug, boundTo }: DocumentUploaderProps) {
+export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState<DocCategoryId | null>(boundTo?.category ?? null);
@@ -76,9 +94,28 @@ export function DocumentUploader({ slug, boundTo }: DocumentUploaderProps) {
         return;
       }
 
+      setStage(files.length === 1 ? "Uploading" : `Uploading ${files.length} files`);
+      const supabase = createClient();
+      const stored: StoredRecord[] = [];
+      for (let i = 0; i < records.length; i++) {
+        const record = records[i]!;
+        const storagePath = `${orgId}/${requestId}/${i + 1}-${safeFileName(record.originalName)}`;
+        const { error: uploadError } = await supabase.storage
+          .from("documents")
+          .upload(storagePath, base64ToBlob(record.base64, record.mediaType), { contentType: record.mediaType, upsert: false });
+        if (uploadError) {
+          setError(`Could not upload ${record.originalName}: ${uploadError.message}`);
+          setBusy(false);
+          setStage(null);
+          return;
+        }
+        const { base64: _bytes, ...rest } = record;
+        stored.push({ ...rest, storagePath });
+      }
+
       setStage(category ? "Reading it" : "Working out what it is");
       const result = await processDocument(slug, {
-        records,
+        records: stored,
         sourceRole,
         requestedCategory: category,
         athleteId: boundTo?.athleteId,

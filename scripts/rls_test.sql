@@ -17,6 +17,9 @@ drop role if exists app_user;
 create role app_user login nobypassrls;
 grant usage on schema public to app_user;
 grant select, insert, update, delete on all tables in schema public to app_user;
+grant usage on schema storage to app_user;
+grant select, insert, update, delete on storage.objects to app_user;
+grant select on storage.buckets to app_user;
 
 -- ── Seed: two orgs, two users, one membership each, athletes in both,
 -- one shared school, one global benchmark set, one org1-owned set. ──
@@ -27,7 +30,8 @@ insert into auth.users (id, email) values
 insert into users (id, email, full_name) values
   ('00000000-0000-0000-0000-000000000001', 'user1@bridge.example', 'User One'),
   ('00000000-0000-0000-0000-000000000002', 'user2@elitesquad.example', 'User Two'),
-  ('00000000-0000-0000-0000-000000000003', 'user3@bridge.example', 'User Three');
+  ('00000000-0000-0000-0000-000000000003', 'user3@bridge.example', 'User Three')
+on conflict (id) do update set full_name = excluded.full_name;
 insert into orgs (id, name, slug) values
   ('00000000-0000-0000-0000-000000000010', 'Bridge', 'bridge'),
   ('00000000-0000-0000-0000-000000000020', 'Elite Squad', 'elite-squad');
@@ -1032,3 +1036,98 @@ begin
 
   raise notice 'PASS: both membership helpers live in the unexposed private schema and every policy calls them there';
 end $$;
+
+-- ── Migration 0017: profile rows follow auth.users ────────────────────
+-- Before this trigger, public.users was a mirror nothing wrote to. The
+-- seed above still inserts explicitly (as an upsert now) so the older
+-- assertions keep their names; this block proves a row shows up on its
+-- own for a brand-new account, name included.
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('00000000-0000-0000-0000-000000000004', 'user4@bridge.example', '{"full_name":"User Four"}'::jsonb);
+do $$
+declare r record;
+begin
+  select email, full_name into r from public.users where id = '00000000-0000-0000-0000-000000000004';
+  if r is null then raise exception 'FAIL: no public.users row was created for a new auth.users row'; end if;
+  if r.email <> 'user4@bridge.example' or r.full_name <> 'User Four' then
+    raise exception 'FAIL: profile row created with email % and name %', r.email, r.full_name;
+  end if;
+  raise notice 'PASS: a new auth.users row gets its public.users profile, email and name included';
+end $$;
+
+-- ── Migration 0017: the documents bucket is org-scoped like a table ──
+-- An object's first folder is the org id. Staff of that org may write
+-- it, any member may read it, nobody outside the org sees it.
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge owner
+
+do $$
+begin
+  insert into storage.objects (bucket_id, name) values
+    ('documents', '00000000-0000-0000-0000-000000000010/req1/transcript.pdf');
+  raise notice 'PASS: Bridge staff can upload into Bridge''s folder of the documents bucket';
+end $$;
+
+do $$
+begin
+  begin
+    insert into storage.objects (bucket_id, name) values
+      ('documents', '00000000-0000-0000-0000-000000000020/req1/transcript.pdf');
+    raise exception 'FAIL: Bridge staff uploaded into Elite Squad''s folder';
+  exception when insufficient_privilege then
+    raise notice 'PASS: upload into another org''s folder is rejected (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+begin
+  begin
+    insert into storage.objects (bucket_id, name) values
+      ('documents', 'loose-file-with-no-org-folder.pdf');
+    raise exception 'FAIL: an upload outside any org folder was accepted';
+  exception when insufficient_privilege then
+    raise notice 'PASS: an upload with no org folder is rejected';
+  end;
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000003'); -- Bridge MEMBER, Elite staff
+do $$
+declare n int;
+begin
+  select count(*) into n from storage.objects where bucket_id = 'documents';
+  if n <> 1 then raise exception 'FAIL: Bridge member saw % document object(s), expected 1', n; end if;
+  raise notice 'PASS: a Bridge member can read Bridge''s uploaded documents';
+  begin
+    insert into storage.objects (bucket_id, name) values
+      ('documents', '00000000-0000-0000-0000-000000000010/req2/scan.jpg');
+    raise exception 'FAIL: a Bridge MEMBER uploaded into Bridge''s folder';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a member cannot upload; only owner and staff can';
+  end;
+  begin
+    delete from storage.objects where name like '00000000-0000-0000-0000-000000000010/%';
+    if found then raise exception 'FAIL: a Bridge MEMBER deleted a Bridge document'; end if;
+    raise notice 'PASS: a member''s delete of a Bridge document affects nothing';
+  end;
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000002'); -- Elite owner
+do $$
+declare n int;
+begin
+  select count(*) into n from storage.objects where bucket_id = 'documents';
+  if n <> 0 then raise exception 'FAIL: Elite Squad''s owner saw % of Bridge''s document object(s)', n; end if;
+  raise notice 'PASS: another org''s owner sees none of Bridge''s documents';
+end $$;
+
+select set_test_user(null);
+do $$
+declare n int;
+begin
+  select count(*) into n from storage.objects;
+  if n <> 0 then raise exception 'FAIL: anonymous session saw % document object(s)', n; end if;
+  raise notice 'PASS: anonymous session sees zero document objects';
+end $$;
+
+reset role;

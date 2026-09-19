@@ -338,5 +338,27 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
         return { data: { user: opts.userId ? { id: opts.userId } : null }, error: null };
       },
     },
+    // Storage, just far enough for the documents flow. Objects live in a
+    // `storage_objects` table of the fixture as { bucket, name, base64 };
+    // a download hands back a Blob the way the real client does, and an
+    // upload is recorded like any other write so a test can see the path
+    // an action put a file at.
+    storage: {
+      from(bucket: string) {
+        return {
+          async download(path: string) {
+            const objects = data.storage_objects ?? [];
+            const found = objects.find((o) => o.bucket === bucket && o.name === path);
+            if (!found) return { data: null, error: { message: `Object not found: ${bucket}/${path}` } };
+            const bytes = Buffer.from(String(found.base64), "base64");
+            return { data: new Blob([bytes]), error: null };
+          },
+          async upload(path: string, _body: unknown, options?: { contentType?: string }) {
+            recorded.push({ op: "insert", table: `storage:${bucket}`, rows: [{ name: path, contentType: options?.contentType ?? null }], filters: [] });
+            return { data: { path }, error: null };
+          },
+        };
+      },
+    },
   };
 }

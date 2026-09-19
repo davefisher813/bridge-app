@@ -45,6 +45,16 @@ export const IDS = {
 
 export function buildFixture(): Dataset {
   return {
+    // What the documents bucket holds. Path shape is <org>/<request>/<file>,
+    // the same one DocumentUploader writes. The bytes are the smallest
+    // thing that sniffs as a PDF; the stub model never reads them.
+    storage_objects: [
+      {
+        bucket: "documents",
+        name: `${BRIDGE}/req_fixture/1-transcript.pdf`,
+        base64: Buffer.from("%PDF-1.4\n%fixture\n1 0 obj << >> endobj\n%%EOF\n").toString("base64"),
+      },
+    ],
     users: [
       { id: OWNER, email: "owner@example.test", full_name: "Example Owner" },
       { id: MEMBER, email: "member@example.test", full_name: "Example Member" },

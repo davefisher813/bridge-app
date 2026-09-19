@@ -162,3 +162,60 @@ describe("LAW: both halves of a shared-and-org table pair are read together", ()
 // moved to scripts/rls_test.sql, where it asks the real database which
 // tables carry org_id and which of those have policies. That version
 // cannot be fooled by how the SQL was written.
+
+// ── File bytes never ride a server action ────────────────────────────
+//
+// Next caps a server action's request body at 1MB. The app allows a 4MB
+// document. For its first two weeks the uploader base64-encoded the file
+// and passed it straight into processDocument(), which meant every real
+// scanned transcript would have failed on the way in, and no test could
+// see it because the fake client never goes over HTTP. Files now go to
+// the documents bucket from the browser and the action gets a path
+// (migration 0017, src/lib/docai/types.ts StoredRecord).
+//
+// This makes sure it stays that way: nothing exported from
+// src/lib/actions takes an IngestedRecord, or anything else carrying a
+// base64 field, as a parameter. Reading the bytes back inside the action
+// is fine and expected; accepting them from the caller is the bug.
+describe("LAW: a server action takes a storage path, never file bytes", () => {
+  const ACTION_FILES = APP_FILES.filter((f) => f.includes("/lib/actions/"));
+
+  function exportedSignatures(src: string): string[] {
+    const out: string[] = [];
+    for (const m of src.matchAll(/export\s+async\s+function\s+(\w+)\s*\(/g)) {
+      // From the opening paren to the body's opening brace: the whole
+      // parameter list, including an inline object type.
+      const start = m.index! + m[0].length;
+      let depth = 1;
+      let i = start;
+      while (i < src.length && depth > 0) {
+        if (src[i] === "(") depth++;
+        if (src[i] === ")") depth--;
+        i++;
+      }
+      out.push(`${m[1]}(${src.slice(start, i)}`);
+    }
+    return out;
+  }
+
+  it("found the actions", () => {
+    expect(ACTION_FILES.length).toBeGreaterThan(8);
+    const sigs = ACTION_FILES.flatMap((f) => exportedSignatures(readFileSync(f, "utf8")));
+    expect(sigs.some((s) => s.startsWith("processDocument("))).toBe(true);
+  });
+
+  // Verified this law bites: changed processDocument's input back to
+  // `records: IngestedRecord[]`, ran `npx vitest run dataLaws`, watched
+  // it fail naming the action, reverted.
+  it("no exported action parameter carries file bytes", () => {
+    const offenders: string[] = [];
+    for (const f of ACTION_FILES) {
+      for (const sig of exportedSignatures(readFileSync(f, "utf8"))) {
+        if (/\bIngestedRecord\b/.test(sig) || /\bbase64\b/.test(sig)) {
+          offenders.push(`${f.slice(ROOT.length + 1)}: ${sig.split("(")[0]}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});

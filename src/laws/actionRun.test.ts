@@ -350,3 +350,71 @@ describe("LAW: a successful write tells Next what went stale", () => {
     expect(revalidated.some((p) => p.includes("/fundraising"))).toBe(true);
   });
 });
+
+describe("LAW: a document is read back from Storage, and only from this org's folder", () => {
+  // The bytes never arrive in the action (see dataLaws.test.ts). What
+  // arrives is a path, and the two things that can go wrong with a path
+  // are that it points somewhere else and that it reads nothing. Both
+  // have to be refused before a row exists.
+  function stored(path: string) {
+    return {
+      originalName: "transcript.pdf",
+      originalSize: 40,
+      originalMime: "application/pdf",
+      kind: "pdf" as const,
+      sourceRole: "parent" as const,
+      ingestedAt: "2026-09-19T00:00:00.000Z",
+      requestId: "req_fixture",
+      mediaType: "application/pdf",
+      blockType: "document" as const,
+      storagePath: path,
+    };
+  }
+
+  it("processDocument reads the file from the bucket and records where it is", async () => {
+    const { processDocument } = await import("@/lib/actions/documents");
+    const orgId = data.orgs[0]!.id as string;
+    const path = `${orgId}/req_fixture/1-transcript.pdf`;
+    const r = await processDocument(ORG_WITH_MODULES, { records: [stored(path)], sourceRole: "parent", requestedCategory: "transcript" });
+    expect(r.ok).toBe(true);
+    const insert = writes.find((w) => w.table === "documents" && w.op === "insert");
+    expect(insert?.rows[0]?.org_id).toBe(orgId);
+    expect(insert?.rows[0]?.storage_paths).toEqual([path]);
+  });
+
+  it("refuses a path in another org's folder without writing", async () => {
+    const { processDocument } = await import("@/lib/actions/documents");
+    const otherOrg = data.orgs[1]!.id as string;
+    const r = await processDocument(ORG_WITH_MODULES, {
+      records: [stored(`${otherOrg}/req_fixture/1-transcript.pdf`)],
+      sourceRole: "parent",
+      requestedCategory: "transcript",
+    });
+    expect(r.ok).toBe(false);
+    expect(writes).toEqual([]);
+  });
+
+  it("refuses a path that climbs out of the folder", async () => {
+    const { processDocument } = await import("@/lib/actions/documents");
+    const orgId = data.orgs[0]!.id as string;
+    const r = await processDocument(ORG_WITH_MODULES, {
+      records: [stored(`${orgId}/../${orgId}/x.pdf`)],
+      sourceRole: "parent",
+      requestedCategory: "transcript",
+    });
+    expect(r.ok).toBe(false);
+    expect(writes).toEqual([]);
+  });
+
+  it("refuses a path with nothing behind it without writing", async () => {
+    const { processDocument } = await import("@/lib/actions/documents");
+    const orgId = data.orgs[0]!.id as string;
+    const r = await processDocument(ORG_WITH_MODULES, {
+      records: [stored(`${orgId}/req_missing/1-transcript.pdf`)],
+      sourceRole: "parent",
+      requestedCategory: "transcript",
+    });
+    expect(r.ok).toBe(false);
+    expect(writes).toEqual([]);
+  });
+});
