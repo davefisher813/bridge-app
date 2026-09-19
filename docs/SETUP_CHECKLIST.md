@@ -41,7 +41,28 @@ That rule does not change.
 
 ---
 
-## Task 1: make the GitHub repo
+## Task 1: push to GitHub. This IS blocking, correction
+
+An earlier version of this file said GitHub was optional and not blocking
+anything. That was wrong, and it was wrong in the direction that wastes
+Dave's time, so it is corrected here rather than quietly edited.
+
+Vercel deploys a Next.js app one of two ways: it pulls the source from a
+connected git repository, or the source is uploaded to it. Uploading
+means moving about 1.4 MB across 249 files through this chat, which is
+not something these tools can carry. So the git repository is the path,
+and nothing deploys until the code is on GitHub.
+
+What is already done, so this is the only step left:
+
+- Vercel project `commit-app` exists (team davefisher813-3685s-projects),
+  framework set to Next.js, Node 24.
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are
+  already set on it for production, preview and development. Neither is
+  secret.
+- Vercel Authentication is on, which means the first deployment's URL
+  asks for a Vercel login before it will open. That gets turned off once
+  the app's own sign-in is confirmed working.
 
 Ten taps. Safari on the iPhone is fine, the app works too.
 
@@ -66,14 +87,14 @@ GitHub tool connected and no `gh` command in this environment.
 
 ## Task 2: copy the service role key into Vercel
 
-Only after Claude has created the Vercel project, so this one waits.
+The project exists now, so this can be done any time.
 
 1. **supabase.com** on the phone, sign in, open the **Bridge-app**
    project.
 2. **Project Settings**, then **API**.
 3. Under **Project API keys**, find **service_role**. Tap **Reveal**,
    then copy it.
-4. **vercel.com**, open the project, **Settings**, then **Environment
+4. **vercel.com**, open **commit-app**, **Settings**, then **Environment
    Variables**.
 5. Name: `SUPABASE_SERVICE_ROLE_KEY`. Value: paste. Save.
 
