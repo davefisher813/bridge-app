@@ -1,12 +1,11 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireOwner, type OrgRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { labelForRole } from "@/lib/org/roleLabels";
 import { ORG_ROLES } from "@/lib/validation/member";
 import { changeMemberRoleForm, removeMemberForm } from "@/lib/actions/members";
-import { Avatar, RailCard, SectionHeader } from "@/components/catalog";
+import { Avatar, Button, Card, Form, Notice, Option, Prose, Row, Screen, Section, Stack } from "@/components/kit";
 
 interface MemberRow {
   user_id: string;
@@ -19,9 +18,7 @@ function unwrap<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-// What each role may do, in the org's own words for the role. The
-// descriptions are the permission model in one line each; the labels
-// are whatever this org calls the tier.
+// What each role may do, in the org's own words for the role.
 const ROLE_BLURB: Record<OrgRole, string> = {
   owner: "Everything, plus members and schools",
   staff: "Adds and edits records",
@@ -59,78 +56,39 @@ export default async function MemberPage({
   const ownerCount = (ownerRows ?? []).length;
   const onlyOwner = member.role === "owner" && ownerCount === 1;
   const isMe = member.user_id === me.id;
+  const ownerLabel = labelForRole(org.roleLabels, "owner");
 
   const joined = person?.last_sign_in_at ? `joined ${new Date(member.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "invited, not signed in yet";
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4 flex items-center gap-3">
-        <Link href={`/org/${slug}/members`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Members
-        </Link>
-      </div>
+    <Screen back={{ href: `/org/${slug}/members`, label: "Members" }}>
+      <Row leading={<Avatar name={name} size="lg" />} title={`${name}${isMe ? " (you)" : ""}`} meta={`${person?.email ?? ""} · ${joined}`} emphasis="bold" />
 
-      <RailCard>
-        <div className="flex items-center gap-3">
-          <Avatar name={name} />
-          <div className="min-w-0">
-            <div className="truncate text-[16px] font-semibold text-ink">
-              {name}
-              {isMe ? " (you)" : ""}
-            </div>
-            <div className="truncate text-[13px] text-muted">
-              {person?.email ?? ""} &middot; {joined}
-            </div>
-          </div>
-        </div>
-      </RailCard>
+      {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
 
-      {(notice || error) && (
-        <div className="mt-3">
-          <RailCard role={error ? "danger" : "committed"} kind={error ? "warning" : "check"}>
-            <div className="text-[14.5px] font-semibold text-ink">{error ?? notice}</div>
-          </RailCard>
-        </div>
-      )}
+      <Section label="Role" role="people" kind="people">
+        <Form action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
+          <Stack gap={3}>
+            {ORG_ROLES.map((role) => (
+              <Option key={role} name="role" value={role} selected={role === member.role} title={labelForRole(org.roleLabels, role)} meta={ROLE_BLURB[role]} />
+            ))}
+          </Stack>
+        </Form>
+        {onlyOwner && <Prose>The organization&apos;s only {ownerLabel}. Make someone else one before changing this.</Prose>}
+      </Section>
 
-      <div className="mb-2 mt-6">
-        <SectionHeader label="Role" role="people" kind="people" />
-      </div>
-      <form action={changeMemberRoleForm.bind(null, slug, member.user_id)} className="flex flex-col gap-2">
-        {ORG_ROLES.map((role) => {
-          const current = role === member.role;
-          return (
-            <button
-              key={role}
-              type="submit"
-              name="role"
-              value={role}
-              disabled={current}
-              className={`flex min-h-[44px] items-center justify-between gap-3 rounded-[10px] bg-paper px-3.5 py-3 text-left ${current ? "ring-2 ring-accent" : ""}`}
-            >
-              <span className="text-[16px] font-semibold text-ink">{labelForRole(org.roleLabels, role)}</span>
-              <span className="text-[13px] text-muted">{ROLE_BLURB[role]}</span>
-            </button>
-          );
-        })}
-      </form>
-      {onlyOwner && <p className="mt-2 text-[12.5px] text-muted">The organization&apos;s only {labelForRole(org.roleLabels, "owner")}. Make someone else one before changing this.</p>}
-
-      <div className="mb-2 mt-6">
-        <SectionHeader label="Access" role="danger" kind="blocked" />
-      </div>
-      {onlyOwner ? (
-        <RailCard>
-          <div className="text-[14.5px] text-muted">Cannot be removed while they are the only {labelForRole(org.roleLabels, "owner")}.</div>
-        </RailCard>
-      ) : (
-        <form action={removeMemberForm.bind(null, slug, member.user_id)}>
-          <button type="submit" className="w-full rounded-[10px] bg-paper px-3.5 py-3 text-left text-[15px] font-semibold text-danger">
-            Remove From {org.name}
-          </button>
-        </form>
-      )}
-      <p className="mt-2 text-[12.5px] text-muted">Their account stays. They lose access to {org.name} only, and keep any other organization they belong to.</p>
-    </main>
+      <Section label="Access" role="danger" kind="blocked">
+        {onlyOwner ? (
+          <Card>
+            <Prose>Cannot be removed while they are the only {ownerLabel}.</Prose>
+          </Card>
+        ) : (
+          <Form action={removeMemberForm.bind(null, slug, member.user_id)}>
+            <Button variant="destructive">Remove From {org.name}</Button>
+          </Form>
+        )}
+        <Prose>Their account stays. They lose access to {org.name} only, and keep any other organization they belong to.</Prose>
+      </Section>
+    </Screen>
   );
 }

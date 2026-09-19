@@ -168,7 +168,51 @@
   /* END GENERATED DARK TINTS */
 }
 
+html {
+  /* The theme follows the phone (Dave, 2026-09-19). src/app/layout.tsx
+     stamps data-theme from prefers-color-scheme before first paint so the
+     [data-theme="dark"] block above applies, and the laws that read that
+     block keep working. This tells the browser's own chrome to follow. */
+  color-scheme: light dark;
+  /* iPhone Safari scales text up in landscape and zooms the page on a
+     focused input under 16px. Every input in the kit is 16px; this stops
+     the first. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: var(--bg);
+}
+
 body {
   color: var(--ink);
   background: var(--bg);
+  min-height: 100dvh;
+  /* No rubber-band scroll behind the fixed tab bar. */
+  overscroll-behavior-y: none;
+}
+
+/* A tap on a button or link fires at once, with no 300ms wait for a
+   double-tap zoom that the kit never wants. */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Native controls take the theme too, so a date picker or a select
+   popover is not a white box on a dark screen. */
+input, select, textarea {
+  color-scheme: light dark;
+}
+
+@layer utilities {
+  /* The one place a value outside the scale is allowed: the iPhone's
+     home indicator. The fixed tab bar and every screen's bottom padding
+     use it. */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pb-bar {
+    /* The fixed tab bar's height (56px) plus the home indicator, so the
+       last row of a screen scrolls clear of it. */
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
 }

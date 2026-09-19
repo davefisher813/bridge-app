@@ -18,12 +18,12 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Recruiting Platform",
-  description: "Recruiting and roster management platform (placeholder name).",
+  title: "BFFSA",
+  description: "Rosters, recruiting targets, fit scoring and document intake.",
   manifest: "/manifest.webmanifest",
   // Installed from Safari's share sheet, the app runs without browser
   // chrome and with a status bar that sits over the dark org screens.
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Recruiting" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "BFFSA" },
 };
 
 // The colour behind the status bar and the browser's own chrome. Sign-in
@@ -33,8 +33,17 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: cssToken("bg", "dark"),
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: cssToken("bg", "light") },
+    { media: "(prefers-color-scheme: dark)", color: cssToken("bg", "dark") },
+  ],
 };
+
+// Stamps data-theme from the phone's setting before anything paints, and
+// keeps it in step if the setting changes while the app is open. The
+// stylesheet's dark block is keyed on that attribute, which is also what
+// the styling laws read, so the CSS did not have to move.
+const THEME_SCRIPT = `(function(){try{var m=window.matchMedia("(prefers-color-scheme: dark)");function a(){document.documentElement.setAttribute("data-theme",m.matches?"dark":"light")}a();m.addEventListener("change",a)}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -42,7 +51,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>{children}</body>
     </html>
   );

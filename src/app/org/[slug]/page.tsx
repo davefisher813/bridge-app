@@ -3,37 +3,10 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
-import { EmptyState, RailCard, SectionHeader, StatTile } from "@/components/catalog";
+import { Body, Card, EmptyState, Label, Meter, Row, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { statusRole } from "@/components/statusHue";
-import Link from "next/link";
 import { formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
-
-function ClearIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M8.5 12.5l2.5 2.5 4.5-5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
-      <rect x="4" y="5" width="16" height="15" rx="2.5" />
-      <path d="M4 10h16M8 3v4M16 3v4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ChartIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
-      <path d="M4 20V10M10 20V5M16 20v-7M22 20H2" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 // The Today screen. Per Dave (2026-09): this is an org/recruiting
 // management tool, not a life-management app - so no "add a task" /
@@ -159,115 +132,92 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   const firstName = (user.full_name || user.email).split(" ")[0] || user.email;
 
   return (
-    <main className="px-4 pt-2">
-      <h1 className="mb-4 text-[28px] font-black leading-tight text-ink">
-        Good morning,
-        <br />
-        {firstName}.
-      </h1>
+    <Screen title={`Good morning, ${firstName}.`}>
+      <Stack gap={3}>
+        <StatRow>
+          <Stat value={athleteCount ?? 0} label="Athletes" kind="athlete" />
+          <Stat value={inContactCount} label="In contact" role="contact" kind="stage_contact" />
+          <Stat value={committedCount} label="Committed" role="committed" kind="stage_committed" />
+        </StatRow>
+        {totalTargets > 0 && (
+          <Meter
+            parts={[
+              { role: "contact", fraction: inContactCount / totalTargets },
+              { role: "committed", fraction: committedCount / totalTargets },
+            ]}
+          />
+        )}
+      </Stack>
 
-      {/* ST1: tinted tiles, each in the role of what it counts. */}
-      <div className="flex gap-2">
-        <StatTile value={athleteCount ?? 0} label="Athletes" kind="athlete" />
-        <StatTile value={inContactCount} label="In contact" role="contact" kind="stage_contact" />
-        <StatTile value={committedCount} label="Committed" role="committed" kind="stage_committed" />
-      </div>
-      {totalTargets > 0 && (
-        <div className="mt-2 flex h-1 overflow-hidden rounded-full bg-line">
-          <div className="bg-ios-blue" style={{ width: `${(inContactCount / totalTargets) * 100}%` }} />
-          <div className="bg-ios-green" style={{ width: `${(committedCount / totalTargets) * 100}%` }} />
-        </div>
-      )}
+      <Section label="Needs follow-up" count={needsFollowUp.length} action={needsFollowUp.length > 0 ? <TextLink href={`/org/${slug}/board`}>View board</TextLink> : undefined}>
+        {needsFollowUp.length === 0 ? (
+          <EmptyState kind="check" role="committed" title="Nothing needs a follow-up">
+            Every open target has been touched recently.
+          </EmptyState>
+        ) : (
+          needsFollowUp.map((t) => (
+            <Row
+              key={t.id}
+              href={`/org/${slug}/board/${t.id}`}
+              kind="school"
+              role={statusRole(t.status)}
+              title={t.athleteName}
+              meta={`${t.schoolName} · no update in ${t.days} ${t.days === 1 ? "day" : "days"}`}
+              trailing={<StatusPill status={t.status} />}
+            />
+          ))
+        )}
+      </Section>
 
-      <div className="mb-2 mt-6">
-        <SectionHeader label="Needs follow-up" count={needsFollowUp.length} />
-      </div>
-      {needsFollowUp.length === 0 ? (
-        <EmptyState icon={<ClearIcon />} title="Nothing needs a follow-up">
-          Every open target has been touched recently.
-        </EmptyState>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {needsFollowUp.map((t) => (
-            <RailCard key={t.id} role={statusRole(t.status)} kind="school">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[15px] font-bold text-ink">{t.athleteName}</div>
-                  <div className="text-[12.5px] text-muted">
-                    {t.schoolName} &middot; no update in {t.days} {t.days === 1 ? "day" : "days"}
-                  </div>
-                </div>
-                <StatusPill status={t.status} />
-              </div>
-            </RailCard>
-          ))}
-          <a href={`/org/${slug}/board`} className="mt-1 self-end text-[13px] font-bold text-accent">
-            View board &rarr;
-          </a>
-        </div>
-      )}
-
-      <div className="mb-2 mt-6">
-        <SectionHeader label="Upcoming" count={upcomingVisits.length + upcomingWindows.length} />
-      </div>
-      {upcomingVisits.length === 0 && upcomingWindows.length === 0 ? (
-        <EmptyState icon={<CalendarIcon />} title="Nothing scheduled">
-          No visits or portal windows in the next 60 days.
-        </EmptyState>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {upcomingVisits.map((v) => (
-            <RailCard key={v.id} role="visit" kind="visit">
-              <div className="text-[15px] font-bold text-ink">Visit &middot; {v.schoolName}</div>
-              <div className="text-[12.5px] text-muted">
-                {new Date(v.visitDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} &middot;{" "}
-                {v.athleteName}
-              </div>
-            </RailCard>
-          ))}
-          {upcomingWindows.map((w) => (
-            <RailCard key={`${w.sport}-${w.division}-${w.window_label}`} role="time" kind="clock">
-              <div className="text-[15px] font-bold text-ink">Transfer portal opens</div>
-              <div className="text-[12.5px] text-muted">
-                {w.sport} {w.division} &middot; {w.window_label} &middot; in {daysUntil(w.opens_on)} days
-              </div>
-            </RailCard>
-          ))}
-        </div>
-      )}
+      <Section label="Upcoming" count={upcomingVisits.length + upcomingWindows.length} role="visit" kind="clock">
+        {upcomingVisits.length === 0 && upcomingWindows.length === 0 ? (
+          <EmptyState kind="clock" title="Nothing scheduled">
+            No visits or portal windows in the next 60 days.
+          </EmptyState>
+        ) : (
+          <>
+            {upcomingVisits.map((v) => (
+              <Row
+                key={v.id}
+                href={`/org/${slug}/board/${v.id}`}
+                kind="visit"
+                role="visit"
+                title={`Visit · ${v.schoolName}`}
+                meta={`${new Date(v.visitDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · ${v.athleteName}`}
+              />
+            ))}
+            {upcomingWindows.map((w) => (
+              <Row
+                key={`${w.sport}-${w.division}-${w.window_label}`}
+                kind="clock"
+                role="time"
+                title="Transfer portal opens"
+                meta={`${w.sport} ${w.division} · ${w.window_label} · in ${daysUntil(w.opens_on)} days`}
+              />
+            ))}
+          </>
+        )}
+      </Section>
 
       {org.modules.donor_fundraising && (
-        <>
-          <div className="mb-2 mt-6">
-            <SectionHeader label="Program overview" />
-          </div>
+        <Section label="Program overview" role="committed" kind="money">
           {fundraising === null ? (
-            <EmptyState icon={<ChartIcon />} title="Nothing recorded yet">
+            <EmptyState kind="money" title="Nothing recorded yet">
               Record the first gift and this starts reporting against your categories.
             </EmptyState>
           ) : (
-            <Link href={`/org/${slug}/fundraising`} className="block">
-              <RailCard role="committed">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[15px] font-semibold text-ink">
-                      {formatMoneyShort(fundraising.totalCashCents)} raised this year
-                    </div>
-                    <div className="mt-0.5 text-[13px] leading-tight text-muted">
-                      {fundraising.totalBudgetCents > 0
-                        ? `${Math.round((fundraising.totalCashCents / fundraising.totalBudgetCents) * 100)}% of the year's target`
-                        : "No budget set for the year"}
-                      {fundraising.outstandingPledgeCents > 0
-                        ? ` \u00b7 ${formatMoneyShort(fundraising.outstandingPledgeCents)} promised and not received`
-                        : ""}
-                    </div>
-                  </div>
-                </div>
-              </RailCard>
-            </Link>
+            <Card href={`/org/${slug}/fundraising`}>
+              <Body weight="semibold">{formatMoneyShort(fundraising.totalCashCents)} raised this year</Body>
+              <Label>
+                {fundraising.totalBudgetCents > 0
+                  ? `${Math.round((fundraising.totalCashCents / fundraising.totalBudgetCents) * 100)}% of the year's target`
+                  : "No budget set for the year"}
+                {fundraising.outstandingPledgeCents > 0 ? ` · ${formatMoneyShort(fundraising.outstandingPledgeCents)} promised and not received` : ""}
+              </Label>
+            </Card>
           )}
-        </>
+        </Section>
       )}
-    </main>
+    </Screen>
   );
 }

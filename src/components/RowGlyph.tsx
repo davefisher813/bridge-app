@@ -20,12 +20,9 @@
 // drifted three times in one sitting earlier in this project, which is
 // why nothing keeps one.
 //
-// Weight, 2026-09-17. 1.75 on a 24 box drawn at 18px is a 1.31px line,
-// which on a phone falls between device pixels and reads soft. 2.0 at
-// 20px is 1.67px and lands much closer to a whole pixel. That one change
-// sharpened the whole set without touching a single path, and it is why
-// the size and the stroke are set here rather than per call site: they
-// only work as a pair.
+// Weight. 2.0 on a 24 box drawn at 24px is a whole 2px line, which is
+// the sharpest a stroke gets on a phone. The kit passes h-4 w-4 for the
+// small one in a section header or a chip; nothing else sizes a glyph.
 
 import ICONS from "./rowIcons.json";
 import { FG, type Role } from "./statusHue";
@@ -42,7 +39,7 @@ export function RowGlyph({ kind, role = "neutral", className = "" }: { kind: Row
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className={`h-[20px] w-[20px] flex-shrink-0 ${FG[role]} ${className}`}
+      className={`h-6 w-6 flex-shrink-0 ${FG[role]} ${className}`}
       dangerouslySetInnerHTML={{ __html: ICONS[kind] }}
     />
   );

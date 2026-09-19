@@ -5,8 +5,8 @@ import { cssToken } from "@/lib/theme/cssTokens";
 // forced dark, so the installed app's chrome is dark too.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Recruiting Platform",
-    short_name: "Recruiting",
+    name: "BFFSA",
+    short_name: "BFFSA",
     description: "Rosters, recruiting targets, fit scoring and document intake for a sports organization.",
     start_url: "/",
     display: "standalone",
