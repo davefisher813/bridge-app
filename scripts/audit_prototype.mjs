@@ -22,15 +22,15 @@
 //
 // Run: node scripts/audit_prototype.mjs
 
-import pw from "/home/claude/.npm-global/lib/node_modules/playwright/index.js";
+import pw from "playwright";
 import { readFileSync } from "node:fs";
 
-const FILE = "/tmp/claude-0/-home-claude/29e8f462-8fb8-51f4-a493-bd698cb56848/scratchpad/prototype.html";
+const FILE = `${process.env.PREVIEW_OUT_DIR ?? "/tmp/previews"}/prototype.html`;
 
 const findings = [];
 const note = (where, kind, detail) => findings.push({ where, kind, detail });
 
-const browser = await pw.chromium.launch();
+const browser = await pw.chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 
 const errors = [];

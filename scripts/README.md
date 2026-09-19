@@ -51,3 +51,15 @@ and for Supabase's `storage` schema (`buckets`, `objects`,
 the profile trigger and the bucket policies alongside everything else.
 Add each new migration to `run_rls_test.sh` in order; the script is the
 list.
+
+## Where the previews land
+
+Every generator writes to `PREVIEW_OUT_DIR`, default `/tmp/previews`,
+and the verify and audit scripts read from the same place. The path used
+to be one session's scratchpad written into eleven files, which is why
+`build_previews.sh` failed the first time it ran anywhere else.
+
+The browser scripts launch Playwright's own Chromium unless `PW_CHROMIUM`
+names an executable. Set it when the installed `playwright` package and
+the browsers on the machine are different builds, as on the Claude Code
+container (`PW_CHROMIUM=/opt/pw-browsers/chromium`).

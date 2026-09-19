@@ -26,6 +26,12 @@ then python3 scripts/build_eligibility_preview.py
 """
 
 import re
+import os
+# Where the generated pages land. The previous hardcoded path was one
+# session's scratchpad and did not exist anywhere else.
+OUT_DIR = os.environ.get("PREVIEW_OUT_DIR", "/tmp/previews")
+os.makedirs(OUT_DIR, exist_ok=True)
+
 
 CSS = re.sub(r"body\{[^}]*\}", "", open("/tmp/preview.css").read(), count=1)
 HUE = open("src/components/statusHue.ts").read()
@@ -364,6 +370,6 @@ show("qualifier");
 </script>
 """
 
-out = "/tmp/claude-0/-home-claude/29e8f462-8fb8-51f4-a493-bd698cb56848/scratchpad/eligibility_preview.html"
+out = os.path.join(OUT_DIR, "eligibility_preview.html")
 open(out, "w").write(HTML)
 print(f"wrote {out} ({len(HTML)} bytes)")

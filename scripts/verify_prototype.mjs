@@ -11,11 +11,11 @@
 
 // Absolute path, matching verify_testbench.mjs: playwright is installed
 // globally in this environment rather than as a project dependency.
-import pw from "/home/claude/.npm-global/lib/node_modules/playwright/index.js";
+import pw from "playwright";
 const { chromium } = pw;
 import { readFileSync } from "node:fs";
 
-const FILE = "/tmp/claude-0/-home-claude/29e8f462-8fb8-51f4-a493-bd698cb56848/scratchpad/prototype.html";
+const FILE = `${process.env.PREVIEW_OUT_DIR ?? "/tmp/previews"}/prototype.html`;
 
 const results = [];
 function check(name, ok, detail = "") {
@@ -39,7 +39,7 @@ function report(err) {
 process.on("unhandledRejection", report);
 process.on("uncaughtException", report);
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 
 const errors = [];

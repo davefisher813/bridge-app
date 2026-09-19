@@ -3,12 +3,12 @@
 // it is not: the assertions run against the bundled shipped code, so a
 // regression in the fit engine or the Doc AI pipeline fails here before
 // Dave ever opens the artifact.
-import pw from "/home/claude/.npm-global/lib/node_modules/playwright/index.js";
+import pw from "playwright";
 const { chromium } = pw;
 
-const FILE = "/tmp/claude-0/-home-claude/29e8f462-8fb8-51f4-a493-bd698cb56848/scratchpad/test_bench.html";
+const FILE = `${process.env.PREVIEW_OUT_DIR ?? "/tmp/previews"}/test_bench.html`;
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined, args: ["--no-sandbox"] });
 const page = await browser.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));

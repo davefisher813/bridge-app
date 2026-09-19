@@ -25,7 +25,7 @@ import zlib from "node:zlib";
 // dependency (this script is a one-off verification tool, not part of
 // the app or its build) - importing its resolved path directly avoids
 // needing NODE_PATH tricks that don't apply to ESM resolution anyway.
-import playwright from "/home/claude/.npm-global/lib/node_modules/playwright/index.js";
+import playwright from "playwright";
 const { chromium } = playwright;
 
 const repoRoot = path.resolve(new URL(".", import.meta.url).pathname, "..");
@@ -39,7 +39,7 @@ execSync(
 );
 const bundleCode = readFileSync(bundlePath, "utf8");
 
-const CHROMIUM_PATH = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const CHROMIUM_PATH = process.env.PW_CHROMIUM || undefined;
 
 let failures = 0;
 let total = 0;

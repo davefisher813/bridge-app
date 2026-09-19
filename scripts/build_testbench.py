@@ -16,6 +16,12 @@ Run: npx tailwindcss -i src/app/globals.css -o /tmp/preview.css --minify
 """
 
 import re
+import os
+# Where the generated pages land. The previous hardcoded path was one
+# session's scratchpad and did not exist anywhere else.
+OUT_DIR = os.environ.get("PREVIEW_OUT_DIR", "/tmp/previews")
+os.makedirs(OUT_DIR, exist_ok=True)
+
 
 CSS = re.sub(r"body\{[^}]*\}", "", open("/tmp/preview.css").read(), count=1)
 BUNDLE = open("/tmp/testbench.min.js").read()
@@ -344,6 +350,6 @@ runFit();
 </script>
 """
 
-out = "/tmp/claude-0/-home-claude/29e8f462-8fb8-51f4-a493-bd698cb56848/scratchpad/test_bench.html"
+out = os.path.join(OUT_DIR, "test_bench.html")
 open(out, "w").write(HTML)
 print(f"wrote {out} ({len(HTML)} bytes, bundle {len(BUNDLE)} bytes)")
