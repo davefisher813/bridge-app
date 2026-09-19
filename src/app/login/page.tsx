@@ -28,7 +28,7 @@ export default async function LoginPage({
     <main className="flex min-h-screen items-center justify-center bg-bg px-4">
       <div className="w-full max-w-[380px]">
         <div className="rounded-[18px] border border-line bg-paper p-6 shadow-sm">
-          <SignInForm magicLink={sendMagicLink} password={login} initialError={error} startWithPassword={mode === "password"} />
+          <SignInForm magicLink={sendMagicLink} password={login} initialError={error} startWithPassword={mode !== "link"} />
         </div>
 
         <p className="mt-4 text-center text-[12.5px] text-muted">Accounts are created by your organization, not self-service.</p>

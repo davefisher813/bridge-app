@@ -16,7 +16,11 @@ export function SignInForm({
   magicLink,
   password,
   initialError,
-  startWithPassword = false,
+  // Password first. The magic link needs an email template, a URL
+  // allowlist and a fresh link every time; the password needs none of
+  // that, and it is what got Dave in on 2026-09-19 after two hours of
+  // dead links. The link is one tap away for everyone invited later.
+  startWithPassword = true,
 }: {
   magicLink: MagicLinkAction;
   password: PasswordAction;
