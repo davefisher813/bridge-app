@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createTarget } from "@/lib/actions/targets";
 import { TargetForm } from "@/components/TargetForm";
+import { EmptyState, LinkButton, Screen, TextLink } from "@/components/kit";
 
 export default async function NewTargetPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -25,43 +25,28 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
   const action = createTarget.bind(null, slug);
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4 flex items-center gap-3">
-        <Link href={`/org/${slug}/board`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Board
-        </Link>
-      </div>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-[22px] font-extrabold text-ink">Add target</h1>
-        {isOwner && (
-          <Link href={`/org/${slug}/schools/new`} className="text-[13px] font-bold text-accent">
-            + Add a school
-          </Link>
-        )}
-      </div>
-
+    <Screen
+      title="Add Target"
+      back={{ href: `/org/${slug}/board`, label: "Board" }}
+      action={isOwner ? <TextLink href={`/org/${slug}/schools/new`}>+ School</TextLink> : undefined}
+    >
       {athletes.length === 0 ? (
-        <div className="rounded-[16px] border border-line bg-paper px-4 py-6 text-center text-[14.5px] text-muted">
-          No athletes on the roster yet.{" "}
-          <Link href={`/org/${slug}/roster/new`} className="font-bold text-accent">
-            Add one first
-          </Link>
-          .
-        </div>
+        <>
+          <EmptyState kind="athlete" title="No athletes on the roster yet">
+            A target is one athlete pointed at one school, so the athlete comes first.
+          </EmptyState>
+          <LinkButton href={`/org/${slug}/roster/new`}>Add an Athlete</LinkButton>
+        </>
       ) : schools.length === 0 ? (
-        <div className="rounded-[16px] border border-line bg-paper px-4 py-6 text-center text-[14.5px] text-muted">
-          No schools in the reference database yet. Schools are shared across every org, so only an owner can add one.{" "}
-          {isOwner ? (
-            <Link href={`/org/${slug}/schools/new`} className="font-bold text-accent">
-              Add the first school &rarr;
-            </Link>
-          ) : (
-            "Ask an owner to add one."
-          )}
-        </div>
+        <>
+          <EmptyState kind="school" title="No schools on file yet">
+            Schools are shared across every org, so only an owner can add one.{isOwner ? "" : " Ask an owner to add one."}
+          </EmptyState>
+          {isOwner && <LinkButton href={`/org/${slug}/schools/new`}>Add the First School</LinkButton>}
+        </>
       ) : (
-        <TargetForm action={action} athletes={athletes} schools={schools} submitLabel="Add target" />
+        <TargetForm action={action} athletes={athletes} schools={schools} submitLabel="Add Target" />
       )}
-    </main>
+    </Screen>
   );
 }

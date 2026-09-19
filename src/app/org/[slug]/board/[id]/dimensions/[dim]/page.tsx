@@ -11,12 +11,12 @@
 // score one way on the summary and another when it is opened.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
-import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { RowGlyph, type RowKind } from "@/components/RowGlyph";
-import { TEXT_ON, scoreRole } from "@/components/statusHue";
+import { EmptyState, Figure, LinkButton, Notice, Screen, Section } from "@/components/kit";
+import { Note } from "@/components/EligibilityVerdict";
+import type { RowKind } from "@/components/RowGlyph";
+import { scoreRole } from "@/components/statusHue";
 import { loadTarget } from "@/lib/data/loadTarget";
 import type { DimensionResult } from "@/lib/fit/types";
 
@@ -40,6 +40,8 @@ const CONFIDENCE_NOTE: Record<string, string> = {
   low: "Mostly division defaults. Treat the score as a starting point, not a finding.",
   unknown: "Not enough on file to judge. The score is a placeholder, not a measurement.",
 };
+
+const CONFIDENCE_LABEL: Record<string, string> = { high: "High", medium: "Medium", low: "Low", unknown: "Unknown" };
 
 function isDimKey(v: string): v is DimKey {
   return v === "academic" || v === "athletic" || v === "financial" || v === "eligibility";
@@ -66,93 +68,51 @@ export default async function DimensionPage({ params }: { params: Promise<{ slug
   const role = d.veto ? "offer" : d.score >= 70 ? "committed" : d.score >= 40 ? "contact" : "target";
 
   return (
-    <main className="px-4 pb-24 pt-2">
-      <div className="mb-2">
-        <Link
-          href={`/org/${slug}/board/${id}`}
-          className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted"
-        >
-          &larr; {bundle.school.name}
-        </Link>
-      </div>
-
-      <div className="mb-1 flex items-start justify-between gap-3">
-        <h1 className="text-[22px] font-extrabold leading-tight text-ink">{meta.label}</h1>
-        <span className={`flex-shrink-0 text-[28px] font-black leading-none tabular-nums ${TEXT_ON[scoreRole(d.score)]}`}>{d.score}</span>
-      </div>
-      <p className="mb-5 text-[13.5px] leading-tight text-muted">
-        {meta.asks} {bundle.athlete.name} at {bundle.school.name}.
-      </p>
-
+    <Screen
+      title={meta.label}
+      back={{ href: `/org/${slug}/board/${id}`, label: bundle.school.name }}
+      lede={`${meta.asks} ${bundle.athlete.name} at ${bundle.school.name}.`}
+      action={<Figure tone={scoreRole(d.score)}>{d.score}</Figure>}
+    >
       {/* A veto is not a low score, and the difference matters enough to
           say it above everything else. A veto means the blend was thrown
           away and this dimension set the number by itself. */}
       {d.veto && (
-        <div className="mb-5">
-          <RailCard role="offer" kind="warning">
-            <div className="text-[14.5px] font-bold leading-tight text-ink">This one overrides the others</div>
-            <div className="mt-1 text-[13px] leading-relaxed text-muted">
-              A veto is not a low score averaged in with the rest. The overall fit was set by this dimension alone, because nothing the
-              athlete does elsewhere gets past it.
-            </div>
-          </RailCard>
-        </div>
+        <Notice tone="warning" title="This one overrides the others">
+          A veto is not a low score averaged in with the rest. The overall fit was set by this dimension alone, because nothing the athlete
+          does elsewhere gets past it.
+        </Notice>
       )}
 
-      <div className="mb-2">
-        <SectionHeader label="Why" count={d.reasons.length} role={role} kind={meta.kind} />
-      </div>
-      {d.reasons.length === 0 ? (
-        <EmptyState icon={<RowGlyph kind="note" role="neutral" className="h-7 w-7" />} title="No reason given">
-          The engine returned a score without a stated reason, which normally means it had nothing specific to this school to work from.
-        </EmptyState>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {d.reasons.map((r, i) => (
-            <RailCard key={i} role={role} kind={meta.kind}>
-              <div className="text-[13.5px] leading-relaxed text-ink">{r}</div>
-            </RailCard>
-          ))}
-        </div>
-      )}
+      <Section label="Why" count={d.reasons.length} role={role} kind={meta.kind}>
+        {d.reasons.length === 0 ? (
+          <EmptyState kind="note" title="No reason given">
+            The engine returned a score without a stated reason, which normally means it had nothing specific to this school to work from.
+          </EmptyState>
+        ) : (
+          d.reasons.map((r, i) => <Note key={i}>{r}</Note>)
+        )}
+      </Section>
 
       {/* Warnings are not reasons and are not filed with them. A reason
           is why the number is what it is; a warning is what could still
           change it. Mixing them is how a coordinator reads "not
           verified" as a finding. */}
       {d.warnings.length > 0 && (
-        <>
-          <div className="mb-2 mt-5">
-            <SectionHeader label="What could still change this" count={d.warnings.length} role="offer" kind="warning" />
-          </div>
-          <div className="flex flex-col gap-2">
-            {d.warnings.map((w, i) => (
-              <RailCard key={i} role="offer" kind="warning">
-                <div className="text-[13.5px] leading-relaxed text-ink">{w}</div>
-              </RailCard>
-            ))}
-          </div>
-        </>
+        <Section label="What could still change this" count={d.warnings.length} role="offer" kind="warning">
+          {d.warnings.map((w, i) => (
+            <Note key={i}>{w}</Note>
+          ))}
+        </Section>
       )}
 
-      <div className="mb-2 mt-5">
-        <SectionHeader label="How sure" role="contact" kind="info" />
-      </div>
-      <RailCard role="contact" kind="info">
-        <div className="text-[14.5px] font-bold capitalize text-ink">{d.confidence}</div>
-        <div className="mt-1 text-[13px] leading-relaxed text-muted">
-          {CONFIDENCE_NOTE[d.confidence] ?? "No confidence reported."}
-        </div>
-      </RailCard>
+      <Section label="How sure" role="contact" kind="info">
+        <Note title={CONFIDENCE_LABEL[d.confidence] ?? d.confidence}>{CONFIDENCE_NOTE[d.confidence] ?? "No confidence reported."}</Note>
+      </Section>
 
-      <div className="mt-5">
-        <Link
-          href={`/org/${slug}/board/${id}`}
-          className="flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
-        >
-          Back to the full score
-        </Link>
-      </div>
-    </main>
+      <LinkButton href={`/org/${slug}/board/${id}`} variant="secondary">
+        Back to the Full Score
+      </LinkButton>
+    </Screen>
   );
 }

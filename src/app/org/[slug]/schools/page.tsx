@@ -6,12 +6,10 @@
 // it to, which also made it easy to add a duplicate.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { RailCard, SectionHeader, EmptyState } from "@/components/catalog";
-import { RowGlyph } from "@/components/RowGlyph";
+import { Body, EmptyState, LinkButton, Row, Screen, Section, TextLink } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -39,55 +37,40 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
   const pursued = schools.filter((s) => countBySchool.has(s.id));
   const rest = schools.filter((s) => !countBySchool.has(s.id));
 
-  // Every row on this list was a dead end until 2026-09-17. A school
-  // record is the input to half the fit engine, so "what does this school
-  // actually say" had no answer in the product.
   const row = (s: (typeof schools)[number], mine: boolean) => (
-    <Link key={s.id} href={`/org/${slug}/schools/${s.id}`} className="block">
-    <RailCard role={mine ? "contact" : "target"} kind="school">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[14.5px] font-bold leading-tight text-ink">{s.name}</div>
-          <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-            {s.division ?? "No division"}
-            {s.conference ? ` · ${s.conference}` : ""}
-          </div>
-        </div>
-        {mine && (
-          <span className="flex-shrink-0 text-[13px] font-extrabold tabular-nums text-ink">
+    <Row
+      key={s.id}
+      href={`/org/${slug}/schools/${s.id}`}
+      kind="school"
+      role={mine ? "contact" : "target"}
+      title={s.name}
+      meta={`${s.division ?? "No division"}${s.conference ? ` · ${s.conference}` : ""}`}
+      trailing={
+        mine ? (
+          <Body weight="bold" numeric>
             {countBySchool.get(s.id)}
-          </span>
-        )}
-      </div>
-    </RailCard>
-    </Link>
+          </Body>
+        ) : undefined
+      }
+    />
   );
 
   return (
-    <main className="px-4 pb-24 pt-3">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h1 className="text-[22px] font-extrabold text-ink">Schools</h1>
-        <span className="text-[13px] font-bold text-muted">{schools.length}</span>
-      </div>
-
+    <Screen title="Schools" action={isOwner ? <TextLink href={`/org/${slug}/schools/new`}>+ Add</TextLink> : undefined}>
       {schools.length === 0 ? (
-        <EmptyState icon={<RowGlyph kind="school" role="neutral" className="h-7 w-7" />} title="No schools yet">
+        <EmptyState kind="school" title="No schools yet">
           {isOwner ? "Add the first one below." : "An owner adds schools, because the list is shared across every organization."}
         </EmptyState>
       ) : (
         <>
           {pursued.length > 0 && (
-            <>
-              <div className="mb-2">
-                <SectionHeader label="You are recruiting here" count={pursued.length} role="contact" kind="target" />
-              </div>
-              <div className="mb-5 flex flex-col gap-2">{pursued.map((s) => row(s, true))}</div>
-            </>
+            <Section label="You are recruiting here" count={pursued.length} role="contact" kind="target">
+              {pursued.map((s) => row(s, true))}
+            </Section>
           )}
-          <div className="mb-2">
-            <SectionHeader label="Everything else" count={rest.length} role="target" kind="school" />
-          </div>
-          <div className="flex flex-col gap-2">{rest.map((s) => row(s, false))}</div>
+          <Section label="Everything else" count={rest.length} role="target" kind="school">
+            {rest.map((s) => row(s, false))}
+          </Section>
         </>
       )}
 
@@ -95,13 +78,10 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
           shared reference data: a wrong row here is wrong for every
           organization. Same boundary as the verified grading scales. */}
       {isOwner && (
-        <Link
-          href={`/org/${slug}/schools/new`}
-          className="mt-5 flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
-        >
-          Add a school
-        </Link>
+        <LinkButton href={`/org/${slug}/schools/new`} variant="secondary">
+          Add a School
+        </LinkButton>
       )}
-    </main>
+    </Screen>
   );
 }

@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -9,9 +8,14 @@ import { logVisit } from "@/lib/actions/visits";
 import { TargetForm } from "@/components/TargetForm";
 import { CommunicationForm } from "@/components/CommunicationForm";
 import { VisitForm } from "@/components/VisitForm";
+import { Label, Row, Screen, Section } from "@/components/kit";
 
 const KIND_LABEL: Record<string, string> = { call: "Call", text: "Text", email: "Email", visit: "Visit", other: "Other" };
 const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior day", camp: "Camp", other: "Other" };
+
+function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
 
 export default async function EditTargetPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
@@ -55,18 +59,12 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
   const visits = visitRows ?? [];
 
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4 flex items-center gap-3">
-        <Link href={`/org/${slug}/board`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Board
-        </Link>
-      </div>
-      <h1 className="mb-4 text-[22px] font-extrabold text-ink">Edit target</h1>
+    <Screen title="Edit Target" back={{ href: `/org/${slug}/board/${id}`, label: "Target" }}>
       <TargetForm
         action={action}
         athletes={athletes}
         schools={schools}
-        submitLabel="Save changes"
+        submitLabel="Save Changes"
         initialValues={{
           athleteId: target.athlete_id,
           schoolId: target.school_id,
@@ -79,51 +77,43 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
         }}
       />
 
-      <div className="mt-8 flex flex-col gap-3">
-        <h2 className="text-[16px] font-extrabold text-ink">Communication log</h2>
+      <Section label="Communication log" count={comms.length} role="contact" kind="message">
         <CommunicationForm action={commAction} />
         {comms.length === 0 ? (
-          <p className="text-[13.5px] text-muted">Nothing logged yet.</p>
+          <Label>Nothing logged yet.</Label>
         ) : (
-          <div className="rounded-[16px] border border-line bg-paper">
-            {comms.map((c, i) => (
-              <div key={c.id} className={`px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-[14.5px] font-bold text-ink">{KIND_LABEL[c.kind] ?? c.kind}</span>
-                  <span className="text-[12.5px] text-muted tabular-nums">
-                    {new Date(c.occurred_on).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                  </span>
-                </div>
-                {c.notes && <p className="mt-1 text-[13.5px] text-muted">{c.notes}</p>}
-              </div>
-            ))}
-          </div>
+          comms.map((c) => (
+            <Row
+              key={c.id}
+              kind="message"
+              role="contact"
+              title={KIND_LABEL[c.kind] ?? c.kind}
+              meta={c.notes ?? undefined}
+              trailing={<Label numeric>{shortDate(c.occurred_on)}</Label>}
+              wrap
+            />
+          ))
         )}
-      </div>
+      </Section>
 
-      <div className="mt-8 flex flex-col gap-3">
-        <h2 className="text-[16px] font-extrabold text-ink">Visits</h2>
+      <Section label="Visits" count={visits.length} role="visit" kind="visit">
         <VisitForm action={visitAction} />
         {visits.length === 0 ? (
-          <p className="text-[13.5px] text-muted">No visits logged yet.</p>
+          <Label>No visits logged yet.</Label>
         ) : (
-          <div className="rounded-[16px] border border-line bg-paper">
-            {visits.map((v, i) => (
-              <div key={v.id} className={`px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-[14.5px] font-bold text-ink">{VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}</span>
-                  <span className="text-[12.5px] text-muted tabular-nums">
-                    {new Date(v.visit_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                  </span>
-                </div>
-                {v.impression && <p className="mt-1 text-[13.5px] text-ink">{v.impression}</p>}
-                {v.next_step && <p className="mt-0.5 text-[13px] text-muted">Next: {v.next_step}</p>}
-                {v.notes && <p className="mt-0.5 text-[13px] text-muted">{v.notes}</p>}
-              </div>
-            ))}
-          </div>
+          visits.map((v) => (
+            <Row
+              key={v.id}
+              kind="visit"
+              role="visit"
+              title={VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}
+              meta={[v.impression, v.next_step ? `Next: ${v.next_step}` : null, v.notes].filter(Boolean).join(" · ") || undefined}
+              trailing={<Label numeric>{shortDate(v.visit_date)}</Label>}
+              wrap
+            />
+          ))
         )}
-      </div>
-    </main>
+      </Section>
+    </Screen>
   );
 }

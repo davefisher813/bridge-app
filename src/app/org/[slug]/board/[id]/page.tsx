@@ -11,7 +11,6 @@
 // score goes stale the moment a GPA or a school profile changes.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -28,8 +27,10 @@ import {
 } from "@/lib/data/fitAdapters";
 import { scoreFit } from "@/lib/fit/score";
 import type { DimensionResult } from "@/lib/fit/types";
-import { RailCard, SectionHeader, ScorePill } from "@/components/catalog";
+import { Body, Figure, Label, LinkButton, Notice, Prose, Row, Screen, Section, Stack } from "@/components/kit";
+import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
+import { scoreRole } from "@/components/statusHue";
 
 export const dynamic = "force-dynamic";
 
@@ -94,147 +95,97 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
   const coachName = (target as { coach_name: string | null }).coach_name;
 
   return (
-    <main className="px-4 pb-24 pt-2">
-      <div className="mb-2">
-        <Link href={`/org/${slug}/board`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Board
-        </Link>
-      </div>
-
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-extrabold leading-tight text-ink">
-            <Link href={`/org/${slug}/schools/${school.id}`}>{school.name}</Link>
-          </h1>
-          <div className="text-[13.5px] font-bold text-muted">
-            {school.division} &middot; {athlete.name}
-          </div>
+    <Screen
+      title={school.name}
+      back={{ href: `/org/${slug}/board`, label: "Board" }}
+      lede={`${school.division} · ${athlete.name}`}
+      action={
+        <div className="text-right">
+          <Figure tone={scoreRole(fit.score)}>{fit.score}</Figure>
+          <Label>{fit.tag}</Label>
         </div>
-        <div className="flex-shrink-0 text-right">
-          <div className="text-[28px] font-black leading-none tabular-nums text-ink">{fit.score}</div>
-          <div className="mt-1 text-[12.5px] font-bold text-muted">{fit.tag}</div>
-        </div>
-      </div>
-
+      }
+    >
       {/* The headline reason, before the breakdown. A score with no
           sentence attached is a number somebody has to take on faith. */}
-      {fit.reasons.length > 0 && (
-        <div className="mb-5">
-          <RailCard role="contact" kind="info">
-            <div className="text-[13.5px] leading-relaxed text-ink">{fit.reasons[0]}</div>
-          </RailCard>
-        </div>
-      )}
+      {fit.reasons.length > 0 && <Notice tone="info" title={fit.reasons[0]} />}
 
-      <div className="mb-2">
-        <SectionHeader label="How the score is built" role="contact" kind="target" />
-      </div>
-      <div className="mb-5 flex flex-col gap-2">
+      <Section label="How the score is built" role="contact" kind="target">
         {DIM.map(({ key, label, kind }) => {
           const d = fit[key] as DimensionResult | undefined;
           if (!d) return null;
           const role = d.veto ? "offer" : d.score >= 70 ? "committed" : d.score >= 40 ? "contact" : "target";
+          const notes = d.reasons.length + d.warnings.length;
           // One reason shown and the rest behind a tap. The reasons ARE
           // the argument: a financial 42 is a number, and "average aid
-          // covers only 18% of cost" is the sentence somebody acts on.
-          const card = (
-            <RailCard role={role} kind={d.veto ? "warning" : kind}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-[14.5px] font-bold leading-tight text-ink">{label}</div>
-                  <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-                    {d.reasons[0] ?? d.warnings[0] ?? "No signal"}
-                  </div>
-                </div>
-                <span className="flex-shrink-0 text-[15px] font-extrabold tabular-nums text-ink">{d.score}</span>
-              </div>
-              {/* A veto is not a low score, it is an override, so it says
-                  so rather than being inferred from a small number. */}
-              {d.veto && <div className="mt-1.5 text-[12.5px] font-semibold leading-tight text-tint-accent-on">Overrides the blend: {d.veto}</div>}
-              {(d.reasons.length > 1 || d.warnings.length > 0) && (
-                <div className="mt-1.5 text-[12.5px] font-bold leading-tight text-muted">
-                  {d.reasons.length + d.warnings.length} {d.reasons.length + d.warnings.length === 1 ? "note" : "notes"} in full
-                </div>
-              )}
-            </RailCard>
-          );
+          // covers only 18% of cost" is the sentence somebody acts on. A
+          // veto is not a low score, it is an override, so it says so.
           return (
-            <Link key={key} href={`/org/${slug}/board/${id}/dimensions/${key}`} className="block">
-              {card}
-            </Link>
+            <Row
+              key={key}
+              href={`/org/${slug}/board/${id}/dimensions/${key}`}
+              kind={d.veto ? "warning" : kind}
+              role={role}
+              title={d.veto ? `${label} · overrides the blend` : label}
+              meta={`${d.reasons[0] ?? d.warnings[0] ?? "No signal"}${notes > 1 ? ` · ${notes} notes` : ""}`}
+              trailing={
+                <Body weight="bold" numeric>
+                  {d.score}
+                </Body>
+              }
+              wrap
+            />
           );
         })}
-      </div>
+      </Section>
 
       {fit.warnings.length > 0 && (
-        <>
-          <div className="mb-2">
-            <SectionHeader label="Worth knowing" count={fit.warnings.length} role="offer" kind="warning" />
-          </div>
-          <div className="mb-5 flex flex-col gap-2">
-            {fit.warnings.map((w) => (
-              <RailCard key={w} role="offer" kind="warning">
-                <div className="text-[13.5px] leading-relaxed text-ink">{w}</div>
-              </RailCard>
-            ))}
-          </div>
-        </>
+        <Section label="Worth knowing" count={fit.warnings.length} role="offer" kind="warning">
+          {fit.warnings.map((w) => (
+            <Note key={w}>{w}</Note>
+          ))}
+        </Section>
       )}
 
-      <div className="mb-2">
-        <SectionHeader label="Contact" count={comms.length + visits.length} role="people" kind="message" />
-      </div>
-      <div className="mb-5 flex flex-col gap-2">
-        <RailCard role="people" kind="message">
-          <div className="text-[14.5px] font-bold leading-tight text-ink">{coachName || "No coach on file"}</div>
-          <div className="mt-0.5 text-[12.5px] leading-tight text-muted">
-            {comms.length} {comms.length === 1 ? "message" : "messages"} &middot; {visits.length} {visits.length === 1 ? "visit" : "visits"}
-          </div>
-        </RailCard>
+      <Section label="Contact" count={comms.length + visits.length} role="people" kind="message">
+        <Row
+          kind="people"
+          role="people"
+          title={coachName || "No coach on file"}
+          meta={`${comms.length} ${comms.length === 1 ? "message" : "messages"} · ${visits.length} ${visits.length === 1 ? "visit" : "visits"}`}
+        />
         {comms.slice(0, 5).map((c, i) => (
-          <RailCard key={i} role="contact" kind="message">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[14.5px] font-bold leading-tight text-ink">{c.notes || c.kind}</div>
-                <div className="mt-0.5 text-[12.5px] leading-tight text-muted">{c.kind}</div>
-              </div>
-              {c.occurred_on && <span className="flex-shrink-0 text-[12.5px] font-bold text-muted">{c.occurred_on.slice(0, 10)}</span>}
-            </div>
-          </RailCard>
+          <Row
+            key={i}
+            kind="message"
+            role="contact"
+            title={c.notes || c.kind}
+            meta={c.kind}
+            trailing={c.occurred_on ? <Label numeric>{c.occurred_on.slice(0, 10)}</Label> : undefined}
+          />
         ))}
         {/* Five is a preview. The count is what somebody reads and the
             gap since the last one is what they act on, and neither of
             those fits in a preview. */}
         {comms.length + visits.length > 0 && (
-          <Link
-            href={`/org/${slug}/board/${id}/communications`}
-            className="flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
-          >
-            The whole log
-          </Link>
+          <LinkButton href={`/org/${slug}/board/${id}/communications`} variant="secondary">
+            The Whole Log
+          </LinkButton>
         )}
-      </div>
+      </Section>
 
-      <div className="flex flex-col gap-2">
-        <Link
-          href={`/org/${slug}/roster/${athlete.id}`}
-          className="flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
-        >
+      <Stack>
+        <LinkButton href={`/org/${slug}/roster/${athlete.id}`} variant="secondary">
           Open {athlete.name}
-        </Link>
+        </LinkButton>
         {canEdit && (
-          <Link
-            href={`/org/${slug}/board/${id}/edit`}
-            className="flex min-h-[44px] items-center justify-center rounded-[8px] bg-paper text-[15px] font-bold text-ink"
-          >
-            Edit this target
-          </Link>
+          <LinkButton href={`/org/${slug}/board/${id}/edit`} variant="secondary">
+            Edit This Target
+          </LinkButton>
         )}
-      </div>
+      </Stack>
 
-      <p className="mt-5 text-[12px] leading-relaxed text-muted">
-        Status: {status}. The score is calculated every time this page loads, never stored, so it cannot disagree with the record it came from.
-      </p>
-    </main>
+      <Prose>Status: {status}. The score is calculated every time this page loads, never stored, so it cannot disagree with the record it came from.</Prose>
+    </Screen>
   );
 }

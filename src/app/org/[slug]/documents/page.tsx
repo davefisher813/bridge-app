@@ -1,11 +1,9 @@
-import { RowGlyph } from "@/components/RowGlyph";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { EmptyState, RailCard, SectionHeader } from "@/components/catalog";
-import { TEXT_ON, type Role } from "@/components/statusHue";
+import { Body, EmptyState, LinkButton, Notice, Row, Screen, Section, TextLink } from "@/components/kit";
+import type { Role } from "@/components/statusHue";
 import { isStubbedModel } from "@/lib/actions/documents";
 
 // The review queue. A document routed to "review" has to live somewhere or
@@ -53,37 +51,24 @@ function confidenceRole(pct: number): Role {
   return "low";
 }
 
-function DocIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
-      <path d="M14 3H7a1.5 1.5 0 00-1.5 1.5v15A1.5 1.5 0 007 21h10a1.5 1.5 0 001.5-1.5V7.5L14 3z" strokeLinejoin="round" />
-      <path d="M14 3v4.5h4.5" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function DocumentRow({ slug, doc, role }: { slug: string; doc: DocRow; role: Role }) {
   const athlete = unwrap(doc.athletes)?.name ?? doc.extracted?.studentName ?? null;
   const pct = doc.provenance?.confidence != null ? Math.round(doc.provenance.confidence * 100) : null;
   return (
-    <Link href={`/org/${slug}/documents/${doc.id}`} className="block">
-      <RailCard role={role} kind="document">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="truncate text-[15px] font-bold text-ink">
-              {doc.category ? CATEGORY_LABEL[doc.category] ?? doc.category : "Unrecognized"}
-              {athlete ? ` · ${athlete}` : " · no match"}
-            </div>
-            <div className="truncate text-[12.5px] text-muted">
-              {doc.status === "failed" && doc.failure_reason ? doc.failure_reason : doc.file_name} &middot; {ago(doc.created_at)}
-            </div>
-          </div>
-          {pct !== null && (
-            <span className={`flex-shrink-0 text-[16px] font-black tabular-nums ${TEXT_ON[confidenceRole(pct)]}`}>{pct}%</span>
-          )}
-        </div>
-      </RailCard>
-    </Link>
+    <Row
+      href={`/org/${slug}/documents/${doc.id}`}
+      kind="document"
+      role={role}
+      title={`${doc.category ? (CATEGORY_LABEL[doc.category] ?? doc.category) : "Unrecognized"}${athlete ? ` · ${athlete}` : " · no match"}`}
+      meta={`${doc.status === "failed" && doc.failure_reason ? doc.failure_reason : doc.file_name} · ${ago(doc.created_at)}`}
+      trailing={
+        pct !== null ? (
+          <Body weight="bold" numeric tone={confidenceRole(pct)}>
+            {pct}%
+          </Body>
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -96,9 +81,7 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select(
-      "id, file_name, category, status, route, provenance, extracted, athlete_id, athletes(name), failure_reason, created_at"
-    )
+    .select("id, file_name, category, status, route, provenance, extracted, athlete_id, athletes(name), failure_reason, created_at")
     .eq("org_id", org.id)
     .order("created_at", { ascending: false })
     .limit(60);
@@ -110,74 +93,45 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
   const stubbed = await isStubbedModel();
 
   return (
-    <main className="px-4 pt-4 pb-6">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="text-[22px] font-extrabold text-ink">Documents</div>
-        <Link href={`/org/${slug}/documents/new`} className="text-[13px] font-bold text-accent">
-          + Add
-        </Link>
-      </div>
-
+    <Screen title="Documents" action={<TextLink href={`/org/${slug}/documents/new`}>+ Add</TextLink>}>
       {stubbed && (
-        <div className="mb-4 flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
-          <span className="mt-[1px]"><RowGlyph kind="warning" role="time" /></span>
-          <div className="min-w-0 flex-1">
-          <div className="text-[14.5px] font-bold text-ink">Simulated reading</div>
-          <div className="mt-0.5 text-[12.5px] text-muted">
-            No AI model is connected yet. Anything here was made up by the stand-in, not read off a page.
-          </div>
-        </div>
-          </div>
+        <Notice tone="warning" title="Simulated reading">
+          No AI model is connected yet. Anything here was made up by the stand-in, not read off a page.
+        </Notice>
       )}
 
       {rows.length === 0 ? (
-        <EmptyState icon={<DocIcon />} title="No documents yet">
-          <Link href={`/org/${slug}/documents/new`} className="font-bold text-accent">
-            Add the first one &rarr;
-          </Link>
-        </EmptyState>
+        <>
+          <EmptyState kind="document" title="No documents yet">
+            A transcript, test scores, an offer letter. It gets read, matched to an athlete, and applied or sent to review.
+          </EmptyState>
+          <LinkButton href={`/org/${slug}/documents/new`}>Add the First One</LinkButton>
+        </>
       ) : (
         <>
           {pending.length > 0 && (
-            <>
-              <div className="mb-2">
-                <SectionHeader label="Needs review" count={pending.length} role="offer" />
-              </div>
-              <div className="mb-6 flex flex-col gap-2">
-                {pending.map((d) => (
-                  <DocumentRow key={d.id} slug={slug} doc={d} role="offer" />
-                ))}
-              </div>
-            </>
+            <Section label="Needs review" count={pending.length} role="offer" kind="warning">
+              {pending.map((d) => (
+                <DocumentRow key={d.id} slug={slug} doc={d} role="offer" />
+              ))}
+            </Section>
           )}
-
           {problems.length > 0 && (
-            <>
-              <div className="mb-2">
-                <SectionHeader label="Not used" count={problems.length} role="danger" />
-              </div>
-              <div className="mb-6 flex flex-col gap-2">
-                {problems.map((d) => (
-                  <DocumentRow key={d.id} slug={slug} doc={d} role="danger" />
-                ))}
-              </div>
-            </>
+            <Section label="Not used" count={problems.length} role="danger" kind="blocked">
+              {problems.map((d) => (
+                <DocumentRow key={d.id} slug={slug} doc={d} role="danger" />
+              ))}
+            </Section>
           )}
-
           {applied.length > 0 && (
-            <>
-              <div className="mb-2">
-                <SectionHeader label="Applied" count={applied.length} role="committed" />
-              </div>
-              <div className="flex flex-col gap-2">
-                {applied.map((d) => (
-                  <DocumentRow key={d.id} slug={slug} doc={d} role="committed" />
-                ))}
-              </div>
-            </>
+            <Section label="Applied" count={applied.length} role="committed" kind="check">
+              {applied.map((d) => (
+                <DocumentRow key={d.id} slug={slug} doc={d} role="committed" />
+              ))}
+            </Section>
           )}
         </>
       )}
-    </main>
+    </Screen>
   );
 }

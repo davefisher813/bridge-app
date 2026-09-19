@@ -48,8 +48,8 @@ export function Body({ children, tone = "ink", weight = "normal", numeric = fals
   return <div className={`text-body ${w} ${toneClass(tone)} ${numeric ? "tabular-nums" : ""} ${truncate ? "truncate" : ""}`}>{children}</div>;
 }
 
-export function Label({ children, tone = "muted", caps = false, truncate = false }: { children: ReactNode; tone?: Tone; caps?: boolean; truncate?: boolean }) {
-  return <div className={`text-label ${caps ? "font-bold uppercase tracking-wide" : ""} ${toneClass(tone)} ${truncate ? "truncate" : ""}`}>{children}</div>;
+export function Label({ children, tone = "muted", caps = false, truncate = false, numeric = false }: { children: ReactNode; tone?: Tone; caps?: boolean; truncate?: boolean; numeric?: boolean }) {
+  return <div className={`text-label ${caps ? "font-bold uppercase tracking-wide" : ""} ${toneClass(tone)} ${truncate ? "truncate" : ""} ${numeric ? "tabular-nums" : ""}`}>{children}</div>;
 }
 
 // A paragraph of running text. Body size, muted by default, because

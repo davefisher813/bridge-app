@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -16,17 +15,8 @@ import {
 } from "@/lib/data/fitAdapters";
 import { scoreFit } from "@/lib/fit/score";
 import type { FitTag } from "@/lib/fit/types";
-import { EmptyState, GroupTab, RailCard, ScorePill } from "@/components/catalog";
+import { EmptyState, Label, LinkButton, Row, Score, Screen, Section, TextLink } from "@/components/kit";
 import { stageKind, statusRole } from "@/components/statusHue";
-
-function BoardIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
-      <rect x="4" y="5" width="16" height="15" rx="2.5" />
-      <path d="M4 10h16M8 3v4M16 3v4" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 interface TargetRow {
   id: string;
@@ -43,15 +33,15 @@ interface TargetRow {
 // state that isn't forward progress.
 const STATUS_ORDER = ["Target", "In Contact", "Visit", "Offer", "Committed", "Not Interested"] as const;
 
-// The score pill above this tag already says how good the fit is, so the
+// The score above this tag already says how good the fit is, so the
 // tag is low-weight text rather than a third colour-coded thing. Red is
 // deliberately absent: it belongs to actions now, not to a rating.
-const TAG_STYLE: Record<FitTag, string> = {
-  Safety: "text-ios-green",
-  Fit: "text-ink",
-  Reach: "text-muted",
-  Conflict: "text-ios-pink",
-  Unknown: "text-muted",
+const TAG_TONE: Record<FitTag, "committed" | "ink" | "muted" | "danger"> = {
+  Safety: "committed",
+  Fit: "ink",
+  Reach: "muted",
+  Conflict: "danger",
+  Unknown: "muted",
 };
 
 function unwrap<T>(value: T | T[] | null): T | null {
@@ -134,70 +124,40 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
   if (unknownStatusRows.length > 0) grouped.push({ status: "Other", rows: unknownStatusRows });
 
   return (
-    <main>
-      <div className="px-4 pt-4">
-        <div className="mb-2 flex items-center justify-end">
-          {canEdit && (
-            <Link href={`/org/${slug}/board/new`} className="text-[13px] font-bold text-accent">
-              + Add target
-            </Link>
-          )}
-        </div>
-
-        {rows.length === 0 ? (
-          <EmptyState icon={<BoardIcon />} title="No recruiting targets yet">
-            {canEdit ? (
-              <Link href={`/org/${slug}/board/new`} className="font-bold text-accent">
-                Add the first target &rarr;
-              </Link>
-            ) : (
-              "Ask an owner or coordinator to add one."
-            )}
+    <Screen title="Board" action={canEdit ? <TextLink href={`/org/${slug}/board/new`}>+ Add</TextLink> : undefined}>
+      {rows.length === 0 ? (
+        <>
+          <EmptyState kind="target" title="No recruiting targets yet">
+            {canEdit ? "A target is one athlete pointed at one school." : "Ask an owner or coordinator to add one."}
           </EmptyState>
-        ) : (
-          grouped.map((group) => (
-            <div key={group.status} className="mb-6">
-              {/* G3: a tinted pill tab, not a solid one, since the rows
-                  below carry the same hue at full saturation. */}
-              <div className="mb-2">
-                <GroupTab label={group.status} count={group.rows.length} role={statusRole(group.status)} kind={stageKind(group.status)} />
-              </div>
-              <div className="flex flex-col gap-2">
-                {group.rows.map((r) => {
-                  const row = (
-                    <RailCard role={statusRole(r.status)} kind="school">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-[16px] font-semibold text-ink">
-                            {r.athleteName} <span className="font-normal text-muted">to</span> {r.schoolName}
-                          </div>
-                          <div className="text-[13px] text-muted">
-                            {r.athleteSport} · {r.schoolDivision}
-                            {r.coachName ? ` · ${r.coachName}` : ""}
-                          </div>
-                        </div>
-                        <div className="flex flex-shrink-0 flex-col items-end gap-1">
-                          <ScorePill score={r.fit.score} />
-                          <div className={`text-[12px] font-bold ${TAG_STYLE[r.fit.tag]}`}>{r.fit.tag}</div>
-                        </div>
-                      </div>
-                    </RailCard>
-                  );
-                  // Every row opens the read view now, whatever the
-                  // role. It used to link to the edit form and only for
-                  // staff, so a member could see a score on the board
-                  // and had no way to find out what it was made of.
-                  return (
-                    <Link key={r.id} href={`/org/${slug}/board/${r.id}`} className="block">
-                      {row}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </main>
+          {canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>}
+        </>
+      ) : (
+        grouped.map((group) => (
+          <Section key={group.status} label={group.status} count={group.rows.length} role={statusRole(group.status)} kind={stageKind(group.status)}>
+            {/* Every row opens the read view, whatever the role. It used
+                to link to the edit form and only for staff, so a member
+                could see a score and had no way to find out what it was
+                made of. */}
+            {group.rows.map((r) => (
+              <Row
+                key={r.id}
+                href={`/org/${slug}/board/${r.id}`}
+                kind="school"
+                role={statusRole(r.status)}
+                title={`${r.athleteName} to ${r.schoolName}`}
+                meta={`${r.athleteSport} · ${r.schoolDivision}${r.coachName ? ` · ${r.coachName}` : ""}`}
+                trailing={
+                  <>
+                    <Score score={r.fit.score} />
+                    <Label tone={TAG_TONE[r.fit.tag]}>{r.fit.tag}</Label>
+                  </>
+                }
+              />
+            ))}
+          </Section>
+        ))
+      )}
+    </Screen>
   );
 }

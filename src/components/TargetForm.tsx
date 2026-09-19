@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { OFFER_TYPES, TARGET_STATUSES } from "@/lib/validation/target";
 import type { TargetActionState } from "@/lib/actions/targets";
-import { errorClass, fieldClass, inputClass, labelClass, submitClass } from "@/components/formStyles";
+import { Button, Field, Form, Grid2, SelectField, TextAreaField } from "@/components/kit";
 
 type ServerAction = (prevState: TargetActionState, formData: FormData) => Promise<TargetActionState>;
 
@@ -52,124 +52,73 @@ export function TargetForm({
   const [offerType, setOfferType] = useState<string>(initialValues.offerType ?? "");
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
-      {state.errors.form && (
-        <div className="rounded-[12px] border border-danger/40 bg-danger/10 px-3 py-2.5 text-[14.5px] font-semibold text-danger">
-          {state.errors.form}
-        </div>
-      )}
-
-      <div>
-        <label className={labelClass} htmlFor="athleteId">
-          Athlete
-        </label>
-        <select className={fieldClass(err("athleteId"))} id="athleteId" name="athleteId" defaultValue={initialValues.athleteId ?? ""} required>
-          <option value="" disabled>
-            Select an athlete
+    <Form action={formAction} error={state.errors.form}>
+      <SelectField name="athleteId" label="Athlete" error={err("athleteId")} defaultValue={initialValues.athleteId ?? ""} required>
+        <option value="" disabled>
+          Select an athlete
+        </option>
+        {athletes.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.label}
           </option>
-          {athletes.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.label}
-            </option>
-          ))}
-        </select>
-        {err("athleteId") && <p className={errorClass}>{err("athleteId")}</p>}
-      </div>
+        ))}
+      </SelectField>
 
-      <div>
-        <label className={labelClass} htmlFor="schoolId">
-          School
-        </label>
-        <select className={fieldClass(err("schoolId"))} id="schoolId" name="schoolId" defaultValue={initialValues.schoolId ?? ""} required>
-          <option value="" disabled>
-            Select a school
+      <SelectField name="schoolId" label="School" error={err("schoolId")} defaultValue={initialValues.schoolId ?? ""} required>
+        <option value="" disabled>
+          Select a school
+        </option>
+        {schools.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.label}
           </option>
-          {schools.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        {err("schoolId") && <p className={errorClass}>{err("schoolId")}</p>}
-      </div>
+        ))}
+      </SelectField>
 
-      <div>
-        <label className={labelClass} htmlFor="status">
-          Status
-        </label>
-        <select className={inputClass} id="status" name="status" defaultValue={initialValues.status ?? "Target"}>
+      <Grid2>
+        <SelectField name="status" label="Status" defaultValue={initialValues.status ?? "Target"}>
           {TARGET_STATUSES.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
           ))}
-        </select>
-      </div>
+        </SelectField>
+        <Field name="coachName" label="Coach" defaultValue={initialValues.coachName ?? ""} placeholder="T. Reilly" />
+      </Grid2>
 
-      <div>
-        <label className={labelClass} htmlFor="coachName">
-          Coach name
-        </label>
-        <input className={inputClass} id="coachName" name="coachName" defaultValue={initialValues.coachName ?? ""} placeholder="T. Reilly" />
-      </div>
+      <Field name="visitDate" label="Visit date" type="date" defaultValue={initialValues.visitDate ?? ""} hint="Shows up on Today once set." />
 
-      <div>
-        <label className={labelClass} htmlFor="visitDate">
-          Visit date
-        </label>
-        <input className={inputClass} id="visitDate" name="visitDate" type="date" defaultValue={initialValues.visitDate ?? ""} />
-        <p className="mt-1 text-[12.5px] text-muted">Shows up on Today's "Upcoming" once set.</p>
-      </div>
-
-      <div>
-        <label className={labelClass} htmlFor="offerType">
-          Offer
-        </label>
-        <select
-          className={inputClass}
-          id="offerType"
-          name="offerType"
-          value={offerType}
-          onChange={(e) => setOfferType(e.target.value)}
-        >
-          <option value="">No offer yet</option>
-          {OFFER_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {OFFER_TYPE_LABEL[t]}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-[12.5px] text-muted">Separate from status - this is the actual offer on file, not just the pipeline stage.</p>
-      </div>
+      <SelectField
+        name="offerType"
+        label="Offer"
+        value={offerType}
+        onChange={(e) => setOfferType(e.target.value)}
+        hint="Separate from status. This is the actual offer on file, not the pipeline stage."
+      >
+        <option value="">No offer yet</option>
+        {OFFER_TYPES.map((t) => (
+          <option key={t} value={t}>
+            {OFFER_TYPE_LABEL[t]}
+          </option>
+        ))}
+      </SelectField>
 
       {offerType === "scholarship" && (
-        <div>
-          <label className={labelClass} htmlFor="offerScholarshipPercent">
-            Scholarship percent
-          </label>
-          <input
-            className={fieldClass(err("offerScholarshipPercent"))}
-            id="offerScholarshipPercent"
-            name="offerScholarshipPercent"
-            type="number"
-            min="0"
-            max="100"
-            defaultValue={initialValues.offerScholarshipPercent ?? ""}
-          />
-          {err("offerScholarshipPercent") && <p className={errorClass}>{err("offerScholarshipPercent")}</p>}
-        </div>
+        <Field
+          name="offerScholarshipPercent"
+          label="Scholarship percent"
+          type="number"
+          min="0"
+          max="100"
+          inputMode="numeric"
+          error={err("offerScholarshipPercent")}
+          defaultValue={initialValues.offerScholarshipPercent ?? ""}
+        />
       )}
 
-      <div>
-        <label className={labelClass} htmlFor="notes">
-          Notes
-        </label>
-        <textarea className={`${inputClass} min-h-[90px] resize-y`} id="notes" name="notes" defaultValue={initialValues.notes ?? ""} />
-      </div>
+      <TextAreaField name="notes" label="Notes" defaultValue={initialValues.notes ?? ""} />
 
-      <button type="submit" disabled={pending} className={submitClass}>
-        {pending ? "Saving..." : submitLabel}
-      </button>
-    </form>
+      <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
+    </Form>
   );
 }

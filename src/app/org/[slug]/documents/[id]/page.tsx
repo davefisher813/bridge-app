@@ -1,15 +1,11 @@
-import { RowGlyph } from "@/components/RowGlyph";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { applyDocument, discardDocument, isStubbedModel } from "@/lib/actions/documents";
-import { Avatar, RailCard, SectionHeader } from "@/components/catalog";
-import { StatusPill } from "@/components/StatusPill";
-import { TEXT_ON, type Role } from "@/components/statusHue";
-import { Chip } from "@/components/catalog";
-import { submitClass } from "@/components/formStyles";
+import { Avatar, Body, Button, Chip, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
+import { Note } from "@/components/EligibilityVerdict";
+import type { Role } from "@/components/statusHue";
 
 // One document: what was read off it, who it matched, and what happens
 // next. Three shapes depending on where the pipeline routed it, because
@@ -142,224 +138,150 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
     await discardDocument(slug, doc.id);
   };
 
+  const headline = isFailed
+    ? "Could not use this"
+    : isPending
+      ? candidates.length
+        ? "Check this before it lands"
+        : "Not sure who this is"
+      : `${doc.category ? (CATEGORY_LABEL[doc.category] ?? doc.category) : "Document"} read`;
+
+  const chip = isApplied ? (
+    <Chip label="Applied" kind="check" role="committed" />
+  ) : isPending ? (
+    <Chip label="Needs review" kind="warning" role="offer" />
+  ) : isFailed ? (
+    <Chip label="Not used" kind="blocked" role="danger" />
+  ) : undefined;
+
   return (
-    <main className="px-4 pt-2 pb-6">
-      <div className="mb-4 flex items-center justify-between">
-        <Link href={`/org/${slug}/documents`} className="-my-2 inline-flex min-h-[44px] items-center py-2 pr-3 text-[14.5px] font-bold text-muted">
-          &larr; Documents
-        </Link>
-        {isApplied && <StatusPill status="Committed" />}
-        {isPending && <Chip label="Needs review" kind="warning" role="offer" />}
-        {isFailed && <Chip label="Not used" kind="blocked" role="danger" />}
-      </div>
-
-      <h1 className="text-[22px] font-extrabold text-ink">
-        {isFailed
-          ? "Could not use this"
-          : isPending
-            ? candidates.length
-              ? "Check this before it lands"
-              : "Not sure who this is"
-            : `${doc.category ? CATEGORY_LABEL[doc.category] ?? doc.category : "Document"} read`}
-      </h1>
-      <div className="mt-1 text-[14.5px] text-muted">
-        {doc.file_name}
-        {doc.page_count ? ` · ${doc.page_count} page${doc.page_count === 1 ? "" : "s"}` : ""} · from {SOURCE_LABEL[doc.source_role] ?? doc.source_role}
-      </div>
-
+    <Screen
+      title={headline}
+      back={{ href: `/org/${slug}/documents`, label: "Documents" }}
+      lede={`${doc.file_name}${doc.page_count ? ` · ${doc.page_count} page${doc.page_count === 1 ? "" : "s"}` : ""} · from ${SOURCE_LABEL[doc.source_role] ?? doc.source_role}`}
+      action={chip}
+    >
       {stubbed && (
-        <div className="mt-4 flex items-start gap-3 rounded-[10px] bg-paper px-3.5 py-3">
-          <span className="mt-[1px]"><RowGlyph kind="warning" role="time" /></span>
-          <div className="min-w-0 flex-1">
-          <div className="text-[14.5px] font-bold text-ink">Simulated reading</div>
-          <div className="mt-0.5 text-[12.5px] text-muted">
-            No AI model is connected yet. Nothing below was read off the page; it is made up by the stand-in so the flow can be used.
-          </div>
-        </div>
-          </div>
+        <Notice tone="warning" title="Simulated reading">
+          No AI model is connected yet. Nothing below was read off the page; it is made up by the stand-in so the flow can be used.
+        </Notice>
       )}
 
       {doc.requested_category === null && doc.detected_type && (
-        <div className="mt-4">
-          <RailCard role="place">
-            <div className="text-[14.5px] font-bold text-ink">Worked out the type itself</div>
-            <div className="mt-0.5 text-[12.5px] text-muted">
-              Nobody told it what this was. It decided: {doc.detected_type.replace(/_/g, " ")}.
-            </div>
-          </RailCard>
-        </div>
+        <Note title="Worked out the type itself">Nobody told it what this was. It decided: {doc.detected_type.replace(/_/g, " ")}.</Note>
       )}
 
       {isFailed && (
         <>
-          <div className="mb-2 mt-6">
-            <SectionHeader label="What went wrong" count={doc.triage?.issues?.length || undefined} role="danger" />
-          </div>
-          <div className="flex flex-col gap-2">
-            <RailCard role="danger">
-              <div className="text-[14.5px] font-bold text-ink">{doc.failure_reason ?? "It could not be read."}</div>
-              {legibility !== null && <div className="mt-0.5 text-[12.5px] text-muted">Legibility {legibility}%</div>}
-            </RailCard>
+          <Section label="What went wrong" count={doc.triage?.issues?.length || undefined} role="danger" kind="blocked">
+            <Notice tone="danger" title={doc.failure_reason ?? "It could not be read."}>
+              {legibility !== null ? `Legibility ${legibility}%` : undefined}
+            </Notice>
             {(doc.triage?.issues ?? []).map((issue) => (
-              <RailCard key={issue} role="danger">
-                <div className="text-[14.5px] font-bold text-ink">{issue}</div>
-              </RailCard>
+              <Note key={issue}>{issue}</Note>
             ))}
-          </div>
-          <div className="mt-6 rounded-[12px] bg-paper px-4 py-5">
-            <div className="text-[14.5px] font-extrabold text-ink">Try again</div>
-            <div className="mt-1 text-[12.5px] text-muted">
-              Lay it flat, avoid a window behind you, and get the whole page in frame. Nothing was changed on any athlete.
-            </div>
-          </div>
-          <div className="mt-5">
-            <Link href={`/org/${slug}/documents/new`} className={`${submitClass} block w-full`}>
-              Add another
-            </Link>
-          </div>
+          </Section>
+          <Note title="Try again">
+            Lay it flat, avoid a window behind you, and get the whole page in frame. Nothing was changed on any athlete.
+          </Note>
+          <LinkButton href={`/org/${slug}/documents/new`}>Add Another</LinkButton>
         </>
       )}
 
       {!isFailed && (
         <>
-          <div className="mb-2 mt-6">
-            <SectionHeader label={matched ? "Matched to" : "Pick the athlete"} count={matched ? undefined : candidates.length} role={matched ? "people" : "offer"} />
-          </div>
-
-          {matched ? (
-            <RailCard role="people">
-              <div className="flex items-center gap-3">
-                <Avatar name={matched} />
-                <div>
-                  <div className="text-[15px] font-bold text-ink">{matched}</div>
-                  <div className="text-[12.5px] text-muted">{candidates[0]?.reasons.join(" · ") || "Matched on the name"}</div>
-                </div>
-              </div>
-            </RailCard>
-          ) : candidates.length ? (
-            <div className="flex flex-col gap-2">
-              {candidates.map((c) => (
-                <form key={c.athleteId} action={applyAction}>
-                  <input type="hidden" name="athleteId" value={c.athleteId} />
-                  <button type="submit" className="block w-full text-left">
-                    <RailCard role="offer">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar name={c.name} />
-                          <div>
-                            <div className="text-[15px] font-bold text-ink">{c.name}</div>
-                            <div className="text-[12.5px] text-muted">{c.reasons.join(" · ") || "Possible match"}</div>
-                          </div>
-                        </div>
-                        <span
-                          className={`flex-shrink-0 text-[16px] font-black tabular-nums ${TEXT_ON[confidenceRole(Math.round(c.score * 100))]}`}
-                        >
-                          {Math.round(c.score * 100)}%
-                        </span>
-                      </div>
-                    </RailCard>
-                  </button>
-                </form>
-              ))}
-              <p className="mt-1 text-[12px] text-muted">Tapping one applies this document to them.</p>
-            </div>
-          ) : (
-            <RailCard role="offer">
-              <div className="text-[14.5px] font-bold text-ink">No athlete on the roster looks like a match</div>
-              <div className="mt-0.5 text-[12.5px] text-muted">
-                {doc.extracted?.studentName ? `The document says "${String(doc.extracted.studentName)}".` : "No name was read off it."} Add them to the
-                roster first, then come back.
-              </div>
-            </RailCard>
-          )}
+          <Section label={matched ? "Matched to" : "Pick the athlete"} count={matched ? undefined : candidates.length} role={matched ? "people" : "offer"} kind="athlete">
+            {matched ? (
+              <Row leading={<Avatar name={matched} />} title={matched} meta={candidates[0]?.reasons.join(" · ") || "Matched on the name"} />
+            ) : candidates.length ? (
+              <>
+                {candidates.map((c) => (
+                  <Form key={c.athleteId} action={applyAction}>
+                    <Hidden name="athleteId" value={c.athleteId} />
+                    <Row
+                      leading={<Avatar name={c.name} />}
+                      title={c.name}
+                      meta={`${Math.round(c.score * 100)}% · ${c.reasons.join(" · ") || "Possible match"}`}
+                      trailing={
+                        <Button variant="secondary" inline>
+                          Apply
+                        </Button>
+                      }
+                    />
+                  </Form>
+                ))}
+                <Label>Applying puts what was read onto that athlete.</Label>
+              </>
+            ) : (
+              <Note title="No athlete on the roster looks like a match">
+                {doc.extracted?.studentName ? `The document says "${String(doc.extracted.studentName)}".` : "No name was read off it."} Add them to
+                the roster first, then come back.
+              </Note>
+            )}
+          </Section>
 
           {fields.length > 0 && (
-            <>
-              <div className="mb-2 mt-6">
-                <SectionHeader label="What it says" count={fields.length} role={isApplied ? "committed" : "offer"} />
-              </div>
-              <div className="flex flex-col gap-2">
-                {fields.map((f) => (
-                  <RailCard key={f.label} role={isApplied ? "committed" : "offer"}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-[14.5px] text-muted">{f.label}</div>
-                      <div className="text-[15px] font-extrabold tabular-nums text-ink">{f.value}</div>
-                    </div>
-                  </RailCard>
-                ))}
-              </div>
-            </>
+            <Section label="What it says" count={fields.length} role={isApplied ? "committed" : "offer"} kind="document">
+              {fields.map((f) => (
+                <Row
+                  key={f.label}
+                  title={f.label}
+                  emphasis="semibold"
+                  trailing={
+                    <Body weight="bold" numeric>
+                      {f.value}
+                    </Body>
+                  }
+                />
+              ))}
+            </Section>
           )}
 
           {pct !== null && (
-            <>
-              <div className="mb-2 mt-6">
-                <SectionHeader label={isApplied ? "How sure" : "Why it stopped"} role={isApplied ? "committed" : "offer"} />
-              </div>
-              <RailCard role={isApplied ? "committed" : "offer"}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-[14.5px] font-bold text-ink">
-                    {pct >= 70 ? "High confidence" : pct >= 40 ? "Medium confidence" : "Low confidence"}
-                  </div>
-                  <div className="text-[16px] font-extrabold tabular-nums text-ink">{pct}%</div>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
-                  <div
-                    className={`h-full rounded-full ${pct >= 70 ? "bg-ios-green" : pct >= 40 ? "bg-ios-orange" : "bg-ios-gray"}`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <div className="mt-2 text-[12.5px] text-muted">
+            <Section label={isApplied ? "How sure" : "Why it stopped"} role={isApplied ? "committed" : "offer"} kind="info">
+              <Stack gap={2}>
+                <Row
+                  title={pct >= 70 ? "High confidence" : pct >= 40 ? "Medium confidence" : "Low confidence"}
+                  trailing={
+                    <Body weight="bold" numeric tone={confidenceRole(pct)}>
+                      {pct}%
+                    </Body>
+                  }
+                />
+                <Meter parts={[{ role: confidenceRole(pct), fraction: pct / 100 }]} />
+                <Label>
                   {modelPct !== null ? `It was ${modelPct}% sure of what it read` : "Confidence was not reported"}
                   {legibility !== null ? `, the scan was ${legibility}% legible` : ""}, and it came from {SOURCE_LABEL[doc.source_role] ?? doc.source_role}.
                   {isApplied ? " Applied without asking." : " That is not enough to change an athlete without a look."}
-                </div>
-              </RailCard>
-            </>
+                </Label>
+              </Stack>
+            </Section>
           )}
 
           {/* What discarding actually did, kept on the row so it
               survives a reload. A discard that silently leaves an
               athlete's GPA rewritten is the bug this replaced. */}
-          {isDiscarded && doc.undo_note && (
-            <div className="mt-5">
-              <RailCard role="target">
-                <div className="text-[14.5px] font-bold text-ink">What was undone</div>
-                <div className="mt-1 text-[13px] leading-tight text-muted">{doc.undo_note}</div>
-              </RailCard>
-            </div>
-          )}
+          {isDiscarded && doc.undo_note && <Note title="What was undone">{doc.undo_note}</Note>}
 
           {/* Discarding an APPLIED document is an undo, so the button
-              says so. It did not exist at all before: an applied
-              document could only ever be left as it was, however wrong
-              it turned out to be. */}
+              says so. */}
           {isApplied && (
-            <div className="mt-5">
-              <RailCard role="offer">
-                <div className="text-[14.5px] font-bold text-ink">Applied to the wrong athlete, or read wrong?</div>
-                <div className="mt-1 text-[13px] leading-tight text-muted">
-                  Discarding this now removes the courses it added and puts back the athlete&apos;s previous GPA and date of birth. Anything
-                  corrected by hand since is left alone.
-                </div>
-              </RailCard>
-            </div>
+            <Note title="Applied to the wrong athlete, or read wrong?">
+              Discarding this now removes the courses it added and puts back the athlete&apos;s previous GPA and date of birth. Anything
+              corrected by hand since is left alone.
+            </Note>
           )}
 
-          <div className="mt-6 flex gap-2">
-            <Link href={`/org/${slug}/documents`} className={`${submitClass} flex-1`}>
-              Done
-            </Link>
+          <Stack>
+            <LinkButton href={`/org/${slug}/documents`}>Done</LinkButton>
             {(isPending || isApplied) && (
-              <form action={discardAction} className="flex-1">
-                <button type="submit" className="w-full rounded-[8px] bg-paper py-3 text-center text-[15px] font-bold text-ink">
-                  {isApplied ? "Undo and discard" : "Discard"}
-                </button>
-              </form>
+              <Form action={discardAction}>
+                <Button variant="destructive">{isApplied ? "Undo and Discard" : "Discard"}</Button>
+              </Form>
             )}
-          </div>
+          </Stack>
         </>
       )}
-    </main>
+    </Screen>
   );
 }
