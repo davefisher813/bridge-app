@@ -337,6 +337,31 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
       async getUser() {
         return { data: { user: opts.userId ? { id: opts.userId } : null }, error: null };
       },
+      // The sign-in and invitation calls, recorded rather than performed.
+      // Nothing here sends an email; a test asserts that the right call
+      // was made with the right address and the right link.
+      async signInWithOtp(args: { email: string; options?: Record<string, unknown> }) {
+        recorded.push({ op: "insert", table: "auth:otp", rows: [{ email: args.email, ...(args.options ?? {}) }], filters: [] });
+        return { data: { user: null, session: null }, error: null };
+      },
+      async verifyOtp(args: { token_hash: string; type: string }) {
+        recorded.push({ op: "insert", table: "auth:verify", rows: [{ ...args }], filters: [] });
+        return args.token_hash === "expired" ? { data: {}, error: { message: "Token has expired or is invalid" } } : { data: {}, error: null };
+      },
+      async exchangeCodeForSession(code: string) {
+        recorded.push({ op: "insert", table: "auth:exchange", rows: [{ code }], filters: [] });
+        return code === "expired" ? { data: {}, error: { message: "invalid code" } } : { data: {}, error: null };
+      },
+      admin: {
+        async inviteUserByEmail(email: string, options?: { data?: Record<string, unknown>; redirectTo?: string }) {
+          const users = data.users ?? (data.users = []);
+          const id = `fake-user-${users.length + 1}`;
+          // What the trigger in migration 0017 does on the real database.
+          users.push({ id, email, full_name: String(options?.data?.full_name ?? "") });
+          recorded.push({ op: "insert", table: "auth:invite", rows: [{ email, ...(options ?? {}) }], filters: [] });
+          return { data: { user: { id, email } }, error: null };
+        },
+      },
     },
     // Storage, just far enough for the documents flow. Objects live in a
     // `storage_objects` table of the fixture as { bucket, name, base64 };

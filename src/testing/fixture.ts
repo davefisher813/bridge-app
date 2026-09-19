@@ -20,11 +20,13 @@ const BRIDGE = "00000000-0000-0000-0000-0000000000a1";
 const ELITE = "00000000-0000-0000-0000-0000000000a2";
 const OWNER = "00000000-0000-0000-0000-0000000000b1";
 const MEMBER = "00000000-0000-0000-0000-0000000000b2";
+const OUTSIDER = "00000000-0000-0000-0000-0000000000b3";
 
 export const ORG_WITH_MODULES = "bridge-fixture";
 export const ORG_WITHOUT_MODULES = "elite-fixture";
 export const OWNER_ID = OWNER;
 export const MEMBER_ID = MEMBER;
+export const OUTSIDER_ID = OUTSIDER;
 
 export const IDS = {
   athlete: "00000000-0000-0000-0000-0000000000c1",
@@ -58,6 +60,9 @@ export function buildFixture(): Dataset {
     users: [
       { id: OWNER, email: "owner@example.test", full_name: "Example Owner" },
       { id: MEMBER, email: "member@example.test", full_name: "Example Member" },
+      // Belongs to the other org only: the person an owner adds to
+      // Bridge without an invitation email, because the account exists.
+      { id: OUTSIDER, email: "outsider@example.test", full_name: "Example Outsider" },
     ],
     orgs: [
       {
@@ -79,6 +84,7 @@ export function buildFixture(): Dataset {
       { id: "m1", user_id: OWNER, org_id: BRIDGE, role: "owner" },
       { id: "m2", user_id: MEMBER, org_id: BRIDGE, role: "member" },
       { id: "m3", user_id: OWNER, org_id: ELITE, role: "owner" },
+      { id: "m4", user_id: OUTSIDER, org_id: ELITE, role: "staff" },
     ],
     athletes: [
       {

@@ -1,0 +1,140 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOwner, type OrgRole } from "@/lib/auth/guard";
+import { getOrgBySlug } from "@/lib/org/membership";
+import { siteOrigin } from "@/lib/auth/origin";
+import { parseInviteForm, parseRole } from "@/lib/validation/member";
+
+// Who belongs to an org, and what they may do there. Owner only, and
+// every write goes through the service role on purpose: org_members has
+// no INSERT, UPDATE or DELETE policy, because a row in it is what grants
+// access to everything else and carries its own role. A policy keyed off
+// staff would let a coordinator write themselves in as owner (see
+// docs/DECISIONS.md, 2026-09-17). requireOwner() is the gate; the admin
+// client is the hand that writes.
+
+export interface MemberActionState {
+  errors: Record<string, string>;
+  values?: Record<string, FormDataEntryValue>;
+  notice?: string;
+}
+
+// Invites need the service role key. Without it the honest answer is
+// that invites are not set up, not a stack trace from the admin client.
+function serviceRoleConfigured(): boolean {
+  return !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+}
+
+async function ownersOf(orgId: string): Promise<string[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("org_members").select("user_id").eq("org_id", orgId).eq("role", "owner");
+  return ((data ?? []) as { user_id: string }[]).map((r) => r.user_id);
+}
+
+export async function inviteMember(slug: string, _prev: MemberActionState, formData: FormData): Promise<MemberActionState> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireOwner(org.id);
+
+  const parsed = parseInviteForm(formData);
+  if (!parsed.ok || !parsed.values) {
+    return { errors: parsed.errors, values: Object.fromEntries(formData.entries()) };
+  }
+  const { email, role, fullName } = parsed.values;
+
+  if (!serviceRoleConfigured()) {
+    return {
+      errors: { form: "Invites are not set up on this server yet: the service role key is missing. Ask whoever deploys the app to add it." },
+      values: Object.fromEntries(formData.entries()),
+    };
+  }
+
+  const admin = createAdminClient();
+
+  // Somebody who already has an account (a coach at another org, say)
+  // is added straight away and signs in as usual. Somebody new gets an
+  // invitation email; the trigger on auth.users creates their profile
+  // row when Supabase creates the account.
+  const { data: existing } = await admin.from("users").select("id").eq("email", email).maybeSingle();
+  let userId = (existing as { id: string } | null)?.id ?? null;
+  let notice: string;
+
+  if (userId) {
+    const { data: membership } = await admin.from("org_members").select("role").eq("user_id", userId).eq("org_id", org.id).maybeSingle();
+    if (membership) {
+      return { errors: { email: "Already a member of this organization." }, values: Object.fromEntries(formData.entries()) };
+    }
+    notice = `${email} already had an account and has been added. They can sign in with their email.`;
+  } else {
+    const origin = await siteOrigin();
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+      data: fullName ? { full_name: fullName } : {},
+      redirectTo: `${origin}/auth/callback?next=/`,
+    });
+    if (error || !data?.user) {
+      return { errors: { form: `Could not send the invitation: ${error?.message ?? "no account was created."}` }, values: Object.fromEntries(formData.entries()) };
+    }
+    userId = data.user.id;
+    notice = `Invitation sent to ${email}.`;
+  }
+
+  const { error: memberError } = await admin.from("org_members").insert({ user_id: userId, org_id: org.id, role });
+  if (memberError) {
+    return { errors: { form: `The account exists but could not be added to ${org.name}: ${memberError.message}` }, values: Object.fromEntries(formData.entries()) };
+  }
+
+  revalidatePath(`/org/${slug}/members`);
+  redirect(`/org/${slug}/members?notice=${encodeURIComponent(notice)}`);
+}
+
+export async function changeMemberRole(slug: string, userId: string, role: unknown): Promise<{ ok: boolean; error?: string }> {
+  const org = await getOrgBySlug(slug);
+  if (!org) return { ok: false, error: "Organization not found." };
+  await requireOwner(org.id);
+
+  const nextRole = parseRole(role);
+  if (!nextRole) return { ok: false, error: "That is not a role." };
+
+  // An org always keeps at least one owner, or nobody can fix anything.
+  if (nextRole !== "owner") {
+    const owners = await ownersOf(org.id);
+    if (owners.length === 1 && owners[0] === userId) {
+      return { ok: false, error: "This is the organization's only owner. Make someone else an owner first." };
+    }
+  }
+
+  if (!serviceRoleConfigured()) return { ok: false, error: "Changing roles is not set up on this server yet: the service role key is missing." };
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("org_members").update({ role: nextRole satisfies OrgRole }).eq("user_id", userId).eq("org_id", org.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/org/${slug}/members`);
+  return { ok: true };
+}
+
+export async function removeMember(slug: string, userId: string): Promise<{ ok: boolean; error?: string; removedSelf?: boolean }> {
+  const org = await getOrgBySlug(slug);
+  if (!org) return { ok: false, error: "Organization not found." };
+  const caller = await requireOwner(org.id);
+
+  const owners = await ownersOf(org.id);
+  if (owners.length === 1 && owners[0] === userId) {
+    return { ok: false, error: "This is the organization's only owner. Make someone else an owner first." };
+  }
+
+  if (!serviceRoleConfigured()) return { ok: false, error: "Removing members is not set up on this server yet: the service role key is missing." };
+
+  // The account stays; only this org's membership goes. Their other
+  // organizations, if any, are untouched.
+  const admin = createAdminClient();
+  const { error } = await admin.from("org_members").delete().eq("user_id", userId).eq("org_id", org.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/org/${slug}/members`);
+  return { ok: true, removedSelf: caller.id === userId };
+}

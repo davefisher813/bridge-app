@@ -20,7 +20,7 @@
 // action is asserted by its redirect target and by what it wrote.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { buildFixture, IDS, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID, MEMBER_ID } from "@/testing/fixture";
+import { buildFixture, IDS, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID, MEMBER_ID, OUTSIDER_ID } from "@/testing/fixture";
 import { createFakeClient, type Dataset, type RecordedWrite } from "@/testing/fakeSupabase";
 
 const NOT_FOUND = "NEXT_NOT_FOUND";
@@ -32,7 +32,7 @@ let data: Dataset = buildFixture();
 let failOn: (table: string, op: string) => string | null = () => null;
 let revalidated: string[] = [];
 
-vi.mock("next/headers", () => ({ cookies: async () => ({ getAll: () => [], set: () => {} }) }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ getAll: () => [], set: () => {} }), headers: async () => new Headers() }));
 
 vi.mock("next/cache", () => ({
   revalidatePath: (path: string) => {
@@ -415,6 +415,163 @@ describe("LAW: a document is read back from Storage, and only from this org's fo
       requestedCategory: "transcript",
     });
     expect(r.ok).toBe(false);
+    expect(writes).toEqual([]);
+  });
+});
+
+describe("LAW: membership is written by the service role, only by an owner, and never leaves an org ownerless", () => {
+  // org_members has no INSERT, UPDATE or DELETE policy on purpose
+  // (docs/DECISIONS.md, 2026-09-17): a row there is what grants access
+  // to everything and it carries its own role. So the owner check is
+  // the gate and the admin client is the hand, and both are asserted
+  // here rather than assumed.
+  const withKey = () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-only";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://app.example.test";
+  };
+  const withoutKey = () => {
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  };
+
+  it("an owner inviting a new address sends an invitation and adds the membership", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "New@Example.test", role: "staff", fullName: "New Person" })));
+    expect(r.redirect).toContain("/members");
+    const invite = writes.find((w) => w.table === "auth:invite");
+    expect(invite?.rows[0]?.email).toBe("new@example.test");
+    expect(String(invite?.rows[0]?.redirectTo)).toBe("https://app.example.test/auth/callback?next=/");
+    const membership = writes.find((w) => w.table === "org_members" && w.op === "insert");
+    expect(membership?.rows[0]).toMatchObject({ org_id: data.orgs[0]!.id, role: "staff" });
+  });
+
+  it("an owner adding an existing account writes the membership and sends no invitation", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "outsider@example.test", role: "member" })));
+    expect(r.redirect).toContain("/members");
+    expect(writes.find((w) => w.table === "auth:invite")).toBeUndefined();
+    const membership = writes.find((w) => w.table === "org_members" && w.op === "insert");
+    expect(membership?.rows[0]).toMatchObject({ user_id: OUTSIDER_ID, org_id: data.orgs[0]!.id, role: "member" });
+  });
+
+  it("inviting someone already in the org writes nothing", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "member@example.test", role: "staff" })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.email).toMatch(/Already/);
+    expect(writes).toEqual([]);
+  });
+
+  it("a member cannot invite", async () => {
+    withKey();
+    currentUser = MEMBER_ID;
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "x@example.test", role: "member" })));
+    expect(r.redirect).toBe("/unauthorized");
+    expect(writes).toEqual([]);
+  });
+
+  it("without the service role key an invite says so and writes nothing", async () => {
+    withoutKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "x@example.test", role: "member" })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.form).toMatch(/service role key/);
+    expect(writes).toEqual([]);
+  });
+
+  it("the only owner cannot be demoted or removed", async () => {
+    withKey();
+    const { changeMemberRole, removeMember } = await import("@/lib/actions/members");
+    const demote = await changeMemberRole(ORG_WITH_MODULES, OWNER_ID, "staff");
+    expect(demote.ok).toBe(false);
+    expect(demote.error).toMatch(/only owner/);
+    const remove = await removeMember(ORG_WITH_MODULES, OWNER_ID);
+    expect(remove.ok).toBe(false);
+    expect(writes).toEqual([]);
+  });
+
+  it("a role change and a removal go through the admin client, scoped to the org", async () => {
+    withKey();
+    const { changeMemberRole, removeMember } = await import("@/lib/actions/members");
+    expect((await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "staff")).ok).toBe(true);
+    const update = writes.find((w) => w.table === "org_members" && w.op === "update");
+    expect(update?.rows[0]).toEqual({ role: "staff" });
+    expect(update?.filters).toEqual(
+      expect.arrayContaining([
+        { column: "user_id", value: MEMBER_ID },
+        { column: "org_id", value: data.orgs[0]!.id },
+      ]),
+    );
+    expect((await removeMember(ORG_WITH_MODULES, MEMBER_ID)).ok).toBe(true);
+    const del = writes.find((w) => w.table === "org_members" && w.op === "delete");
+    expect(del?.filters).toEqual(
+      expect.arrayContaining([
+        { column: "user_id", value: MEMBER_ID },
+        { column: "org_id", value: data.orgs[0]!.id },
+      ]),
+    );
+  });
+
+  it("a role that is not a role is refused", async () => {
+    withKey();
+    const { changeMemberRole } = await import("@/lib/actions/members");
+    expect((await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "admin")).ok).toBe(false);
+    expect(writes).toEqual([]);
+  });
+});
+
+type MemberState = { errors: Record<string, string> };
+
+describe("LAW: the magic link never creates an account and always comes back to this site", () => {
+  it("sendMagicLink asks for a link to /auth/callback with signups off", async () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://app.example.test";
+    const { sendMagicLink } = await import("@/lib/auth/actions");
+    const r = await sendMagicLink({ sent: false, email: "", error: null }, form({ email: " Dave@Example.test " }));
+    expect(r.sent).toBe(true);
+    const otp = writes.find((w) => w.table === "auth:otp");
+    expect(otp?.rows[0]).toMatchObject({ email: "dave@example.test", emailRedirectTo: "https://app.example.test/auth/callback", shouldCreateUser: false });
+  });
+
+  it("a bad address is refused before any call", async () => {
+    const { sendMagicLink } = await import("@/lib/auth/actions");
+    const r = await sendMagicLink({ sent: false, email: "", error: null }, form({ email: "nope" }));
+    expect(r.sent).toBe(false);
+    expect(writes).toEqual([]);
+  });
+});
+
+describe("LAW: the auth callback verifies, then lands on this site only", () => {
+  async function get(query: string): Promise<string> {
+    const { GET } = await import("@/app/auth/callback/route");
+    const { NextRequest } = await import("next/server");
+    const res = await GET(new NextRequest(`https://app.example.test/auth/callback${query}`));
+    return res.headers.get("location") ?? "";
+  }
+
+  it("a token hash is verified and the person lands on the path they asked for", async () => {
+    expect(await get("?token_hash=abc&type=magiclink&next=/org/bridge-fixture")).toBe("https://app.example.test/org/bridge-fixture");
+    expect(writes.find((w) => w.table === "auth:verify")?.rows[0]).toEqual({ token_hash: "abc", type: "magiclink" });
+  });
+
+  it("a code is exchanged", async () => {
+    expect(await get("?code=xyz")).toBe("https://app.example.test/");
+    expect(writes.find((w) => w.table === "auth:exchange")?.rows[0]).toEqual({ code: "xyz" });
+  });
+
+  it("an expired link goes back to sign-in with a reason", async () => {
+    expect(await get("?token_hash=expired&type=magiclink")).toMatch(/\/login\?error=/);
+  });
+
+  it("an off-site next is ignored", async () => {
+    expect(await get("?token_hash=abc&type=magiclink&next=https://evil.example")).toBe("https://app.example.test/");
+    expect(await get("?token_hash=abc&type=magiclink&next=//evil.example")).toBe("https://app.example.test/");
+  });
+
+  it("nothing to verify is a failure, not a session", async () => {
+    expect(await get("")).toMatch(/\/login\?error=/);
     expect(writes).toEqual([]);
   });
 });
