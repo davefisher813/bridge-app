@@ -23,7 +23,9 @@ still be changed before anything is deployed.
 already empty, so it costs nothing and risks nothing. Not a new project,
 which might push the account to a paid tier.
 
-**Owner account.** dfisher2424@icloud.com, the address on this account.
+**Owner account.** dave@bffsa.org, confirmed by Dave 2026-09-19. The
+address on the Claude account is an iCloud one he does not use; do not
+reach for it again.
 
 **Push.** Nothing is pushed anywhere until Dave says "push" or "go".
 That rule does not change.
