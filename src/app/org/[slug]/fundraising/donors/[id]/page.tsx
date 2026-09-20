@@ -5,6 +5,7 @@
 // That is the same reason the donors list computes rather than reads.
 
 import { notFound } from "next/navigation";
+import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -13,6 +14,8 @@ import { donorTotals, formatMoney, formatMoneyShort, outstandingOn, CATEGORY_LAB
 import { Body, Chevron, EmptyState, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
+
+const TYPE_LABEL: Record<string, string> = { individual: "Individual", corporate: "Corporate", foundation: "Foundation", board_member: "Board Member", other: "Other" };
 
 export default async function DonorPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
@@ -48,7 +51,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
     <Screen
       title={d.name}
       back={{ href: `/org/${slug}/fundraising/donors`, label: "Donors" }}
-      lede={`${d.donor_type.replace(/_/g, " ")}${d.email ? ` · ${d.email}` : ""}`}
+      lede={`${TYPE_LABEL[d.donor_type] ?? d.donor_type.replace(/_/g, " ")}${d.email ? ` · ${d.email}` : ""}`}
     >
       <StatRow>
         <Stat value={formatMoneyShort(totals.lifetimeCashCents)} label="Lifetime" role="committed" />
@@ -85,7 +88,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
                 kind="pledge"
                 role={out > 0 ? "offer" : "committed"}
                 title={`${formatMoney(p.amountCents)} promised`}
-                meta={p.dueOn ? `due ${p.dueOn}` : undefined}
+                meta={p.dueOn ? `due ${longDate(p.dueOn)}` : undefined}
                 trailing={
                   <Body weight="bold" numeric>
                     {out === 0 ? "Paid" : `${formatMoney(out)} left`}
@@ -109,7 +112,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
               kind={g.method === "in_kind" ? "grant" : "money"}
               role={g.method === "in_kind" ? "place" : "committed"}
               title={CATEGORY_LABEL[g.category as GiftCategory] ?? g.category}
-              meta={`${g.receivedOn} · ${g.method === "in_kind" ? "in kind" : g.method}`}
+              meta={`${longDate(g.receivedOn)} · ${g.method === "in_kind" ? "in kind" : g.method}`}
               trailing={
                 <Body weight="bold" numeric>
                   {formatMoney(g.amountCents)}

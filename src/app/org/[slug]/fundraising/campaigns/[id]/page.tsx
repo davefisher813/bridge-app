@@ -6,6 +6,7 @@
 // returns them separately.
 
 import { notFound } from "next/navigation";
+import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -46,7 +47,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
   const role = pct == null ? "target" : pct >= 75 ? "committed" : "offer";
 
   return (
-    <Screen title={c.name} back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }} lede={`${c.kind}${c.ends_on ? ` · ends ${c.ends_on}` : ""}`}>
+    <Screen title={c.name} back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }} lede={`${c.kind.charAt(0).toUpperCase()}${c.kind.slice(1)}${c.ends_on ? ` · ends ${longDate(c.ends_on)}` : ""}`}>
       <Card>
         <Stack gap={2}>
           <div className="flex items-start justify-between gap-3">
@@ -78,7 +79,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
               kind={g.method === "in_kind" ? "grant" : "money"}
               role={g.method === "in_kind" ? "place" : "committed"}
               title={g.donorId ? (donorName.get(g.donorId) ?? "Unknown donor") : "Anonymous"}
-              meta={g.receivedOn}
+              meta={longDate(g.receivedOn)}
               trailing={
                 <Body weight="bold" numeric>
                   {formatMoney(g.amountCents)}

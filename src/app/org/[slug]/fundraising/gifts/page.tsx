@@ -10,6 +10,7 @@
 // treasurer cannot spend it.
 
 import { notFound } from "next/navigation";
+import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -76,7 +77,8 @@ export default async function GiftsPage({
                 kind={inKind ? "grant" : "money"}
                 role={inKind ? "place" : "committed"}
                 title={name}
-                meta={`${g.receivedOn} · ${METHOD_LABEL[g.method] ?? g.method}${g.campaignId ? ` · ${campaignName.get(g.campaignId) ?? "campaign"}` : ""}`}
+                meta={`${longDate(g.receivedOn)} · ${METHOD_LABEL[g.method] ?? g.method}${g.campaignId ? ` · ${campaignName.get(g.campaignId) ?? "campaign"}` : ""}`}
+                wrap
                 trailing={
                   <Body weight="bold" numeric>
                     {formatMoney(g.amountCents)}

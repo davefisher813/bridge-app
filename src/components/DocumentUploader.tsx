@@ -141,7 +141,7 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
     <Stack gap={4}>
       {!boundTo && (
         <Stack gap={2}>
-          <Label>What is it</Label>
+          <Label>What Is It</Label>
           <ChoiceRow>
             {CATEGORIES.map((c) => (
               <Choice key={c.label} on={c.id === category} onClick={() => setCategory(c.id)}>

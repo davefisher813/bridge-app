@@ -15,7 +15,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { Body, Card, EmptyState, Label, LinkButton, Meter, Row, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
+import { Body, Card, Chevron, EmptyState, Label, LinkButton, Meter, Row, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { campaignProgress, formatMoney, formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
@@ -166,7 +166,7 @@ export default async function FundraisingPage({
       )}
 
       {campaigns.length > 0 && (
-        <Section label="Campaigns" count={campaigns.length} role="visit" kind="campaign">
+        <Section label="Campaigns" count={campaigns.length} role="visit" kind="campaign" action={canEdit ? <TextLink href={`/org/${slug}/fundraising/campaigns/new`}>New</TextLink> : undefined}>
           {campaigns.map((c) => {
             const goalCents = c.goal_amount === null ? 0 : Math.round(Number(c.goal_amount) * 100);
             const p = campaignProgress(c.id, goalCents, gifts, pledges);
@@ -210,32 +210,28 @@ export default async function FundraisingPage({
       {/* Reading the ledger is not an editing right. A board member who
           can see the total can see what it is made of, which is the
           point of showing them a total at all. */}
-      <Stack>
-        <LinkButton href={`/org/${slug}/fundraising/gifts`} variant="secondary">
-          All Gifts
-        </LinkButton>
-        <LinkButton href={`/org/${slug}/fundraising/pledges`} variant="secondary">
-          Pledges
-        </LinkButton>
-        <LinkButton href={`/org/${slug}/fundraising/donors`} variant="secondary">
-          Donors
-        </LinkButton>
-      </Stack>
+      <Section label="Records" role="committed" kind="money">
+        <Row href={`/org/${slug}/fundraising/gifts`} kind="money" role="committed" title="Gifts" meta="Every gift, cash and in kind" trailing={<Chevron />} />
+        <Row href={`/org/${slug}/fundraising/pledges`} kind="pledge" role="offer" title="Pledges" meta="Promised, and what is still outstanding" trailing={<Chevron />} />
+        <Row href={`/org/${slug}/fundraising/donors`} kind="donor" role="contact" title="Donors" meta="Every supporter and their history" trailing={<Chevron />} />
+        {canEdit && <Row href={`/org/${slug}/fundraising/grants`} kind="grant" role="place" title="Grants" meta="Applications and their deadlines" trailing={<Chevron />} />}
+        {canEdit && (
+          <Row
+            href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`}
+            kind="settings"
+            role="neutral"
+            title="Budget"
+            meta={s.totalBudgetCents > 0 ? `${fiscalYear}, as the board approved it` : "Not set yet"}
+            trailing={<Chevron />}
+          />
+        )}
+      </Section>
 
       {canEdit && (
         <Stack>
           <LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Add Gift</LinkButton>
           <LinkButton href={`/org/${slug}/fundraising/pledges/new`} variant="secondary">
             Add Pledge
-          </LinkButton>
-          <LinkButton href={`/org/${slug}/fundraising/campaigns/new`} variant="secondary">
-            New Campaign
-          </LinkButton>
-          <LinkButton href={`/org/${slug}/fundraising/grants`} variant="secondary">
-            Grants
-          </LinkButton>
-          <LinkButton href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`} variant="secondary">
-            {s.totalBudgetCents > 0 ? "Edit the Budget" : "Set the Budget"}
           </LinkButton>
         </Stack>
       )}

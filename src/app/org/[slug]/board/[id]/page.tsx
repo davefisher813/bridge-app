@@ -11,6 +11,7 @@
 // score goes stale the moment a GPA or a school profile changes.
 
 import { notFound } from "next/navigation";
+import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -27,12 +28,14 @@ import {
 } from "@/lib/data/fitAdapters";
 import { scoreFit } from "@/lib/fit/score";
 import type { DimensionResult } from "@/lib/fit/types";
-import { Body, Figure, Label, LinkButton, Notice, Prose, Row, Screen, Section, Stack } from "@/components/kit";
+import { Body, Figure, Label, LinkButton, Prose, Row, Screen, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
 import { scoreRole } from "@/components/statusHue";
 
 export const dynamic = "force-dynamic";
+
+const KIND_LABEL: Record<string, string> = { call: "Call", text: "Text", email: "Email", visit: "Visit", other: "Contact" };
 
 function unwrap<T>(value: T | T[] | null): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value;
@@ -108,7 +111,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
     >
       {/* The headline reason, before the breakdown. A score with no
           sentence attached is a number somebody has to take on faith. */}
-      {fit.reasons.length > 0 && <Notice tone="info" title={fit.reasons[0]} />}
+      {fit.reasons.length > 0 && <Note>{fit.reasons[0]}</Note>}
 
       <Section label="How the Score Is Built" role="contact" kind="target">
         {DIM.map(({ key, label, kind }) => {
@@ -159,9 +162,9 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
             key={i}
             kind="message"
             role="contact"
-            title={c.notes || c.kind}
-            meta={c.kind}
-            trailing={c.occurred_on ? <Label numeric>{c.occurred_on.slice(0, 10)}</Label> : undefined}
+            title={KIND_LABEL[c.kind] ?? c.kind}
+            meta={c.notes ?? undefined}
+            trailing={c.occurred_on ? <Label numeric>{longDate(c.occurred_on)}</Label> : undefined}
           />
         ))}
         {/* Five is a preview. The count is what somebody reads and the

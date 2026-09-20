@@ -61,6 +61,7 @@ function DocumentRow({ slug, doc, role }: { slug: string; doc: DocRow; role: Rol
       role={role}
       title={`${doc.category ? (CATEGORY_LABEL[doc.category] ?? doc.category) : "Unrecognized"}${athlete ? ` · ${athlete}` : " · no match"}`}
       meta={`${doc.status === "failed" && doc.failure_reason ? doc.failure_reason : doc.file_name} · ${ago(doc.created_at)}`}
+      wrap
       trailing={
         pct !== null ? (
           <Body weight="bold" numeric tone={confidenceRole(pct)}>

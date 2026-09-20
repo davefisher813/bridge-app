@@ -68,9 +68,11 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
               {pursued.map((s) => row(s, true))}
             </Section>
           )}
-          <Section label="Everything Else" count={rest.length} role="target" kind="school">
-            {rest.map((s) => row(s, false))}
-          </Section>
+          {rest.length > 0 && (
+            <Section label="Everything Else" count={rest.length} role="target" kind="school">
+              {rest.map((s) => row(s, false))}
+            </Section>
+          )}
         </>
       )}
 

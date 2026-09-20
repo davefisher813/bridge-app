@@ -283,7 +283,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                 <Note key={i}>{r}</Note>
               ))}
               {ageClock.warnings.map((w, i) => (
-                <Notice key={`w${i}`} tone="warning" title={w} />
+                <Note key={`w${i}`}>{w}</Note>
               ))}
             </Section>
           )}

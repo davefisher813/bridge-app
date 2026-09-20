@@ -4,7 +4,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createTarget } from "@/lib/actions/targets";
 import { TargetForm } from "@/components/TargetForm";
-import { AddButton, EmptyState, LinkButton, Screen } from "@/components/kit";
+import { EmptyState, LinkButton, Screen, TextLink } from "@/components/kit";
 
 export default async function NewTargetPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -28,7 +28,7 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
     <Screen
       title="Add Target"
       back={{ href: `/org/${slug}/board`, label: "Board" }}
-      action={isOwner ? <AddButton href={`/org/${slug}/schools/new`} label="Add a School" /> : undefined}
+      action={isOwner ? <TextLink href={`/org/${slug}/schools/new`}>New School</TextLink> : undefined}
     >
       {athletes.length === 0 ? (
         <>

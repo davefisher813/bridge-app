@@ -164,6 +164,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
               title={t.athleteName}
               meta={`${t.schoolName} · no update in ${t.days} ${t.days === 1 ? "day" : "days"}`}
               trailing={<StatusPill status={t.status} />}
+              wrap
             />
           ))
         )}

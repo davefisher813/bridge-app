@@ -62,7 +62,7 @@ export default async function MemberPage({
 
   return (
     <Screen back={{ href: `/org/${slug}/members`, label: "Members" }}>
-      <Row leading={<Avatar name={name} size="lg" />} title={`${name}${isMe ? " (you)" : ""}`} meta={`${person?.email ?? ""} · ${joined}`} emphasis="bold" />
+      <Row leading={<Avatar name={name} size="lg" />} title={`${name}${isMe ? " (you)" : ""}`} meta={`${person?.email ?? ""} · ${joined}`} emphasis="bold" wrap />
 
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
 

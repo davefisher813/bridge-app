@@ -84,7 +84,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
           every one of these screens. The two named actions appear above
           it when they apply: "enter a grading scale" is advice, "enter
           one for Cardinal Ridge" is a task. */}
-      <Section label="What to Do" role="accent" kind="info">
+      <Section label="What to Do" role="contact" kind="info">
         {view.schoolsMissingScale.length > 0 && (
           <Row
             href={`/org/${slug}/grading-scales/new`}
@@ -111,6 +111,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
           role="contact"
           title="See the Transcript"
           meta="Every course the core GPA counted, and every one it did not."
+          wrap
         />
         {canEdit && (
           <Row
@@ -119,6 +120,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
             role="contact"
             title="Check Course Approvals"
             meta="Settle the courses a list could not match on its own."
+            wrap
           />
         )}
       </Section>

@@ -6,6 +6,7 @@
 // anyone needs to act on.
 
 import { notFound } from "next/navigation";
+import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -54,7 +55,8 @@ export default async function PledgesPage({ params }: { params: Promise<{ slug: 
       kind="pledge"
       role={role}
       title={r.p.donorId ? (donorName.get(r.p.donorId) ?? "Unknown donor") : "Anonymous"}
-      meta={`${formatMoney(r.p.amountCents)} promised${r.p.dueOn ? ` · due ${r.p.dueOn}` : ""}`}
+      meta={`${formatMoney(r.p.amountCents)} promised${r.p.dueOn ? ` · due ${longDate(r.p.dueOn)}` : ""}`}
+      wrap
       trailing={
         <Body weight="bold" numeric>
           {r.outstanding === 0 ? "Paid" : formatMoney(r.outstanding)}

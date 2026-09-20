@@ -4,7 +4,7 @@ import { requireOwner, type OrgRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { labelForRole } from "@/lib/org/roleLabels";
 import { resendInviteForm } from "@/lib/actions/members";
-import { Avatar, Button, Chip, EmptyState, Form, LinkButton, Notice, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
+import { Avatar, Button, EmptyState, Form, LinkButton, Notice, Row, Screen, Section, Stat, StatRow, Chevron } from "@/components/kit";
 
 interface MemberRow {
   user_id: string;
@@ -66,9 +66,10 @@ export default async function MembersPage({
             key={r.user_id}
             href={`/org/${slug}/members/${r.user_id}`}
             leading={<Avatar name={r.person?.full_name || r.person?.email || "?"} />}
-            title={r.person?.full_name || r.person?.email || "Unknown"}
-            meta={r.person?.email ?? ""}
-            trailing={<Chip label={label(r.role)} kind="people" role={r.user_id === me.id ? "neutral" : "people"} />}
+            title={`${r.person?.full_name || r.person?.email || "Unknown"}${r.user_id === me.id ? " (you)" : ""}`}
+            meta={`${label(r.role)} · ${r.person?.email ?? ""}`}
+            trailing={<Chevron />}
+            wrap
           />
         ))}
         {rows.length === 0 && (

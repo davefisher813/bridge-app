@@ -202,10 +202,12 @@ export function Row({
     <div className="flex min-h-14 items-center gap-3 rounded border border-line bg-paper px-4 py-3">
       {leading ?? (kind ? <RowGlyph kind={kind} role={role} /> : null)}
       <div className="min-w-0 flex-1">
-        <div className={`truncate text-body ${emphasis === "bold" ? "font-bold" : "font-semibold"} text-ink`}>{title}</div>
+        {/* Two lines before an ellipsis. One line cut half the school
+            names on the board; two keeps a row a row. */}
+        <div className={`line-clamp-2 text-body ${emphasis === "bold" ? "font-bold" : "font-semibold"} text-ink`}>{title}</div>
         {meta && <div className={`${wrap ? "" : "truncate"} text-label text-muted`}>{leadFact(meta)}</div>}
       </div>
-      {trailing && <div className="flex flex-shrink-0 flex-col items-end gap-1">{trailing}</div>}
+      {trailing && <div className="flex flex-shrink-0 flex-col items-end gap-1 whitespace-nowrap">{trailing}</div>}
     </div>
   );
   return href ? (
@@ -369,10 +371,10 @@ function fieldSurface(onPaper: boolean, error?: string): string {
   return `${onPaper ? "bg-bg" : "bg-paper"} ${error ? "ring-2 ring-danger" : ""}`;
 }
 
-function FieldFrame({ id, label, hint, error, children }: { id: string; label: ReactNode; hint?: ReactNode; error?: string; children: ReactNode }) {
+function FieldFrame({ id, label, hint, error, labelHidden = false, children }: { id: string; label: ReactNode; hint?: ReactNode; error?: string; labelHidden?: boolean; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-label font-bold text-muted">
+      <label htmlFor={id} className={labelHidden ? "sr-only" : "text-label font-bold text-muted"}>
         {label}
       </label>
       {children}
@@ -381,10 +383,10 @@ function FieldFrame({ id, label, hint, error, children }: { id: string; label: R
   );
 }
 
-export function Field({ id, name, label, hint, error, onPaper = false, className = "", ...rest }: InputHTMLAttributes<HTMLInputElement> & { name: string; label: ReactNode; hint?: ReactNode; error?: string; onPaper?: boolean }) {
+export function Field({ id, name, label, hint, error, onPaper = false, labelHidden = false, className = "", ...rest }: InputHTMLAttributes<HTMLInputElement> & { name: string; label: ReactNode; hint?: ReactNode; error?: string; onPaper?: boolean; labelHidden?: boolean }) {
   const fieldId = id ?? name;
   return (
-    <FieldFrame id={fieldId} label={label} hint={hint} error={error}>
+    <FieldFrame id={fieldId} label={label} hint={hint} error={error} labelHidden={labelHidden}>
       <input id={fieldId} name={name} aria-invalid={error ? true : undefined} {...rest} className={`${FIELD_BASE} min-h-12 ${fieldSurface(onPaper, error)} ${className}`} />
     </FieldFrame>
   );

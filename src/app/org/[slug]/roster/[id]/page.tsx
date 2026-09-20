@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -171,9 +172,9 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
           ))
         )}
         {canEdit && (
-          <Card>
+          <div>
             <ContactForm action={contactAction} schools={schools} />
-          </Card>
+          </div>
         )}
       </Section>
 
@@ -189,7 +190,9 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
                 <Body weight="bold">
                   {schoolNameByTargetId.get(v.target_id) ?? "Unknown school"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}
                 </Body>
-                <Label>{new Date(v.visit_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</Label>
+                <div className="flex-shrink-0">
+                  <Label numeric>{longDate(v.visit_date)}</Label>
+                </div>
               </div>
               {v.impression && <Body>{v.impression}</Body>}
               {v.next_step && <Label>Next: {v.next_step}</Label>}

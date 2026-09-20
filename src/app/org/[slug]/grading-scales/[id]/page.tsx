@@ -42,7 +42,9 @@ export default async function EditGradingScalePage({ params }: { params: Promise
       back={{ href: `/org/${slug}/grading-scales`, label: "Grading Scales" }}
     >
       {notes.map((n, i) => (
-        <Notice key={i} tone="warning" title={n} />
+        <Notice key={i} tone="warning" title="Check This Table">
+          {n}
+        </Notice>
       ))}
 
       <GradingScaleForm

@@ -103,7 +103,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
     <Screen
       title={school.name}
       back={{ href: `/org/${slug}/schools`, label: "Schools" }}
-      lede={`${school.division}${school.conference ? ` · ${school.conference}` : ""}${school.sportsSponsored.length > 0 ? ` · ${school.sportsSponsored.length} sports` : ""}`}
+      lede={`${school.division}${school.conference ? ` · ${school.conference}` : ""}${school.sportsSponsored.length > 0 ? ` · ${school.sportsSponsored.length} ${school.sportsSponsored.length === 1 ? "sport" : "sports"}` : ""}`}
     >
       {/* A stale profile is the quiet failure mode of this whole record:
           every number below feeds a fit score, and a three-year-old
@@ -143,6 +143,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
             title={d3 ? "Average academic and need aid" : "Average athletic award"}
             meta={coverage !== null ? `Covers about ${coverage}% of the cost of attendance.` : undefined}
             trailing={amount(aid)}
+            wrap
           />
         )}
         {fin.instateTotal != null && <Row kind="school" role="contact" title="In State" meta="Cost of attendance" trailing={amount(fin.instateTotal)} />}
@@ -163,7 +164,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
       {school.conflicts && school.conflicts.length > 0 && (
         <Section label="Flags on This School" count={school.conflicts.length} role="offer" kind="warning">
           {school.conflicts.map((c, i) => (
-            <Notice key={i} tone={c.severity === "conflict" ? "danger" : "warning"} title={c.message} />
+            <Notice key={i} tone={c.severity === "conflict" ? "danger" : "warning"} title={c.severity === "conflict" ? "Conflict" : "Worth Knowing"}>
+              {c.message}
+            </Notice>
           ))}
         </Section>
       )}

@@ -52,16 +52,25 @@ export function GradingScaleForm({
           band. Leave a letter blank if the school does not award it.
         </Label>
         {err("bands") && <Label tone="danger">{err("bands")}</Label>}
+        <div className="flex items-center gap-2">
+          <div className="w-11 flex-shrink-0" />
+          <div className="flex-1">
+            <Label>Lowest grade</Label>
+          </div>
+          <div className="flex-1">
+            <Label>Highest grade</Label>
+          </div>
+        </div>
         {SCALE_LETTERS.map((letter) => {
           const row = defaults.rows.find((r) => r.letter === letter);
           const rowError = err(`band_${letter}`);
           return (
-            <div key={letter} className="flex items-end gap-2">
+            <div key={letter} className="flex items-start gap-2">
               <div className="flex min-h-12 w-11 flex-shrink-0 items-center justify-center">
                 <Body weight="bold">{letter}</Body>
               </div>
-              <Field name={`min_${letter}`} label="Low" inputMode="decimal" defaultValue={row?.min ?? ""} error={rowError} />
-              <Field name={`max_${letter}`} label="High" inputMode="decimal" defaultValue={row?.max ?? ""} />
+              <Field name={`min_${letter}`} label={`${letter} lowest grade`} labelHidden inputMode="decimal" defaultValue={row?.min ?? ""} error={rowError} />
+              <Field name={`max_${letter}`} label={`${letter} highest grade`} labelHidden inputMode="decimal" defaultValue={row?.max ?? ""} />
             </div>
           );
         })}

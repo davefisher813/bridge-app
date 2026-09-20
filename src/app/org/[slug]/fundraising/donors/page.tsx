@@ -79,6 +79,7 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
               role="target"
               title={donor.name}
               meta="Promised and not yet received. Not counted in anything raised."
+              wrap
               trailing={
                 <Body weight="bold" numeric>
                   {formatMoney(totals.outstandingPledgeCents)}

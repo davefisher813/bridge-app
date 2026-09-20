@@ -77,7 +77,7 @@ export default async function ApprovedListPage({
     <Screen
       title={list.school_name}
       back={{ href: `/org/${slug}/approved-courses`, label: "Approved Lists" }}
-      lede={`${courses.length} courses${list.ceeb_code ? ` · CEEB ${list.ceeb_code}` : ""}`}
+      lede={`${courses.length} ${courses.length === 1 ? "course" : "courses"}${list.ceeb_code ? ` · CEEB ${list.ceeb_code}` : ""}`}
     >
       <Note title={list.is_complete ? "Complete list" : "Partial list"}>
         {list.is_complete ? "A course missing from it does not count toward the core GPA." : "It can confirm a course. It never rules one out."}
