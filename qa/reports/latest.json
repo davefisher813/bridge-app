@@ -1,17 +1,17 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "a482787",
-  "commitFull": "a48278738b7d14016cbc13e452295bf6f769d5f0",
-  "branch": "claude/downloads-directory-4mf6gv",
+  "commit": "fd7a11f",
+  "commitFull": "fd7a11fbda97b34ed09afff6eb764c1487d771e4",
+  "branch": "main",
   "remoteBranches": [
-    "origin/claude/downloads-directory-4mf6gv"
+    "origin/main"
   ],
   "shipped": true,
   "dirty": false,
-  "onMain": false,
-  "startedAt": "2026-09-20T21:41:02.474Z",
-  "durationMs": 10589,
+  "onMain": true,
+  "startedAt": "2026-09-20T22:27:18.838Z",
+  "durationMs": 53287,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -108,7 +108,7 @@
             "location": "/login"
           }
         },
-        "ms": 1086
+        "ms": 1169
       },
       "errors": [],
       "warnings": [],
@@ -124,8 +124,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 22,
-      "filesScanned": 313
+      "touchedFiles": 0,
+      "filesScanned": 315
     },
     {
       "name": "types",
@@ -137,8 +137,8 @@
     "checklist": "qa/checklist.md",
     "checklistCommit": "4c13132",
     "checklistSays": "pass",
-    "result": "pass",
-    "reason": "checklist.md covers this commit and says pass"
+    "result": "provisional",
+    "reason": "checklist.md is for commit 4c13132, not this one"
   },
   "preview": {
     "applicable": true,
