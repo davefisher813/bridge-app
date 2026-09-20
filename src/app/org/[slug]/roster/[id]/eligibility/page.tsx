@@ -177,7 +177,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                   href={`${here}/approvals`}
                   kind="checklist"
                   role={openApprovals > 0 ? "offer" : "committed"}
-                  title={`${approvedCount} confirmed on the list`}
+                  title={`${approvedCount} Confirmed on the List`}
                   meta={`${notApprovedCount} not approved${openApprovals > 0 ? ` · ${openApprovals} unchecked` : ""}`}
                   trailing={<Body tone="muted">&rsaquo;</Body>}
                 />
@@ -239,7 +239,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                 <Note key={i}>{w}</Note>
               ))}
               <LinkButton href={`${here}/caveats`} variant="secondary">
-                {caveats.length > 3 ? `All ${caveats.length} things to know` : "What to do about these"}
+                {caveats.length > 3 ? `All ${caveats.length} Things to Know` : "What to Do About These"}
               </LinkButton>
             </Section>
           )}

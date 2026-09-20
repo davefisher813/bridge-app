@@ -85,7 +85,7 @@ export default async function BoardPage({
         </Stack>
       </Card>
 
-      {summary.belowMinimum && <Notice tone="warning" title={`Below the floor of ${board.minSeats} ${board.minSeats === 1 ? "seat" : "seats"}`} />}
+      {summary.belowMinimum && <Notice tone="warning" title={`Below the Floor of ${board.minSeats} ${board.minSeats === 1 ? "Seat" : "Seats"}`} />}
 
       <Section label="Seats" count={ordered.length} role="contact" kind="people">
         {ordered.length === 0 && <EmptyState kind="people" title="No Seats on This Board Yet" />}

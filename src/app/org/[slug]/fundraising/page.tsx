@@ -110,7 +110,7 @@ export default async function FundraisingPage({
           kind="pledge"
           role="offer"
           emphasis="bold"
-          title={`${formatMoney(s.outstandingPledgeCents)} promised, not received`}
+          title={`${formatMoney(s.outstandingPledgeCents)} Promised, Not Received`}
           meta={`Not counted in the ${formatMoneyShort(s.totalCashCents)} above.${s.overduePledgeCents > 0 ? ` ${formatMoney(s.overduePledgeCents)} of it is past its due date.` : ""}`}
           wrap
         />
@@ -158,7 +158,7 @@ export default async function FundraisingPage({
             kind="grant"
             role="place"
             emphasis="bold"
-            title={`${formatMoney(s.totalInKindCents)} donated in goods and services`}
+            title={`${formatMoney(s.totalInKindCents)} Donated in Goods and Services`}
             meta={`Counted as support, never as cash. Total support for the year is ${formatMoneyShort(s.totalSupportCents)}.`}
             wrap
           />

@@ -9,7 +9,7 @@ export default function RootNotFound() {
     <Panel>
       <Stack gap={4}>
         <div className="text-center">
-          <Heading>Nothing here</Heading>
+          <Heading>Nothing Here</Heading>
           <Prose>That link points at something that was removed, or that this account cannot see.</Prose>
         </div>
         <LinkButton href="/" variant="secondary">

@@ -19,7 +19,7 @@ export default async function HomePage() {
       <Panel>
         <Stack gap={4}>
           <div className="text-center">
-            <Heading>No organization access yet</Heading>
+            <Heading>No Organization Access Yet</Heading>
             <Prose>Your account isn&apos;t a member of any organization. Ask your organization&apos;s owner to add you.</Prose>
           </div>
           <Form action={signout}>
@@ -33,7 +33,7 @@ export default async function HomePage() {
   return (
     <Panel>
       <Stack gap={4}>
-        <Heading>Choose an organization</Heading>
+        <Heading>Choose an Organization</Heading>
         <Stack gap={3}>
           {memberships.map((m) => (
             <Row key={m.orgId} href={`/org/${m.orgSlug}`} kind="org" role="place" title={m.orgName} meta={m.role} />

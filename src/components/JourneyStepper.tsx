@@ -12,7 +12,10 @@ import { Label } from "@/components/kit";
 // previous centre.
 export function JourneyStepper({ result }: { result: JourneyResult }) {
   return (
-    <div className="flex flex-col gap-3">
+    // Out to the panel's edges: four labels in the panel's inner width
+    // left 64px each at 320 wide, and COMMITTED is 70. The caption below
+    // pads itself back in.
+    <div className="-mx-4 flex flex-col gap-3">
       <div className="flex items-start">
         {JOURNEY_STAGES.map((label, i) => {
           const stepNum = i + 1;
@@ -29,13 +32,15 @@ export function JourneyStepper({ result }: { result: JourneyResult }) {
           );
         })}
       </div>
-      {result.furthestTarget ? (
-        <Label>
-          Furthest stage: {result.furthestTarget.status} ({result.furthestTarget.schoolName})
-        </Label>
-      ) : (
-        <Label>No active targets yet.</Label>
-      )}
+      <div className="px-4">
+        {result.furthestTarget ? (
+          <Label>
+            Furthest stage: {result.furthestTarget.status} ({result.furthestTarget.schoolName})
+          </Label>
+        ) : (
+          <Label>No active targets yet.</Label>
+        )}
+      </div>
     </div>
   );
 }

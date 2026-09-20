@@ -1978,3 +1978,33 @@ the page now writes with set() and pushes phone-saved picks up on open.
 The pill law exempts the kit's AddButton by its 44px size. Explanatory
 ledes were removed from the pages rather than hidden, so the strings
 are gone.
+
+## 2026-09-20: the app itself is what gets looked at, not a render of it
+
+**Decision.** `FIXTURE_MODE=1` builds the real Next app with exactly two
+modules swapped, `@/lib/supabase/server` and `@/lib/supabase/middleware`,
+for the fixture (`src/testing/fixtureServer.ts`, `fixtureMiddleware.ts`)
+via `next.config.ts` aliases. `scripts/live/drive.mjs` then opens every
+route in `src/testing/pages.ts` in Chromium at 320, 375 and 390 wide,
+light and dark, and measures: page scroll width, every element's right
+edge, text wider than its box, and any word whose client rects sit on
+two lines. The preview embeds Inter as a data URI and its audit now runs
+at 320 and checks for broken words too.
+
+**Reason.** Dave, on his phone: "shit is literally off the fucking
+screens", after a review that had found nothing. The preview was the
+real page code but not the real font: it fell back to the system face,
+which is narrower on the machine the audit runs on, so an overflow Inter
+causes never showed. And the fixture was short: the real Bridge org name
+is 38 characters and Dave's one athlete is a transfer, neither of which
+the fixture had.
+
+**Consequences.** The fixture carries the long org name and a transfer
+athlete shaped like Dave's, with four page entries for them. The kit
+changed where the check bit: a row's trailing slot is capped at half the
+row and may wrap (a nowrap "Awaiting decision" had squeezed a title to
+one pixel), a stat tile keeps its figure on one line and the row wraps
+instead (a 96px basis), a row's meta clamps to two lines instead of one,
+and the journey stepper runs to the panel's edges. Vercel never sets
+`FIXTURE_MODE`. WebKit cannot be installed here, so iOS-only control
+rendering stays unverified.

@@ -276,7 +276,7 @@ describe("LAW: the members screens are the owner's alone", () => {
   it("the sign-in screen leads with the password and keeps the magic link one tap away", async () => {
     const html = await render("@/app/login/page", { searchParams: p({}) });
     expect(html).toMatch(/type="password"/);
-    expect(html).toMatch(/Email me a link instead/);
+    expect(html).toMatch(/Email Me a Link Instead/);
     const link = await render("@/app/login/page", { searchParams: p({ mode: "link" }) });
     expect(link).toMatch(/Email Me a Link/);
   });

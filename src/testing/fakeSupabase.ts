@@ -65,6 +65,7 @@ const EMBEDS: Record<string, Record<string, EmbedSpec>> = {
   },
   org_members: {
     users: { table: "users", foreignKey: "user_id", many: false },
+    orgs: { table: "orgs", foreignKey: "org_id", many: false },
   },
   ncaa_approved_course_lists: {
     ncaa_approved_courses: { table: "ncaa_approved_courses", foreignKey: "list_id", many: true },

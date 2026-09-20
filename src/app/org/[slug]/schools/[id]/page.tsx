@@ -109,7 +109,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
           every number below feeds a fit score, and a three-year-old
           tuition figure produces a confident wrong answer. */}
       {staleDays !== null && staleDays >= 90 && (
-        <Notice tone="warning" title={`This profile is ${staleDays} days old`}>
+        <Notice tone="warning" title={`This Profile Is ${staleDays} Days Old`}>
           Every fit score against this school is built on the numbers below. Refresh them before anyone leans on one.
         </Notice>
       )}

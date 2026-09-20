@@ -19,7 +19,7 @@ export function SignInForm({ magicLink, password, initialError, startWithLink = 
     return (
       <Stack gap={4}>
         <div>
-          <Heading>Check your email</Heading>
+          <Heading>Check Your Email</Heading>
           <Prose>
             A link went to <b>{state.email}</b>. Open it on this phone and you are in.
           </Prose>
@@ -41,7 +41,7 @@ export function SignInForm({ magicLink, password, initialError, startWithLink = 
     return (
       <Stack gap={4}>
         <div>
-          <Heading>Sign in</Heading>
+          <Heading>Sign In</Heading>
           <Prose>Enter your email. A sign-in link comes back in a minute.</Prose>
         </div>
         {(state.error || initialError) && <Notice tone="danger" title={state.error ?? initialError} />}
@@ -59,7 +59,7 @@ export function SignInForm({ magicLink, password, initialError, startWithLink = 
   return (
     <Stack gap={4}>
       <div>
-        <Heading>Sign in</Heading>
+        <Heading>Sign In</Heading>
         <Prose>The email and password your organization set up for you.</Prose>
       </div>
       {initialError && <Notice tone="danger" title={initialError} />}
@@ -69,7 +69,7 @@ export function SignInForm({ magicLink, password, initialError, startWithLink = 
         <Button>Sign In</Button>
       </Form>
       <Button type="button" variant="quiet" onClick={() => setUseLink(true)}>
-        Email me a link instead
+        Email Me a Link Instead
       </Button>
     </Stack>
   );

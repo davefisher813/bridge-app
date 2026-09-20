@@ -34,7 +34,9 @@ const rel = (f: string) => f.slice(ROOT.length + 1);
 
 // Where a title literal can sit in a page or a component.
 const TITLE_ATTR = /\b(title|label|submitLabel)=\{?"([^"\n]+)"\}?/g;
-const BUTTON_TEXT = /<(Button|LinkButton|TextLink)\b[^>]*>\s*([^<{\n][^<{\n]*?)\s*<\//g;
+const BUTTON_TEXT = /<(Button|LinkButton|TextLink|Heading)\b[^>]*>\s*([^<{\n][^<{\n]*?)\s*<\//g;
+// A title built from a count, in a title slot: title={`All ${n} things to know`}.
+const TEMPLATE_TITLE = /\b(?:title|label|submitLabel)=\{`([^`\n]+)`\}/g;
 const PENDING_PAIR = /\?\s*"[^"]*\.\.\."\s*:\s*"([^"\n]+)"/g;
 const TAB_LABEL = /label:\s*"([^"\n]+)"/g;
 
@@ -47,6 +49,7 @@ describe("LAW: a title is written in Title Case", () => {
       for (const m of src.matchAll(TITLE_ATTR)) found.push(m[2]);
       for (const m of src.matchAll(BUTTON_TEXT)) found.push(m[2]);
       for (const m of src.matchAll(PENDING_PAIR)) found.push(m[1]);
+      for (const m of src.matchAll(TEMPLATE_TITLE)) found.push(m[1].replace(/\$\{[^}]+\}/g, "1"));
       if (f.endsWith("TabBar.tsx")) for (const m of src.matchAll(TAB_LABEL)) found.push(m[1]);
       for (const text of found) {
         if (!isTitleLike(text)) continue;

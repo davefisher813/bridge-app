@@ -68,6 +68,11 @@ it("builds the app preview from the real pages", async () => {
   const { renderToStaticMarkup } = await import("react-dom/server");
   const { Chrome } = await import("@/components/kit");
   const css = readFileSync("/tmp/preview.css", "utf8");
+  // The app's own font, embedded, so the preview measures text the way
+  // the phone does. Without it the preview fell back to a narrower
+  // system face and hid every overflow that Inter causes.
+  const inter = readFileSync("src/app/fonts/InterVariable.woff2").toString("base64");
+  const fontFace = `@font-face{font-family:"Inter Preview";font-style:normal;font-weight:100 900;font-display:block;src:url(data:font/woff2;base64,${inter}) format("woff2")}\n:root{--font-inter:"Inter Preview"}`;
   const org = buildFixture().orgs.find((o) => o.slug === ORG_WITH_MODULES);
   if (!org) throw new Error("fixture org missing");
 
@@ -112,6 +117,7 @@ it("builds the app preview from the real pages", async () => {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BFFSA app preview</title>
+<style>${fontFace}</style>
 <style>${css}</style>
 <style>
 /* The preview's own chrome: a toolbar and a phone-width frame. The
@@ -123,7 +129,7 @@ body { display: flex; flex-direction: column; background: #111; font-family: -ap
 .bar select, .bar button { font: inherit; min-height: 36px; border-radius: 8px; border: 0; padding: 0 10px; background: #333; color: #eee; }
 .bar button[aria-pressed="true"] { background: #e5e5ea; color: #111; }
 .bar .grow { flex: 1; min-width: 80px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.frame { flex: 1; min-height: 0; width: 390px; max-width: 100%; margin: 0 auto; overflow-y: auto; overflow-x: hidden; transform: translateZ(0); background: var(--bg); }
+.frame { flex: 1; min-height: 0; width: 390px; max-width: 100%; margin: 0 auto; overflow-y: auto; overflow-x: hidden; transform: translateZ(0); background: var(--bg); font-family: "Inter Preview", system-ui, sans-serif; }
 .screen { min-height: 100%; }
 .frame form { pointer-events: none; }
 .frame form button, .frame form input, .frame form select, .frame form textarea { pointer-events: auto; }

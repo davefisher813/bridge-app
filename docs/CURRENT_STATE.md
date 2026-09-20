@@ -1,13 +1,14 @@
 # Current state
 
-Last updated: 2026-09-20, after the clean slate.
+Last updated: 2026-09-20, after the real-app phone check.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Every one of the 53 screens is rebuilt on one
 kit with the scale Dave selected on 2026-09-19, the laws that keep a
-page from styling itself are green, the preview is the real pages
-rendered on the fixture, and the deployed app is waiting on Dave's
-page-by-page audit.
+page from styling itself are green, and the app itself (not a render
+of it) has been driven in a browser at 320, 375 and 390 wide in both
+themes on data shaped like Dave's, with nothing past the edge, nothing
+squeezed to nothing and no word broken in the middle.
 
 ---
 
@@ -26,7 +27,7 @@ page-by-page audit.
 
 ## What exists
 
-**53 pages**, 18 migrations, 636 tests in 43 files, 11 law files.
+**53 pages**, 18 migrations, 643 tests in 44 files, 11 law files.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
@@ -104,12 +105,21 @@ be left without an owner. "Invited" is read off a mirror of
 5. **The action harness** executes every server action and asserts what
    it wrote.
 6. **The preview and its audit** render the same page list on the
-   fixture into one tappable file and inspect what a browser computed on
-   every screen in both themes: classes that exist, glyphs that draw, AA
-   contrast on the real surface, 44px targets, no sideways scroll.
-7. **The test bench** runs the shipped engine modules in a browser and
+   fixture into one tappable file, in the app's own font, and inspect
+   what a browser computed on every screen in both themes at 390, 375
+   and 320: classes that exist, glyphs that draw, AA contrast on the
+   real surface, 44px targets, no sideways scroll, nothing past the
+   edge, no word broken in the middle.
+7. **The app itself, in a browser** (`scripts/live/`). `FIXTURE_MODE=1
+   next build` swaps the two Supabase seams for the fixture and nothing
+   else, so the shipped app runs with its real font, hydration and
+   chrome; `drive.mjs` opens every route at 320, 375 and 390 in both
+   themes and measures the same things the audit does, plus
+   screenshots. Added 2026-09-20 after the preview's system fallback
+   font hid overflows that Inter causes.
+8. **The test bench** runs the shipped engine modules in a browser and
    proves its own checks.
-8. **The real project.** Supabase's advisors and the deployment.
+9. **The real project.** Supabase's advisors and the deployment.
 
 ---
 
@@ -124,8 +134,12 @@ be left without an owner. "Invited" is read off a mirror of
 
 ### Blocked on Dave
 
-- **The page-by-page audit** of the rebuilt app on his phone, now with
-  his twenty-five catalog picks applied.
+- **The page-by-page audit** of the rebuilt app on his phone. Dave
+  reported text off the screen after the catalog picks landed; the
+  real-app check found and fixed a nowrap trailing that could squeeze a
+  row title to nothing, stat tiles that broke a word or a figure, and
+  the stepper's last label at 320, but nothing past the edge at 375 or
+  390. One screenshot from his phone is the missing input.
 - **No API key for Doc AI.** The model caller is a stand-in.
 - **The name.** "BFFSA" is what the app calls itself for now.
 
@@ -150,12 +164,19 @@ be left without an owner. "Invited" is read off a mirror of
 - A stat tile has no sub-line and a row has two lines; the few captions
   that lost a home moved into a meta line or a note beside them. Worth a
   look during the audit.
+- Below about 300px of layout width (Safari's page zoom at 150%) row
+  titles start breaking mid-word; the live driver reports it at 260 and
+  the kit does not yet stack a row's trailing under its body.
+- No WebKit here. The live check runs in Chromium; iOS-only rendering
+  (native date and select controls) is unverified until a screenshot
+  says otherwise.
 
 ---
 
 ## Immediate next steps
 
-1. Dave's page-by-page audit. Findings go through the kit, not the page.
+1. Dave's page-by-page audit, starting from one screenshot of whatever
+   he sees off the screen. Findings go through the kit, not the page.
 2. School CSV import, so the board has something to target.
 3. Cleanup pass: one page loader, `cache()` on the org and user lookups,
    split `documents.ts`, then the `@supabase/ssr` and `zod` bumps.

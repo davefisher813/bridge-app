@@ -12,7 +12,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
         <Panel>
           <Stack gap={4}>
             <div className="text-center">
-              <Heading>Something broke</Heading>
+              <Heading>Something Broke</Heading>
               <Prose>The app could not start. Try again in a moment.</Prose>
             </div>
             <Button type="button" onClick={reset}>

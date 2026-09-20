@@ -117,6 +117,8 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
+      // A row's trailing slot can take half the row and no more.
+      maxWidth: { half: "50%" },
     },
   },
   plugins: [],

@@ -169,7 +169,7 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
 
       <FileField
         name="files"
-        label={files.length ? `${files.length} file${files.length === 1 ? "" : "s"} chosen` : "Take a photo or choose a file"}
+        label={files.length ? `${files.length} File${files.length === 1 ? "" : "s"} Chosen` : "Take a Photo or Choose a File"}
         hint={files.length ? files.map((f) => f.name).join(", ") : "PDF, JPEG, PNG or HEIC"}
         accept="application/pdf,image/jpeg,image/png,image/heic,image/heif"
         multiple

@@ -205,9 +205,15 @@ export function Row({
         {/* Two lines before an ellipsis. One line cut half the school
             names on the board; two keeps a row a row. */}
         <div className={`line-clamp-2 text-body ${emphasis === "bold" ? "font-bold" : "font-semibold"} text-ink`}>{title}</div>
-        {meta && <div className={`${wrap ? "" : "truncate"} text-label text-muted`}>{leadFact(meta)}</div>}
+        {/* Two lines for the meta too: "Transfer (4-to-4)" was the third
+            fact on a roster row and lost its second half to an ellipsis. */}
+        {meta && <div className={`${wrap ? "" : "line-clamp-2"} text-label text-muted`}>{leadFact(meta)}</div>}
       </div>
-      {trailing && <div className="flex flex-shrink-0 flex-col items-end gap-1 whitespace-nowrap">{trailing}</div>}
+      {/* Never wider than half the row. A nowrap trailing ("Awaiting
+          decision" on a grant) took the whole row on a narrow layout and
+          squeezed the title to a one-pixel column: text that was there
+          and could not be seen. */}
+      {trailing && <div className="flex max-w-half flex-shrink-0 flex-col items-end gap-1 text-right">{trailing}</div>}
     </div>
   );
   return href ? (
@@ -222,21 +228,27 @@ export function Row({
 // A stat: the number in the role's colour, the label under it.
 export function Stat({ value, label, role = "neutral", kind }: { value: ReactNode; label: string; role?: Role; kind?: RowKind }) {
   return (
-    <div className="min-w-0 flex-1 rounded border border-line bg-paper px-3 py-3">
+    <div className="grow basis-24 rounded border border-line bg-paper px-3 py-3">
       <div className="flex items-center gap-2">
         {kind && <RowGlyph kind={kind} role={role} className="h-4 w-4" />}
-        <div className={`text-heading font-extrabold tabular-nums ${TEXT_ON[role]}`}>{value}</div>
+        {/* A figure never splits: "$40,000" broke after the comma on a
+            320 screen. The tile keeps its content width and the row
+            wraps instead (StatRow). */}
+        <div className={`whitespace-nowrap text-heading font-extrabold tabular-nums ${TEXT_ON[role]}`}>{value}</div>
       </div>
       {/* 12px sides, not 16: three tiles at 375 wide with COMMITTED in
-          caps on one of them is 15px over the screen at 16. min-w-0 so
-          the tile can never be wider than its share of the row. */}
+          caps on one of them is 15px over the screen at 16. */}
       <div className="text-label font-bold text-muted">{label}</div>
     </div>
   );
 }
 
+// Tiles wrap rather than shrink: three of them at 320 wide (or 390 with
+// Safari's page zoom on) left 64px for the label, and COMMITTED broke in
+// the middle of the word. A tile is never narrower than 96px, so the
+// third one drops to its own line first.
 export function StatRow({ children }: { children: ReactNode }) {
-  return <div className="flex gap-3">{children}</div>;
+  return <div className="flex flex-wrap gap-3">{children}</div>;
 }
 
 // A glyph in the role's hue and a word in ink. The one pill.

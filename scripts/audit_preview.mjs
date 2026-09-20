@@ -17,9 +17,10 @@
 //   7. No screen renders empty.
 //   8. Every link points at a route the app has, and every form posts
 //      somewhere. A button that goes nowhere is the defect Dave named.
-//   9. Nothing hangs past the right edge of a 390 or a 375 screen: text
-//      bleeding out of a card is invisible to a scroll-width check when
-//      the container clips it.
+//   9. Nothing hangs past the right edge of a 390, 375 or 320 screen:
+//      text bleeding out of a card is invisible to a scroll-width check
+//      when the container clips it.
+//  10. No word is broken in the middle to make it fit.
 //
 // Run: PREVIEW_OUT_DIR=... node scripts/audit_preview.mjs
 
@@ -127,7 +128,9 @@ for (const route of routes) {
   if (wiring.looseButtons) note(route, "submit button outside any form", `${wiring.looseButtons}`);
 }
 
-for (const width of [390, 375]) {
+// 390 and 375 are the iPhones; 320 is the SE and, near enough, a 390
+// with Safari's page zoom at 125%.
+for (const width of [390, 375, 320]) {
   await page.setViewportSize({ width, height: 844 });
   for (const route of routes) {
     await page.evaluate((r) => window.__preview.show(r, false), route);
@@ -147,7 +150,27 @@ for (const width of [390, 375]) {
         // Text that paints past its own box. The box stays inside the
         // screen, so only scrollWidth sees it. An ellipsis is deliberate.
         const cs = getComputedStyle(el);
-        if (!clipped && cs.textOverflow !== "ellipsis" && el.scrollWidth > el.clientWidth + 1 && cs.overflowX !== "auto" && cs.overflowX !== "scroll") out.push(`${label} text ${el.scrollWidth - el.clientWidth}px too wide`);
+        // Native controls draw their own insides (a date input's
+        // calendar glyph) a few pixels wide of the box in Chromium and
+        // nowhere else; the frame check above still covers them.
+        const control = /^(input|select|textarea)$/i.test(el.tagName);
+        if (!clipped && !control && cs.textOverflow !== "ellipsis" && el.scrollWidth > el.clientWidth + 1 && cs.overflowX !== "auto" && cs.overflowX !== "scroll") out.push(`${label} text ${el.scrollWidth - el.clientWidth}px too wide`);
+        // A word broken in the middle. overflow-wrap: anywhere keeps a
+        // long word on the screen by splitting it, which is right for an
+        // email address and wrong for COMMITTED on a stat tile. A word
+        // whose client rects sit on two lines was split.
+        if (!clipped && el.children.length === 0 && el.textContent && el.textContent.trim()) {
+          for (const node of el.childNodes) {
+            if (node.nodeType !== 3) continue;
+            const s = node.textContent; const re = /\S+/g; let m;
+            while ((m = re.exec(s))) {
+              if (m[0].length < 4 || /[@\/.\-]/.test(m[0])) continue;
+              const range = document.createRange(); range.setStart(node, m.index); range.setEnd(node, m.index + m[0].length);
+              const tops = new Set([...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top)));
+              if (tops.size > 1) { out.push(`${label} breaks "${m[0]}" mid-way`); break; }
+            }
+          }
+        }
       }
       return out;
     }, width);

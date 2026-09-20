@@ -45,6 +45,7 @@ export const IDS = {
   document: "00000000-0000-0000-0000-000000000111",
   orgScale: "00000000-0000-0000-0000-000000000121",
   orgList: "00000000-0000-0000-0000-000000000131",
+  athleteTransfer: "00000000-0000-0000-0000-0000000000c3",
 } as const;
 
 export function buildFixture(): Dataset {
@@ -74,7 +75,9 @@ export function buildFixture(): Dataset {
     orgs: [
       {
         id: BRIDGE,
-        name: "Fixture Foundation",
+        // Long on purpose: the real Bridge org is 38 characters, and the
+        // name sits at the top of every org screen.
+        name: "Fixture Foundation for Student Athletes",
         slug: ORG_WITH_MODULES,
         modules: { board_governance: true, donor_fundraising: true },
         role_labels: { owner: "Executive Director", staff: "Coordinator", member: "Board" },
@@ -135,6 +138,32 @@ export function buildFixture(): Dataset {
         first_full_time_enrollment: null,
         intended_enrollment: null,
         detail: null,
+        measurables: null,
+        is_international: false,
+        toefl_score: null,
+        ielts_score: null,
+        f1_visa_status: null,
+        ncaa_eligibility_status: null,
+        deleted_at: null,
+      },
+      {
+        // A transfer, shaped like the first real athlete Dave entered:
+        // 4-to-4, a D3 school with a long name, a trailing space in the
+        // major, no HS fields at all.
+        id: IDS.athleteTransfer,
+        org_id: BRIDGE,
+        recruit_type: "transfer_4to4",
+        name: "Fixture Transfer",
+        sport: "baseball",
+        position: "MIF",
+        status: "Active",
+        gpa: null,
+        gpa_verified: false,
+        grad_year: null,
+        date_of_birth: null,
+        first_full_time_enrollment: "2024-08-26",
+        intended_enrollment: null,
+        detail: { kind: "transfer", collegeGpa: 4, desiredMajor: "Business ", currentSchool: "City College of New York", transferCount: 1, currentDivision: "D3", eligibilityYearsRemaining: 3 },
         measurables: null,
         is_international: false,
         toefl_score: null,

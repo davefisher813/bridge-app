@@ -60,7 +60,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
       </StatRow>
 
       {totals.lifetimeInKindCents > 0 && (
-        <Row kind="grant" role="place" emphasis="bold" title={`${formatMoney(totals.lifetimeInKindCents)} in kind`} meta="Counted as support, never as cash." />
+        <Row kind="grant" role="place" emphasis="bold" title={`${formatMoney(totals.lifetimeInKindCents)} in Kind`} meta="Counted as support, never as cash." />
       )}
 
       {/* A board member who gives is one person, not two records. This
@@ -87,7 +87,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
                 key={p.id}
                 kind="pledge"
                 role={out > 0 ? "offer" : "committed"}
-                title={`${formatMoney(p.amountCents)} promised`}
+                title={`${formatMoney(p.amountCents)} Promised`}
                 meta={p.dueOn ? `due ${longDate(p.dueOn)}` : undefined}
                 trailing={
                   <Body weight="bold" numeric>

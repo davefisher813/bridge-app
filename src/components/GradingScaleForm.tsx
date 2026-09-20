@@ -69,8 +69,8 @@ export function GradingScaleForm({
               <div className="flex min-h-12 w-11 flex-shrink-0 items-center justify-center">
                 <Body weight="bold">{letter}</Body>
               </div>
-              <Field name={`min_${letter}`} label={`${letter} lowest grade`} labelHidden inputMode="decimal" defaultValue={row?.min ?? ""} error={rowError} />
-              <Field name={`max_${letter}`} label={`${letter} highest grade`} labelHidden inputMode="decimal" defaultValue={row?.max ?? ""} />
+              <Field name={`min_${letter}`} label={`${letter} Lowest Grade`} labelHidden inputMode="decimal" defaultValue={row?.min ?? ""} error={rowError} />
+              <Field name={`max_${letter}`} label={`${letter} Highest Grade`} labelHidden inputMode="decimal" defaultValue={row?.max ?? ""} />
             </div>
           );
         })}

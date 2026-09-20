@@ -81,7 +81,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
 
       {view.schoolsMissingApprovedList.length > 0 && (
         <LinkButton href={`/org/${slug}/approved-courses`} variant="secondary">
-          Enter a list for {view.schoolsMissingApprovedList[0]}
+          Enter a List for {view.schoolsMissingApprovedList[0]}
         </LinkButton>
       )}
     </Screen>

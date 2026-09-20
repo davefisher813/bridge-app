@@ -73,6 +73,24 @@ on 2026-09-19.
 Every script writes to `PREVIEW_OUT_DIR`, default `/tmp/previews`, and
 reads from the same place.
 
+## The app itself, in a browser
+
+`scripts/live/` drives the shipped app rather than a render of it.
+
+```
+FIXTURE_MODE=1 npx next build && FIXTURE_MODE=1 npx next start -p 3100
+SHOTS=1 node scripts/live/drive.mjs          # every route, 320/375/390, both themes
+SUFFIX=375-light node scripts/live/sheets.mjs # contact sheets of the screenshots
+```
+
+`FIXTURE_MODE=1` makes `next.config.ts` alias the two Supabase seams to
+`src/testing/fixtureServer.ts` and `fixtureMiddleware.ts`; every page,
+form, font and client component is the real one. `drive.mjs` reports
+sideways scroll, anything past the frame, text wider than its box and
+any word broken in the middle, and writes screenshots and
+`findings.json` next to them. `WIDTHS=260,280` approximates Safari's
+page zoom. Never build for production with the flag set.
+
 The browser scripts launch Playwright's own Chromium unless `PW_CHROMIUM`
 names an executable. Set it when the installed `playwright` package and
 the browsers on the machine are different builds, as on the Claude Code

@@ -139,10 +139,10 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   };
 
   const headline = isFailed
-    ? "Could not use this"
+    ? "Could Not Use This"
     : isPending
       ? matched || candidates.length
-        ? "Check this before it lands"
+        ? "Check This Before It Lands"
         : "Not sure who this is"
       : `${doc.category ? (CATEGORY_LABEL[doc.category] ?? doc.category) : "Document"} read`;
 
