@@ -4,7 +4,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createTarget } from "@/lib/actions/targets";
 import { TargetForm } from "@/components/TargetForm";
-import { EmptyState, LinkButton, Screen, TextLink } from "@/components/kit";
+import { AddButton, EmptyState, LinkButton, Screen } from "@/components/kit";
 
 export default async function NewTargetPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -28,21 +28,19 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
     <Screen
       title="Add Target"
       back={{ href: `/org/${slug}/board`, label: "Board" }}
-      action={isOwner ? <TextLink href={`/org/${slug}/schools/new`}>+ School</TextLink> : undefined}
+      action={isOwner ? <AddButton href={`/org/${slug}/schools/new`} label="Add a School" /> : undefined}
     >
       {athletes.length === 0 ? (
         <>
-          <EmptyState kind="athlete" title="No Athletes on the Roster Yet">
+          <EmptyState kind="athlete" title="No Athletes on the Roster Yet" action={<LinkButton href={`/org/${slug}/roster/new`}>Add an Athlete</LinkButton>}>
             A target is one athlete pointed at one school, so the athlete comes first.
           </EmptyState>
-          <LinkButton href={`/org/${slug}/roster/new`}>Add an Athlete</LinkButton>
         </>
       ) : schools.length === 0 ? (
         <>
-          <EmptyState kind="school" title="No Schools on File Yet">
+          <EmptyState kind="school" title="No Schools on File Yet" action={isOwner && <LinkButton href={`/org/${slug}/schools/new`}>Add the First School</LinkButton>}>
             Schools are shared across every org, so only an owner can add one.{isOwner ? "" : " Ask an owner to add one."}
           </EmptyState>
-          {isOwner && <LinkButton href={`/org/${slug}/schools/new`}>Add the First School</LinkButton>}
         </>
       ) : (
         <TargetForm action={action} athletes={athletes} schools={schools} submitLabel="Add Target" />

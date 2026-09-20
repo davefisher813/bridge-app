@@ -43,7 +43,7 @@ export default async function NewSeatPage({ params }: { params: Promise<{ slug: 
   const board = toBoard(boardRow as BoardRow);
 
   return (
-    <Screen title="Add Seat" back={{ href: `/org/${slug}/board-governance/${board.id}`, label: board.name }} lede={`${board.name}, up to ${board.maxSeats} active seats.`}>
+    <Screen title="Add Seat" back={{ href: `/org/${slug}/board-governance/${board.id}`, label: board.name }}>
       <BoardSeatForm
         action={addBoardSeat.bind(null, slug, board.id)}
         donors={(donorRows ?? []) as Array<{ id: string; name: string }>}

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
-import { Avatar, Body, Card, Chip, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack, TextLink } from "@/components/kit";
+import { AddButton, Avatar, Body, Card, Chip, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
 import { formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
@@ -64,9 +64,8 @@ export default async function BoardPage({
   return (
     <Screen
       title={board.name}
-      back={{ href: `/org/${slug}/board-governance`, label: "Boards" }}
-      lede={`${formatMoneyShort(board.giveGetCents)} give/get per seat. ${BOARD_KIND_PURPOSE[board.kind]}`}
-      action={canEdit && !summary.atCapacity ? <TextLink href={`/org/${slug}/board-governance/${board.id}/seats/new`}>+ Add</TextLink> : undefined}
+      back={{ href: `/org/${slug}/board-governance`, label: "Boards" }} lede={`${formatMoneyShort(board.giveGetCents)} give/get per seat`}
+      action={canEdit && !summary.atCapacity ? <AddButton href={`/org/${slug}/board-governance/${board.id}/seats/new`} label="Add" /> : undefined}
     >
       <Card>
         <Stack gap={2}>

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { Body, EmptyState, LinkButton, Notice, Row, Screen, Section, TextLink } from "@/components/kit";
+import { AddButton, Body, EmptyState, LinkButton, Notice, Row, Screen, Section } from "@/components/kit";
 import type { Role } from "@/components/statusHue";
 import { isStubbedModel } from "@/lib/actions/documents";
 
@@ -93,7 +93,7 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
   const stubbed = await isStubbedModel();
 
   return (
-    <Screen title="Documents" action={<TextLink href={`/org/${slug}/documents/new`}>+ Add</TextLink>}>
+    <Screen title="Documents" action={<AddButton href={`/org/${slug}/documents/new`} label="Add" />}>
       {stubbed && (
         <Notice tone="warning" title="Simulated Reading">
           No AI model is connected yet. Anything here was made up by the stand-in, not read off a page.
@@ -102,10 +102,9 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
 
       {rows.length === 0 ? (
         <>
-          <EmptyState kind="document" title="No Documents Yet">
+          <EmptyState kind="document" title="No Documents Yet" action={<LinkButton href={`/org/${slug}/documents/new`}>Add the First One</LinkButton>}>
             A transcript, test scores, an offer letter. It gets read, matched to an athlete, and applied or sent to review.
           </EmptyState>
-          <LinkButton href={`/org/${slug}/documents/new`}>Add the First One</LinkButton>
         </>
       ) : (
         <>

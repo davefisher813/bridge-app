@@ -19,18 +19,30 @@ Changing a locked item is a conversation with Dave, not a judgment call
 mid-screen. Adding a component means adding it to the kit first, with
 its contract written here.
 
-## Dave's selections, 2026-09-19
+## Dave's selections
+
+The first round, 2026-09-19, set the scale; the second, 2026-09-20,
+went through twenty-five decisions in the kit catalog artifact. Every
+rendering in that catalog was drawn with the app's own stylesheet and
+every pick is recorded here.
 
 | Decision | Selection |
 | --- | --- |
-| Type scale | Four sizes: 13 label, 16 body, 20 heading, 28 title |
-| Spacing | One step: 12 / 16 / 24, and 12px is the one radius |
-| Surface | Paper, no border. A card is a flat block on the page |
-| Inputs | Filled paper, no border, red focus ring, 16px so iOS never zooms |
-| Theme | System. The app follows the phone; nothing forces dark |
-| Tab bar | Fixed above the home indicator, never sticky |
-| Sign-in | Email and password on one screen, magic link behind a link |
-| Scope | Rebuild every screen on a strict kit; keep the engine, the schema, the tests |
+| Type scale | Four sizes: 13 label, 16 body, 20 heading, 28 title. Titles extrabold |
+| Spacing | One step: 12 / 16 / 24, 16px gutter, 56px rows, 12px is the one radius |
+| Surface | Paper with a hairline border in the line token. Dark paper is #202024 |
+| Subtext | The first fact on a meta line reads in ink, the rest muted |
+| Inputs | Filled paper, no border, red focus ring, 16px, no placeholders; the example goes in the hint below |
+| Buttons | Primary solid accent, 12px radius. Secondary and destructive are outlined. The header add action is a 44px accent disc |
+| Colours | Apple red accent. Stages and scores keep their hues |
+| Sections | Dot, caps label, dotted rule, count. Stat labels in sentence case |
+| Writing | No explanatory line under a title; a factual one stays. Every title is Title Case |
+| Empty states | Glyph, title, one line, and the next action inside |
+| Modules off | Hidden from More entirely |
+| Flows | A save lands on the record. The back arrow goes to the parent screen. A delete asks in a sheet first. A loading screen is a skeleton |
+| Theme | System. The app follows the phone |
+| Tab bar | Four tabs with labels, fixed above the home indicator |
+| Wide screens | One column, 672 wide |
 
 ## The scale
 
@@ -80,9 +92,11 @@ the point), `Stat` and `StatRow`, `Meter` (a stacked share bar),
 pill, and it has no fill), `Score` (the fit number in its band colour),
 `Avatar` (initials on one fixed indigo), `Chevron`.
 
-**Controls:** `Button` (primary solid accent, secondary paper,
-destructive paper with danger text, quiet text only; full width unless
-`inline`), `LinkButton`, `TextLink` (the "+ Add" in a header).
+**Controls:** `Button` (primary solid accent, secondary outlined,
+destructive outlined with danger text, quiet text only; full width
+unless `inline`), `LinkButton`, `AddButton` (the 44px accent disc in a
+screen header), `TextLink` (a small accent link under a list),
+`ConfirmButton` (a destructive action that opens a confirm sheet).
 
 **Fields:** `Field`, `SelectField`, `TextAreaField` (label above, hint
 or error below, filled paper, 16px, 48px tall), `CheckField`,

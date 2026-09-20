@@ -92,7 +92,7 @@ export function ApprovedListForm({
         value={paste}
         onChange={(e) => setPaste(e.target.value)}
         rows={5}
-        placeholder={"Select the table at web3.ncaa.org/hsportal and paste it here.\nEnglish 9\tEnglish\nAlgebra I\tMathematics"}
+        hint="Select the table at web3.ncaa.org/hsportal and paste it here. One course per line."
       />
       {parsed && (
         <Inline>
@@ -148,11 +148,11 @@ export function ApprovedListForm({
       )}
 
       <Grid2>
-        <Field name="ceebCode" label="CEEB Code" inputMode="numeric" placeholder="070415" />
+        <Field name="ceebCode" label="CEEB Code" hint="For example, 070415." inputMode="numeric" />
         <Field name="retrievedOn" label="Read Off the Portal On" type="date" />
       </Grid2>
 
-      <Field name="sourceNote" label="Where This Came From" placeholder="Transcribed from the NCAA portal" error={state.errors.sourceNote} />
+      <Field name="sourceNote" label="Where This Came From" hint="For example, Transcribed from the NCAA portal." error={state.errors.sourceNote} />
 
       {/* The one field that changes what the engine is allowed to conclude. */}
       <CheckField

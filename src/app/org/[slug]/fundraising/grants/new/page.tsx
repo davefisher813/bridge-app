@@ -16,7 +16,6 @@ export default async function NewGrantPage({ params }: { params: Promise<{ slug:
     <Screen
       title="Track Grant"
       back={{ href: `/org/${slug}/fundraising/grants`, label: "Grants" }}
-      lede="The application. Money arrives later as an ordinary gift in the Foundation Grants category."
     >
       <GrantForm action={trackGrant.bind(null, slug)} />
     </Screen>

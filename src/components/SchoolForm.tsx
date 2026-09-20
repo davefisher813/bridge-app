@@ -15,7 +15,7 @@ export function SchoolForm({ action }: { action: ServerAction }) {
 
   return (
     <Form action={formAction} error={state.errors.form}>
-      <Field name="name" label="School Name" error={err("name")} placeholder="Test University" required />
+      <Field name="name" label="School Name" hint="For example, Test University." error={err("name")} required />
       <Grid2>
         <SelectField name="division" label="Division" error={err("division")} defaultValue="D1">
           {SCHOOL_DIVISIONS.map((d) => (
@@ -24,9 +24,9 @@ export function SchoolForm({ action }: { action: ServerAction }) {
             </option>
           ))}
         </SelectField>
-        <Field name="conference" label="Conference" placeholder="Ivy League" />
+        <Field name="conference" label="Conference" hint="For example, Ivy League." />
       </Grid2>
-      <Field name="sportsSponsored" label="Sports Sponsored" placeholder="baseball, softball" hint="Comma separated." />
+      <Field name="sportsSponsored" label="Sports Sponsored" hint="Comma separated." />
       <Button disabled={pending}>{pending ? "Adding..." : "Add School"}</Button>
     </Form>
   );

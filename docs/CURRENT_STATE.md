@@ -28,11 +28,13 @@ page-by-page audit.
 
 **53 pages**, 18 migrations, 636 tests in 43 files, 11 law files.
 
-### The kit, 2026-09-19
+### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
 `src/components/kit/` is the whole vocabulary a screen has: four text
-sizes, one spacing step, one radius, paper surfaces, filled 16px
-inputs, a fixed tab bar, a theme that follows the phone. The contract
+sizes, one spacing step, one radius, paper surfaces with a hairline
+border, filled 16px inputs with hints instead of placeholders, outlined
+secondary buttons, a confirm sheet before a delete, a fixed tab bar, a
+theme that follows the phone, Title Case on every title. The contract
 is docs/STYLING_CATALOG.md; `src/laws/kitLaws.test.ts` fails the build
 on a page that styles anything itself. `tailwind.config.ts` replaces
 the theme, so a class outside the scale does not exist. The old
@@ -122,8 +124,8 @@ be left without an owner. "Invited" is read off a mirror of
 
 ### Blocked on Dave
 
-- **The page-by-page audit** of the rebuilt app on his phone. He said he
-  would do it once the rebuild was done; it is done.
+- **The page-by-page audit** of the rebuilt app on his phone, now with
+  his twenty-five catalog picks applied.
 - **No API key for Doc AI.** The model caller is a stand-in.
 - **The name.** "BFFSA" is what the app calls itself for now.
 

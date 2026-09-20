@@ -121,7 +121,7 @@ export function Screen({
 export function Panel({ children }: { children: ReactNode }) {
   return (
     <main className="flex min-h-dvh items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md rounded bg-paper p-6">{children}</div>
+      <div className="w-full max-w-md rounded border border-line bg-paper p-6">{children}</div>
     </main>
   );
 }
@@ -146,13 +146,28 @@ export function Section({ label, count, role = "accent", kind, action, children 
 
 // ── Surfaces ─────────────────────────────────────────────────────────
 export function Card({ children, href }: { children: ReactNode; href?: string }) {
-  const inner = <div className="rounded bg-paper p-4">{children}</div>;
+  const inner = <div className="rounded border border-line bg-paper p-4">{children}</div>;
   return href ? (
     <Link href={href} className="block">
       {inner}
     </Link>
   ) : (
     inner
+  );
+}
+
+// The first fact on a meta line reads in ink, the rest muted, so the
+// eye lands on the one that matters: "D2 · Fixture State · Coach".
+// Dave's pick, 2026-09-20. Only a plain string with the separator gets
+// this; a node is left as it came.
+function leadFact(meta: ReactNode): ReactNode {
+  if (typeof meta !== "string" || !meta.includes(" · ")) return meta;
+  const at = meta.indexOf(" · ");
+  return (
+    <>
+      <span className="font-semibold text-ink">{meta.slice(0, at)}</span>
+      {meta.slice(at)}
+    </>
   );
 }
 
@@ -184,11 +199,11 @@ export function Row({
   wrap?: boolean;
 }) {
   const body = (
-    <div className="flex min-h-14 items-center gap-3 rounded bg-paper px-4 py-3">
+    <div className="flex min-h-14 items-center gap-3 rounded border border-line bg-paper px-4 py-3">
       {leading ?? (kind ? <RowGlyph kind={kind} role={role} /> : null)}
       <div className="min-w-0 flex-1">
         <div className={`truncate text-body ${emphasis === "bold" ? "font-bold" : "font-semibold"} text-ink`}>{title}</div>
-        {meta && <div className={`${wrap ? "" : "truncate"} text-label text-muted`}>{meta}</div>}
+        {meta && <div className={`${wrap ? "" : "truncate"} text-label text-muted`}>{leadFact(meta)}</div>}
       </div>
       {trailing && <div className="flex flex-shrink-0 flex-col items-end gap-1">{trailing}</div>}
     </div>
@@ -205,7 +220,7 @@ export function Row({
 // A stat: the number in the role's colour, the label under it.
 export function Stat({ value, label, role = "neutral", kind }: { value: ReactNode; label: string; role?: Role; kind?: RowKind }) {
   return (
-    <div className="min-w-0 flex-1 rounded bg-paper px-3 py-3">
+    <div className="min-w-0 flex-1 rounded border border-line bg-paper px-3 py-3">
       <div className="flex items-center gap-2">
         {kind && <RowGlyph kind={kind} role={role} className="h-4 w-4" />}
         <div className={`text-heading font-extrabold tabular-nums ${TEXT_ON[role]}`}>{value}</div>
@@ -213,7 +228,7 @@ export function Stat({ value, label, role = "neutral", kind }: { value: ReactNod
       {/* 12px sides, not 16: three tiles at 375 wide with COMMITTED in
           caps on one of them is 15px over the screen at 16. min-w-0 so
           the tile can never be wider than its share of the row. */}
-      <div className="text-label font-bold uppercase tracking-wide text-muted">{label}</div>
+      <div className="text-label font-bold text-muted">{label}</div>
     </div>
   );
 }
@@ -261,12 +276,15 @@ export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg"
 
 // A glyph, a title, one line naming the next action. Never an empty
 // container and never a bare muted sentence.
-export function EmptyState({ kind = "info", role = "neutral", title, children }: { kind?: RowKind; role?: Role; title: string; children?: ReactNode }) {
+export function EmptyState({ kind = "info", role = "neutral", title, action, children }: { kind?: RowKind; role?: Role; title: string; action?: ReactNode; children?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded bg-paper px-4 py-8 text-center">
+    <div className="flex flex-col items-center gap-2 rounded border border-line bg-paper px-4 py-8 text-center">
       <RowGlyph kind={kind} role={role} className="h-8 w-8" />
       <div className="text-body font-extrabold text-ink">{title}</div>
       {children && <div className="text-label text-muted">{children}</div>}
+      {/* The next action sits inside the empty state, so there is
+          nothing to hunt for. Dave's pick, 2026-09-20. */}
+      {action && <div className="w-full pt-2">{action}</div>}
     </div>
   );
 }
@@ -277,7 +295,7 @@ export function Notice({ tone, title, children }: { tone: "success" | "danger" |
   const kind: RowKind = tone === "success" ? "check" : tone === "danger" ? "blocked" : tone === "warning" ? "warning" : "info";
   const role: Role = tone === "success" ? "committed" : tone === "danger" ? "danger" : tone === "warning" ? "time" : "contact";
   return (
-    <div className="flex items-start gap-3 rounded bg-paper px-4 py-3" role={tone === "danger" ? "alert" : "status"}>
+    <div className="flex items-start gap-3 rounded border border-line bg-paper px-4 py-3" role={tone === "danger" ? "alert" : "status"}>
       <span className="pt-px">
         <RowGlyph kind={kind} role={role} />
       </span>
@@ -296,8 +314,8 @@ type ButtonVariant = "primary" | "secondary" | "destructive" | "quiet";
 
 const BUTTON: Record<ButtonVariant, string> = {
   primary: "bg-solid-accent text-solid-accent-on",
-  secondary: "bg-paper text-ink",
-  destructive: "bg-paper text-tint-danger-on",
+  secondary: "border border-line text-ink",
+  destructive: "border border-line text-tint-danger-on",
   quiet: "text-tint-accent-on",
 };
 
@@ -319,7 +337,18 @@ export function LinkButton({ href, variant = "primary", inline = false, children
   );
 }
 
-// A small text link in the accent colour, for "+ Add" in a header and
+// The add action in a screen header: a 44px accent disc with a plus.
+// Dave's pick, 2026-09-20, over the text link it replaced. The label is
+// for the screen reader; the disc says it on its own.
+export function AddButton({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} aria-label={label} className="flex h-11 w-11 items-center justify-center rounded-full bg-solid-accent text-heading font-bold text-solid-accent-on">
+      +
+    </Link>
+  );
+}
+
+// A small text link in the accent colour, for "View All" under a list and
 // "View all" under a list. 44px tall so it is a real target.
 export function TextLink({ href, children }: { href: string; children: ReactNode }) {
   return (
@@ -390,7 +419,7 @@ export function Hidden({ name, value }: { name: string; value: string }) {
 // selected one carries a ring. `name`/`value` make the tap the submit.
 export function Option({ name, value, selected, title, meta }: { name: string; value: string; selected: boolean; title: ReactNode; meta?: ReactNode }) {
   return (
-    <button type="submit" name={name} value={value} disabled={selected} aria-pressed={selected} className={`flex min-h-14 w-full items-center justify-between gap-3 rounded bg-paper px-4 py-3 text-left ${selected ? "ring-2 ring-accent" : ""}`}>
+    <button type="submit" name={name} value={value} disabled={selected} aria-pressed={selected} className={`flex min-h-14 w-full items-center justify-between gap-3 rounded border border-line bg-paper px-4 py-3 text-left ${selected ? "ring-2 ring-accent" : ""}`}>
       <span className="text-body font-semibold text-ink">{title}</span>
       {meta && <span className="text-label text-muted">{meta}</span>}
     </button>
@@ -401,7 +430,7 @@ export function Option({ name, value, selected, title, meta }: { name: string; v
 export function CheckField({ id, name, label, hint, ...rest }: InputHTMLAttributes<HTMLInputElement> & { name: string; label: ReactNode; hint?: ReactNode }) {
   const fieldId = id ?? name;
   return (
-    <label htmlFor={fieldId} className="flex min-h-12 items-center gap-3 rounded bg-paper px-4">
+    <label htmlFor={fieldId} className="flex min-h-12 items-center gap-3 rounded border border-line bg-paper px-4">
       <input id={fieldId} name={name} type="checkbox" {...rest} className="h-6 w-6 accent-[var(--accent)]" />
       <span className="min-w-0 flex-1">
         <span className="block text-body font-semibold text-ink">{label}</span>
@@ -433,7 +462,7 @@ export function ChoiceRow({ children }: { children: ReactNode }) {
 
 export function Choice({ on, children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { on: boolean }) {
   return (
-    <button type="button" aria-pressed={on} {...rest} className={`min-h-11 rounded bg-paper px-4 text-label font-bold ${on ? "text-ink ring-2 ring-accent" : "text-muted"}`}>
+    <button type="button" aria-pressed={on} {...rest} className={`min-h-11 rounded border border-line bg-paper px-4 text-label font-bold ${on ? "text-ink ring-2 ring-accent" : "text-muted"}`}>
       {children}
     </button>
   );
@@ -456,7 +485,9 @@ export function Form({ action, error, children, onPaper = false }: { action: (fo
 export function Chrome({ orgName, slug, children }: { orgName: string; slug: string; children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg">
-      <div className="mx-auto max-w-md">
+      {/* 672 wide on a laptop, the whole screen on a phone. Dave's
+          pick, 2026-09-20, over the 448 phone column. */}
+      <div className="mx-auto max-w-2xl">
         <div className="flex min-h-11 items-center px-4 pt-3">
           <span className="text-body font-extrabold text-ink">{orgName}</span>
         </div>
@@ -495,3 +526,5 @@ export function Skeleton({ rows = 4 }: { rows?: number }) {
     </div>
   );
 }
+
+export { ConfirmButton } from "./ConfirmButton";

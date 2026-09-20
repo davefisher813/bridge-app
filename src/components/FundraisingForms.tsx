@@ -39,7 +39,6 @@ export function BudgetForm({
             label={CATEGORY_LABEL[c]}
             error={err(`budget_${c}`)}
             inputMode="decimal"
-            placeholder="$0"
             value={values[c] ?? ""}
             onChange={(e) => setValues({ ...values, [c]: e.target.value })}
           />
@@ -102,7 +101,6 @@ export function CampaignForm({ action }: { action: ServerAction }) {
         label="Goal"
         error={err("goalAmount")}
         inputMode="decimal"
-        placeholder="$0"
         hint="Measured against cash raised. Pledges show beside the bar, never inside it, so promises cannot complete a campaign."
       />
 
@@ -148,7 +146,7 @@ export function PledgeForm({
         ))}
       </SelectField>
 
-      <Field name="amount" label="Amount" error={err("amount")} inputMode="decimal" placeholder="$0.00" required />
+      <Field name="amount" label="Amount" error={err("amount")} inputMode="decimal" required />
 
       <Grid2>
         <Field name="promisedOn" label="Promised" type="date" error={err("promisedOn")} defaultValue={today} required />
@@ -203,7 +201,7 @@ export function GrantForm({ action }: { action: ServerAction }) {
       </SelectField>
 
       <Grid2>
-        <Field name="amountRequested" label="Requesting" inputMode="decimal" placeholder="$0" />
+        <Field name="amountRequested" label="Requesting" inputMode="decimal" />
         <Field name="deadlineOn" label="Deadline" type="date" />
       </Grid2>
 
@@ -215,7 +213,6 @@ export function GrantForm({ action }: { action: ServerAction }) {
           label="Amount Awarded"
           error={err("amountAwarded")}
           inputMode="decimal"
-          placeholder="$0"
           hint="The money itself is recorded separately as a gift in the Foundation Grants category, so an award is never counted both as a win here and as revenue there."
         />
       )}

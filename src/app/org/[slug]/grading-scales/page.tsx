@@ -96,7 +96,6 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
     <Screen
       title="Grading Scales"
       back={{ href: `/org/${slug}/more`, label: "More" }}
-      lede="How each high school's numbers become letters. The NCAA converts a numeric grade using the school's own published table, never a generic curve, so an 85 is not automatically a B."
     >
       {blockedList.length > 0 && (
         <Section label="Needed Now" count={blockedList.length} role="offer" kind="warning">

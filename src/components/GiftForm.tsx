@@ -61,7 +61,6 @@ export function GiftForm({
         label="Amount"
         error={err("amount")}
         inputMode="decimal"
-        placeholder="$0.00"
         required
         hint="A negative amount records a refund or a correction."
       />
@@ -97,7 +96,6 @@ export function GiftForm({
           name="inKindDescription"
           label="What Was Given"
           error={err("inKindDescription")}
-          placeholder="Two cases of water, printing for the event"
           hint="Counted as support, never as cash. An in-kind amount with no description cannot be substantiated later."
         />
       )}
@@ -157,7 +155,6 @@ export function GiftForm({
         name="externalRef"
         label="Reference"
         error={err("externalRef")}
-        placeholder="Stripe payment id or check number"
         hint="Optional, and the same reference can only be recorded once, so a payment cannot be entered twice by accident."
       />
 

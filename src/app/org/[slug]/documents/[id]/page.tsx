@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { applyDocument, discardDocument, isStubbedModel } from "@/lib/actions/documents";
-import { Avatar, Body, Button, Chip, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
+import { Avatar, Body, Button, Chip, ConfirmButton, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { Role } from "@/components/statusHue";
 
@@ -276,7 +276,13 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
             <LinkButton href={`/org/${slug}/documents`}>Done</LinkButton>
             {(isPending || isApplied) && (
               <Form action={discardAction}>
-                <Button variant="destructive">{isApplied ? "Undo and Discard" : "Discard"}</Button>
+                <ConfirmButton
+                  title={isApplied ? "Undo and discard this document?" : "Discard this document?"}
+                  body={isApplied ? "The courses it added come off and the previous GPA and date of birth go back." : "Nothing was applied, so nothing changes on any athlete."}
+                  confirmLabel={isApplied ? "Undo and Discard" : "Discard"}
+                >
+                  {isApplied ? "Undo and Discard" : "Discard"}
+                </ConfirmButton>
               </Form>
             )}
           </Stack>

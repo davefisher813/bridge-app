@@ -81,8 +81,7 @@ export default async function AllSeatsPage({
   return (
     <Screen
       title="Every Seat"
-      back={{ href: `/org/${slug}/board-governance`, label: "Boards" }}
-      lede={`${fiscalYear}, across all ${view.boards.length} ${view.boards.length === 1 ? "board" : "boards"}. Furthest behind first.`}
+      back={{ href: `/org/${slug}/board-governance`, label: "Boards" }} lede={`${fiscalYear}, across all ${view.boards.length} ${view.boards.length === 1 ? "board" : "boards"}`}
     >
       {seats.length === 0 ? (
         <EmptyState kind="people" title="No Seats Yet">

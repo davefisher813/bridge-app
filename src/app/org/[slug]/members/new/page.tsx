@@ -16,7 +16,7 @@ export default async function InviteMemberPage({ params }: { params: Promise<{ s
   const action = inviteMember.bind(null, slug);
 
   return (
-    <Screen title="Invite Someone" back={{ href: `/org/${slug}/members`, label: "Members" }} lede="They get an email with a sign-in link. No password to make up or remember.">
+    <Screen title="Invite Someone" back={{ href: `/org/${slug}/members`, label: "Members" }}>
       <InviteForm action={action} roleLabels={org.roleLabels} />
       <Prose>The link works for 24 hours. If it lapses, Resend from the Invited list.</Prose>
     </Screen>

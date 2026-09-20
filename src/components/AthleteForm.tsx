@@ -65,10 +65,10 @@ export function AthleteForm({ action, initialValues = {}, submitLabel }: { actio
 
   return (
     <Form action={formAction} error={state.errors.form}>
-      <Field name="name" label="Name" defaultValue={f("name")} placeholder="Jose Ulloa" required error={err("name")} />
+      <Field name="name" label="Name" hint="For example, Jose Ulloa." defaultValue={f("name")} required error={err("name")} />
       <Grid2>
-        <Field name="sport" label="Sport" defaultValue={f("sport")} placeholder="Baseball" required error={err("sport")} />
-        <Field name="position" label="Position" defaultValue={f("position")} placeholder="RHP" />
+        <Field name="sport" label="Sport" hint="For example, Baseball." defaultValue={f("sport")} required error={err("sport")} />
+        <Field name="position" label="Position" hint="For example, RHP." defaultValue={f("position")} />
       </Grid2>
       <SelectField name="recruitType" label="Recruit Type" value={recruitType} onChange={(e) => setRecruitType(e.target.value as RecruitType)}>
         {RECRUIT_TYPES.map((t) => (
@@ -93,7 +93,7 @@ export function AthleteForm({ action, initialValues = {}, submitLabel }: { actio
         <Stack gap={3}>
           <Label caps>High school details</Label>
           <Grid2>
-            <Field name="gradYear" label="Grad Year" type="number" inputMode="numeric" defaultValue={f("gradYear")} placeholder="2027" />
+            <Field name="gradYear" label="Grad Year" hint="For example, 2027." type="number" inputMode="numeric" defaultValue={f("gradYear")} />
             <Field name="desiredMajor" label="Desired Major" defaultValue={f("desiredMajor")} />
           </Grid2>
           <Grid2>
@@ -114,7 +114,7 @@ export function AthleteForm({ action, initialValues = {}, submitLabel }: { actio
           <Label caps>Transfer details</Label>
           <Field name="currentSchool" label="Current School" defaultValue={f("currentSchool")} required={isTransfer} error={err("currentSchool")} />
           <Grid2>
-            <Field name="currentDivision" label="Current Division" defaultValue={f("currentDivision")} placeholder="D1" />
+            <Field name="currentDivision" label="Current Division" hint="For example, D1." defaultValue={f("currentDivision")} />
             <Field name="collegeGpa" label="College GPA" type="number" step="0.01" min="0" max="4" inputMode="decimal" defaultValue={f("collegeGpa")} />
           </Grid2>
           <Grid2>

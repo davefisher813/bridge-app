@@ -9,7 +9,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { Body, EmptyState, LinkButton, Row, Screen, Section, TextLink } from "@/components/kit";
+import { AddButton, Body, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +56,7 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
   );
 
   return (
-    <Screen title="Schools" action={isOwner ? <TextLink href={`/org/${slug}/schools/new`}>+ Add</TextLink> : undefined}>
+    <Screen title="Schools" action={isOwner ? <AddButton href={`/org/${slug}/schools/new`} label="Add" /> : undefined}>
       {schools.length === 0 ? (
         <EmptyState kind="school" title="No Schools Yet">
           {isOwner ? "Add the first one below." : "An owner adds schools, because the list is shared across every organization."}

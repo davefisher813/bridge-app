@@ -83,7 +83,7 @@ export function TargetForm({
             </option>
           ))}
         </SelectField>
-        <Field name="coachName" label="Coach" defaultValue={initialValues.coachName ?? ""} placeholder="T. Reilly" />
+        <Field name="coachName" label="Coach" hint="For example, T. Reilly." defaultValue={initialValues.coachName ?? ""} />
       </Grid2>
 
       <Field name="visitDate" label="Visit Date" type="date" defaultValue={initialValues.visitDate ?? ""} hint="Shows up on Today once set." />

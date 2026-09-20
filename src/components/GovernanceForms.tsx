@@ -31,7 +31,7 @@ export function BoardForm({ action }: { action: ServerAction }) {
 
       {/* Required only for a sport board, because the whole point of
           that tier is that there is one per sport. */}
-      {kind === "sport" && <Field name="sport" label="Sport" error={err("sport")} placeholder="baseball" />}
+      {kind === "sport" && <Field name="sport" label="Sport" hint="For example, baseball." error={err("sport")} />}
 
       <Field
         name="giveGet"

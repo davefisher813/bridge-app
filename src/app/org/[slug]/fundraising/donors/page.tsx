@@ -10,7 +10,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { Body, EmptyState, Label, LinkButton, Row, Screen, Section, TextLink } from "@/components/kit";
+import { AddButton, Body, EmptyState, Label, LinkButton, Row, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { donorTotals, formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
@@ -66,9 +66,8 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
   return (
     <Screen
       title="Donors"
-      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
-      lede={`${donors.length} ${donors.length === 1 ? "supporter" : "supporters"}. Totals are calculated from the gifts, not typed in, so they cannot go stale.`}
-      action={canEdit ? <TextLink href={`/org/${slug}/fundraising/donors/new`}>+ Add</TextLink> : undefined}
+      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }} lede={`${donors.length} ${donors.length === 1 ? "supporter" : "supporters"}`}
+      action={canEdit ? <AddButton href={`/org/${slug}/fundraising/donors/new`} label="Add" /> : undefined}
     >
       {owing.length > 0 && (
         <Section label="Owes a Pledge" count={owing.length} role="target" kind="pledge">

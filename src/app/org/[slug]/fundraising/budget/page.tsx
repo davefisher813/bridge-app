@@ -45,7 +45,6 @@ export default async function BudgetPage({
     <Screen
       title={`${fiscalYear} Budget`}
       back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
-      lede="The full-year target per category, as the board approved it. Everything on the overview is measured against these."
     >
       <BudgetForm action={action} fiscalYear={fiscalYear} current={current} />
     </Screen>

@@ -72,7 +72,7 @@ export default async function FundraisingPage({
 
   if (gifts.length === 0 && pledges.length === 0) {
     return (
-      <Screen title="Fundraising" lede={`${fiscalYear}, against the board budget.`}>
+      <Screen title="Fundraising">
         <EmptyState kind="money" title="Nothing Recorded Yet">
           Record the first gift and this starts reporting against your categories. Totals are calculated from the gifts themselves, so
           nothing here can go stale.
@@ -93,7 +93,7 @@ export default async function FundraisingPage({
   }
 
   return (
-    <Screen title="Fundraising" lede={`${fiscalYear}, against the board budget. Cash received only.`}>
+    <Screen title="Fundraising" lede={`${fiscalYear}, against the board budget`}>
       <Stack gap={2}>
         <StatRow>
           <Stat value={formatMoneyShort(s.totalCashCents)} label="Raised" role="committed" kind="money" />

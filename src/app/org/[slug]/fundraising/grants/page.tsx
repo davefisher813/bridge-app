@@ -14,7 +14,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { Chip, EmptyState, LinkButton, Row, Screen, Section, TextLink } from "@/components/kit";
+import { AddButton, Chip, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
 import { formatMoneyShort } from "@/lib/fundraising/rollup";
@@ -132,8 +132,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
     <Screen
       title="Grants"
       back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
-      lede="The applications, not the money. Awarded funds are recorded as a gift in the Foundation Grants category, so nothing is counted twice."
-      action={canEdit ? <TextLink href={`/org/${slug}/fundraising/grants/new`}>+ Add</TextLink> : undefined}
+      action={canEdit ? <AddButton href={`/org/${slug}/fundraising/grants/new`} label="Add" /> : undefined}
     >
       {grants.length === 0 ? (
         <>

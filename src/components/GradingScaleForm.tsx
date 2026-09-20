@@ -41,7 +41,6 @@ export function GradingScaleForm({
         label="School"
         error={err("schoolName")}
         defaultValue={defaults.schoolName}
-        placeholder="Cardinal Hayes High School"
         required
         hint="Spell it the way the transcript does. Courses are matched to this table by school name."
       />
@@ -102,7 +101,6 @@ export function GradingScaleForm({
         name="sourceNote"
         label="Where This Came From"
         defaultValue={defaults.sourceNote}
-        placeholder="Legend printed on page 2 of the official transcript"
         required
         error={err("sourceNote")}
         hint="Required. This table governs every eligibility verdict for every athlete at this school in your org, and in six months nobody will remember who typed it."

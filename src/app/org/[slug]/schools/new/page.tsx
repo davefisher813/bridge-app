@@ -18,7 +18,7 @@ export default async function NewSchoolPage({ params }: { params: Promise<{ slug
   const action = createSchool.bind(null, slug);
 
   return (
-    <Screen title="Add School" back={{ href: `/org/${slug}/schools`, label: "Schools" }} lede="Shared across every org on the platform, not just this one.">
+    <Screen title="Add School" back={{ href: `/org/${slug}/schools`, label: "Schools" }}>
       <SchoolForm action={action} />
     </Screen>
   );

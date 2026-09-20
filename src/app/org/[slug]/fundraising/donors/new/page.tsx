@@ -18,7 +18,6 @@ export default async function NewDonorPage({ params }: { params: Promise<{ slug:
     <Screen
       title="Add Donor"
       back={{ href: `/org/${slug}/fundraising/donors`, label: "Donors" }}
-      lede="Their giving history builds itself from the gifts you record against them. Nothing about totals is typed in here."
     >
       <DonorForm action={action} />
     </Screen>

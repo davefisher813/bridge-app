@@ -11,7 +11,7 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
-import { Body, Card, EmptyState, Label, LinkButton, Meter, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { AddButton, Body, Card, EmptyState, Label, LinkButton, Meter, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { formatMoneyShort } from "@/lib/fundraising/rollup";
 import { BOARD_KIND_LABEL } from "@/lib/governance/giveGet";
@@ -62,16 +62,14 @@ export default async function BoardGovernancePage({
 
   return (
     <Screen
-      title="Boards"
-      lede={`${fiscalYear}. Each tier carries a give/get commitment, and progress is cash in the door, given or brought in.`}
-      action={canEdit && view.boards.length > 0 ? <TextLink href={`/org/${slug}/board-governance/new`}>+ Add</TextLink> : undefined}
+      title="Boards" lede={`${fiscalYear}`}
+      action={canEdit && view.boards.length > 0 ? <AddButton href={`/org/${slug}/board-governance/new`} label="Add" /> : undefined}
     >
       {view.boards.length === 0 ? (
         <>
-          <EmptyState kind="governance" title="No Boards Yet">
+          <EmptyState kind="governance" title="No Boards Yet" action={canEdit && <LinkButton href={`/org/${slug}/board-governance/new`}>Add the First Board</LinkButton>}>
             Add your tiers and the seats on them, and each member&apos;s give/get progress builds itself from the gifts already recorded.
           </EmptyState>
-          {canEdit && <LinkButton href={`/org/${slug}/board-governance/new`}>Add the First Board</LinkButton>}
         </>
       ) : (
         <>

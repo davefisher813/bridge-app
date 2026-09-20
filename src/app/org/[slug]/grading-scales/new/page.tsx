@@ -30,7 +30,6 @@ export default async function NewGradingScalePage({
     <Screen
       title={school || "Add a Grading Scale"}
       back={{ href: `/org/${slug}/grading-scales`, label: "Grading Scales" }}
-      lede="Copy the table exactly as the school publishes it. Do not adjust it to look like other schools: the whole reason this is stored per school is that schools differ."
     >
       <GradingScaleForm
         action={action}

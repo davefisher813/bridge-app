@@ -125,7 +125,9 @@
 [data-theme="dark"] {
   --ink: #ffffff;
   --bg: #0c0c0c;
-  --paper: #1a1a1a;
+  /* Lifted from #1a1a1a on 2026-09-20 (Dave's pick): cards read on the
+     dark page without leaning on the hairline alone. */
+  --paper: #202024;
   --muted: #9ca3af;
   --line: rgba(255, 255, 255, 0.12);
 

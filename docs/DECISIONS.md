@@ -1952,3 +1952,29 @@ and a long address so the spill check has something to catch, and the
 planted-bug run proved it does. The kit's `Stat` has 12px sides. The
 catalog Dave selects from (published the same day) decides the rest of
 the flow rules: delete confirmation, the back arrow, module-off rows.
+
+## 2026-09-20: the kit catalog, twenty-five picks
+
+**Decision.** Dave went through the kit catalog artifact (twenty-five
+decisions, each rendered two or three ways with the app's stylesheet)
+and picked. Eleven change the app: hairline borders on every paper
+surface, dark paper lifted to #202024, the first fact of a meta line in
+ink, outlined secondary and destructive buttons, a 44px accent disc for
+the add action in a header, the next action inside an empty state, no
+explanatory sentence under a screen title (a factual line stays),
+field examples as hints below instead of placeholders, a confirm sheet
+before a delete, stat labels in sentence case, and a 672px column on a
+laptop. Fourteen confirm what the app already did. The full table is in
+docs/STYLING_CATALOG.md.
+
+**Reason.** "There's still no borders on the pages... it just looks
+very elementary." A catalog of rendered options is how this project
+decides looks (CLAUDE.md), and the picks were read back from the
+artifact's store rather than typed.
+
+**Consequences.** The first round of picks never reached the store
+because the page wrote with update() to a document that did not exist;
+the page now writes with set() and pushes phone-saved picks up on open.
+The pill law exempts the kit's AddButton by its 44px size. Explanatory
+ledes were removed from the pages rather than hidden, so the strings
+are gone.

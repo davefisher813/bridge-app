@@ -15,7 +15,7 @@ import {
 } from "@/lib/data/fitAdapters";
 import { scoreFit } from "@/lib/fit/score";
 import type { FitTag } from "@/lib/fit/types";
-import { EmptyState, Label, LinkButton, Row, Score, Screen, Section, TextLink } from "@/components/kit";
+import { AddButton, EmptyState, Label, LinkButton, Row, Score, Screen, Section } from "@/components/kit";
 import { stageKind, statusRole } from "@/components/statusHue";
 
 interface TargetRow {
@@ -124,13 +124,12 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
   if (unknownStatusRows.length > 0) grouped.push({ status: "Other", rows: unknownStatusRows });
 
   return (
-    <Screen title="Board" action={canEdit ? <TextLink href={`/org/${slug}/board/new`}>+ Add</TextLink> : undefined}>
+    <Screen title="Board" action={canEdit ? <AddButton href={`/org/${slug}/board/new`} label="Add" /> : undefined}>
       {rows.length === 0 ? (
         <>
-          <EmptyState kind="target" title="No Recruiting Targets Yet">
+          <EmptyState kind="target" title="No Recruiting Targets Yet" action={canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>}>
             {canEdit ? "A target is one athlete pointed at one school." : "Ask an owner or coordinator to add one."}
           </EmptyState>
-          {canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>}
         </>
       ) : (
         grouped.map((group) => (

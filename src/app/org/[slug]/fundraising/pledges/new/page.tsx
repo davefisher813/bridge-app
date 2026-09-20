@@ -27,7 +27,6 @@ export default async function NewPledgePage({ params }: { params: Promise<{ slug
     <Screen
       title="Add Pledge"
       back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
-      lede="Money promised. It will not count as raised until a payment against it actually arrives."
     >
       {donors.length === 0 ? (
         <>

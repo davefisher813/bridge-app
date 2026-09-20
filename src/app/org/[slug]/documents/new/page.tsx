@@ -17,7 +17,6 @@ export default async function NewDocumentPage({ params }: { params: Promise<{ sl
     <Screen
       title="Add a Document"
       back={{ href: `/org/${slug}/documents`, label: "Documents" }}
-      lede="A transcript, test scores, an offer letter. It gets read, matched to an athlete, and either applied or sent to review."
     >
       {stubbed && (
         <Notice tone="warning" title="Simulated Reading">

@@ -52,7 +52,7 @@ export default async function MembersPage({
   const label = (role: string) => labelForRole(org.roleLabels, role as OrgRole);
 
   return (
-    <Screen title="Members" back={{ href: `/org/${slug}/more`, label: "More" }} lede={`Who can sign in to ${org.name} and what they can do.`}>
+    <Screen title="Members" back={{ href: `/org/${slug}/more`, label: "More" }}>
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
 
       <StatRow>

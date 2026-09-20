@@ -11,7 +11,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { formatMoney, outstandingOn } from "@/lib/fundraising/rollup";
-import { Body, EmptyState, LinkButton, Row, Screen, Section, TextLink } from "@/components/kit";
+import { AddButton, Body, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -66,9 +66,8 @@ export default async function PledgesPage({ params }: { params: Promise<{ slug: 
   return (
     <Screen
       title="Pledges"
-      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
-      lede={`${formatMoney(totalOutstanding)} outstanding. None of this is in the raised figure.`}
-      action={canEdit ? <TextLink href={`/org/${slug}/fundraising/pledges/new`}>+ Add</TextLink> : undefined}
+      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }} lede={`${formatMoney(totalOutstanding)} outstanding`}
+      action={canEdit ? <AddButton href={`/org/${slug}/fundraising/pledges/new`} label="Add" /> : undefined}
     >
       {rows.length === 0 ? (
         <EmptyState kind="pledge" title="No Pledges">

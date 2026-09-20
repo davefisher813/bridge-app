@@ -16,7 +16,6 @@ export default async function NewCampaignPage({ params }: { params: Promise<{ sl
     <Screen
       title="New Campaign"
       back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
-      lede="An event, an appeal, or anything with a goal and an end date."
     >
       <CampaignForm action={createCampaign.bind(null, slug)} />
     </Screen>

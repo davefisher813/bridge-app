@@ -72,7 +72,6 @@ export default async function NewGiftPage({ params }: { params: Promise<{ slug: 
     <Screen
       title="Add Gift"
       back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
-      lede="Money that has actually arrived. A promise goes in as a pledge instead, so nothing counts it as raised before it lands."
     >
       <GiftForm
         action={action}

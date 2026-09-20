@@ -7,7 +7,7 @@ import { ContactForm } from "@/components/ContactForm";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
-import { Body, Button, Card, Chevron, EmptyState, Form, Label, Row, Screen, Section, Stack, TextLink } from "@/components/kit";
+import { Body, Button, Card, Chevron, ConfirmButton, EmptyState, Form, Label, Row, Screen, Section, Stack, TextLink } from "@/components/kit";
 import { statusRole } from "@/components/statusHue";
 
 const RECRUIT_TYPE_LABEL: Record<string, string> = {
@@ -161,9 +161,9 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
                 </div>
                 {canEdit && (
                   <Form action={deleteContactAction.bind(null, c.id)}>
-                    <Button variant="quiet" inline>
+                    <ConfirmButton inline title={`Remove ${c.name}?`} body="They come off this athlete's contacts. Nothing else changes." confirmLabel="Remove">
                       Remove
-                    </Button>
+                    </ConfirmButton>
                   </Form>
                 )}
               </div>

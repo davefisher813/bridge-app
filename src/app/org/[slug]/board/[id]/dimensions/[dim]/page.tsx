@@ -71,7 +71,6 @@ export default async function DimensionPage({ params }: { params: Promise<{ slug
     <Screen
       title={meta.label}
       back={{ href: `/org/${slug}/board/${id}`, label: bundle.school.name }}
-      lede={`${meta.asks} ${bundle.athlete.name} at ${bundle.school.name}.`}
       action={<Figure tone={scoreRole(d.score)}>{d.score}</Figure>}
     >
       {/* A veto is not a low score, and the difference matters enough to

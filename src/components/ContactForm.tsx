@@ -30,7 +30,7 @@ export function ContactForm({ action, schools }: { action: ServerAction; schools
   return (
     <Form action={formAction} error={state.errors.form}>
       <Grid2>
-        <Field name="name" label="Name" placeholder="T. Reilly" required error={err("name")} />
+        <Field name="name" label="Name" hint="For example, T. Reilly." required error={err("name")} />
         <SelectField name="role" label="Role" defaultValue="hs_coach">
           {CONTACT_ROLES.map((r) => (
             <option key={r} value={r}>

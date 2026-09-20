@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
-import { Avatar, Body, EmptyState, LinkButton, Row, Screen, Section, TextLink } from "@/components/kit";
+import { AddButton, Avatar, Body, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
 
 interface AthleteRow {
   id: string;
@@ -42,7 +42,7 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
   const rows = (athletes ?? []) as AthleteRow[];
 
   return (
-    <Screen title="Athletes" action={canEdit ? <TextLink href={`/org/${slug}/roster/new`}>+ Add</TextLink> : undefined}>
+    <Screen title="Athletes" action={canEdit ? <AddButton href={`/org/${slug}/roster/new`} label="Add" /> : undefined}>
       <Section label="Roster" count={rows.length} role="people" kind="athlete">
         {rows.length === 0 ? (
           <EmptyState kind="athlete" title="No Athletes Yet">

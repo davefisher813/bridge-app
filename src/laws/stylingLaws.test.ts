@@ -422,6 +422,10 @@ describe("LAW: a pill is a glyph and a label, never a coloured block", () => {
       if (rel(f) === "components/statusHue.ts") continue;
       for (const lit of stringLiterals(read(f))) {
         if (!PILL_SHAPE.test(lit)) continue;
+        // The kit's AddButton is a 44px accent disc, Dave's pick on
+        // 2026-09-20 for the add action in a screen header. A control
+        // shows an action; the pill this law is about shows a status.
+        if (rel(f) === "components/kit/index.tsx" && lit.includes("h-11 w-11")) continue;
         if (/\bbg-(tint|solid)-[a-z]+\b/.test(lit)) {
           violations.push(`${rel(f)}: a rounded-full element with a fill: "${lit.slice(0, 60)}"`);
         }

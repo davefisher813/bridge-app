@@ -140,7 +140,10 @@ for (const width of [390, 375]) {
         const r = el.getBoundingClientRect();
         if (r.width === 0) continue;
         const label = `${el.tagName.toLowerCase()} "${(el.textContent || "").trim().slice(0, 24)}"`;
-        if (r.right > frame.right + 1 || r.left < frame.left - 1) out.push(`${label} right=${Math.round(r.right - frame.left)}`);
+        // Inside a truncating line the text is clipped by design; the
+        // inline box still measures wide, so it is not a spill.
+        const clipped = el.closest(".truncate") !== null;
+        if (!clipped && (r.right > frame.right + 1 || r.left < frame.left - 1)) out.push(`${label} right=${Math.round(r.right - frame.left)}`);
         // Text that paints past its own box. The box stays inside the
         // screen, so only scrollWidth sees it. An ellipsis is deliberate.
         const cs = getComputedStyle(el);

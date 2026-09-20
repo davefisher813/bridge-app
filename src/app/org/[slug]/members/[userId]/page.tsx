@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { labelForRole } from "@/lib/org/roleLabels";
 import { ORG_ROLES } from "@/lib/validation/member";
 import { changeMemberRoleForm, removeMemberForm } from "@/lib/actions/members";
-import { Avatar, Button, Card, Form, Notice, Option, Prose, Row, Screen, Section, Stack } from "@/components/kit";
+import { Avatar, Card, ConfirmButton, Form, Notice, Option, Prose, Row, Screen, Section, Stack } from "@/components/kit";
 
 interface MemberRow {
   user_id: string;
@@ -84,7 +84,9 @@ export default async function MemberPage({
           </Card>
         ) : (
           <Form action={removeMemberForm.bind(null, slug, member.user_id)}>
-            <Button variant="destructive">Remove From {org.name}</Button>
+            <ConfirmButton title={`Remove ${name} from ${org.name}?`} body="Their account stays. They lose access to this organization only." confirmLabel="Remove">
+              Remove From {org.name}
+            </ConfirmButton>
           </Form>
         )}
         <Prose>Their account stays. They lose access to {org.name} only, and keep any other organization they belong to.</Prose>

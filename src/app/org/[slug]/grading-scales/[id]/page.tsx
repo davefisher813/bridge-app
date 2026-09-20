@@ -40,7 +40,6 @@ export default async function EditGradingScalePage({ params }: { params: Promise
     <Screen
       title={scale.school_name}
       back={{ href: `/org/${slug}/grading-scales`, label: "Grading Scales" }}
-      lede="Changing this recalculates every athlete at this school in your org. Verdicts can move in either direction."
     >
       {notes.map((n, i) => (
         <Notice key={i} tone="warning" title={n} />

@@ -16,7 +16,6 @@ export default async function NewBoardPage({ params }: { params: Promise<{ slug:
     <Screen
       title="New Board"
       back={{ href: `/org/${slug}/board-governance`, label: "Boards" }}
-      lede="Pick a tier and the amounts prefill from your governance document. Everything is editable."
     >
       <BoardForm action={createBoard.bind(null, slug)} />
     </Screen>

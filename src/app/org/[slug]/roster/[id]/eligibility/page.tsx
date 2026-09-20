@@ -77,7 +77,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   // guessing D1 would put a verdict on screen that nothing supports.
   if (!division) {
     return (
-      <Screen title="NCAA Eligibility" back={back} lede="Nothing to judge against yet.">
+      <Screen title="NCAA Eligibility" back={back}>
         <EmptyState kind="school" title="No School on the Board Yet">
           Initial eligibility depends on where an athlete is going, not on the athlete. Add a target school and this starts calculating
           against that division.
@@ -96,11 +96,6 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
     <Screen
       title="NCAA Eligibility"
       back={back}
-      lede={
-        division === "D3"
-          ? "Target school is Division III."
-          : `Division ${division === "D1" ? "I" : "II"} standard. Calculated from ${std?.coreCredits ?? 16} approved core courses, not from the transcript average.`
-      }
     >
       <Stack>
         <VerdictCard
