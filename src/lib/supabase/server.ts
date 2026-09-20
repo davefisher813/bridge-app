@@ -1,9 +1,13 @@
+import { cache } from "react";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
-export async function createClient() {
+// One client per request. The layout, the page and every loader on it
+// used to build their own, and each one re-read the cookie jar; cache()
+// dedupes within a request and does nothing across requests.
+export const createClient = cache(async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
@@ -27,4 +31,4 @@ export async function createClient() {
       },
     }
   );
-}
+});

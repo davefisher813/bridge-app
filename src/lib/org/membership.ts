@@ -4,6 +4,7 @@
 // member of resolves to "not found", not a permission error, because
 // the row is invisible to them, not merely protected.
 
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { OrgRole } from "@/lib/auth/guard";
 import { parseOrgModules, type OrgModules } from "@/lib/org/modules";
@@ -47,7 +48,10 @@ export interface OrgSummary {
   roleLabels: RoleLabels;
 }
 
-export async function getOrgBySlug(slug: string): Promise<OrgSummary | null> {
+// Cached per request: the org layout resolves the slug and then the page
+// resolves it again, which was two round trips to Oregon from Virginia
+// before a page had read a single row of its own.
+export const getOrgBySlug = cache(async function getOrgBySlug(slug: string): Promise<OrgSummary | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("orgs").select("id, name, slug, modules, role_labels").eq("slug", slug).single();
   if (error || !data) return null;
@@ -58,4 +62,4 @@ export async function getOrgBySlug(slug: string): Promise<OrgSummary | null> {
     modules: parseOrgModules(data.modules),
     roleLabels: parseRoleLabels(data.role_labels),
   };
-}
+});

@@ -188,6 +188,10 @@ body {
   min-height: 100dvh;
   /* No rubber-band scroll behind the fixed tab bar. */
   overscroll-behavior-y: none;
+  /* A word wider than the screen (an email address as a title, a long
+     school name) wraps instead of pushing the page sideways. Only bites
+     when a line would overflow, so ordinary text is untouched. */
+  overflow-wrap: anywhere;
 }
 
 /* A tap on a button or link fires at once, with no 300ms wait for a

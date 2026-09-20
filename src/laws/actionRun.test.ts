@@ -99,7 +99,7 @@ describe("LAW: a created row carries the org that created it", () => {
     const r = await run(() =>
       createAthlete(ORG_WITH_MODULES, { errors: {}, values: {} }, form({ name: "New Athlete", sport: "baseball", recruitType: "hs", status: "Active" })),
     );
-    expect(r.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster`);
+    expect(r.redirect).toMatch(new RegExp(`^/org/${ORG_WITH_MODULES}/roster/`));
     const row = inserts("athletes")[0]?.rows[0];
     expect(row).toBeDefined();
     expect(row?.org_id).toBe(data.orgs[0].id);

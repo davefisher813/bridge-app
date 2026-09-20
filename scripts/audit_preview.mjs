@@ -15,11 +15,38 @@
 //   5. Text clears WCAG AA against the surface it actually sits on.
 //   6. Every link and button is at least 44px tall.
 //   7. No screen renders empty.
+//   8. Every link points at a route the app has, and every form posts
+//      somewhere. A button that goes nowhere is the defect Dave named.
+//   9. Nothing hangs past the right edge of a 390 or a 375 screen: text
+//      bleeding out of a card is invisible to a scroll-width check when
+//      the container clips it.
 //
 // Run: PREVIEW_OUT_DIR=... node scripts/audit_preview.mjs
 
 import pw from "playwright";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+
+// Every route the app serves, as a pattern, read off the filesystem so a
+// link to a page that was renamed is caught the day it is renamed.
+function routePatterns() {
+  const root = join(process.cwd(), "src/app");
+  const out = [];
+  const walk = (dir, rel) => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walk(full, `${rel}/${name}`);
+      else if (name === "page.tsx" || name === "route.ts") out.push(rel || "/");
+    }
+  };
+  walk(root, "");
+  return out.map((r) => new RegExp("^" + r.replace(/\[[^\]]+\]/g, "[^/]+") + "/?$"));
+}
+const ROUTES = routePatterns();
+const routeExists = (href) => {
+  const path = href.split("?")[0].split("#")[0];
+  return ROUTES.some((re) => re.test(path));
+};
 
 const FILE = `${process.env.PREVIEW_OUT_DIR ?? "/tmp/previews"}/app_preview.html`;
 
@@ -76,6 +103,55 @@ await page.evaluate(() => {
 });
 
 const routes = await page.evaluate(() => window.__preview.routes);
+
+// Links and forms are the same in both themes, so they are checked once.
+for (const route of routes) {
+  await page.evaluate((r) => window.__preview.show(r, false), route);
+  const wiring = await page.evaluate(() => {
+    const root = document.querySelector(".screen:not([hidden])");
+    const hrefs = [...root.querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
+    const forms = [...root.querySelectorAll("form")].map((f) => ({ action: f.getAttribute("action"), buttons: f.querySelectorAll("button").length }));
+    const looseButtons = [...root.querySelectorAll("button")].filter((b) => !b.closest("form") && b.getAttribute("type") !== "button").length;
+    return { hrefs, forms, looseButtons };
+  });
+  for (const h of new Set(wiring.hrefs)) {
+    if (!h.startsWith("/")) continue;
+    if (!routeExists(h)) note(route, "link to a route the app does not have", h);
+  }
+  // A server action serialises as a non-empty action attribute; a form
+  // with none would post to itself and do nothing.
+  for (const f of wiring.forms) {
+    if (!f.action) note(route, "form with no action", "");
+    if (f.buttons === 0) note(route, "form with no submit button", "");
+  }
+  if (wiring.looseButtons) note(route, "submit button outside any form", `${wiring.looseButtons}`);
+}
+
+for (const width of [390, 375]) {
+  await page.setViewportSize({ width, height: 844 });
+  for (const route of routes) {
+    await page.evaluate((r) => window.__preview.show(r, false), route);
+    const spill = await page.evaluate((w) => {
+      const root = document.querySelector(".screen:not([hidden])");
+      const frame = document.getElementById("frame").getBoundingClientRect();
+      const out = [];
+      for (const el of root.querySelectorAll("*")) {
+        if (el.closest("[hidden]")) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0) continue;
+        const label = `${el.tagName.toLowerCase()} "${(el.textContent || "").trim().slice(0, 24)}"`;
+        if (r.right > frame.right + 1 || r.left < frame.left - 1) out.push(`${label} right=${Math.round(r.right - frame.left)}`);
+        // Text that paints past its own box. The box stays inside the
+        // screen, so only scrollWidth sees it. An ellipsis is deliberate.
+        const cs = getComputedStyle(el);
+        if (cs.textOverflow !== "ellipsis" && el.scrollWidth > el.clientWidth + 1 && cs.overflowX !== "auto" && cs.overflowX !== "scroll") out.push(`${label} text ${el.scrollWidth - el.clientWidth}px too wide`);
+      }
+      return out;
+    }, width);
+    for (const sp of [...new Set(spill)].slice(0, 3)) note(`${width}px ${route}`, "spills past the screen edge", sp);
+  }
+}
+await page.setViewportSize({ width: 390, height: 844 });
 
 for (const theme of ["light", "dark"]) {
   await page.evaluate((t) => window.__preview.theme(t), theme);

@@ -205,11 +205,14 @@ export function Row({
 // A stat: the number in the role's colour, the label under it.
 export function Stat({ value, label, role = "neutral", kind }: { value: ReactNode; label: string; role?: Role; kind?: RowKind }) {
   return (
-    <div className="flex-1 rounded bg-paper px-4 py-3">
+    <div className="min-w-0 flex-1 rounded bg-paper px-3 py-3">
       <div className="flex items-center gap-2">
         {kind && <RowGlyph kind={kind} role={role} className="h-4 w-4" />}
         <div className={`text-heading font-extrabold tabular-nums ${TEXT_ON[role]}`}>{value}</div>
       </div>
+      {/* 12px sides, not 16: three tiles at 375 wide with COMMITTED in
+          caps on one of them is 15px over the screen at 16. min-w-0 so
+          the tile can never be wider than its share of the row. */}
       <div className="text-label font-bold uppercase tracking-wide text-muted">{label}</div>
     </div>
   );

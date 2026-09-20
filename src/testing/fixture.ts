@@ -21,12 +21,14 @@ const ELITE = "00000000-0000-0000-0000-0000000000a2";
 const OWNER = "00000000-0000-0000-0000-0000000000b1";
 const MEMBER = "00000000-0000-0000-0000-0000000000b2";
 const OUTSIDER = "00000000-0000-0000-0000-0000000000b3";
+const LONG_INVITE = "00000000-0000-0000-0000-0000000000b4";
 
 export const ORG_WITH_MODULES = "bridge-fixture";
 export const ORG_WITHOUT_MODULES = "elite-fixture";
 export const OWNER_ID = OWNER;
 export const MEMBER_ID = MEMBER;
 export const OUTSIDER_ID = OUTSIDER;
+export const LONG_INVITE_ID = LONG_INVITE;
 
 export const IDS = {
   athlete: "00000000-0000-0000-0000-0000000000c1",
@@ -64,6 +66,10 @@ export function buildFixture(): Dataset {
       // Belongs to the other org only: the person an owner adds to
       // Bridge without an invitation email, because the account exists.
       { id: OUTSIDER, email: "outsider@example.test", full_name: "Example Outsider", last_sign_in_at: "2026-09-02T12:00:00.000Z" },
+      // Invited, never signed in, no name yet: the address is the title
+      // of their row and their page, and it is longer than a phone is
+      // wide. That is what the edge-spill audit exists to catch.
+      { id: LONG_INVITE, email: "an.unusually.long.invited.address@example-organization.test", full_name: null, last_sign_in_at: null },
     ],
     orgs: [
       {
@@ -86,6 +92,7 @@ export function buildFixture(): Dataset {
       { id: "m2", user_id: MEMBER, org_id: BRIDGE, role: "member" },
       { id: "m3", user_id: OWNER, org_id: ELITE, role: "owner" },
       { id: "m4", user_id: OUTSIDER, org_id: ELITE, role: "staff" },
+      { id: "m5", user_id: LONG_INVITE, org_id: BRIDGE, role: "member" },
     ],
     athletes: [
       {

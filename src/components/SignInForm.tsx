@@ -30,7 +30,7 @@ export function SignInForm({ magicLink, password, initialError, startWithLink = 
             {pending ? "Sending..." : "Send it again"}
           </Button>
         </Form>
-        <Button variant="quiet" onClick={() => window.location.assign("/login")}>
+        <Button type="button" variant="quiet" onClick={() => window.location.assign("/login")}>
           Start over
         </Button>
       </Stack>
@@ -49,7 +49,7 @@ export function SignInForm({ magicLink, password, initialError, startWithLink = 
           <Field name="email" label="Email" type="email" required autoComplete="email" inputMode="email" defaultValue={state.email} onPaper />
           <Button disabled={pending}>{pending ? "Sending..." : "Email Me a Link"}</Button>
         </Form>
-        <Button variant="quiet" onClick={() => setUseLink(false)}>
+        <Button type="button" variant="quiet" onClick={() => setUseLink(false)}>
           Use a password instead
         </Button>
       </Stack>
@@ -68,7 +68,7 @@ export function SignInForm({ magicLink, password, initialError, startWithLink = 
         <Field name="password" label="Password" type="password" required autoComplete="current-password" onPaper />
         <Button>Sign In</Button>
       </Form>
-      <Button variant="quiet" onClick={() => setUseLink(true)}>
+      <Button type="button" variant="quiet" onClick={() => setUseLink(true)}>
         Email me a link instead
       </Button>
     </Stack>

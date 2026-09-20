@@ -8,7 +8,7 @@
 // without anybody deciding what its arguments are, which is the same as
 // not testing it. The render law checks the list against the filesystem.
 
-import { IDS, MEMBER_ID, ORG_WITH_MODULES } from "@/testing/fixture";
+import { IDS, LONG_INVITE_ID, MEMBER_ID, ORG_WITH_MODULES } from "@/testing/fixture";
 
 export const p = (o: Record<string, string>) => Promise.resolve(o);
 
@@ -21,6 +21,9 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "members", path: "@/app/org/[slug]/members/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Example Owner[\s\S]*Invited[\s\S]*Example Member/ },
   { name: "invite", path: "@/app/org/[slug]/members/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Send Invite/ },
   { name: "member", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: MEMBER_ID }), searchParams: p({}) }, expect: /Example Member[\s\S]*Coordinator[\s\S]*Remove From/ },
+  // An invited person with no name: the address is the title, and it is
+  // wider than the screen. The edge-spill audit watches this one.
+  { name: "member-long-address", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: LONG_INVITE_ID }), searchParams: p({}) }, expect: /example-organization\.test/ },
   { name: "roster", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Athlete/ },
   { name: "athlete", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete/ },
   { name: "eligibility", path: "@/app/org/[slug]/roster/[id]/eligibility/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /core/i },

@@ -1923,3 +1923,32 @@ forms. What the prototype could do that this cannot, change an input
 and watch a number move, the bench does with the real modules. A screen
 that only renders in a state the fixture does not carry needs a fixture
 row, which is the same thing the render law already requires.
+
+## 2026-09-20: a save lands on the record, and the app runs beside its database
+
+**Decision.** Creating an athlete, target, donor, campaign or board opens
+the record that was just made; editing one returns to it; recording a
+gift or a pledge lands on that list. Every insert selects its new id
+back for this. Vercel functions run in `pdx1`, the region Supabase's
+`us-west-2` database lives in (`vercel.json`). `createClient`,
+`getOrgBySlug` and the auth check are wrapped in React `cache()` so the
+layout, the page and its loaders share one client and one lookup per
+request. `overflow-wrap: anywhere` on the body lets a word wider than
+the phone wrap. The audit now checks every link against the routes the
+app has, every form for an action and a submit, and every element at
+390 and 375 wide for text painting past its box.
+
+**Reason.** Dave, on the deployed app: screens take forever to load,
+text bleeds out of the screen, buttons and back links do not land where
+they should. The load time was five serial round trips from Virginia to
+Oregon before a page read a row of its own: the layout's org lookup,
+the page's repeat of it, the auth call, the membership row, then data.
+The bleed was an invited person's address as a row title, and a stat
+row three tiles wide at 375. A form that sent someone back to a list
+made them find what they had just typed.
+
+**Consequences.** The fixture carries an invited member with no name
+and a long address so the spill check has something to catch, and the
+planted-bug run proved it does. The kit's `Stat` has 12px sides. The
+catalog Dave selects from (published the same day) decides the rest of
+the flow rules: delete confirmation, the back arrow, module-off rows.

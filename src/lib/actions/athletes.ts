@@ -34,7 +34,9 @@ export async function createAthlete(slug: string, _prevState: AthleteActionState
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("athletes").insert({
+  const { data: created, error } = await supabase
+    .from("athletes")
+    .insert({
     org_id: org.id,
     recruit_type: parsed.values.recruitType,
     name: parsed.values.name,
@@ -49,14 +51,18 @@ export async function createAthlete(slug: string, _prevState: AthleteActionState
     f1_visa_status: parsed.values.f1VisaStatus ?? null,
     ncaa_eligibility_status: parsed.values.ncaaEligibilityStatus ?? null,
     detail: parsed.detail,
-  });
+    })
+    .select("id")
+    .single();
 
   if (error) {
     return { errors: { form: error.message }, values: valuesFromFormData(formData) };
   }
 
+  // Land on the record that was just made, not the list it sits in. A
+  // list after a save makes the person find what they just typed.
   revalidatePath(`/org/${slug}/roster`);
-  redirect(`/org/${slug}/roster`);
+  redirect(created?.id ? `/org/${slug}/roster/${created.id}` : `/org/${slug}/roster`);
 }
 
 export async function updateAthlete(
@@ -101,5 +107,6 @@ export async function updateAthlete(
   }
 
   revalidatePath(`/org/${slug}/roster`);
-  redirect(`/org/${slug}/roster`);
+  revalidatePath(`/org/${slug}/roster/${athleteId}`);
+  redirect(`/org/${slug}/roster/${athleteId}`);
 }

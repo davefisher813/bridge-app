@@ -89,7 +89,8 @@ export async function recordGift(
 
   revalidatePath(`/org/${slug}/fundraising`);
   revalidatePath(`/org/${slug}`);
-  redirect(`/org/${slug}/fundraising`);
+  revalidatePath(`/org/${slug}/fundraising/gifts`);
+  redirect(`/org/${slug}/fundraising/gifts`);
 }
 
 export async function recordPledge(
@@ -124,7 +125,8 @@ export async function recordPledge(
   if (error) return { errors: { form: error.message } };
 
   revalidatePath(`/org/${slug}/fundraising`);
-  redirect(`/org/${slug}/fundraising`);
+  revalidatePath(`/org/${slug}/fundraising/pledges`);
+  redirect(`/org/${slug}/fundraising/pledges`);
 }
 
 // Marks a pledge fulfilled once its payments cover it. Computed from the
@@ -167,7 +169,9 @@ export async function createDonor(
   if (!allowed.includes(donorType)) return { errors: { donorType: "Pick a type." } };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("donors").insert({
+  const { data: created, error } = await supabase
+    .from("donors")
+    .insert({
     org_id: org.id,
     name,
     donor_type: donorType,
@@ -175,11 +179,13 @@ export async function createDonor(
     phone: String(formData.get("phone") ?? "").trim() || null,
     address: String(formData.get("address") ?? "").trim() || null,
     notes: String(formData.get("notes") ?? "").trim() || null,
-  });
+    })
+    .select("id")
+    .single();
   if (error) return { errors: { form: error.message } };
 
   revalidatePath(`/org/${slug}/fundraising/donors`);
-  redirect(`/org/${slug}/fundraising/donors`);
+  redirect(created?.id ? `/org/${slug}/fundraising/donors/${created.id}` : `/org/${slug}/fundraising/donors`);
 }
 
 export async function setBudget(
@@ -251,7 +257,9 @@ export async function createCampaign(
   if (goalCents !== null && goalCents < 0) return { errors: { goalAmount: "A goal cannot be negative." } };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("campaigns").insert({
+  const { data: created, error } = await supabase
+    .from("campaigns")
+    .insert({
     org_id: org.id,
     name,
     kind,
@@ -262,11 +270,13 @@ export async function createCampaign(
     // by the second.
     goal_amount: goalCents === null ? null : centsToDecimalString(goalCents),
     notes: String(formData.get("notes") ?? "").trim() || null,
-  });
+    })
+    .select("id")
+    .single();
   if (error) return { errors: { form: error.message } };
 
   revalidatePath(`/org/${slug}/fundraising`);
-  redirect(`/org/${slug}/fundraising`);
+  redirect(created?.id ? `/org/${slug}/fundraising/campaigns/${created.id}` : `/org/${slug}/fundraising`);
 }
 
 export async function trackGrant(

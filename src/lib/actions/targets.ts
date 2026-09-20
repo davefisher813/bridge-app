@@ -40,7 +40,9 @@ export async function createTarget(slug: string, _prevState: TargetActionState, 
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("recruiting_targets").insert({
+  const { data: created, error } = await supabase
+    .from("recruiting_targets")
+    .insert({
     org_id: org.id,
     athlete_id: parsed.values.athleteId,
     school_id: parsed.values.schoolId,
@@ -50,7 +52,9 @@ export async function createTarget(slug: string, _prevState: TargetActionState, 
     visit_date: parsed.values.visitDate ?? null,
     offer_type: parsed.values.offerType ?? null,
     offer_scholarship_percent: parsed.values.offerScholarshipPercent ?? null,
-  });
+    })
+    .select("id")
+    .single();
 
   if (error) {
     const message = error.code === "23505" ? "This athlete already has a target for that school." : error.message;
@@ -59,7 +63,7 @@ export async function createTarget(slug: string, _prevState: TargetActionState, 
 
   revalidatePath(`/org/${slug}/board`);
   revalidatePath(`/org/${slug}`);
-  redirect(`/org/${slug}/board`);
+  redirect(created?.id ? `/org/${slug}/board/${created.id}` : `/org/${slug}/board`);
 }
 
 export async function updateTarget(slug: string, targetId: string, _prevState: TargetActionState, formData: FormData): Promise<TargetActionState> {
@@ -98,5 +102,6 @@ export async function updateTarget(slug: string, targetId: string, _prevState: T
 
   revalidatePath(`/org/${slug}/board`);
   revalidatePath(`/org/${slug}`);
-  redirect(`/org/${slug}/board`);
+  revalidatePath(`/org/${slug}/board/${targetId}`);
+  redirect(`/org/${slug}/board/${targetId}`);
 }

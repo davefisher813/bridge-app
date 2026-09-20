@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,13 +22,19 @@ export interface CurrentUser {
 // A signed-in person can belong to more than one org (a coach at Elite Squad
 // who also volunteers for Bridge, say). activeOrgId narrows to the org they
 // are currently working in; it comes from the session, not guessed.
-export async function getCurrentUser(
-  activeOrgId: string
-): Promise<CurrentUser | null> {
+// The auth check is a network call to Supabase Auth, not a cookie read,
+// and it used to run once per lookup. Once per request now.
+const getAuthUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  return user;
+});
+
+export const getCurrentUser = cache(async function getCurrentUser(activeOrgId: string): Promise<CurrentUser | null> {
+  const supabase = await createClient();
+  const user = await getAuthUser();
   if (!user) return null;
 
   const { data, error } = await supabase
@@ -49,7 +56,7 @@ export async function getCurrentUser(
     email: userRow?.email ?? "",
     full_name: userRow?.full_name ?? "",
   };
-}
+});
 
 export async function requireRole(
   activeOrgId: string,

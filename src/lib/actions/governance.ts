@@ -53,7 +53,9 @@ export async function createBoard(
   if (kind === "sport" && !sport) return { errors: { sport: "Which sport is this board for?" } };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("boards").insert({
+  const { data: created, error } = await supabase
+    .from("boards")
+    .insert({
     org_id: org.id,
     name,
     kind,
@@ -62,11 +64,13 @@ export async function createBoard(
     min_seats: minSeats,
     max_seats: maxSeats,
     description: String(formData.get("description") ?? "").trim() || null,
-  });
+    })
+    .select("id")
+    .single();
   if (error) return { errors: { form: error.message } };
 
   revalidatePath(`/org/${slug}/board-governance`);
-  redirect(`/org/${slug}/board-governance`);
+  redirect(created?.id ? `/org/${slug}/board-governance/${created.id}` : `/org/${slug}/board-governance`);
 }
 
 export async function addBoardSeat(
