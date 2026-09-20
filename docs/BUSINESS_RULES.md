@@ -210,6 +210,12 @@ these in production; rules like this change by NCAA vote.
 
 ## Fit-scoring model
 
+The scoring rules Dave picked on 2026-09-20 (which number scores, the
+presets and the goal shift, net cost against a family budget, the
+floors that veto, the grade blend, positional need, the strong-match
+window) are in docs/MATCHING_CONTRACT.md, and every number lives in
+`src/lib/fit/contract.ts`. That contract wins over anything below.
+
 See docs/ARCHITECTURE.md for the full design rationale (the `veto`
 field, the weighted blend, why this replaces Bridge's `calcCollegeFit`
 patch stack). The score bands used to turn a 0-100 score into a

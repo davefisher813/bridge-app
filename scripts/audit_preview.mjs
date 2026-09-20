@@ -44,9 +44,18 @@ function routePatterns() {
   return out.map((r) => new RegExp("^" + r.replace(/\[[^\]]+\]/g, "[^/]+") + "/?$"));
 }
 const ROUTES = routePatterns();
+// A static file under public/ is served at its own path (the schools CSV
+// template, the logo). Next serves it; it is not a page.
+const publicFileExists = (path) => {
+  try {
+    return statSync(join(process.cwd(), "public", path)).isFile();
+  } catch {
+    return false;
+  }
+};
 const routeExists = (href) => {
   const path = href.split("?")[0].split("#")[0];
-  return ROUTES.some((re) => re.test(path));
+  return ROUTES.some((re) => re.test(path)) || publicFileExists(path);
 };
 
 const FILE = `${process.env.PREVIEW_OUT_DIR ?? "/tmp/previews"}/app_preview.html`;

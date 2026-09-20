@@ -23,6 +23,10 @@ interface AthleteEditRow {
   f1_visa_status: string | null;
   ncaa_eligibility_status: string | null;
   detail: unknown;
+  goal: string | null;
+  family_budget_cents: number | null;
+  home_state: string | null;
+  grades: Record<string, number> | null;
 }
 
 export default async function EditAthletePage({ params }: { params: Promise<{ slug: string; id: string }> }) {
@@ -35,7 +39,7 @@ export default async function EditAthletePage({ params }: { params: Promise<{ sl
   const { data } = await supabase
     .from("athletes")
     .select(
-      "id, name, sport, position, recruit_type, gpa, gpa_verified, status, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status, detail"
+      "id, name, sport, position, recruit_type, gpa, gpa_verified, status, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status, detail, goal, family_budget_cents, home_state, grades"
     )
     .eq("id", id)
     .eq("org_id", org.id)
@@ -61,6 +65,14 @@ export default async function EditAthletePage({ params }: { params: Promise<{ sl
     ieltsScore: athlete.ielts_score ?? undefined,
     f1VisaStatus: athlete.f1_visa_status ?? undefined,
     ncaaEligibilityStatus: athlete.ncaa_eligibility_status ?? undefined,
+    goal: athlete.goal ?? undefined,
+    familyBudget: athlete.family_budget_cents != null ? Math.round(athlete.family_budget_cents / 100) : undefined,
+    homeState: athlete.home_state ?? undefined,
+    frame: athlete.grades?.frame,
+    athleticism: athlete.grades?.athleticism,
+    skill: athlete.grades?.skill,
+    iq: athlete.grades?.iq,
+    competitiveness: athlete.grades?.competitiveness,
     ...(detail?.kind === "hs"
       ? {
           gradYear: detail.gradYear,

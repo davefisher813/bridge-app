@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { RECRUIT_TYPES, ATHLETE_STATUSES } from "@/lib/validation/athlete";
+import { RECRUIT_TYPES, ATHLETE_STATUSES, ATHLETE_GOALS } from "@/lib/validation/athlete";
+import { GRADE_KEYS, GRADE_LABEL, GRADE_MAX, GRADE_MIN } from "@/lib/fit/contract";
 import type { AthleteActionState } from "@/lib/actions/athletes";
 import type { RecruitType } from "@/lib/fit/types";
 import { Button, CheckField, Field, Form, Grid2, Label, SelectField, Stack } from "@/components/kit";
@@ -39,6 +40,15 @@ export interface AthleteFormInitialValues {
   portalEntryDate?: string;
   transferCount?: number;
   degreeCompleted?: boolean;
+  // matching (migration 0021)
+  goal?: string;
+  familyBudget?: number;
+  homeState?: string;
+  frame?: number;
+  athleticism?: number;
+  skill?: number;
+  iq?: number;
+  competitiveness?: number;
 }
 
 const EMPTY_STATE: AthleteActionState = { errors: {}, values: {} };
@@ -142,6 +152,35 @@ export function AthleteForm({ action, initialValues = {}, submitLabel }: { actio
           )}
         </Stack>
       )}
+
+      {/* docs/MATCHING_CONTRACT.md: the goal shifts the blend, the budget
+          drives the money score, the home state picks in-state cost. */}
+      <Stack gap={3}>
+        <Label caps>Goal and money</Label>
+        <SelectField name="goal" label="Goal" hint="Education First leans the score toward academics; Development First toward the program." defaultValue={f("goal") || "balanced"}>
+          {ATHLETE_GOALS.map((g) => (
+            <option key={g.value} value={g.value}>
+              {g.label}
+            </option>
+          ))}
+        </SelectField>
+        <Grid2>
+          <Field name="familyBudget" label="Family Budget per Year" hint="Dollars, after aid." type="number" min="0" step="100" inputMode="numeric" defaultValue={f("familyBudget")} error={err("familyBudget")} />
+          <Field name="homeState" label="Home State" hint="Two letters, like CT." maxLength={2} autoCapitalize="characters" defaultValue={f("homeState")} error={err("homeState")} />
+        </Grid2>
+      </Stack>
+
+      {/* Five grades on the 20 to 80 scouting scale. They blend into the
+          athletic score by position group; blank means metrics alone. */}
+      <Stack gap={3}>
+        <Label caps>Staff assessment</Label>
+        <Grid2>
+          {GRADE_KEYS.map((k) => (
+            <Field key={k} name={k} label={GRADE_LABEL[k]} type="number" min={GRADE_MIN} max={GRADE_MAX} step="5" inputMode="numeric" defaultValue={f(k)} error={err(k)} />
+          ))}
+        </Grid2>
+        <Label>{`The ${GRADE_MIN} to ${GRADE_MAX} scale. 50 is average for the level; leave blank to score on metrics alone.`}</Label>
+      </Stack>
 
       <CheckField name="isInternational" label="International Athlete" checked={isInternational} onChange={(e) => setIsInternational(e.target.checked)} />
 

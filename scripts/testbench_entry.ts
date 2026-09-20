@@ -31,6 +31,8 @@ import { checkIngestedRecord } from "../src/lib/docai/acceptance";
 import { summarize as summarizeFundraising, toCents as moneyToCents, campaignProgress } from "../src/lib/fundraising/rollup";
 import { creditedGifts, giveGetProgress, summarizeBoard } from "../src/lib/governance/giveGet";
 import { MAX_INGEST_BYTES } from "../src/lib/docai/limits";
+import { selectScoringMetrics } from "../src/lib/fit/metrics";
+import { BANDS, DEFAULT_PRESET, GOAL_SHIFT, NET_COST_BANDS, POSITIONAL_NEED_BOOST, PRESETS, blendWeights } from "../src/lib/fit/contract";
 
 // ---------------------------------------------------------------- assertions
 
@@ -180,6 +182,114 @@ function runSuite(): Check[] {
   check("Scoring", "missing data lowers confidence rather than inventing a number", () => {
     const bare = scoreAcademic(hsAthlete({ gpa: undefined }), school({ academics: {} }));
     if (bare.confidence === "high") return "claimed high confidence with nothing to go on";
+    return null;
+  });
+
+  // ---- The matching contract (docs/MATCHING_CONTRACT.md), same code
+  // path the metrics log, the athlete form and the matches screen use ----
+  check("Matching", "the best verified number scores, not the biggest self-reported one", () => {
+    const pick = selectScoringMetrics([
+      { id: "self", metric: "fbVelo", value: 91, measuredOn: "2026-09-01", source: "self" },
+      { id: "premier", metric: "fbVelo", value: 86, measuredOn: "2026-08-15", source: "premier" },
+      { id: "coach", metric: "fbVelo", value: 88, measuredOn: "2026-06-01", source: "coach" },
+    ]);
+    if (pick.measurables.fbVelo !== 86) return `scored ${pick.measurables.fbVelo}, not the Premier 86`;
+    if (pick.confidence.fbVelo !== "high") return `confidence ${pick.confidence.fbVelo}`;
+    if (pick.scoredEntryId.fbVelo !== "premier") return "marked the wrong entry";
+    return null;
+  });
+
+  check("Matching", "a time picks the lowest number in the best tier", () => {
+    const pick = selectScoringMetrics([
+      { id: "a", metric: "sixty", value: 6.9, measuredOn: "2026-07-20", source: "pbr" },
+      { id: "b", metric: "sixty", value: 6.7, measuredOn: "2026-09-14", source: "coach" },
+      { id: "c", metric: "sixty", value: 7.0, measuredOn: "2026-05-01", source: "pbr" },
+    ]);
+    if (pick.measurables.sixty !== 6.9) return `scored ${pick.measurables.sixty}, not the PBR 6.9`;
+    return null;
+  });
+
+  check("Matching", "every preset blends to one and the default is Money First", () => {
+    for (const [key, p] of Object.entries(PRESETS)) {
+      const sum = p.weights.academic + p.weights.athletic + p.weights.financial;
+      if (Math.abs(sum - 1) > 1e-9) return `${key} sums to ${sum}`;
+    }
+    if (DEFAULT_PRESET !== "money_first") return `default is ${DEFAULT_PRESET}`;
+    if (PRESETS.money_first.weights.financial < PRESETS.money_first.weights.academic) return "Money First does not weight money most";
+    return null;
+  });
+
+  check("Matching", "the goal shifts academic and athletic and never money", () => {
+    const base = blendWeights("balanced", "balanced", false);
+    const edu = blendWeights("balanced", "education", false);
+    const dev = blendWeights("balanced", "development", false);
+    if (Math.abs(edu.academic - base.academic - GOAL_SHIFT) > 1e-9) return "Education First did not add the shift to academic";
+    if (Math.abs(dev.athletic - base.athletic - GOAL_SHIFT) > 1e-9) return "Development First did not add the shift to athletic";
+    if (edu.financial !== base.financial || dev.financial !== base.financial) return "money moved";
+    return null;
+  });
+
+  check("Matching", "a transfer gives eligibility a quarter and scales the rest", () => {
+    const w = blendWeights("money_first", "balanced", true);
+    if (Math.abs(w.eligibility - 0.25) > 1e-9) return `eligibility ${w.eligibility}`;
+    const sum = w.academic + w.athletic + w.financial + w.eligibility;
+    if (Math.abs(sum - 1) > 1e-9) return `sums to ${sum}`;
+    return null;
+  });
+
+  check("Matching", "a school under the family budget scores at least 85 and never vetoes", () => {
+    const a = hsAthlete({ familyBudgetCents: 3000000, homeState: "CT", gpa: 3.8 });
+    const s = school({ state: "CT", financials: { instateTotal: 40000, outstateTotal: 55000, avgAthleticAid: 10000, avgMeritAid: 8000, athleticScholarship: "partial" } });
+    const r = scoreFinancial(a, s);
+    if (r.veto) return "money vetoed";
+    if (r.score < NET_COST_BANDS.underBudget) return `scored ${r.score} under budget`;
+    return null;
+  });
+
+  check("Matching", "a D3 school gets no athletic aid in the net cost", () => {
+    const a = hsAthlete({ familyBudgetCents: 1000000, gpa: 2.5 });
+    const s = school({ division: "D3", financials: { outstateTotal: 60000, avgAthleticAid: 30000, athleticScholarship: "full" } });
+    const r = scoreFinancial(a, s);
+    if (r.reasons.concat(r.warnings).join(" ").toLowerCase().includes("athletic aid")) return "counted athletic aid at D3";
+    if (r.score > NET_COST_BANDS.further) return `scored ${r.score} for a school four times the budget`;
+    return null;
+  });
+
+  check("Matching", "no budget on file means low confidence, not a guess", () => {
+    const r = scoreFinancial(hsAthlete({ familyBudgetCents: undefined }), school({ financials: { outstateTotal: 50000, athleticScholarship: "partial", avgAthleticAid: 12000 } }));
+    if (r.confidence === "high") return "claimed high confidence with no budget";
+    if (!r.warnings.join(" ").toLowerCase().includes("budget")) return "did not ask for a budget";
+    return null;
+  });
+
+  check("Matching", "a pitcher under the tier's fastball floor is a Conflict", () => {
+    const a = hsAthlete({ position: "RHP", measurables: { fbVelo: 70 }, measurableConfidence: { fbVelo: "high" } });
+    const r = scoreFit(a, school({ division: "D1", programTier: "elite_d1" }));
+    if (r.tag !== "Conflict") return `tagged ${r.tag} at 70 mph for elite D1`;
+    return null;
+  });
+
+  check("Matching", "a position of need adds the boost and says so", () => {
+    const a = hsAthlete({ position: "SS", gpa: 3.5, measurables: { sixty: 6.8, exitVelo: 90, armVelo: 85 }, detail: { kind: "hs", gradYear: 2027 } });
+    const s = school();
+    const plain = scoreFit(a, s);
+    const need = scoreFit(a, s, { positionalNeed: [{ position: "SS", gradYear: 2027 }] });
+    if (need.score - plain.score !== Math.min(POSITIONAL_NEED_BOOST, 100 - plain.score)) return `boosted by ${need.score - plain.score}`;
+    if (!need.reasons.join(" ").toLowerCase().includes("need")) return "no reason given";
+    return null;
+  });
+
+  check("Matching", "a dimension with no data is left out and the score says so", () => {
+    const a = hsAthlete({ gpa: undefined, measurables: {}, familyBudgetCents: 2000000 });
+    const r = scoreFit(a, school({ financials: { outstateTotal: 30000 } }));
+    if (!r.partial) return "not marked partial";
+    if (r.counted.includes("academic") || r.counted.includes("athletic")) return `counted ${r.counted.join(", ")}`;
+    if (!r.warnings.join(" ").toLowerCase().includes("scored on")) return "did not say what it scored on";
+    return null;
+  });
+
+  check("Matching", "the bands are 80 Safety, 55 Fit, 35 Reach", () => {
+    if (BANDS.safety !== 80 || BANDS.fit !== 55 || BANDS.reach !== 35) return `bands ${JSON.stringify(BANDS)}`;
     return null;
   });
 

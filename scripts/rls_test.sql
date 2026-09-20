@@ -133,6 +133,23 @@ insert into board_members (id, org_id, board_id, name, donor_id, status, commitm
   ('00000000-0000-0000-0000-000000000430', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000410', 'Example Board Member', '00000000-0000-0000-0000-000000000310', 'active', 10000.00),
   ('00000000-0000-0000-0000-000000000440', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000420', 'Elite Board Member', '00000000-0000-0000-0000-000000000320', 'active', 1000.00);
 
+-- Matching and metrics (migration 0021). Each org gets a metric log
+-- entry on its own athlete, a private note on the SAME shared school,
+-- and a stored match against it, so the isolation on all three is
+-- asserted the same way as everything else. The shared school is the
+-- interesting case for the note: the unique constraint is on
+-- (org_id, school_id), so both orgs annotate one school without
+-- colliding, and neither may read the other's coach contact.
+insert into athlete_metrics (id, org_id, athlete_id, metric, value, measured_on, source, source_detail, entered_by) values
+  ('00000000-0000-0000-0000-000000000510', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'fbVelo', 86.00, '2026-08-15', 'premier', 'Bridge Showcase', '00000000-0000-0000-0000-000000000001'),
+  ('00000000-0000-0000-0000-000000000520', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'fbVelo', 84.00, '2026-08-15', 'coach', 'practice', '00000000-0000-0000-0000-000000000002');
+insert into org_school_notes (id, org_id, school_id, coach_name, coach_email, positions_of_need, notes) values
+  ('00000000-0000-0000-0000-000000000530', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000130', 'Bridge Coach Contact', 'coach@bridge.example', '[{"position":"MIF","gradYear":2027}]'::jsonb, 'Bridge typed this'),
+  ('00000000-0000-0000-0000-000000000540', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000130', 'Elite Coach Contact', 'coach@elite.example', '[]'::jsonb, 'Elite Squad typed this');
+insert into athlete_school_fits (id, org_id, athlete_id, school_id, score, tag, inputs_hash) values
+  ('00000000-0000-0000-0000-000000000550', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000130', 93, 'Safety', 'seed'),
+  ('00000000-0000-0000-0000-000000000560', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000130', 81, 'Safety', 'seed');
+
 -- ── Assertions, run as app_user impersonating user1 (Bridge only). ──
 set role app_user;
 select set_test_user('00000000-0000-0000-0000-000000000001');
@@ -606,6 +623,108 @@ begin
   raise notice 'PASS: a gift can be credited to the member who brought it in';
 end $$;
 
+-- ── Matching and metrics (migration 0021). A metric log entry, a
+-- private note on the shared school and a stored match: user1 sees
+-- Bridge's row in each and cannot write or rewrite an Elite Squad one. ──
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_metrics;
+  if n <> 1 then raise exception 'FAIL: user1 saw % athlete_metrics rows, expected 1 (Bridge''s only)', n; end if;
+  select count(*) into n from athlete_metrics where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 0 then raise exception 'FAIL: user1 could see % Elite Squad metric row(s) by filtering directly on org_id', n; end if;
+  raise notice 'PASS: user1 sees only Bridge''s metric log, not Elite Squad''s';
+end $$;
+
+do $$
+begin
+  begin
+    insert into athlete_metrics (org_id, athlete_id, metric, value, measured_on)
+      values ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'fbVelo', 90.00, '2026-09-01');
+    raise exception 'FAIL: user1 was able to log a metric into Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org metric insert correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+declare n int;
+declare who text;
+begin
+  select count(*) into n from org_school_notes;
+  if n <> 1 then raise exception 'FAIL: user1 saw % org_school_notes rows, expected 1 (Bridge''s only)', n; end if;
+  select coach_name into who from org_school_notes;
+  if who <> 'Bridge Coach Contact' then raise exception 'FAIL: user1 saw Elite Squad''s coach contact "%" on a school both orgs annotated', who; end if;
+  raise notice 'PASS: user1 sees only Bridge''s own note on a school both orgs annotated';
+end $$;
+
+do $$
+begin
+  begin
+    insert into org_school_notes (org_id, school_id, coach_name)
+      values ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000130', 'Sneaky Coach');
+    raise exception 'FAIL: user1 was able to write a school note into Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org school-note insert correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+declare n int;
+declare s int;
+begin
+  select count(*) into n from athlete_school_fits;
+  if n <> 1 then raise exception 'FAIL: user1 saw % athlete_school_fits rows, expected 1 (Bridge''s only)', n; end if;
+  select score into s from athlete_school_fits;
+  if s <> 93 then raise exception 'FAIL: user1 saw Elite Squad''s stored match (score %), not Bridge''s', s; end if;
+  raise notice 'PASS: user1 sees only Bridge''s stored match against the shared school';
+end $$;
+
+do $$
+begin
+  begin
+    insert into athlete_school_fits (org_id, athlete_id, school_id, score, tag, inputs_hash)
+      values ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000130', 99, 'Safety', 'sneaky');
+    raise exception 'FAIL: user1 was able to store a match in Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org stored-match insert correctly rejected by RLS (%.)', sqlerrm;
+  end;
+end $$;
+
+do $$
+declare n int;
+begin
+  update athlete_metrics set value = 99 where org_id = '00000000-0000-0000-0000-000000000020';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: user1 rewrote % of Elite Squad''s metric entries', n; end if;
+  update org_school_notes set notes = 'tampered' where org_id = '00000000-0000-0000-0000-000000000020';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: user1 rewrote % of Elite Squad''s school notes', n; end if;
+  update athlete_school_fits set score = 0 where org_id = '00000000-0000-0000-0000-000000000020';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: user1 rewrote % of Elite Squad''s stored matches', n; end if;
+  raise notice 'PASS: user1 cannot rewrite Elite Squad''s metrics, school notes or stored matches';
+end $$;
+
+-- And the owner must still be able to write their own org's rows, or
+-- the metrics screen saves nothing and reports no error.
+do $$
+declare n int;
+begin
+  insert into athlete_metrics (org_id, athlete_id, metric, value, measured_on, source, source_detail)
+    values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', 'sixty', 6.90, '2026-09-14', 'coach', 'practice');
+  delete from athlete_metrics where athlete_id = '00000000-0000-0000-0000-000000000111';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: an owner deleted % metric rows, expected 1', n; end if;
+  update org_school_notes set notes = 'owner edited this' where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: an owner updated % school notes, expected 1', n; end if;
+  update athlete_school_fits set computed_at = now() where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: an owner updated % stored matches, expected 1', n; end if;
+  raise notice 'PASS: an owner can log a metric, edit a school note and restore a stored match in their own org';
+end $$;
+
 -- ── The member pass. user3 belongs to Bridge with role `member`, which
 -- in this app means read-only: every write path in the application goes
 -- through requireRole(..., STAFF_ROLES). Before migration 0010 the
@@ -677,7 +796,10 @@ declare
     array['athlete_courses', 'insert into athlete_courses (org_id, athlete_id, title, subject, credit, grade) values (%L, ''00000000-0000-0000-0000-000000000110'', ''Member Course'', ''math'', 1.00, ''A'')'],
     array['org_grading_scales', 'insert into org_grading_scales (org_id, school_name, bands) values (%L, ''Member HS'', ''[]''::jsonb)'],
     array['org_approved_course_lists', 'insert into org_approved_course_lists (org_id, school_name) values (%L, ''Member HS'')'],
-    array['org_approved_courses', 'insert into org_approved_courses (list_id, org_id, title, subject) values (''00000000-0000-0000-0000-000000000910'', %L, ''Member Course'', ''math'')']
+    array['org_approved_courses', 'insert into org_approved_courses (list_id, org_id, title, subject) values (''00000000-0000-0000-0000-000000000910'', %L, ''Member Course'', ''math'')'],
+    array['athlete_metrics', 'insert into athlete_metrics (org_id, athlete_id, metric, value, measured_on) values (%L, ''00000000-0000-0000-0000-000000000110'', ''fbVelo'', 90.00, ''2026-09-01'')'],
+    array['org_school_notes', 'insert into org_school_notes (org_id, school_id, coach_name) values (%L, ''00000000-0000-0000-0000-000000000130'', ''Member Coach'')'],
+    array['athlete_school_fits', 'insert into athlete_school_fits (org_id, athlete_id, school_id, score, tag, inputs_hash) values (%L, ''00000000-0000-0000-0000-000000000111'', ''00000000-0000-0000-0000-000000000130'', 50, ''Fit'', ''member'')']
   ];
 begin
   for i in 1 .. array_length(inserts, 1) loop
@@ -742,6 +864,28 @@ begin
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: a member deleted % documents', n; end if;
   raise notice 'PASS: a member cannot delete a document';
+end $$;
+
+-- The metrics log and the stored matches: a member reads them exactly
+-- like an owner (the contract says students and families see their own
+-- scores) and cannot change a number or remove a match.
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_metrics where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 1 then raise exception 'FAIL: a member saw % Bridge metric entries, expected 1', n; end if;
+  select count(*) into n from athlete_school_fits where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 1 then raise exception 'FAIL: a member saw % Bridge stored matches, expected 1', n; end if;
+  update athlete_metrics set value = 99 where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member rewrote % metric entries', n; end if;
+  update org_school_notes set coach_email = 'member@example.com' where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member rewrote % school notes', n; end if;
+  delete from athlete_school_fits where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member deleted % stored matches', n; end if;
+  raise notice 'PASS: a member reads metrics and matches and cannot rewrite a number, a note or a match';
 end $$;
 
 -- The shared benchmark set has a null org_id and belongs to nobody. The
@@ -893,6 +1037,18 @@ begin
   select count(*) into n from org_grading_scales;
   if n <> 0 then raise exception 'FAIL: an anonymous session saw % org grading scales, expected 0', n; end if;
   raise notice 'PASS: anonymous session sees zero org grading scales';
+end $$;
+
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_metrics;
+  if n <> 0 then raise exception 'FAIL: an anonymous session saw % metric entries, expected 0', n; end if;
+  select count(*) into n from org_school_notes;
+  if n <> 0 then raise exception 'FAIL: an anonymous session saw % school notes, expected 0', n; end if;
+  select count(*) into n from athlete_school_fits;
+  if n <> 0 then raise exception 'FAIL: an anonymous session saw % stored matches, expected 0', n; end if;
+  raise notice 'PASS: anonymous session sees zero metrics, school notes or stored matches';
 end $$;
 
 reset role;

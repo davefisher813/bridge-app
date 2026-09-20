@@ -532,6 +532,29 @@ export function Chrome({ orgName, slug, logo, lockup, children }: { orgName: str
   );
 }
 
+// A metric's log as bars, oldest to newest, the scoring entry in accent.
+// Heights are data (the values), drawn as SVG attributes, not styles.
+export function Sparkline({ values, lowerIsBetter = false, mark }: { values: number[]; lowerIsBetter?: boolean; mark?: number }) {
+  if (values.length === 0) return null;
+  const w = 6;
+  const gap = 3;
+  const h = 24;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const width = values.length * (w + gap) - gap;
+  const name = `${values.length} ${values.length === 1 ? "entry" : "entries"}`;
+  return (
+    <svg viewBox={`0 0 ${width} ${h}`} width={width} height={h} className="text-tint-contact-on" role="img" aria-label={name}>
+      {values.map((v, i) => {
+        const t = (v - min) / span;
+        const bar = Math.round(6 + (lowerIsBetter ? 1 - t : t) * (h - 6));
+        return <rect key={i} x={i * (w + gap)} y={h - bar} width={w} height={bar} rx={2} fill="currentColor" className={mark === i ? "text-tint-accent-on" : ""} />;
+      })}
+    </svg>
+  );
+}
+
 // A thin stacked bar: each part is a share of the whole in its role's
 // hue. The widths are data, so they are the one inline style in the app.
 export function Meter({ parts }: { parts: { role: Role; fraction: number }[] }) {

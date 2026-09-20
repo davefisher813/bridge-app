@@ -13,7 +13,7 @@ import {
   type SchoolRow,
   type TransferWindowRow,
 } from "@/lib/data/fitAdapters";
-import { scoreFit } from "@/lib/fit/score";
+import { loadFitsForPairs, rowToFit } from "@/lib/data/fits";
 import type { FitTag } from "@/lib/fit/types";
 import { AddButton, EmptyState, Label, LinkButton, Row, Score, Screen, Section } from "@/components/kit";
 import { stageKind, statusRole } from "@/components/statusHue";
@@ -64,7 +64,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
 
   const supabase = await createClient();
 
-  const [{ data: targets }, { data: windowRows }, { data: commRows }, { data: visitRows }] = await Promise.all([
+  const [{ data: targets }, { data: commRows }, { data: visitRows }] = await Promise.all([
     supabase
       .from("recruiting_targets")
       .select(
@@ -72,17 +72,22 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
       )
       .eq("org_id", org.id)
       .order("created_at", { ascending: false }),
-    supabase.from("transfer_windows").select("sport, division, season_year, window_label, opens_on, closes_on"),
     supabase.from("target_communications").select("target_id, kind").eq("org_id", org.id),
     supabase.from("target_visits").select("target_id").eq("org_id", org.id),
   ]);
 
-  const transferWindows = ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit);
+  // Stored fits, one read for the whole board. docs/MATCHING_CONTRACT.md:
+  // a screen reads rows, it never scores.
+  const targetRows = (targets ?? []) as TargetRow[];
+  const fits = await loadFitsForPairs(
+    supabase,
+    org.id,
+    targetRows.map((t) => ({ athleteId: unwrap(t.athletes)?.id ?? "", schoolId: unwrap(t.schools)?.id ?? "" })),
+  );
 
   // One batched query for every target's log, grouped in memory, rather
-  // than a query per row - the fit tag/score is already computed live on
-  // every page load, so the communication signal that feeds it should be
-  // too, not stored or cached alongside it.
+  // than a query per row. The counts are chips on the row, never part of
+  // the score.
   const commsByTarget = new Map<string, { target_id: string; kind: string }[]>();
   for (const row of commRows ?? []) {
     const list = commsByTarget.get(row.target_id) ?? [];
@@ -97,7 +102,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
     visitsByTarget.set(row.target_id, list);
   }
 
-  const rows = ((targets ?? []) as TargetRow[])
+  const rows = targetRows
     .map((t) => {
       const athleteRow = unwrap(t.athletes);
       const schoolRow = unwrap(t.schools);
@@ -110,7 +115,8 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
         visitCount: visitsToVisitCount(visitsByTarget.get(t.id) ?? []),
         offer: targetOfferToSignal(t),
       };
-      const fit = scoreFit(athlete, school, { isPlaced: t.status === "Committed", transferWindows, signals });
+      const stored = fits.get(`${athlete.id}:${school.id}`);
+      const fit = stored ? { ...rowToFit(stored), signals } : null;
 
       return { id: t.id, status: t.status, coachName: t.coach_name, athleteName: athlete.name, athleteSport: athlete.sport, schoolName: school.name, schoolDivision: school.division, fit };
     })
@@ -147,10 +153,14 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
                 title={`${r.athleteName} to ${r.schoolName}`}
                 meta={`${r.athleteSport} · ${r.schoolDivision}${r.coachName ? ` · ${r.coachName}` : ""}`}
                 trailing={
-                  <>
-                    <Score score={r.fit.score} />
-                    <Label tone={TAG_TONE[r.fit.tag]}>{r.fit.tag}</Label>
-                  </>
+                  r.fit ? (
+                    <>
+                      <Score score={r.fit.score} />
+                      <Label tone={TAG_TONE[r.fit.tag]}>{r.fit.tag}</Label>
+                    </>
+                  ) : (
+                    <Label>Not Scored Yet</Label>
+                  )
                 }
               />
             ))}

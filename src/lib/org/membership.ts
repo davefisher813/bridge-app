@@ -50,6 +50,7 @@ export interface OrgSummary {
   roleLabels: RoleLabels;
   logo: string | null;
   lockup: string | null;
+  scoringPreset: string;
 }
 
 // Cached per request: the org layout resolves the slug and then the page
@@ -57,7 +58,7 @@ export interface OrgSummary {
 // before a page had read a single row of its own.
 export const getOrgBySlug = cache(async function getOrgBySlug(slug: string): Promise<OrgSummary | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("orgs").select("id, name, slug, modules, role_labels, branding").eq("slug", slug).single();
+  const { data, error } = await supabase.from("orgs").select("id, name, slug, modules, role_labels, branding, scoring_preset").eq("slug", slug).single();
   if (error || !data) return null;
   return {
     id: data.id,
@@ -67,5 +68,6 @@ export const getOrgBySlug = cache(async function getOrgBySlug(slug: string): Pro
     roleLabels: parseRoleLabels(data.role_labels),
     logo: parseBranding(data.branding).logo,
     lockup: parseBranding(data.branding).lockup,
+    scoringPreset: typeof data.scoring_preset === "string" ? data.scoring_preset : "money_first",
   };
 });

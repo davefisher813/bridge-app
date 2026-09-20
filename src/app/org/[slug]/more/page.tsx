@@ -3,7 +3,10 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { signout } from "@/lib/auth/actions";
 import { labelForRole } from "@/lib/org/roleLabels";
-import { Button, Form, Row, Screen, Section, Stack } from "@/components/kit";
+import { Button, ConfirmButton, Form, Label, Row, Screen, Section, Stack } from "@/components/kit";
+import { PresetForm } from "@/components/PresetForm";
+import { recalculateAllMatches, setScoringPreset } from "@/lib/actions/matching";
+import { DEFAULT_PRESET, PRESETS, type ScoringPreset } from "@/lib/fit/contract";
 
 // Everything that isn't Today/Athletes/Board: the modules, the reference
 // data, who you are, and the way out.
@@ -13,6 +16,8 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
   if (!org) notFound();
   const user = await requireRole(org.id, ["owner", "staff", "member"]);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
+  const preset = (org.scoringPreset ?? DEFAULT_PRESET) as ScoringPreset;
+  const presetLabel = PRESETS[preset]?.label ?? PRESETS[DEFAULT_PRESET].label;
 
   return (
     <Screen title="More">
@@ -26,6 +31,28 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
         <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" meta="The shared database, and who you are recruiting" wrap />
         <Row href={`/org/${slug}/grading-scales`} kind="scale" role="contact" title="Grading Scales" meta="How each school's numbers become letters" wrap />
         <Row href={`/org/${slug}/approved-courses`} kind="checklist" role="visit" title="Approved Lists" meta="Which courses the NCAA counts at each school" wrap />
+      </Section>
+
+      {/* docs/MATCHING_CONTRACT.md section 3: the blend is a per-org
+          preset, set by an owner. Recalculate All rescores everything in
+          the org, which is how rows written before the store existed get
+          a score. */}
+      <Section label="Matching" role="target" kind="target">
+        {user.role === "owner" ? (
+          <Stack gap={4}>
+            <PresetForm action={setScoringPreset.bind(null, slug)} current={preset} />
+            <Form action={recalculateAllMatches.bind(null, slug)}>
+              <Stack gap={2}>
+                <ConfirmButton title="Recalculate Every Match?" body="Every athlete is rescored against every school with the numbers on file now. Nothing else changes." confirmLabel="Recalculate">
+                  Recalculate All Matches
+                </ConfirmButton>
+                <Label>Use this after a big import, or if a score looks stale.</Label>
+              </Stack>
+            </Form>
+          </Stack>
+        ) : (
+          <Row kind="target" role="target" title="Scoring Preset" meta={`${presetLabel} · set by an owner`} wrap />
+        )}
       </Section>
 
       <Section label="Organization" role="people" kind="people">

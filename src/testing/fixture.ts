@@ -82,6 +82,7 @@ export function buildFixture(): Dataset {
         modules: { board_governance: true, donor_fundraising: true },
         role_labels: { owner: "Executive Director", staff: "Coordinator", member: "Board" },
         branding: { logo: "/logos/bridge-mark.png", lockup: "/logos/bridge-lockup.png" },
+        scoring_preset: "money_first",
       },
       {
         id: ELITE,
@@ -90,6 +91,7 @@ export function buildFixture(): Dataset {
         modules: { board_governance: false, donor_fundraising: false },
         role_labels: null,
         branding: {},
+        scoring_preset: "balanced",
       },
     ],
     org_members: [
@@ -122,6 +124,10 @@ export function buildFixture(): Dataset {
         f1_visa_status: null,
         ncaa_eligibility_status: "In Progress",
         deleted_at: null,
+        goal: "balanced",
+        family_budget_cents: 1500000,
+        home_state: "CT",
+        grades: { frame: 55, athleticism: 60, skill: 50, iq: 55, competitiveness: 65 },
       },
       {
         // No GPA, no measurables, no detail. Every dimension has to cope
@@ -147,6 +153,13 @@ export function buildFixture(): Dataset {
         f1_visa_status: null,
         ncaa_eligibility_status: null,
         deleted_at: null,
+        // No budget, no home state, no grades: the financial dimension
+        // falls back to the school-only model and the athletic score is
+        // metrics alone.
+        goal: "balanced",
+        family_budget_cents: null,
+        home_state: null,
+        grades: {},
       },
       {
         // A transfer, shaped like the first real athlete Dave entered:
@@ -173,6 +186,10 @@ export function buildFixture(): Dataset {
         f1_visa_status: null,
         ncaa_eligibility_status: null,
         deleted_at: null,
+        goal: "education",
+        family_budget_cents: 2000000,
+        home_state: "NY",
+        grades: {},
       },
     ],
     schools: [
@@ -187,6 +204,9 @@ export function buildFixture(): Dataset {
         athletics: { playingTimeOutlook: "competitive", positionDepth: "Three arms ahead on the depth chart." },
         conflicts: [],
         profile_date: "2024-01-01",
+        program_tier: "d2_naia",
+        state: "CT",
+        majors: ["Business", "Biology"],
       },
       {
         // D3 with a scholarship on the record, which is the case the D3
@@ -201,6 +221,9 @@ export function buildFixture(): Dataset {
         athletics: null,
         conflicts: [{ type: "roster", severity: "warning", message: "Fixture flag on this school." }],
         profile_date: null,
+        program_tier: "d2_naia",
+        state: "NY",
+        majors: ["Business"],
       },
     ],
     recruiting_targets: [
@@ -345,5 +368,117 @@ export function buildFixture(): Dataset {
       },
     ],
     benchmark_sets: [],
+    // The metrics log (migration 0021). Three fastball readings for the
+    // pitcher from three source tiers, so "best verified, else most
+    // recent" has something to choose between: the self-reported 88 is
+    // the highest and must lose to the Premier 86. The transfer's two
+    // sixty times put the faster one on the coach-timed row, which
+    // scores under the PBR one because the tier decides, not the number.
+    athlete_metrics: [
+      { id: "mx1", org_id: BRIDGE, athlete_id: IDS.athlete, metric: "fbVelo", value: 86, measured_on: "2026-08-15", source: "premier", source_detail: "Bridge Showcase", entered_by: OWNER, created_at: "2026-08-15T18:00:00.000Z" },
+      { id: "mx2", org_id: BRIDGE, athlete_id: IDS.athlete, metric: "fbVelo", value: 84, measured_on: "2026-06-01", source: "coach", source_detail: "practice", entered_by: OWNER, created_at: "2026-06-01T18:00:00.000Z" },
+      { id: "mx3", org_id: BRIDGE, athlete_id: IDS.athlete, metric: "fbVelo", value: 88, measured_on: "2026-09-01", source: "self", source_detail: null, entered_by: OWNER, created_at: "2026-09-01T18:00:00.000Z" },
+      { id: "mx4", org_id: BRIDGE, athlete_id: IDS.athlete, metric: "heightIn", value: 74, measured_on: "2026-06-01", source: "coach", source_detail: "practice", entered_by: OWNER, created_at: "2026-06-01T18:00:00.000Z" },
+      { id: "mx5", org_id: BRIDGE, athlete_id: IDS.athleteTransfer, metric: "sixty", value: 6.9, measured_on: "2026-07-20", source: "pbr", source_detail: "PBR Connecticut", entered_by: OWNER, created_at: "2026-07-20T18:00:00.000Z" },
+      { id: "mx6", org_id: BRIDGE, athlete_id: IDS.athleteTransfer, metric: "exitVelo", value: 92, measured_on: "2026-08-15", source: "premier", source_detail: "Bridge Showcase", entered_by: OWNER, created_at: "2026-08-15T18:00:00.000Z" },
+      { id: "mx7", org_id: BRIDGE, athlete_id: IDS.athleteTransfer, metric: "armVelo", value: 84, measured_on: "2026-08-02", source: "coach", source_detail: "practice", entered_by: OWNER, created_at: "2026-08-02T18:00:00.000Z" },
+      { id: "mx8", org_id: BRIDGE, athlete_id: IDS.athleteTransfer, metric: "sixty", value: 6.7, measured_on: "2026-09-14", source: "coach", source_detail: "practice", entered_by: OWNER, created_at: "2026-09-14T18:00:00.000Z" },
+    ],
+    // What Bridge knows privately about the shared school: the coach
+    // contact and a position of need that matches the transfer (MIF,
+    // 2027 is the pitcher's grad year, so neither row gets the boost
+    // for free; the engine has to check both halves).
+    org_school_notes: [
+      {
+        id: "osn1",
+        org_id: BRIDGE,
+        school_id: IDS.school,
+        coach_name: "Fixture Coach",
+        coach_email: "coach@fixture-state.test",
+        positions_of_need: [{ position: "MIF", gradYear: 2027 }],
+        notes: "Wants a shortstop for 2027.",
+        updated_at: "2026-09-01T12:00:00.000Z",
+      },
+    ],
+    // Stored matches, computed just now so the Today screen's seven-day
+    // "new" window sees them. The shape is what the engine writes:
+    // every dimension carries score, confidence, veto, reasons and
+    // warnings, and the transfer's row carries eligibility as well.
+    athlete_school_fits: [
+      {
+        id: "fit1",
+        org_id: BRIDGE,
+        athlete_id: IDS.athlete,
+        school_id: IDS.school,
+        score: 93,
+        tag: "Safety",
+        partial: false,
+        dimensions: {
+          academic: { score: 90, confidence: "high", veto: false, reasons: ["GPA 3.4 above the 2.5 minimum"], warnings: [] },
+          athletic: { score: 92, confidence: "high", veto: false, reasons: ["Fastball 86 meets the D2 target of 84"], warnings: [] },
+          financial: { score: 96, confidence: "high", veto: false, reasons: ["Net cost 14,000 is under the 15,000 budget"], warnings: [] },
+        },
+        reasons: ["GPA 3.4 clears the 2.5 minimum.", "Net cost fits the family budget with room to spare."],
+        warnings: [],
+        inputs_hash: "fixture",
+        computed_at: new Date().toISOString(),
+      },
+      {
+        id: "fit2",
+        org_id: BRIDGE,
+        athlete_id: IDS.athlete,
+        school_id: IDS.schoolD3,
+        score: 71,
+        tag: "Fit",
+        partial: false,
+        dimensions: {
+          academic: { score: 78, confidence: "high", veto: false, reasons: ["GPA 3.4 above the 3.0 minimum"], warnings: [] },
+          athletic: { score: 92, confidence: "high", veto: false, reasons: ["Fastball 86 meets the D3 target of 82"], warnings: [] },
+          financial: { score: 40, confidence: "medium", veto: false, reasons: ["Net cost 45,200 is more than 25 percent over the 15,000 budget"], warnings: [] },
+        },
+        reasons: ["GPA 3.4 clears the 3.0 minimum.", "Net cost runs well past the family budget."],
+        warnings: [],
+        inputs_hash: "fixture",
+        computed_at: new Date().toISOString(),
+      },
+      {
+        id: "fit4",
+        org_id: BRIDGE,
+        athlete_id: IDS.athleteNoGpa,
+        school_id: IDS.schoolD3,
+        score: 48,
+        tag: "Reach",
+        partial: true,
+        dimensions: {
+          academic: { score: 50, confidence: "unknown", veto: false, reasons: [], warnings: ["No GPA on file: enter GPA for an accurate academic fit"] },
+          athletic: { score: 50, confidence: "unknown", veto: false, reasons: [], warnings: ["No measurables on file: enter stats for an accurate athletic fit"] },
+          financial: { score: 48, confidence: "low", veto: false, reasons: ["Cost of attendance: $55k/yr"], warnings: ["No family budget on file: add one for a net-cost fit"] },
+          counted: ["financial"],
+        },
+        reasons: ["Cost of attendance: $55k/yr"],
+        warnings: ["Scored on financial only: no academic or athletic data yet"],
+        inputs_hash: "fixture",
+        computed_at: new Date().toISOString(),
+      },
+      {
+        id: "fit3",
+        org_id: BRIDGE,
+        athlete_id: IDS.athleteTransfer,
+        school_id: IDS.school,
+        score: 81,
+        tag: "Safety",
+        partial: false,
+        dimensions: {
+          academic: { score: 95, confidence: "high", veto: false, reasons: ["College GPA 4.0 above the 2.5 minimum"], warnings: [] },
+          athletic: { score: 70, confidence: "high", veto: false, reasons: ["Sixty 6.9 meets the D2 target of 7.0"], warnings: ["Arm 84 is under the 85 target"] },
+          financial: { score: 75, confidence: "high", veto: false, reasons: ["Out-of-state cost 38,000 less 9,000 athletic aid against a 20,000 budget"], warnings: [] },
+          eligibility: { score: 80, confidence: "medium", veto: false, reasons: ["Three years of eligibility remaining"], warnings: ["Portal window not on file for D2 baseball"] },
+        },
+        reasons: ["College GPA 4.0 clears the 2.5 minimum.", "Net cost lands within 25 percent of the family budget."],
+        warnings: [],
+        inputs_hash: "fixture",
+        computed_at: new Date().toISOString(),
+      },
+    ],
   };
 }

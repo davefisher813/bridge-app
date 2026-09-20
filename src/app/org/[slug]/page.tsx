@@ -3,10 +3,11 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
-import { Body, Card, EmptyState, Label, Meter, Row, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { Body, Card, EmptyState, Label, Meter, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { statusRole } from "@/components/statusHue";
 import { formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
+import { STRONG_MATCH_DAYS } from "@/lib/fit/contract";
 
 // The Today screen. Per Dave (2026-09): this is an org/recruiting
 // management tool, not a life-management app - so no "add a task" /
@@ -20,6 +21,18 @@ interface TargetRow {
   status: string;
   updated_at: string;
   visit_date: string | null;
+  athlete_id: string;
+  school_id: string;
+  athletes: { name: string } | { name: string }[] | null;
+  schools: { name: string } | { name: string }[] | null;
+}
+
+interface StrongFitRow {
+  athlete_id: string;
+  school_id: string;
+  score: number;
+  tag: string;
+  computed_at: string;
   athletes: { name: string } | { name: string }[] | null;
   schools: { name: string } | { name: string }[] | null;
 }
@@ -56,13 +69,19 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
   const supabase = await createClient();
 
-  const [{ count: athleteCount }, { data: targets }, { data: windowRows }] = await Promise.all([
+  const [{ count: athleteCount }, { data: targets }, { data: windowRows }, { data: strongRows }] = await Promise.all([
     supabase.from("athletes").select("id", { count: "exact", head: true }).eq("org_id", org.id).is("deleted_at", null),
     supabase
       .from("recruiting_targets")
-      .select("id, status, updated_at, visit_date, athletes(name), schools(name)")
+      .select("id, status, updated_at, visit_date, athlete_id, school_id, athletes(name), schools(name)")
       .eq("org_id", org.id),
     supabase.from("transfer_windows").select("sport, division, window_label, opens_on, closes_on"),
+    supabase
+      .from("athlete_school_fits")
+      .select("athlete_id, school_id, score, tag, computed_at, athletes(name), schools(name)")
+      .eq("org_id", org.id)
+      .in("tag", ["Safety", "Fit"])
+      .order("score", { ascending: false }),
   ]);
 
   // Only queried when the module is on. An org without fundraising does
@@ -129,6 +148,20 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
     .sort((a, b) => new Date(a.opens_on).getTime() - new Date(b.opens_on).getTime())
     .slice(0, 2);
 
+  // Strong Matches. docs/MATCHING_CONTRACT.md section 2: a stored fit
+  // computed in the last seven days, Safety or Fit, for a school not yet
+  // on the board; one row per athlete, their best; the section only
+  // shows when there is one.
+  const onBoard = new Set(rows.map((r) => `${r.athlete_id}:${r.school_id}`));
+  const since = Date.now() - STRONG_MATCH_DAYS * 24 * 60 * 60 * 1000;
+  const strongByAthlete = new Map<string, { athleteId: string; athleteName: string; schoolName: string; score: number; tag: string; more: number }>();
+  for (const f of ((strongRows ?? []) as StrongFitRow[]).filter((f) => new Date(f.computed_at).getTime() >= since && !onBoard.has(`${f.athlete_id}:${f.school_id}`))) {
+    const existing = strongByAthlete.get(f.athlete_id);
+    if (existing) existing.more += 1;
+    else strongByAthlete.set(f.athlete_id, { athleteId: f.athlete_id, athleteName: unwrap(f.athletes)?.name ?? "Unknown athlete", schoolName: unwrap(f.schools)?.name ?? "Unknown school", score: f.score, tag: f.tag, more: 0 });
+  }
+  const strongMatches = [...strongByAthlete.values()].slice(0, 5);
+
   const firstName = (user.full_name || user.email).split(" ")[0] || user.email;
 
   return (
@@ -148,6 +181,22 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
           />
         )}
       </Stack>
+
+      {strongMatches.length > 0 && (
+        <Section label="Strong Matches" count={strongMatches.length} role="committed" kind="target">
+          {strongMatches.map((m) => (
+            <Row
+              key={m.athleteId}
+              href={`/org/${slug}/roster/${m.athleteId}/matches`}
+              kind="target"
+              role="committed"
+              title={m.athleteName}
+              meta={`${m.schoolName} · ${m.tag}${m.more > 0 ? ` · ${m.more} more not on the board` : " · not on the board yet"}`}
+              trailing={<Score score={m.score} />}
+            />
+          ))}
+        </Section>
+      )}
 
       <Section label="Needs Follow-Up" count={needsFollowUp.length} action={needsFollowUp.length > 0 ? <TextLink href={`/org/${slug}/board`}>View Board</TextLink> : undefined}>
         {needsFollowUp.length === 0 ? (

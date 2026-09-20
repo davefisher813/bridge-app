@@ -30,6 +30,15 @@ export interface Athlete {
   f1VisaStatus?: string;
   ncaaEligibilityStatus?: string;
   measurables?: Record<string, number>;
+  // Per metric, how sure the number is: set by the source of the entry
+  // that scores (src/lib/fit/metrics.ts). Missing means high.
+  measurableConfidence?: Record<string, DimensionResult["confidence"]>;
+  // Staff grades on the 20 to 80 scale: frame, athleticism, skill, iq,
+  // competitiveness. See docs/MATCHING_CONTRACT.md.
+  grades?: Record<string, number>;
+  goal?: "education" | "balanced" | "development";
+  familyBudgetCents?: number;
+  homeState?: string;
   detail?: AthleteDetail;
 }
 
@@ -54,6 +63,11 @@ export interface School {
   name: string;
   division: string;
   conference?: string;
+  // Benchmarks are by tier, not division. Set by an owner; defaults from
+  // the division when missing. docs/MATCHING_CONTRACT.md section 3.
+  programTier?: string;
+  state?: string;
+  majors?: string[];
   sportsSponsored: string[];
   academics?: {
     gpaMin?: number;
@@ -108,4 +122,16 @@ export interface FitResult {
   eligibility?: DimensionResult; // present only for transfer recruit types
   reasons: string[];
   warnings: string[];
+  // True when a dimension with unknown confidence was left out of the
+  // blend; `counted` names the ones that were in. docs/MATCHING_CONTRACT.md.
+  partial: boolean;
+  counted: string[];
+  // Recruiting signals are shown, never scored. Echoed for the chips.
+  signals?: RecruitingSignals;
+}
+
+// The org's private knowledge of a school, passed in by the caller.
+export interface PositionalNeed {
+  position: string;
+  gradYear?: number;
 }

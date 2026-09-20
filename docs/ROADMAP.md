@@ -334,10 +334,9 @@ was a `/schools/new` and no list to see what you had added).
 
 1. **Members screen and magic link sign-in form**, on the actions that
    exist. Blocked on Dave's reaction to the preview.
-2. **School CSV import.** The database has zero schools and the only way
-   in is one form, owner-only. Until schools exist the board and Today
-   are empty by construction. Same paste-first pattern as the approved
-   course lists.
+2. ~~School CSV import.~~ Done 2026-09-20 with the matching build:
+   `/schools/import`, owner-only, template at `public/templates/schools.csv`,
+   nothing half-imports. See docs/MATCHING_CONTRACT.md.
 3. **Transfer windows entry**, owner-only. Zero rows today, so every
    transfer athlete's timing reads "unverified" forever.
 4. **Cleanup pass, no behaviour change.** One `loadOrgPage(slug, roles)`
@@ -355,3 +354,29 @@ was a `/schools/new` and no list to see what you had added).
 7. Either read `benchmark_sets` or drop the table.
 8. Search and filter on the roster, board, schools and donors once any
    list passes a hundred rows.
+
+## Done 2026-09-20, matching and metrics
+
+Everything in docs/MATCHING_CONTRACT.md: the metrics log with sources
+that set confidence, staff grades and a goal and budget on the athlete,
+stored matches recomputed by the action that changed an input, the
+Matches section and the full matches screen with filters and Add to
+Board, Program Tier and state and majors on the school, the org's
+private overlay (coach, positions of need, notes), CSV import, the
+scoring preset and Recalculate All under More, Strong Matches on Today.
+
+## Next up after matching
+
+1. **A student or family role** with read access to their own athlete
+   (contract section 5). Every score, reason and warning is already
+   written for a family to read; the missing piece is the membership
+   shape that lets one sign in and see only their own record.
+2. **Strike percentage and the grade weights** are interpretations
+   marked in the contract. Revisit after Dave has scored a few real
+   athletes and can say whether a 63% target and the 50/40/25 blends
+   read right.
+3. **Transfer windows entry**, owner-only, so a transfer's timing stops
+   reading "unverified".
+4. **Region as a filter.** The matches screen filters by state today;
+   "state or region" was the pick, and a region needs a state-to-region
+   table.

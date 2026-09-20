@@ -1,14 +1,15 @@
 # Current state
 
-Last updated: 2026-09-20, after the real-app phone check.
+Last updated: 2026-09-20, after matching and metrics shipped.
 Replaced wholesale when this changes meaningfully, never appended to.
 
-**One-line summary.** Every one of the 53 screens is rebuilt on one
-kit with the scale Dave selected on 2026-09-19, the laws that keep a
-page from styling itself are green, and the app itself (not a render
-of it) has been driven in a browser at 320, 375 and 390 wide in both
-themes on data shaped like Dave's, with nothing past the edge, nothing
-squeezed to nothing and no word broken in the middle.
+**One-line summary.** The matching feature exists: a metrics log,
+staff grades, a goal and budget on the athlete, every athlete scored
+against every school and stored, a matches screen with filters and Add
+to Board, CSV import of schools, the org's scoring preset, Strong
+Matches on Today. Fifty-seven screens on one kit, the laws green, the
+app itself driven in a browser at 320, 375 and 390 in both themes with
+nothing past the edge.
 
 ---
 
@@ -20,14 +21,15 @@ squeezed to nothing and no word broken in the middle.
   `https://commit-app-nu.vercel.app`, deployed from `main`. Vercel
   Authentication is off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
-  us-west-2). 18 migrations applied. 27 tables, RLS on every one.
+  us-west-2). 21 migrations applied, 0021 (matching and metrics) on
+  2026-09-20. 30 tables, RLS on every one.
 - **Accounts:** dave@bffsa.org and davefisher813@gmail.com, both owners
   of both orgs, both with the same password. Password is the first
   screen; the magic link sits behind "Email me a link instead".
 
 ## What exists
 
-**53 pages**, 18 migrations, 643 tests in 44 files, 11 law files.
+**57 pages**, 21 migrations, 729 tests in 46 files, 13 law files.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
@@ -53,6 +55,39 @@ Screens: roster and athlete profile, the board grouped by stage, a target
 read view with its score broken down, one dimension in full, the contact
 log, the school list and a school profile. Add and edit for athletes,
 targets and schools.
+
+### Matching and metrics, 2026-09-20
+
+The most important function in the app, per Dave, built from his forty
+picks in docs/MATCHING_CONTRACT.md.
+
+- **Metrics log** (`/roster/[id]/metrics`): value, date, source; the
+  position's metrics first on the form; the current number per metric
+  with a sparkline and the entry that scores marked. The best number in
+  the most trusted source tier scores, and that tier is the athletic
+  confidence. Staff and owners log; anyone in the org reads.
+- **On the athlete**: metric tiles, a goal (shifts the blend), a family
+  budget and home state (net cost), five staff grades on the 20 to 80
+  scale (blended into the athletic score by position group).
+- **Stored matches** (`athlete_school_fits`): every athlete against
+  every school, recomputed inside the action that changed an input,
+  never on view. The board and target screens read the rows.
+- **Matches** (`/roster/[id]/matches`): ranked, filters in the URL
+  (division, state, conference, major, cost ceiling, scholarship type,
+  playing time; sport sponsored always applies), Add to Board on each
+  row, conflicts at the bottom saying what blocks them, partial scores
+  saying which dimensions counted. The top five on the athlete page.
+- **Schools**: a full form (program tier, state, majors, academics,
+  money, depth), an owner edit screen, the org's private overlay (coach
+  contact, positions of need that boost a matching athlete, notes), and
+  a CSV import from `public/templates/schools.csv` that lists every
+  problem by line and imports nothing until the file is clean.
+- **More**: the scoring preset (Money First is the default) and
+  Recalculate All, owner-only. **Today**: Strong Matches, one row per
+  athlete with a new Safety or Fit not yet on the board.
+
+Every number is in `src/lib/fit/contract.ts`; `src/laws/matchingLaws.test.ts`
+and twelve bench checks read the same file.
 
 **NCAA eligibility** is researched rather than recalled, cited in
 docs/BUSINESS_RULES.md against NCAA-published documents. Core-course GPA,
@@ -94,10 +129,10 @@ be left without an owner. "Invited" is read off a mirror of
 ## How it is verified
 
 1. **Unit tests** over the pure modules.
-2. **Laws** (`src/laws/`, 11 files) encode the rules from CLAUDE.md,
-   BUSINESS_RULES.md and STYLING_CATALOG.md as executable checks, each
-   planted, watched to fail, and reverted before it counts. New: the
-   five kit laws.
+2. **Laws** (`src/laws/`, 13 files) encode the rules from CLAUDE.md,
+   BUSINESS_RULES.md, STYLING_CATALOG.md and MATCHING_CONTRACT.md as
+   executable checks, each planted, watched to fail, and reverted
+   before it counts.
 3. **The RLS suite** (`scripts/run_rls_test.sh`) applies every migration
    to a real Postgres and runs its assertions as a non-superuser role.
 4. **The page render harness** executes every page in
@@ -155,9 +190,11 @@ be left without an owner. "Invited" is read off a mirror of
 ### Not yet done, not blocked
 
 - The database has no schools, no transfer windows and no benchmark
-  sets. Until schools exist the board and Today are empty by
-  construction; a CSV import is the next piece of work.
-- No search or filter on any list.
+  sets. The CSV import exists now; the schools themselves are Dave's
+  Google Sheet exported to the template.
+- No search or filter on any list except the matches screen.
+- Region is not a filter yet, only state; a region needs a state table.
+- No student or family role yet (contract section 5).
 - The fake client does not implement `.or()` or `.ilike()`; one action
   uses each.
 - `@supabase/ssr` 0.5 and `zod` 3 are both a major behind.
@@ -175,10 +212,13 @@ be left without an owner. "Invited" is read off a mirror of
 
 ## Immediate next steps
 
-1. Dave's page-by-page audit, starting from one screenshot of whatever
-   he sees off the screen. Findings go through the kit, not the page.
-2. School CSV import, so the board has something to target.
-3. Cleanup pass: one page loader, `cache()` on the org and user lookups,
+1. Dave exports his school sheet to the template and imports it, then
+   logs a first metric and reads a real match. The three interpreted
+   numbers (strike target, grade weights, preset weights) get revisited
+   on what he sees.
+2. Dave's page-by-page audit of the new screens on his phone.
+3. A student or family role with read access to their own athlete.
+4. Cleanup pass: one page loader, `cache()` on the org and user lookups,
    split `documents.ts`, then the `@supabase/ssr` and `zod` bumps.
 
 See docs/ROADMAP.md for the rest.

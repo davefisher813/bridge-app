@@ -5,11 +5,12 @@
 // re-derived a *fourth* scale (scoreMap: Conflict 10, Reach 30, Fit 60,
 // Safety 85) just for sorting. One band, reused everywhere, is the fix.
 import type { FitTag } from "./types";
+import { BANDS } from "./contract";
 
 export function scoreToTag(score: number): FitTag {
-  if (score >= 80) return "Safety";
-  if (score >= 55) return "Fit";
-  if (score >= 35) return "Reach";
+  if (score >= BANDS.safety) return "Safety";
+  if (score >= BANDS.fit) return "Fit";
+  if (score >= BANDS.reach) return "Reach";
   return "Conflict";
 }
 

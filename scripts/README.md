@@ -75,6 +75,9 @@ reads from the same place.
 
 ## The app itself, in a browser
 
+A link the audit cannot match to a page is a finding, unless it names a
+file under `public/` (the schools CSV template), which Next serves as is.
+
 `scripts/live/` drives the shipped app rather than a render of it.
 
 ```

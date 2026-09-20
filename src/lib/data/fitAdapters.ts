@@ -5,8 +5,10 @@
 // is the one seam that knows about column names.
 
 import { z } from "zod";
-import type { Athlete, RecruitType, RecruitingSignals, School, TransferWindow } from "@/lib/fit/types";
+import type { Athlete, PositionalNeed, RecruitType, RecruitingSignals, School, TransferWindow } from "@/lib/fit/types";
 import { parseSchoolAcademics, parseSchoolAthletics, parseSchoolConflicts, parseSchoolFinancials, safeParseAthleteDetail } from "@/lib/fit/schema";
+import { GRADE_KEYS, GRADE_MAX, GRADE_MIN, type MetricSource } from "@/lib/fit/contract";
+import { selectScoringMetrics, type MetricEntry } from "@/lib/fit/metrics";
 
 export interface AthleteRow {
   id: string;
@@ -24,16 +26,43 @@ export interface AthleteRow {
   ielts_score: number | null;
   f1_visa_status: string | null;
   ncaa_eligibility_status: string | null;
+  // Added by migration 0021. Optional so older selects still adapt.
+  goal?: string | null;
+  family_budget_cents?: number | null;
+  home_state?: string | null;
+  grades?: unknown;
 }
 
-const measurablesSchema = z.record(z.string(), z.number()).catch({});
+// Every column the fit engine reads off an athlete row, for a select.
+export const ATHLETE_FIT_COLUMNS =
+  "id, org_id, recruit_type, name, sport, position, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status, goal, family_budget_cents, home_state, grades";
 
-export function athleteRowToFitAthlete(row: AthleteRow): Athlete {
+// Every column the fit engine reads off a school row, for a select.
+export const SCHOOL_FIT_COLUMNS = "id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date, program_tier, state, majors";
+
+const measurablesSchema = z.record(z.string(), z.number()).catch({});
+const gradesSchema = z.record(z.string(), z.number().min(GRADE_MIN).max(GRADE_MAX)).catch({});
+const goalSchema = z.enum(["education", "balanced", "development"]).catch("balanced");
+
+export interface MetricRow {
+  id: string;
+  metric: string;
+  value: number | string;
+  measured_on: string;
+  source: string;
+}
+
+export function metricRowsToEntries(rows: MetricRow[]): MetricEntry[] {
+  return rows.map((r) => ({ id: r.id, metric: r.metric, value: Number(r.value), measuredOn: r.measured_on, source: r.source as MetricSource }));
+}
+
+export function athleteRowToFitAthlete(row: AthleteRow, metrics: MetricRow[] = []): Athlete {
   // A malformed detail blob (hand-edited row, a future migration bug)
   // degrades to "no detail on file" rather than throwing and taking the
   // whole board down - the dimensions that need it just report unknown
   // confidence instead of vetoing on data that was never actually there.
   const detail = safeParseAthleteDetail(row.detail);
+  const scoring = selectScoringMetrics(metricRowsToEntries(metrics));
 
   return {
     id: row.id,
@@ -49,7 +78,13 @@ export function athleteRowToFitAthlete(row: AthleteRow): Athlete {
     ieltsScore: row.ielts_score ?? undefined,
     f1VisaStatus: row.f1_visa_status ?? undefined,
     ncaaEligibilityStatus: row.ncaa_eligibility_status ?? undefined,
-    measurables: measurablesSchema.parse(row.measurables ?? {}),
+    // The log wins over the legacy measurables column where both exist.
+    measurables: { ...measurablesSchema.parse(row.measurables ?? {}), ...scoring.measurables },
+    measurableConfidence: scoring.confidence,
+    grades: Object.fromEntries(Object.entries(gradesSchema.parse(row.grades ?? {})).filter(([k]) => (GRADE_KEYS as readonly string[]).includes(k))),
+    goal: goalSchema.parse(row.goal ?? "balanced"),
+    familyBudgetCents: row.family_budget_cents ?? undefined,
+    homeState: row.home_state ?? undefined,
     detail: detail.success ? detail.data : undefined,
   };
 }
@@ -65,6 +100,9 @@ export interface SchoolRow {
   athletics: unknown;
   conflicts: unknown;
   profile_date: string | null;
+  program_tier?: string | null;
+  state?: string | null;
+  majors?: string[] | null;
 }
 
 export function schoolRowToFitSchool(row: SchoolRow): School {
@@ -73,6 +111,9 @@ export function schoolRowToFitSchool(row: SchoolRow): School {
     name: row.name,
     division: row.division,
     conference: row.conference ?? undefined,
+    programTier: row.program_tier ?? undefined,
+    state: row.state ?? undefined,
+    majors: row.majors ?? undefined,
     sportsSponsored: row.sports_sponsored ?? [],
     academics: parseSchoolAcademics(row.academics ?? {}),
     financials: parseSchoolFinancials(row.financials ?? {}),
@@ -152,4 +193,20 @@ export function targetOfferToSignal(row: TargetOfferRow): RecruitingSignals["off
     offerType: row.offer_type,
     scholarshipPercent: row.offer_scholarship_percent ?? undefined,
   };
+}
+
+// migrations/0021_matching_and_metrics.sql: the org's private knowledge
+// of a school. positions_of_need is [{ position, gradYear? }].
+export interface OrgSchoolNoteRow {
+  school_id: string;
+  coach_name: string | null;
+  coach_email: string | null;
+  positions_of_need: unknown;
+  notes: string | null;
+}
+
+const needSchema = z.array(z.object({ position: z.string(), gradYear: z.number().int().optional() })).catch([]);
+
+export function noteRowToPositionalNeed(row: OrgSchoolNoteRow | undefined): PositionalNeed[] {
+  return row ? needSchema.parse(row.positions_of_need ?? []) : [];
 }

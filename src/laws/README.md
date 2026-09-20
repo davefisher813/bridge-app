@@ -67,3 +67,28 @@ a business rule nobody has told this file about yet.
    `documents` bucket and the action reads them back. No exported action
    may accept an `IngestedRecord` or a `base64` field.
    `dataLaws.test.ts`, planted and reverted.
+
+## Added 2026-09-20: the matching laws
+
+`matchingLaws.test.ts`, every one a line in docs/MATCHING_CONTRACT.md
+and every number read from `src/lib/fit/contract.ts`:
+
+6. **The primary number under its floor is a conflict; anything else
+   below target only lowers the score.** Proven to bite by removing the
+   floor check and watching it fail.
+7. **Staff grades blend in by position group** (a catcher's carry half)
+   **and never replace a floor.**
+8. **The scoring entry is the best verified number, else the most
+   recent, and its source sets the confidence.**
+9. **Offers, visits and messages are shown, never scored.** Proven to
+   bite by putting the old offer floor back and watching it fail.
+10. **An unknown dimension is left out of the blend, the rest are
+    renormalized, and the result says so.**
+11. **The blend is the org's preset shifted by the athlete's goal, and
+    Money First leads by default.**
+12. **Financial fit is net cost against the family budget, every aid line
+    is a reason, D3 never counts athletic aid, and it never vetoes.**
+13. **A school's tier is its Program Tier when set; positional need is a
+    boost that never passes a veto.**
+14. **One band everywhere: 80, 55, 35.**
+

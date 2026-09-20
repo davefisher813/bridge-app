@@ -13,9 +13,13 @@
 
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { Body, EmptyState, Notice, Row, Score, Screen, Section, Stat, StatRow } from "@/components/kit";
+import { Body, EmptyState, Label, Notice, Row, Score, Screen, Section, Stat, StatRow, TextLink } from "@/components/kit";
+import { OrgSchoolNoteForm } from "@/components/OrgSchoolNoteForm";
+import { saveOrgSchoolNote } from "@/lib/actions/schools";
+import { formatPositionsOfNeed, type PositionOfNeed } from "@/lib/validation/orgSchoolNote";
+import { PROGRAM_TIERS } from "@/lib/fit/contract";
 import { Note } from "@/components/EligibilityVerdict";
 import { stageKind, statusRole } from "@/components/statusHue";
 import { schoolRowToFitSchool, type SchoolRow } from "@/lib/data/fitAdapters";
@@ -44,13 +48,15 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const canEdit = (STAFF_ROLES as string[]).includes(user.role);
+  const isOwner = user.role === "owner";
 
   const supabase = await createClient();
-  const [{ data: schoolRow }, { data: targetRows }] = await Promise.all([
+  const [{ data: schoolRow }, { data: targetRows }, { data: noteRow }] = await Promise.all([
     supabase
       .from("schools")
-      .select("id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date")
+      .select("id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date, program_tier, state, majors")
       .eq("id", id)
       .single(),
     supabase
@@ -58,6 +64,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
       .select("id, status, athletes(id, name, position)")
       .eq("school_id", id)
       .eq("org_id", org.id),
+    supabase.from("org_school_notes").select("coach_name, coach_email, positions_of_need, notes").eq("org_id", org.id).eq("school_id", id).maybeSingle(),
   ]);
 
   if (!schoolRow) notFound();
@@ -91,6 +98,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
   const aid = d3 ? (fin.avgMeritAid ?? 0) + (fin.avgNeedAid ?? 0) : (fin.avgAthleticAid ?? 0);
   const coverage = cost && cost > 0 && aid > 0 ? Math.round((aid / cost) * 100) : null;
 
+  const note = (noteRow ?? null) as { coach_name: string | null; coach_email: string | null; positions_of_need: PositionOfNeed[] | null; notes: string | null } | null;
+  const needs = formatPositionsOfNeed(Array.isArray(note?.positions_of_need) ? note!.positions_of_need! : []);
+  const noteAction = saveOrgSchoolNote.bind(null, slug, id);
+  const tierLabel = PROGRAM_TIERS.find((t) => t.key === school.programTier)?.label;
+
   const staleDays = school.profileDate ? Math.floor((Date.now() - new Date(school.profileDate).getTime()) / 86_400_000) : null;
 
   const amount = (n: number) => (
@@ -103,7 +115,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
     <Screen
       title={school.name}
       back={{ href: `/org/${slug}/schools`, label: "Schools" }}
-      lede={`${school.division}${school.conference ? ` · ${school.conference}` : ""}${school.sportsSponsored.length > 0 ? ` · ${school.sportsSponsored.length} ${school.sportsSponsored.length === 1 ? "sport" : "sports"}` : ""}`}
+      lede={`${school.division}${school.conference ? ` · ${school.conference}` : ""}${school.state ? ` · ${school.state}` : ""}${tierLabel ? ` · ${tierLabel}` : ""}${school.sportsSponsored.length > 0 ? ` · ${school.sportsSponsored.length} ${school.sportsSponsored.length === 1 ? "sport" : "sports"}` : ""}`}
+      action={isOwner ? <TextLink href={`/org/${slug}/schools/${id}/edit`}>Edit</TextLink> : undefined}
     >
       {/* A stale profile is the quiet failure mode of this whole record:
           every number below feeds a fit score, and a three-year-old
@@ -125,6 +138,31 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
           The middle 50% of admitted students. Above the top number is a real advantage; below the bottom one is a real headwind.
         </Note>
       )}
+
+      {school.majors && school.majors.length > 0 && <Note title="Majors Offered">{school.majors.join(", ")}</Note>}
+
+      {/* This org's private overlay: the coach relationship and the
+          positions the program needs. Positions of need move the score
+          for an athlete whose position and grad year fit. */}
+      <Section label="Your Notes" role="contact" kind="note">
+        {note && (note.coach_name || note.coach_email) && (
+          <Row kind="people" role="people" title={note.coach_name ?? "Head Coach"} meta={note.coach_email ?? undefined} wrap />
+        )}
+        {needs && <Row kind="target" role="target" title="Positions of Need" meta={needs} wrap />}
+        {note?.notes && <Note>{note.notes}</Note>}
+        {!note && !canEdit && (
+          <EmptyState kind="note" title="Nothing Noted Yet">
+            Staff keep the coach contact and positions of need for this school here.
+          </EmptyState>
+        )}
+        {canEdit && (
+          <OrgSchoolNoteForm
+            action={noteAction}
+            initialValues={{ coachName: note?.coach_name ?? undefined, coachEmail: note?.coach_email ?? undefined, positionsOfNeed: needs || undefined, notes: note?.notes ?? undefined }}
+          />
+        )}
+        {canEdit && <Label>Private to your organization. A matching position and grad year adds ten to an athlete&apos;s score here.</Label>}
+      </Section>
 
       <Section label="Money" role="committed" kind="money">
         {/* The D3 rule, enforced on the screen as well as in the engine.

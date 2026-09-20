@@ -9,12 +9,14 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { AddButton, Body, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
+import { AddButton, Body, EmptyState, LinkButton, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
-export default async function SchoolsPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function SchoolsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ imported?: string }> }) {
   const { slug } = await params;
+  const { imported } = await searchParams;
+  const importedCount = imported ? Number(imported) : 0;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   const user = await requireRole(org.id, ["owner", "staff", "member"]);
@@ -57,6 +59,11 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
 
   return (
     <Screen title="Schools" action={isOwner ? <AddButton href={`/org/${slug}/schools/new`} label="Add" /> : undefined}>
+      {importedCount > 0 && (
+        <Notice tone="success" title={`${importedCount} ${importedCount === 1 ? "School" : "Schools"} Imported`}>
+          Every athlete on the roster has been scored against them. Open one to check the numbers landed.
+        </Notice>
+      )}
       {schools.length === 0 ? (
         <EmptyState kind="school" title="No Schools Yet">
           {isOwner ? "Add the first one below." : "An owner adds schools, because the list is shared across every organization."}
@@ -80,9 +87,12 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
           shared reference data: a wrong row here is wrong for every
           organization. Same boundary as the verified grading scales. */}
       {isOwner && (
-        <LinkButton href={`/org/${slug}/schools/new`} variant="secondary">
-          Add a School
-        </LinkButton>
+        <Stack gap={3}>
+          <LinkButton href={`/org/${slug}/schools/new`} variant="secondary">
+            Add a School
+          </LinkButton>
+          <Row href={`/org/${slug}/schools/import`} kind="document" role="place" title="Import from a Spreadsheet" meta="A CSV from the template, every row checked before anything lands" wrap />
+        </Stack>
       )}
     </Screen>
   );

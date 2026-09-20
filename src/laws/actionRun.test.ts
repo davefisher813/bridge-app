@@ -106,6 +106,37 @@ describe("LAW: a created row carries the org that created it", () => {
     expect(row?.name).toBe("New Athlete");
   });
 
+  it("createMetric stamps org_id and recomputes the athlete's matches", async () => {
+    const { createMetric } = await import("@/lib/actions/metrics");
+    const r = await run(() => createMetric(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ metric: "fbVelo", value: "87", measuredOn: "2026-09-15", source: "pbr" })));
+    expect(r.redirect).toContain(`/roster/${IDS.athlete}/metrics`);
+    const [w] = inserts("athlete_metrics");
+    expect(w).toBeDefined();
+    expect((w!.rows[0] as { org_id: string }).org_id).toBe(data.orgs[0].id);
+    expect(writes.some((w) => w.op === "upsert" && w.table === "athlete_school_fits")).toBe(true);
+  });
+
+  it("addMatchToBoard stamps org_id and lands at the Target stage", async () => {
+    const { addMatchToBoard } = await import("@/lib/actions/matching");
+    const r = await run(() => addMatchToBoard(ORG_WITH_MODULES, IDS.athleteNoGpa, IDS.school));
+    expect(r.redirect).toContain("/board/");
+    const [w] = inserts("recruiting_targets");
+    const row = w!.rows[0] as { org_id: string; status: string };
+    expect(row.org_id).toBe(data.orgs[0].id);
+    expect(row.status).toBe("Target");
+  });
+
+  it("saveOrgSchoolNote stamps org_id and parses positions of need", async () => {
+    const { saveOrgSchoolNote } = await import("@/lib/actions/schools");
+    const r = await run(() => saveOrgSchoolNote(ORG_WITH_MODULES, IDS.schoolD3, { errors: {} }, form({ coachName: "A Coach", positionsOfNeed: "SS 2027; RHP" })));
+    expect(r.redirect).toContain(`/schools/${IDS.schoolD3}`);
+    const w = writes.find((x) => x.op === "upsert" && x.table === "org_school_notes");
+    expect(w).toBeDefined();
+    const row = w!.rows[0] as { org_id: string; positions_of_need: unknown };
+    expect(row.org_id).toBe(data.orgs[0].id);
+    expect(row.positions_of_need).toEqual([{ position: "SS", gradYear: 2027 }, { position: "RHP" }]);
+  });
+
   it("recordGift stamps org_id", async () => {
     const { recordGift } = await import("@/lib/actions/fundraising");
     const r = await run(() =>
@@ -161,6 +192,43 @@ describe("LAW: a member cannot write", () => {
       call: async () => {
         const { addBoardSeat } = await import("@/lib/actions/governance");
         return addBoardSeat(ORG_WITH_MODULES, IDS.board, { errors: {} }, form({ name: "Sneaky", status: "active", commitmentAmount: "0" }));
+      },
+    },
+    {
+      name: "createMetric",
+      call: async () => {
+        const { createMetric } = await import("@/lib/actions/metrics");
+        return createMetric(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ metric: "fbVelo", value: "99", measuredOn: "2026-09-15", source: "self" }));
+      },
+    },
+    {
+      name: "addMatchToBoard",
+      call: async () => {
+        const { addMatchToBoard } = await import("@/lib/actions/matching");
+        return addMatchToBoard(ORG_WITH_MODULES, IDS.athlete, IDS.schoolD3);
+      },
+    },
+    {
+      name: "saveOrgSchoolNote",
+      call: async () => {
+        const { saveOrgSchoolNote } = await import("@/lib/actions/schools");
+        return saveOrgSchoolNote(ORG_WITH_MODULES, IDS.school, { errors: {} }, form({ coachName: "Sneaky" }));
+      },
+    },
+    {
+      name: "setScoringPreset",
+      call: async () => {
+        const { setScoringPreset } = await import("@/lib/actions/matching");
+        return setScoringPreset(ORG_WITH_MODULES, { errors: {} }, form({ preset: "baseball_first" }));
+      },
+    },
+    {
+      name: "importSchools",
+      call: async () => {
+        const { importSchools } = await import("@/lib/actions/schools");
+        const fd = new FormData();
+        fd.append("file", new File(["name,division\nSneaky U,D1\n"], "s.csv", { type: "text/csv" }));
+        return importSchools(ORG_WITH_MODULES, { errors: {}, problems: [] }, fd);
       },
     },
   ];

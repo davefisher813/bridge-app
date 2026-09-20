@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { parseAthleteForm } from "@/lib/validation/athlete";
+import { matchingColumnsFrom, parseAthleteForm } from "@/lib/validation/athlete";
+import { recomputeFitsForAthlete } from "@/lib/data/fits";
 
 // Athlete add/edit was the top ROADMAP.md item once roster/board existed
 // as read-only screens - there was no way to get real data in short of
@@ -51,6 +52,7 @@ export async function createAthlete(slug: string, _prevState: AthleteActionState
     f1_visa_status: parsed.values.f1VisaStatus ?? null,
     ncaa_eligibility_status: parsed.values.ncaaEligibilityStatus ?? null,
     detail: parsed.detail,
+    ...matchingColumnsFrom(parsed.values),
     })
     .select("id")
     .single();
@@ -58,6 +60,10 @@ export async function createAthlete(slug: string, _prevState: AthleteActionState
   if (error) {
     return { errors: { form: error.message }, values: valuesFromFormData(formData) };
   }
+
+  // Stored fits: a new athlete is scored against every school now, so
+  // the Matches section is full the first time anyone opens the record.
+  if (created?.id) await recomputeFitsForAthlete(supabase, org.id, created.id);
 
   // Land on the record that was just made, not the list it sits in. A
   // list after a save makes the person find what they just typed.
@@ -97,6 +103,7 @@ export async function updateAthlete(
       f1_visa_status: parsed.values.f1VisaStatus ?? null,
       ncaa_eligibility_status: parsed.values.ncaaEligibilityStatus ?? null,
       detail: parsed.detail,
+      ...matchingColumnsFrom(parsed.values),
       updated_at: new Date().toISOString(),
     })
     .eq("id", athleteId)
@@ -106,7 +113,11 @@ export async function updateAthlete(
     return { errors: { form: error.message }, values: valuesFromFormData(formData) };
   }
 
+  // Every input the score reads may have changed. docs/MATCHING_CONTRACT.md.
+  await recomputeFitsForAthlete(supabase, org.id, athleteId);
+
   revalidatePath(`/org/${slug}/roster`);
   revalidatePath(`/org/${slug}/roster/${athleteId}`);
+  revalidatePath(`/org/${slug}/board`);
   redirect(`/org/${slug}/roster/${athleteId}`);
 }

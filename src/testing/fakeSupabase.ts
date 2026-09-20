@@ -94,6 +94,16 @@ const EMBEDS: Record<string, Record<string, EmbedSpec>> = {
   athlete_courses: {
     athletes: { table: "athletes", foreignKey: "athlete_id", many: false },
   },
+  athlete_school_fits: {
+    schools: { table: "schools", foreignKey: "school_id", many: false },
+    athletes: { table: "athletes", foreignKey: "athlete_id", many: false },
+  },
+  athlete_metrics: {
+    athletes: { table: "athletes", foreignKey: "athlete_id", many: false },
+  },
+  org_school_notes: {
+    schools: { table: "schools", foreignKey: "school_id", many: false },
+  },
 };
 
 interface Filter {
@@ -261,6 +271,17 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
       // rely on to learn the new row's id. An id is minted here when the
       // caller did not supply one, the way a default would.
       const inserted: Row[] = [];
+      if (this.writes.op === "upsert" && this.writes.onConflict) {
+        // Postgres replaces the row that shares the conflict columns.
+        const keys = this.writes.onConflict.split(",").map((k) => k.trim());
+        for (const r of rows) {
+          const idx = table.findIndex((t) => keys.every((k) => t[k] === r[k]));
+          if (idx >= 0) table.splice(idx, 1);
+        }
+      }
+      if (this.writes.op === "delete") {
+        for (let i = table.length - 1; i >= 0; i--) if (this.matches(table[i])) table.splice(i, 1);
+      }
       if (this.writes.op !== "delete") {
         for (const r of rows) {
           const row = { id: r.id ?? `fake-${this.table}-${table.length + inserted.length + 1}`, ...r };

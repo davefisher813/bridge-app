@@ -7,8 +7,10 @@
 // a "score" mean the same thing regardless of sport.
 
 import type { Athlete, DimensionResult, School } from "./types";
-import { BASEBALL_SOFTBALL_POSITIONS, divisionToTier } from "./benchmarks";
+import { BASEBALL_SOFTBALL_POSITIONS, tierFor } from "./benchmarks";
 import { clampScore } from "./bands";
+import { GRADE_KEYS, GRADE_WEIGHT, GRADE_WEIGHT_DEFAULT, NEAR_FACTOR, POP_TIME_FLOOR_GRACE, STRIKE_PCT_TARGET, gradeToScore } from "./contract";
+import { combinedConfidence } from "./metrics";
 
 function normalizeSport(s: string | undefined): string {
   const raw = (s || "").toLowerCase().trim();
@@ -23,7 +25,7 @@ function normalizeSport(s: string | undefined): string {
   return raw;
 }
 
-function baseballPositionGroup(position: string | undefined): string | null {
+export function baseballPositionGroup(position: string | undefined): string | null {
   const pos = (position || "").toUpperCase();
   if (/LHP/.test(pos)) return "lhp";
   if (/RHP|SP|RP|P\b/.test(pos)) return "rhp";
@@ -39,7 +41,7 @@ interface CheckResult {
   conflict: boolean;
 }
 
-function runCheck(actual: number | undefined, threshold: number, lowerIsBetter: boolean, label: string, unit: string, nearFactor = 0.92): CheckResult | null {
+function runCheck(actual: number | undefined, threshold: number, lowerIsBetter: boolean, label: string, unit: string, nearFactor = NEAR_FACTOR): CheckResult | null {
   if (actual === undefined || actual === null || Number.isNaN(actual)) return null;
   const pass = lowerIsBetter ? actual <= threshold : actual >= threshold;
   const near = lowerIsBetter ? actual <= threshold * (2 - nearFactor) : actual >= threshold * nearFactor;
@@ -55,7 +57,7 @@ const TIER_MULTIPLIER: Record<string, number> = { elite_d1: 1.1, mid_d1: 1.0, d2
 
 type SportCheckSpec = { key: string; threshold: number; lowerIsBetter: boolean; label: string; unit: string };
 
-function positionGroupFor(sport: string, position: string | undefined): string {
+export function positionGroupFor(sport: string, position: string | undefined): string {
   const pos = (position || "").toUpperCase();
   if (sport === "basketball") {
     if (/PG|POINT/.test(pos)) return "bb_pg";
@@ -121,6 +123,33 @@ function nonBaseballSpecs(sport: string, posGroup: string, m: Record<string, num
   return specs;
 }
 
+// The staff grades blended in with a weight per position group. With no
+// grades on file the athletic score is metrics alone.
+function gradeBlend(athlete: Athlete, posGroup: string | null): { score: number; weight: number; note: string } | null {
+  const g = athlete.grades || {};
+  const present = GRADE_KEYS.filter((k) => typeof g[k] === "number" && Number.isFinite(g[k]));
+  if (present.length === 0) return null;
+  const avg = present.reduce((sum, k) => sum + gradeToScore(g[k]), 0) / present.length;
+  const weight = (posGroup ? GRADE_WEIGHT[posGroup] : undefined) ?? GRADE_WEIGHT_DEFAULT;
+  const avgGrade = present.reduce((sum, k) => sum + g[k], 0) / present.length;
+  return { score: avg, weight, note: `Staff grades average ${Math.round(avgGrade)} on the 20 to 80 scale (${Math.round(weight * 100)}% of the athletic score)` };
+}
+
+// The primary number under its floor is a hard conflict; everything else
+// below target lowers the score and stays a warning.
+function primaryFloor(posGroup: string, m: Record<string, number>, tierBm: { fbMin?: number; sixtyMax?: number; popTime?: number }): string | null {
+  if (posGroup === "rhp" || posGroup === "lhp") {
+    if (m.fbVelo !== undefined && tierBm.fbMin !== undefined && m.fbVelo < tierBm.fbMin) return `FB velo ${m.fbVelo} mph is under the ${tierBm.fbMin} mph floor for this level`;
+    return null;
+  }
+  if (posGroup === "catcher") {
+    if (m.popTime !== undefined && tierBm.popTime !== undefined && m.popTime > tierBm.popTime + POP_TIME_FLOOR_GRACE) return `Pop time ${m.popTime}s is over the ${(tierBm.popTime + POP_TIME_FLOOR_GRACE).toFixed(2)}s floor for this level`;
+    return null;
+  }
+  if (m.sixty !== undefined && tierBm.sixtyMax !== undefined && m.sixty > tierBm.sixtyMax) return `60 time ${m.sixty}s is over the ${tierBm.sixtyMax.toFixed(1)}s floor for this level`;
+  return null;
+}
+
 export function scoreAthletic(athlete: Athlete, school: School): DimensionResult {
   const sport = normalizeSport(athlete.sport);
 
@@ -128,18 +157,20 @@ export function scoreAthletic(athlete: Athlete, school: School): DimensionResult
     return { score: 0, confidence: "high", veto: true, reasons: [], warnings: [`School does not sponsor ${athlete.sport || "this sport"}`] };
   }
 
-  const tier = divisionToTier(school.division);
+  const tier = tierFor(school);
   const m = athlete.measurables || {};
   const reasons: string[] = [];
   const warnings: string[] = [];
   let checks = 0;
   let rawScore = 0;
   let hasConflict = false;
+  const used: string[] = [];
 
-  const record = (r: CheckResult | null) => {
+  const record = (r: CheckResult | null, key?: string) => {
     if (!r) return;
     checks++;
     rawScore += r.score;
+    if (key) used.push(key);
     if (r.conflict) {
       hasConflict = true;
       warnings.push(r.label);
@@ -160,18 +191,23 @@ export function scoreAthletic(athlete: Athlete, school: School): DimensionResult
     if (!tierBm) {
       return { score: 50, confidence: "unknown", veto: false, reasons, warnings: ["No benchmarks for this position/division"] };
     }
+    const floor = primaryFloor(posGroup, m, tierBm);
+    if (floor) {
+      return { score: 15, confidence: combinedConfidence(posGroup === "rhp" || posGroup === "lhp" ? ["fbVelo"] : posGroup === "catcher" ? ["popTime"] : ["sixty"], athlete.measurableConfidence ?? {}), veto: true, reasons, warnings: [floor] };
+    }
     if (posGroup === "rhp" || posGroup === "lhp") {
-      record(runCheck(m.fbVelo, tierBm.fbIdeal ?? 0, false, "FB velo", " mph", (tierBm.fbMin ?? 0) / (tierBm.fbIdeal || 1)));
+      record(runCheck(m.fbVelo, tierBm.fbIdeal ?? 0, false, "FB velo", " mph", (tierBm.fbMin ?? 0) / (tierBm.fbIdeal || 1)), "fbVelo");
+      record(runCheck(m.strikePct, STRIKE_PCT_TARGET, false, "Strike %", "%"), "strikePct");
     } else {
-      record(runCheck(m.sixty, tierBm.sixtyMax ?? 0, true, "60 time", "s", (tierBm.sixtyIdeal ?? 0) / (tierBm.sixtyMax || 1)));
-      if (tierBm.exitVelo) record(runCheck(m.exitVelo, tierBm.exitVelo, false, "Exit velo", " mph", 1 - 5 / tierBm.exitVelo));
+      record(runCheck(m.sixty, tierBm.sixtyMax ?? 0, true, "60 time", "s", (tierBm.sixtyIdeal ?? 0) / (tierBm.sixtyMax || 1)), "sixty");
+      if (tierBm.exitVelo) record(runCheck(m.exitVelo, tierBm.exitVelo, false, "Exit velo", " mph", 1 - 5 / tierBm.exitVelo), "exitVelo");
       // Bridge's original fell back to exitVelo when infieldVelo was
       // missing (armV = m.infieldVelo||m.exitVelo) - that reused one
-      // measurable as a stand-in for an unrelated one. Falling back to a
-      // dedicated armVelo field instead of a different metric entirely.
+      // measurable as a stand-in for an unrelated one. armVelo is the
+      // logged metric; infieldVelo is read for rows written before the log.
       const armThresh = posGroup === "middle_inf" || posGroup === "corner" ? tierBm.armInf : tierBm.armOf ?? tierBm.armInf;
-      if (armThresh) record(runCheck(m.infieldVelo ?? m.armVelo, armThresh, false, "Arm strength", " mph", 1 - 5 / armThresh));
-      if (posGroup === "catcher" && tierBm.popTime) record(runCheck(m.popTime, tierBm.popTime, true, "Pop time", "s"));
+      if (armThresh) record(runCheck(m.armVelo ?? m.infieldVelo, armThresh, false, "Arm strength", " mph", 1 - 5 / armThresh), "armVelo");
+      if (posGroup === "catcher" && tierBm.popTime) record(runCheck(m.popTime, tierBm.popTime, true, "Pop time", "s"), "popTime");
     }
   } else {
     const posGroup = positionGroupFor(sport, athlete.position);
@@ -182,20 +218,47 @@ export function scoreAthletic(athlete: Athlete, school: School): DimensionResult
     }
     for (const spec of specs) {
       const actual = m[spec.key];
-      record(runCheck(actual, spec.threshold * mult, spec.lowerIsBetter, spec.label, spec.unit));
+      record(runCheck(actual, spec.threshold * mult, spec.lowerIsBetter, spec.label, spec.unit), spec.key);
     }
   }
 
+  const posGroupForGrades = sport === "baseball" || sport === "softball" ? baseballPositionGroup(athlete.position) : positionGroupFor(sport, athlete.position);
+  const grades = gradeBlend(athlete, posGroupForGrades);
+
   if (checks === 0) {
+    if (grades) {
+      reasons.push(grades.note);
+      return { score: clampScore(grades.score), confidence: "low", veto: false, reasons, warnings: ["No measurables on file: the athletic score is the staff grades alone"] };
+    }
     return { score: 50, confidence: "unknown", veto: false, reasons, warnings: ["No measurables on file: enter stats for an accurate athletic fit"] };
   }
 
-  const pct = rawScore / (checks * 2);
+  const metricScore = (rawScore / (checks * 2)) * 100;
+  let score = metricScore;
+  if (grades) {
+    score = metricScore * (1 - grades.weight) + grades.score * grades.weight;
+    reasons.push(grades.note);
+  }
+  // Below-target numbers lower the score and stay warnings; only the
+  // primary floor above is a conflict (docs/MATCHING_CONTRACT.md).
+  void hasConflict;
+  const sourceConfidence = combinedConfidence(used, athlete.measurableConfidence ?? {});
   return {
-    score: clampScore(pct * 100),
-    confidence: checks >= 2 ? "high" : "medium",
-    veto: hasConflict,
+    score: clampScore(score),
+    confidence: sourceConfidence === "unknown" ? (checks >= 2 ? "high" : "medium") : sourceConfidence,
+    veto: false,
     reasons,
     warnings,
   };
+}
+
+// The position group a screen orders metrics by: the baseball groups for
+// baseball and softball, the sport's own groups otherwise. Null when
+// baseball has no readable position, so the log form falls back to
+// every metric under More.
+export function positionGroupOf(sport: string, position: string | undefined): string | null {
+  const s = (sport || "").toLowerCase();
+  if (s === "baseball" || s === "softball") return baseballPositionGroup(position);
+  if (!s) return null;
+  return positionGroupFor(s, position);
 }

@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { athleteDetailSchema } from "@/lib/fit/schema";
 import type { AthleteDetail, RecruitType } from "@/lib/fit/types";
+import { GOAL_LABEL, GRADE_KEYS, GRADE_MAX, GRADE_MIN, type AthleteGoal } from "@/lib/fit/contract";
 
 export const RECRUIT_TYPES: { value: RecruitType; label: string }[] = [
   { value: "hs", label: "High School" },
@@ -17,6 +18,10 @@ export const RECRUIT_TYPES: { value: RecruitType; label: string }[] = [
 ];
 
 export const ATHLETE_STATUSES = ["Active", "Committed", "Inactive"] as const;
+
+export const ATHLETE_GOALS: { value: AthleteGoal; label: string }[] = (Object.keys(GOAL_LABEL) as AthleteGoal[]).map((value) => ({ value, label: GOAL_LABEL[value] }));
+
+const gradeSchema = z.number().int().min(GRADE_MIN, `Grades run ${GRADE_MIN} to ${GRADE_MAX}`).max(GRADE_MAX, `Grades run ${GRADE_MIN} to ${GRADE_MAX}`).optional();
 
 const numOrUndef = (v: FormDataEntryValue | null) => {
   if (v === null || v === "") return undefined;
@@ -39,6 +44,17 @@ export const athleteBaseSchema = z.object({
   ieltsScore: z.number().min(0).max(9).optional(),
   f1VisaStatus: z.string().trim().optional(),
   ncaaEligibilityStatus: z.string().trim().optional(),
+  // docs/MATCHING_CONTRACT.md: the goal shifts the blend, the budget
+  // drives financial fit, the home state picks in-state cost, the grades
+  // blend into the athletic score.
+  goal: z.enum(["education", "balanced", "development"]).default("balanced"),
+  familyBudget: z.number().min(0, "A budget cannot be negative").max(1000000, "That budget is more than a year of any school").optional(),
+  homeState: z.string().trim().toUpperCase().length(2, "Two letters, like CT").optional(),
+  frame: gradeSchema,
+  athleticism: gradeSchema,
+  skill: gradeSchema,
+  iq: gradeSchema,
+  competitiveness: gradeSchema,
 });
 
 export type AthleteFormValues = z.infer<typeof athleteBaseSchema>;
@@ -70,6 +86,14 @@ export function parseAthleteForm(formData: FormData): AthleteFormResult {
     ieltsScore: numOrUndef(formData.get("ieltsScore")),
     f1VisaStatus: strOrUndef(formData.get("f1VisaStatus")),
     ncaaEligibilityStatus: strOrUndef(formData.get("ncaaEligibilityStatus")),
+    goal: String(formData.get("goal") ?? "balanced"),
+    familyBudget: numOrUndef(formData.get("familyBudget")),
+    homeState: strOrUndef(formData.get("homeState")),
+    frame: numOrUndef(formData.get("frame")),
+    athleticism: numOrUndef(formData.get("athleticism")),
+    skill: numOrUndef(formData.get("skill")),
+    iq: numOrUndef(formData.get("iq")),
+    competitiveness: numOrUndef(formData.get("competitiveness")),
   };
 
   const baseResult = athleteBaseSchema.safeParse(baseInput);
@@ -118,4 +142,19 @@ export function parseAthleteForm(formData: FormData): AthleteFormResult {
   }
 
   return { ok: baseResult.success && detailResult.success, values, detail, errors };
+}
+
+// The columns migration 0021 added, from parsed form values.
+export function matchingColumnsFrom(values: AthleteFormValues): { goal: string; family_budget_cents: number | null; home_state: string | null; grades: Record<string, number> } {
+  const grades: Record<string, number> = {};
+  for (const k of GRADE_KEYS) {
+    const v = values[k];
+    if (typeof v === "number") grades[k] = v;
+  }
+  return {
+    goal: values.goal,
+    family_budget_cents: values.familyBudget === undefined ? null : Math.round(values.familyBudget * 100),
+    home_state: values.homeState ?? null,
+    grades,
+  };
 }

@@ -137,6 +137,31 @@ camelCase keys, matching `School` in `types.ts` directly (same
 convention `athletes.detail` already used) - see docs/DECISIONS.md for
 why this needed deciding explicitly rather than being obvious.
 
+### Stored matches: `src/lib/data/fits.ts`
+
+A match is stored, not recomputed on view (docs/MATCHING_CONTRACT.md).
+`athlete_school_fits` holds one row per athlete by school: score, tag,
+`partial`, the dimensions with their reasons and warnings, a hash of
+the inputs and a timestamp. `fits.ts` is the only writer. It loads the
+org's context (preset, transfer windows, positions of need, board
+status), the athletes with their metric logs, and the schools, runs the
+pure engine, and upserts in batches of 500. Four entry points match the
+contract's recompute table: one athlete against every school, every
+athlete in the org, every athlete against one school, and every org
+against a set of schools (the admin client, after a shared school
+changes). The engine is pure and cheap, so this runs inline in the
+server action that changed the input rather than in a job. Screens
+read rows through `loadFitsForAthlete` and `loadFitsForPairs`; the one
+live compute left is `loadTarget`'s fallback when no row exists yet,
+which Recalculate All under More fills.
+
+The metrics log (`athlete_metrics`) feeds the engine through
+`selectScoringMetrics` in `src/lib/fit/metrics.ts`: best value in the
+most trusted source tier, else the most recent self-reported one, and
+the chosen entry's source tier is the athletic dimension's confidence.
+`athleteRowToFitAthlete` merges the log over the legacy `measurables`
+column so rows written before the log still score.
+
 ## Roles
 
 `org_role` is a 3-value enum: `owner | staff | member`. Generalized from
@@ -311,6 +336,6 @@ never be left without an owner.
 ## What isn't built yet
 
 Doc AI's actual Anthropic API wiring (a `ModelCaller` implementation
-plus a per-org budget table, held pending an API key), a school
-import, and transfer window entry. See docs/ROADMAP.md and
+plus a per-org budget table, held pending an API key), transfer window
+entry, and a student or family role. See docs/ROADMAP.md and
 docs/CURRENT_STATE.md.

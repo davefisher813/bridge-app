@@ -8,10 +8,12 @@
 // different score for the same target on two pages, with nothing
 // failing anywhere.
 //
-// The score is computed on every load rather than stored, on purpose: a
-// stored score goes stale the moment a GPA or a school profile changes,
-// and a stale score on a board is worse than no score, because somebody
-// acts on it.
+// The score comes from athlete_school_fits, stored and recomputed by the
+// action that changed an input (docs/MATCHING_CONTRACT.md). It is only
+// computed here when no row exists yet, which happens for data written
+// before the store existed; Recalculate All under More fills those. The
+// recruiting signals (offer, visits, messages) are attached for the
+// chips and never change the score.
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -26,6 +28,7 @@ import {
   type TransferWindowRow,
 } from "@/lib/data/fitAdapters";
 import { scoreFit } from "@/lib/fit/score";
+import { loadFitsForPairs, rowToFit } from "@/lib/data/fits";
 import type { Athlete, FitResult, School } from "@/lib/fit/types";
 
 export interface CommunicationRow {
@@ -119,18 +122,23 @@ export async function loadTarget(orgId: string, targetId: string): Promise<Targe
   const communications = (commRows ?? []) as CommunicationRow[];
   const visits = (visitRows ?? []) as VisitRow[];
 
-  const fit = scoreFit(athlete, school, {
-    // A committed target is not still being evaluated. Scoring one
-    // produces a number that reads as a recommendation about a decision
-    // that has already been made.
-    isPlaced: row.status === "Committed",
-    transferWindows: ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit),
-    signals: {
-      ...communicationsToSignals(communications.map((c) => ({ target_id: c.target_id, kind: c.kind }))),
-      visitCount: visitsToVisitCount(visits.map((v) => ({ target_id: v.target_id }))),
-      offer: targetOfferToSignal(row),
-    },
-  });
+  const signals = {
+    ...communicationsToSignals(communications.map((c) => ({ target_id: c.target_id, kind: c.kind }))),
+    visitCount: visitsToVisitCount(visits.map((v) => ({ target_id: v.target_id }))),
+    offer: targetOfferToSignal(row),
+  };
+
+  const stored = (await loadFitsForPairs(supabase, orgId, [{ athleteId: athlete.id, schoolId: school.id }])).get(`${athlete.id}:${school.id}`);
+  const fit: FitResult = stored
+    ? { ...rowToFit(stored), signals }
+    : scoreFit(athlete, school, {
+        // A committed target is not still being evaluated. Scoring one
+        // produces a number that reads as a recommendation about a
+        // decision that has already been made.
+        isPlaced: row.status === "Committed",
+        transferWindows: ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit),
+        signals,
+      });
 
   return {
     target: {

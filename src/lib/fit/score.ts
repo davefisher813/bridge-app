@@ -13,13 +13,14 @@
 // signals (offers, visits, comms) are applied once, after the blend, as
 // bounded nudges rather than a chain of tag reassignments.
 
-import type { Athlete, DimensionResult, FitResult, RecruitingSignals, School, TransferWindow } from "./types";
+import type { Athlete, DimensionResult, FitResult, PositionalNeed, RecruitingSignals, School, TransferWindow } from "./types";
 import { scoreAcademic } from "./academic";
-import { scoreAthletic } from "./athletic";
+import { scoreAthletic, baseballPositionGroup } from "./athletic";
 import { scoreFinancial } from "./financial";
 import { scoreEligibility } from "./transfer";
 import { clampScore, scoreToTag } from "./bands";
 import { isD1D2 } from "./benchmarks";
+import { DEFAULT_PRESET, POSITIONAL_NEED_BOOST, STALE_PROFILE_DAYS, blendWeights, type AthleteGoal, type ScoringPreset } from "./contract";
 
 export interface ScoreFitOptions {
   // True when the athlete is already placed at (or done recruiting) this
@@ -29,20 +30,37 @@ export interface ScoreFitOptions {
   // Checking it once, centrally, before any dimension runs, is the fix.
   isPlaced?: boolean;
   transferWindows?: TransferWindow[];
+  // Shown on the row, never scored. docs/MATCHING_CONTRACT.md section 3.
   signals?: RecruitingSignals;
   today?: Date;
+  // The org's preset. The athlete's goal comes off the athlete.
+  preset?: ScoringPreset;
+  // The org's private positions of need at this school.
+  positionalNeed?: PositionalNeed[];
 }
 
-// Documented weighted blend. HS recruits split 40/40/20 across academic/
-// athletic/financial. Transfers add eligibility and reweight to 30/30/
-// 15/25 - eligibility gets real weight because a hard-to-clear transfer
-// rule matters as much as fit does, but a veto on it still overrides the
-// blend entirely, same as any other dimension.
-const WEIGHTS_HS = { academic: 0.4, athletic: 0.4, financial: 0.2 } as const;
-const WEIGHTS_TRANSFER = { academic: 0.3, athletic: 0.3, financial: 0.15, eligibility: 0.25 } as const;
+// The blend is the org's preset shifted by the athlete's goal
+// (src/lib/fit/contract.ts). A dimension with unknown confidence is left
+// out and the rest renormalized, so a number nobody typed never drags a
+// school to the middle. A veto still overrides everything.
 
 function isVetoingDimension(d: DimensionResult): boolean {
   return d.veto;
+}
+
+function needMatches(athlete: Athlete, need: PositionalNeed[] | undefined): PositionalNeed | null {
+  if (!need || need.length === 0) return null;
+  const group = baseballPositionGroup(athlete.position);
+  const pos = (athlete.position || "").toUpperCase();
+  const gradYear = athlete.detail?.kind === "hs" ? athlete.detail.gradYear : undefined;
+  for (const n of need) {
+    const np = (n.position || "").toUpperCase();
+    const sameGroup = np === pos || (group !== null && baseballPositionGroup(np) === group);
+    if (!sameGroup) continue;
+    if (n.gradYear && gradYear && n.gradYear !== gradYear) continue;
+    return n;
+  }
+  return null;
 }
 
 export function scoreFit(athlete: Athlete, school: School, opts: ScoreFitOptions = {}): FitResult {
@@ -55,6 +73,9 @@ export function scoreFit(athlete: Athlete, school: School, opts: ScoreFitOptions
       financial: { score: 60, confidence: "unknown", veto: false, reasons: [], warnings: [] },
       reasons: ["Placed athlete: fit not evaluated further"],
       warnings: [],
+      partial: false,
+      counted: [],
+      signals: opts.signals,
     };
   }
 
@@ -66,55 +87,54 @@ export function scoreFit(athlete: Athlete, school: School, opts: ScoreFitOptions
 
   const vetoingDims = [academic, athletic, eligibility].filter((d): d is DimensionResult => !!d && isVetoingDimension(d));
 
+  const weights = blendWeights(opts.preset ?? DEFAULT_PRESET, (athlete.goal ?? "balanced") as AthleteGoal, isTransfer);
+  const dims: Array<{ name: string; result: DimensionResult; weight: number }> = [
+    { name: "academic", result: academic, weight: weights.academic },
+    { name: "athletic", result: athletic, weight: weights.athletic },
+    { name: "financial", result: financial, weight: weights.financial },
+  ];
+  if (isTransfer && eligibility) dims.push({ name: "eligibility", result: eligibility, weight: weights.eligibility });
+
+  const counted = dims.filter((d) => d.result.confidence !== "unknown");
+  const partial = counted.length < dims.length;
+
   let score: number;
   if (vetoingDims.length > 0) {
     // A veto is a hard conflict: the blend never gets a chance to average
     // it away. Score reported is the worst vetoing dimension's, so the UI
     // can still show *how* conflicted, not just that it is.
     score = Math.min(...vetoingDims.map((d) => d.score));
+  } else if (counted.length === 0) {
+    score = 50;
   } else {
-    const weights = isTransfer ? WEIGHTS_TRANSFER : WEIGHTS_HS;
-    score =
-      academic.score * weights.academic +
-      athletic.score * weights.athletic +
-      financial.score * weights.financial +
-      (isTransfer && eligibility ? eligibility.score * (weights as typeof WEIGHTS_TRANSFER).eligibility : 0);
+    const total = counted.reduce((sum, d) => sum + d.weight, 0);
+    score = counted.reduce((sum, d) => sum + d.result.score * (d.weight / total), 0);
   }
 
   const reasons: string[] = [...academic.reasons, ...athletic.reasons, ...financial.reasons, ...(eligibility?.reasons ?? [])];
   const warnings: string[] = [...academic.warnings, ...athletic.warnings, ...financial.warnings, ...(eligibility?.warnings ?? [])];
 
-  // Recruiting-signal nudges. Applied once, bounded, only when not
-  // already vetoed - an offer doesn't erase a GPA below the school's
-  // floor, it just isn't evaluated as a tiebreaker for a conflict that
-  // already exists.
-  if (vetoingDims.length === 0 && opts.signals) {
-    const { offer, visitCount = 0, commCount = 0 } = opts.signals;
-    if (offer) {
-      if (offer.offerType === "scholarship" || offer.offerType === "written") {
-        score = Math.max(score, 88);
-        reasons.unshift(`${offer.offerType} offer on file${offer.scholarshipPercent ? ` (${offer.scholarshipPercent}%)` : ""}`);
-      } else if (offer.offerType === "verbal" || offer.offerType === "preferred_walk_on") {
-        score = Math.max(score, 60);
-        reasons.unshift("Verbal offer on file");
-      } else {
-        reasons.push(`${offer.offerType} on file`);
-      }
-    }
-    if (visitCount >= 1) {
-      score = Math.min(100, score + 5);
-      reasons.push(`${visitCount} visit${visitCount > 1 ? "s" : ""} completed`);
-    } else if (commCount >= 5) {
-      reasons.push(`${commCount} communications: sustained coach engagement`);
+  if (partial && vetoingDims.length === 0) {
+    const left = dims.filter((d) => d.result.confidence === "unknown").map((d) => d.name);
+    warnings.unshift(`Scored on ${counted.map((d) => d.name).join(" and ")} only: no ${left.join(" or ")} data yet`);
+  }
+
+  // An org's positions of need at this school: a matching athlete gets
+  // the boost and a reason. Never past a veto.
+  if (vetoingDims.length === 0) {
+    const need = needMatches(athlete, opts.positionalNeed);
+    if (need) {
+      score = Math.min(100, score + POSITIONAL_NEED_BOOST);
+      reasons.unshift(`This program needs a ${need.position}${need.gradYear ? ` for ${need.gradYear}` : ""}`);
     }
   }
 
   // Cross-cutting warnings that apply regardless of recruit type or
   // dimension, ported from calcCollegeFit's FIT-5/FIT-11/FIT-12 blocks.
   if (school.profileDate) {
-    const ageDays = (Date.now() - new Date(school.profileDate).getTime()) / 86400000;
-    if (ageDays >= 90) warnings.push(`School profile is ${Math.round(ageDays)} days old: refresh recommended`);
-    else if (ageDays >= 30) warnings.push(`School profile is ${Math.round(ageDays)} days old: consider refreshing`);
+    const ageDays = ((opts.today ?? new Date()).getTime() - new Date(school.profileDate).getTime()) / 86400000;
+    if (ageDays >= STALE_PROFILE_DAYS.recommend) warnings.push(`School profile is ${Math.round(ageDays)} days old: refresh recommended`);
+    else if (ageDays >= STALE_PROFILE_DAYS.consider) warnings.push(`School profile is ${Math.round(ageDays)} days old: consider refreshing`);
   }
   if (isD1D2(school.division)) {
     const status = (athlete.ncaaEligibilityStatus || "").toLowerCase();
@@ -137,5 +157,8 @@ export function scoreFit(athlete: Athlete, school: School, opts: ScoreFitOptions
     eligibility,
     reasons,
     warnings,
+    partial,
+    counted: counted.map((d) => d.name),
+    signals: opts.signals,
   };
 }

@@ -12,17 +12,21 @@ export type {
   RecruitType,
   School,
   TransferWindow,
+  PositionalNeed,
 } from "./types";
 
 export { scoreFit } from "./score";
 export type { ScoreFitOptions } from "./score";
 
 export { scoreAcademic } from "./academic";
-export { scoreAthletic } from "./athletic";
+export { scoreAthletic, baseballPositionGroup, positionGroupFor, positionGroupOf } from "./athletic";
 export { scoreFinancial } from "./financial";
 export { scoreEligibility } from "./transfer";
 
 export { scoreToTag, clampScore } from "./bands";
+export { selectScoringMetrics, combinedConfidence, metricsFor, formatMetricValue } from "./metrics";
+export type { MetricEntry, ScoringMetrics } from "./metrics";
+export * from "./contract";
 
 export { athleteDetailSchema, parseAthleteDetail, safeParseAthleteDetail } from "./schema";
 
@@ -30,6 +34,7 @@ export {
   BASEBALL_SOFTBALL_POSITIONS,
   TIERS,
   divisionToTier,
+  tierFor,
   isD1,
   isD1D2,
   isD3,

@@ -88,6 +88,15 @@ export const BASEBALL_SOFTBALL_POSITIONS: PositionBenchmark[] = [
   },
 ];
 
+// The tier a school is benchmarked at: its Program Tier when an owner
+// has set one (docs/MATCHING_CONTRACT.md section 3), else the division
+// default below.
+export function tierFor(school: { division: string; programTier?: string }): string {
+  const t = school.programTier;
+  if (t && TIERS.some((x) => x.id === t)) return t;
+  return divisionToTier(school.division);
+}
+
 // FIT-7 in the original: complete division to tier mapping.
 export function divisionToTier(divStr: string | undefined): string {
   const d = (divStr || "").toUpperCase().replace(/\s+/g, " ").trim();

@@ -16,6 +16,79 @@
 import type { Athlete, DimensionResult, School } from "./types";
 import { isD1, isD3 } from "./benchmarks";
 import { clampScore } from "./bands";
+import { MERIT_GPA_FACTORS, NEED_AID_FACTOR, NET_COST_BANDS } from "./contract";
+
+const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+
+// Cost of attendance for this athlete: in state when the athlete's home
+// state matches the school's, out of state otherwise.
+function costFor(athlete: Athlete, school: School): { cost: number; basis: string } | null {
+  const f = school.financials;
+  if (!f) return null;
+  const home = (athlete.homeState || "").trim().toUpperCase();
+  const there = (school.state || "").trim().toUpperCase();
+  if (home && there && home === there && f.instateTotal) return { cost: f.instateTotal, basis: "in state" };
+  if (f.outstateTotal) return { cost: f.outstateTotal, basis: "out of state" };
+  if (f.instateTotal) return { cost: f.instateTotal, basis: "in state" };
+  return null;
+}
+
+// "What they will most qualify for with academic scholarships and
+// financial aid." Net cost after the aid this athlete could expect,
+// against what the family can pay. docs/MATCHING_CONTRACT.md section 3.
+function scoreAgainstBudget(athlete: Athlete, school: School, budget: number): DimensionResult | null {
+  const f = school.financials;
+  if (!f) return null;
+  const c = costFor(athlete, school);
+  if (!c) return null;
+  const reasons: string[] = [];
+  const warnings: string[] = [];
+  let aid = 0;
+
+  if (isD3(school.division)) {
+    reasons.push("D3 school: athletic scholarships are not allowed by NCAA rules (unrelated to the House settlement)");
+  } else if (f.athleticScholarship && f.athleticScholarship !== "none" && f.avgAthleticAid) {
+    aid += f.avgAthleticAid;
+    reasons.push(`Athletic aid: about ${money(f.avgAthleticAid)} a year on average here`);
+  } else if (f.athleticScholarship === "none") {
+    reasons.push("No athletic scholarships at this school (academic aid only)");
+  }
+
+  const gpa = athlete.gpa ?? 0;
+  const factor = MERIT_GPA_FACTORS.find((m) => gpa >= m.minGpa)?.factor ?? 0;
+  if (f.avgMeritAid && factor > 0) {
+    const merit = f.avgMeritAid * factor;
+    aid += merit;
+    reasons.push(`Merit aid: about ${money(merit)} a year at a ${gpa.toFixed(2)} GPA`);
+  } else if (f.avgMeritAid) {
+    warnings.push(`Merit aid here averages ${money(f.avgMeritAid)}, and usually starts at a 3.0 GPA`);
+  }
+  if (f.avgNeedAid) {
+    const need = f.avgNeedAid * NEED_AID_FACTOR;
+    aid += need;
+    reasons.push(`Need-based aid: possibly ${money(need)} a year, depending on the family's finances`);
+  }
+
+  const net = Math.max(0, c.cost - aid);
+  reasons.push(`Net cost about ${money(net)} a year (${money(c.cost)} ${c.basis}, less ${money(aid)} in likely aid) against a ${money(budget)} budget`);
+
+  let score: number;
+  if (net <= budget) {
+    const margin = budget > 0 ? (budget - net) / budget : 1;
+    score = NET_COST_BANDS.underBudget + Math.min(1, margin) * NET_COST_BANDS.underBudgetBonusMax;
+  } else if (net <= budget * 1.25) {
+    score = NET_COST_BANDS.within25Over;
+    warnings.push(`About ${money(net - budget)} a year over budget`);
+  } else if (net <= budget * 1.5) {
+    score = NET_COST_BANDS.within50Over;
+    warnings.push(`About ${money(net - budget)} a year over budget`);
+  } else {
+    score = NET_COST_BANDS.further;
+    warnings.push(`About ${money(net - budget)} a year over budget: this school does not make sense financially without more aid`);
+  }
+  const confidence: DimensionResult["confidence"] = f.avgMeritAid !== undefined || f.avgAthleticAid !== undefined || f.avgNeedAid !== undefined ? "high" : "medium";
+  return { score: clampScore(score), confidence, veto: false, reasons, warnings };
+}
 
 export function scoreFinancial(athlete: Athlete, school: School): DimensionResult {
   const f = school.financials;
@@ -26,6 +99,26 @@ export function scoreFinancial(athlete: Athlete, school: School): DimensionResul
     return { score: 50, confidence: "unknown", veto: false, reasons, warnings: ["No financial data available for this school"] };
   }
 
+  if (athlete.familyBudgetCents !== undefined && athlete.familyBudgetCents > 0) {
+    const budgeted = scoreAgainstBudget(athlete, school, athlete.familyBudgetCents / 100);
+    if (budgeted) return budgeted;
+  }
+
+  // No family budget on file: the school-only model, reported as low
+  // confidence because it cannot say whether the school makes sense for
+  // this family.
+  const schoolOnly = scoreSchoolOnly(athlete, school);
+  if (schoolOnly.confidence !== "unknown") {
+    schoolOnly.confidence = "low";
+    schoolOnly.warnings.push("No family budget on file: add one for a net-cost fit");
+  }
+  return schoolOnly;
+}
+
+function scoreSchoolOnly(athlete: Athlete, school: School): DimensionResult {
+  const f = school.financials!;
+  const reasons: string[] = [];
+  const warnings: string[] = [];
   const cost = f.outstateTotal || f.instateTotal || 0;
 
   if (isD3(school.division)) {
