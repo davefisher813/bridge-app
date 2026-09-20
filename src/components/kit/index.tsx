@@ -19,7 +19,6 @@ import Link from "next/link";
 import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 import { DOT, TEXT_ON, scoreRole, type Role } from "@/components/statusHue";
 import { TabBar } from "@/components/kit/TabBar";
-import { OrgHeader } from "@/components/kit/OrgHeader";
 
 export type { Role, RowKind };
 
@@ -105,11 +104,17 @@ export function Screen({
       )}
       {(title || action) && (
         <div className={`flex items-start justify-between gap-3 ${back ? "mt-3" : ""}`}>
-          <div className="min-w-0">
+          {/* With no back link the title is the first thing on the
+              screen, so it shares its line with the org's wordmark in
+              the corner (Chrome). The title keeps clear of it and the
+              action drops below it; where there is an action its own
+              column already holds most of that width, so the title only
+              reserves the remainder. */}
+          <div className={`min-w-0 ${back ? "" : action ? "pr-4" : "pr-20"}`}>
             {title && <Title>{title}</Title>}
             {lede && <div className="mt-1 text-body text-muted">{lede}</div>}
           </div>
-          {action && <div className="flex-shrink-0 pt-1">{action}</div>}
+          {action && <div className={`flex-shrink-0 pt-1 ${back ? "" : "mt-6"}`}>{action}</div>}
         </div>
       )}
       <div className={`flex flex-col gap-6 ${title || action ? "mt-4" : ""}`}>{children}</div>
@@ -292,8 +297,8 @@ export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg"
 // An org's mark: a white shape on a transparent PNG (orgs.branding.logo),
 // drawn in ink for the theme by .org-mark in globals.css. Decorative:
 // the org's name is always beside it or is the page.
-export function OrgMark({ src, size = "md" }: { src: string; size?: "md" | "lg" | "xl" }) {
-  const h = size === "xl" ? "h-16" : size === "lg" ? "h-12" : "h-8";
+export function OrgMark({ src, size = "md" }: { src: string; size?: "sm" | "md" | "lg" | "xl" }) {
+  const h = size === "xl" ? "h-16" : size === "lg" ? "h-12" : size === "sm" ? "h-6" : "h-8";
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={src} alt="" className={`org-mark ${h} w-auto flex-shrink-0`} />;
 }
@@ -504,15 +509,22 @@ export function Form({ action, error, children, onPaper = false }: { action: (fo
 }
 
 // ── Chrome ───────────────────────────────────────────────────────────
-// What every org screen sits inside: the org's name up top, the fixed
-// tab bar below. The screen itself pads for the bar.
+// What every org screen sits inside: the org's wordmark in the top
+// right corner, the fixed tab bar below. The screen itself pads for the
+// bar, and reserves the corner so a title never runs under the mark.
 export function Chrome({ orgName, slug, logo, lockup, children }: { orgName: string; slug: string; logo?: string | null; lockup?: string | null; children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg">
       {/* 672 wide on a laptop, the whole screen on a phone. Dave's
           pick, 2026-09-20, over the 448 phone column. */}
-      <div className="mx-auto max-w-2xl">
-        <OrgHeader slug={slug} orgName={orgName} logo={logo} lockup={lockup} />
+      <div className="relative mx-auto max-w-2xl">
+        {/* Small, in the corner, across from the screen title rather than
+            above it. Dave, 2026-09-20. Out of the flow so the title sits
+            level with it; Screen keeps the corner clear. */}
+        <div className="absolute right-4 top-3 z-10">
+          {lockup || logo ? <OrgMark src={(lockup ?? logo) as string} size="sm" /> : null}
+          <span className="sr-only">{orgName}</span>
+        </div>
         {children}
       </div>
       <TabBar slug={slug} />

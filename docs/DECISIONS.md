@@ -2030,6 +2030,11 @@ change fixed the org name sitting behind the iPhone status bar in the
 installed app). Elite Squad has no mark on file and shows its name
 alone. The preview inlines the PNGs so the one file still carries them.
 Same day, Dave: "use the word mark for the logo and words, get rid of
-that default title." `orgs.branding.lockup` is the wordmark; when an
-org has one it stands alone at the top of every screen (migration
-0020 sets Bridge's), with the name kept for screen readers only.
+that default title," then "make it small in the upper right hand
+corner across from good morning, put it there on all pages."
+`orgs.branding.lockup` is the wordmark; migration 0020 sets Bridge's.
+It sits small and out of the flow in the top right corner of every org
+screen, so the screen title shares its line rather than sitting under
+it, and the org name survives for screen readers only. `Screen` keeps
+that corner clear: the title reserves it, and a header action (the add
+disc, an Edit link) drops below the mark instead of colliding with it.
