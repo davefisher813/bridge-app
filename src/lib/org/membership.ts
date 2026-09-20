@@ -49,6 +49,7 @@ export interface OrgSummary {
   // enum stays generic either way.
   roleLabels: RoleLabels;
   logo: string | null;
+  lockup: string | null;
 }
 
 // Cached per request: the org layout resolves the slug and then the page
@@ -65,5 +66,6 @@ export const getOrgBySlug = cache(async function getOrgBySlug(slug: string): Pro
     modules: parseOrgModules(data.modules),
     roleLabels: parseRoleLabels(data.role_labels),
     logo: parseBranding(data.branding).logo,
+    lockup: parseBranding(data.branding).lockup,
   };
 });

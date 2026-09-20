@@ -6,10 +6,13 @@ export interface OrgBranding {
   // A path under /public (or an absolute URL) to a white mark on a
   // transparent background. The kit draws it in ink for the theme.
   logo: string | null;
+  // The wordmark: mark and name in one image. When an org has one it
+  // stands alone at the top of every screen, in place of the name.
+  lockup: string | null;
 }
 
 export function parseBranding(input: unknown): OrgBranding {
   const raw = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
-  const logo = typeof raw.logo === "string" && /^(\/|https:\/\/)/.test(raw.logo) ? raw.logo : null;
-  return { logo };
+  const path = (v: unknown) => (typeof v === "string" && /^(\/|https:\/\/)/.test(v) ? v : null);
+  return { logo: path(raw.logo), lockup: path(raw.lockup) };
 }

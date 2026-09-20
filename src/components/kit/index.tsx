@@ -505,15 +505,27 @@ export function Form({ action, error, children, onPaper = false }: { action: (fo
 // ── Chrome ───────────────────────────────────────────────────────────
 // What every org screen sits inside: the org's name up top, the fixed
 // tab bar below. The screen itself pads for the bar.
-export function Chrome({ orgName, slug, logo, children }: { orgName: string; slug: string; logo?: string | null; children: ReactNode }) {
+export function Chrome({ orgName, slug, logo, lockup, children }: { orgName: string; slug: string; logo?: string | null; lockup?: string | null; children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg">
       {/* 672 wide on a laptop, the whole screen on a phone. Dave's
           pick, 2026-09-20, over the 448 phone column. */}
       <div className="mx-auto max-w-2xl">
+        {/* The wordmark alone when the org has one (Dave, 2026-09-20:
+            "use the word mark for the logo and words, get rid of that
+            default title"); the mark and the name otherwise. */}
         <div className="flex min-h-11 items-center gap-3 px-4 pt-3">
-          {logo && <OrgMark src={logo} size="md" />}
-          <span className="text-body font-extrabold text-ink">{orgName}</span>
+          {lockup ? (
+            <>
+              <OrgMark src={lockup} size="xl" />
+              <span className="sr-only">{orgName}</span>
+            </>
+          ) : (
+            <>
+              {logo && <OrgMark src={logo} size="md" />}
+              <span className="text-body font-extrabold text-ink">{orgName}</span>
+            </>
+          )}
         </div>
         {children}
       </div>

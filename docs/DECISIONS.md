@@ -2029,3 +2029,7 @@ this; migration 0019 is the first row to use it.
 change fixed the org name sitting behind the iPhone status bar in the
 installed app). Elite Squad has no mark on file and shows its name
 alone. The preview inlines the PNGs so the one file still carries them.
+Same day, Dave: "use the word mark for the logo and words, get rid of
+that default title." `orgs.branding.lockup` is the wordmark; when an
+org has one it stands alone at the top of every screen (migration
+0020 sets Bridge's), with the name kept for screen readers only.

@@ -81,7 +81,7 @@ export function buildFixture(): Dataset {
         slug: ORG_WITH_MODULES,
         modules: { board_governance: true, donor_fundraising: true },
         role_labels: { owner: "Executive Director", staff: "Coordinator", member: "Board" },
-        branding: { logo: "/logos/bridge-mark.png" },
+        branding: { logo: "/logos/bridge-mark.png", lockup: "/logos/bridge-lockup.png" },
       },
       {
         id: ELITE,
