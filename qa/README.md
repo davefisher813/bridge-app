@@ -22,7 +22,7 @@ failure, so either can gate a push later with no rewriting.
 |---|---|---|
 | tests | every test ran and passed | Vitest reports failed 0, skipped 0, todo 0, and every `*.test.ts` under `src/` loaded and ran at least one real test |
 | build | it would actually deploy | the lockfile resolves, `next build` compiles for production (not the fixture), the built app boots on placeholder env, `/login` and `/unauthorized` answer 200, `/` and an org route redirect a stranger to `/login`, and the boot log says nothing alarming |
-| lint | the standing rules hold | no em dash outside the baseline, no secret shape anywhere the repo owns, no `.only` in a test, the test data rule holds for the fixture and every SQL seed, the boot allowlist is well formed |
+| lint | the standing rules hold | no em dash outside the baseline, no secret shape anywhere the repo owns, no `.only` in a test, every personal detail value in the fixture and the SQL seeds is in the approved set, the boot allowlist and the approved set are well formed |
 | types | the types check | `tsc --noEmit` is clean |
 
 Stages run in that order and stop at the first failure. The laws in
@@ -48,9 +48,12 @@ Then two things a machine cannot do:
 
 ## The report
 
-`qa/reports/latest.json`. Top level: the commit, whether the tree was dirty,
-whether that commit is on `origin/main`, the result, which stages did not
-run, every allowlist line that fired, the manual verdict and the preview.
+`qa/reports/latest.json`. Top level: the commit, the checked out branch,
+every remote branch that contains the commit and whether there is one
+(`shipped`), whether the tree was dirty, whether the commit is on
+`origin/main`, the result, which stages did not run, every allowlist line
+that fired, the manual verdict and the preview. A report for a commit on
+no remote branch is evidence for nothing that shipped, and the run says so.
 Then one block per stage with what it measured. Dated copies sit beside it
 and are gitignored; only `latest.json` is committed, and it names the commit
 it ran on, which is the parent of the commit that carries it.
@@ -64,12 +67,20 @@ fires in the report. It is empty today: the boot log is clean.
 
 ## The test data rule
 
-Minors appear by name and role only. No ages, no birthdates, no schools, no
-contact details, no photos. The lint stage applies it to athlete records in
-`src/testing/fixture.ts` and to every `insert into athletes` in a SQL seed,
-and fails on a birthdate, age, contact detail or photo on an athlete, or a
-course row naming the school a minor attends. What a screenshot shows is a
-checklist item, checked by a person.
+Minors appear by name and role only. No ages, no birthdates, no schools,
+no contact details, no photos. The hard line protects real minors; every
+person in the fixture is synthetic (Clemenza's ruling, 2026-09-20). So the
+lint stage does not forbid the fields, which would make the product itself
+a violation (a school beside an athlete is the product, and the birthdate
+drives the age clock the eligibility screens render). It requires every
+personal detail value on an athlete, course, contact or metric row in
+`src/testing/fixture.ts`, and in every `insert into athletes` in a SQL
+seed, to come from `qa/approved-values.json`: a checked in set of invented
+values, each with a reason and a date, same discipline as the boot
+allowlist. The rule fires on an unapproved value, which is what would
+indicate real data leaking in. It cannot tell an invented value from a
+real one that somebody approved; see `qa/GAPS.md`. What a screenshot
+shows is a checklist item, checked by a person.
 
 ## The publisher
 

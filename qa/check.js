@@ -360,35 +360,82 @@ function scanForSecrets(files) {
   return hits;
 }
 
-// The test data rule (Clemenza, 2026-09-20): minors appear by name and role
-// only. No ages, no birthdates, no schools, no contact details, no photos.
-// Applied to the fixture and to every SQL seed. An athlete record is the
-// object between `athletes: [` and its closing bracket in the fixture, and
-// an insert into athletes in a seed.
-const MINOR_FIELDS = /^\s*(date_of_birth|dob|birth_date|birthdate|age|email|phone|phone_number|address|photo|photo_url|avatar|avatar_url|high_school|current_high_school)\s*:\s*(?!null\b|undefined\b)\S/;
+// The test data rule (Clemenza, 2026-09-20, ruling on review). The hard
+// line protects real minors; every person in the fixture is synthetic. So
+// the check is not "no personal detail field", which would make the
+// product itself a violation (a school beside an athlete is the product,
+// and the birthdate drives the age clock the eligibility screens render).
+// It is: a personal detail value in a fixture must come from a checked in
+// approved synthetic set, qa/approved-values.json, each entry with a reason
+// and a date, same discipline as the boot allowlist. The rule then fires on
+// an UNAPPROVED value, which is the thing that would indicate real data
+// leaking in. What it cannot do is tell a synthetic value from a real one
+// that somebody approved; see qa/GAPS.md.
+const PERSONAL_FIELDS = ['date_of_birth', 'dob', 'birth_date', 'birthdate', 'age', 'email', 'phone', 'phone_number', 'address', 'photo', 'photo_url', 'avatar', 'avatar_url', 'school_name', 'high_school', 'current_high_school'];
+const PERSONAL_FIELD_RE = new RegExp('^\\s*(' + PERSONAL_FIELDS.join('|') + ')\\s*:\\s*(.+?),?\\s*$');
+// Blocks of the fixture whose rows describe an athlete or someone tied to
+// one. Everything else (donors, board members, users) is org side.
+const FIXTURE_BLOCKS = ['athletes', 'athlete_courses', 'contacts', 'athlete_metrics'];
 
-function minorsCheck() {
+function loadApprovedValues() {
+  const file = JSON.parse(read(path.join(__dirname, 'approved-values.json')));
+  const entries = Array.isArray(file.approved) ? file.approved : [];
+  for (const e of entries) {
+    if (!e || typeof e.field !== 'string' || e.value === undefined) throw new Error('approved-values.json: every entry needs a "field" and a "value"');
+    if (!e.reason || !e.added) throw new Error(`approved-values.json: entry needs a reason and a date: ${e.field}=${e.value}`);
+    if (!PERSONAL_FIELDS.includes(e.field)) throw new Error(`approved-values.json: "${e.field}" is not a personal detail field this check reads`);
+  }
+  return entries;
+}
+
+// The literal on the right of `field: value` in the fixture, as a plain
+// string: "2009-04-02" becomes 2009-04-02, 17 becomes 17. null and
+// undefined are absence, not values.
+function literalOf(raw) {
+  const t = raw.trim().replace(/,$/, '').trim();
+  if (t === 'null' || t === 'undefined') return null;
+  const m = t.match(/^["'`](.*)["'`]$/);
+  return m ? m[1] : t;
+}
+
+function testDataCheck() {
   const findings = [];
+  const approved = loadApprovedValues();
+  const ok = (field, value) => approved.some((e) => e.field === field && String(e.value) === value);
   const fixture = 'src/testing/fixture.ts';
   if (fs.existsSync(path.join(ROOT, fixture))) {
     const lines = read(path.join(ROOT, fixture)).split('\n');
-    let depth = 0, inAthletes = false, inCourses = false;
+    let block = null, depth = 0;
     for (const [i, line] of lines.entries()) {
-      if (/^\s*athletes:\s*\[/.test(line)) { inAthletes = true; depth = 0; }
-      if (/^\s*athlete_courses:\s*\[/.test(line)) { inCourses = true; depth = 0; }
-      if (inAthletes || inCourses) {
-        if (inAthletes && MINOR_FIELDS.test(line)) findings.push({ rule: 'minor-field', file: `${fixture}:${i + 1}`, detail: line.trim().split(':')[0] + ' on an athlete record' });
-        if (inCourses && /\bschool_name:\s*"(?!")/.test(line)) findings.push({ rule: 'minor-school', file: `${fixture}:${i + 1}`, detail: 'a course row names the school a minor attends' });
-        depth += (line.match(/\[/g) || []).length - (line.match(/\]/g) || []).length;
-        if (depth <= 0 && /\]/.test(line)) { inAthletes = false; inCourses = false; }
+      const open = line.match(/^\s*([a-z_]+):\s*\[/);
+      if (!block && open && FIXTURE_BLOCKS.includes(open[1])) { block = open[1]; depth = 0; }
+      if (!block) continue;
+      const m = line.match(PERSONAL_FIELD_RE);
+      if (m) {
+        const value = literalOf(m[2]);
+        if (value !== null && !ok(m[1], value)) {
+          findings.push({ rule: 'unapproved-personal-value', file: `${fixture}:${i + 1}`, detail: `${m[1]} on a ${block} row carries a value that is not in qa/approved-values.json` });
+        }
       }
+      depth += (line.match(/\[/g) || []).length - (line.match(/\]/g) || []).length;
+      if (depth <= 0 && /\]/.test(line)) block = null;
     }
   }
+  // SQL seeds: an insert into athletes that names a personal column is
+  // read for its values, which must be approved too.
   for (const f of ownedFiles(['.sql'])) {
-    const lines = read(path.join(ROOT, f)).split('\n');
-    for (const [i, line] of lines.entries()) {
-      if (/insert\s+into\s+athletes\b/i.test(line) && /\b(date_of_birth|email|phone|photo)\b/i.test(line)) {
-        findings.push({ rule: 'minor-field', file: `${f}:${i + 1}`, detail: 'an athlete seed carries a birthdate, contact detail or photo column' });
+    const body = read(path.join(ROOT, f));
+    for (const stmt of body.matchAll(/insert\s+into\s+athletes\s*\(([^)]*)\)\s*values\s*([\s\S]*?);/gi)) {
+      const cols = stmt[1].split(',').map((c) => c.trim().toLowerCase());
+      const personal = cols.map((c, idx) => (PERSONAL_FIELDS.includes(c) ? idx : -1)).filter((idx) => idx >= 0);
+      if (!personal.length) continue;
+      const line = body.slice(0, stmt.index).split('\n').length;
+      for (const row of stmt[2].matchAll(/\(([^()]*)\)/g)) {
+        const vals = row[1].split(',').map((v) => v.trim());
+        for (const idx of personal) {
+          const value = literalOf(vals[idx] || 'null');
+          if (value !== null && !ok(cols[idx], value)) findings.push({ rule: 'unapproved-personal-value', file: `${f}:${line}`, detail: `${cols[idx]} in an athletes seed carries a value that is not in qa/approved-values.json` });
+        }
       }
     }
   }
@@ -441,8 +488,8 @@ function stageLint() {
     if (/\b(test|describe|it)\.only\(/.test(read(path.join(ROOT, f)))) findings.push({ rule: 'no-only', file: f, detail: '.only would hide every other test in the file' });
   }
 
-  // Rule 4: the test data rule.
-  for (const m of minorsCheck()) findings.push(m);
+  // Rule 4: the test data rule, approved values only.
+  try { for (const m of testDataCheck()) findings.push(m); } catch (e) { findings.push({ rule: 'approved-values', file: 'qa/approved-values.json', detail: e.message }); }
 
   // Rule 5: the allowlist file is well formed even when the build stage did
   // not get as far as reading it.
@@ -510,6 +557,16 @@ async function main() {
   const head = git('rev-parse', 'HEAD') || '';
   const parent = git('rev-parse', 'HEAD~1') || '';
   const onMain = sh('git', ['merge-base', '--is-ancestor', 'HEAD', 'origin/main']).status === 0;
+  // Where this commit actually lives. The checked out branch name alone
+  // misled once (a report said "main" for a commit that was only on a
+  // review branch), so the remote branches that contain the commit are
+  // recorded too, and the report says plainly when the commit is on no
+  // remote branch at all: evidence that matches nothing shipped is worse
+  // than no evidence.
+  const checkedOut = git('rev-parse', '--abbrev-ref', 'HEAD');
+  const branch = checkedOut === 'HEAD' ? null : checkedOut;
+  const remoteBranches = (git('branch', '-r', '--contains', 'HEAD', '--format=%(refname:short)') || '').split('\n').map((b) => b.trim()).filter((b) => b && !/\/HEAD$/.test(b));
+  const shipped = remoteBranches.length > 0;
 
   // The preview block survives from the last run when it was for this same
   // commit, so running the gate after the preview does not erase the shots
@@ -525,7 +582,9 @@ async function main() {
     version: pkg.version,
     commit: head.slice(0, 7) || null,
     commitFull: head || null,
-    branch: git('rev-parse', '--abbrev-ref', 'HEAD'),
+    branch,
+    remoteBranches,
+    shipped,
     dirty: (git('status', '--porcelain') || '') !== '',
     onMain,
     startedAt,
@@ -543,6 +602,7 @@ async function main() {
   fs.writeFileSync(path.join(REPORTS, startedAt.replace(/[:.]/g, '-') + '.json'), JSON.stringify(report, null, 2) + '\n');
 
   process.stdout.write(`\n${report.result.toUpperCase()}  ${report.commit || 'no commit'}  ${report.durationMs}ms\n`);
+  if (!shipped) process.stdout.write('this commit is on no remote branch yet: push before publishing, or the evidence names nothing that shipped\n');
   if (notRun) process.stdout.write(`stopped early, ${notRun} stage(s) not run\n`);
   if (fired.length) process.stdout.write(`boot allowlist covered ${fired.length} line(s), listed in the report\n`);
   process.stdout.write('qa/reports/latest.json\n');

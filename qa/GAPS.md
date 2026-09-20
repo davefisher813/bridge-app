@@ -6,38 +6,26 @@ because this pass adds the harness and nothing else (Clemenza,
 decision; Medium means a known hole with a workaround; Low means worth
 knowing. Each entry names a file and line.
 
-## Found by the gate on the current tree
+## The test data rule
 
-**High. The fixture carries a birthdate for a minor.**
-`src/testing/fixture.ts:116` sets `date_of_birth: "2009-04-02"` on Fixture
-Athlete, a high school record. The test data rule says minors appear by
-name and role only. The date feeds the NCAA five year clock on the
-eligibility screen (`src/app/org/[slug]/roster/[id]/eligibility/page.tsx`)
-and the fixture is what the page render law and the preview run on. The
-clock's own law already uses an inline date (`src/laws/ncaaLaws.test.ts:79`,
-`:159`), so the fixture does not need one for the rule to be tested; it
-needs one for the eligibility screen to show the clock. Not changed here:
-stripping it changes what that screen renders in the preview. Decision
-needed.
+**High. The approved-values check cannot tell a synthetic value from a
+real one.** `qa/check.js` fails on a personal detail value in
+`src/testing/fixture.ts` or a SQL seed that is not in
+`qa/approved-values.json`. It cannot know whether a value somebody adds to
+that file was invented or copied. The only real guard is that no fixture
+value is ever copied from the production database, and nothing here
+enforces that: not the gate, not the publisher, not a law. Anyone adding
+an entry to `approved-values.json` is asserting it is invented, and the
+reason line is where they say so. State of the set today: one birthdate
+(`2009-04-02`) and two school names, all invented, all on Fixture Athlete.
 
-**High. Two fixture course rows name the school a minor attends.**
-`src/testing/fixture.ts:267` and `:268` set `school_name: "Fixture High
-School"` and `"Unscaled High School"` on Fixture Athlete's transcript rows.
-Same rule. The transcript screen and the grading scale match are built on
-them. Decision needed, same as above.
-
-**High. Screenshots show a minor's name beside a school.** Today lists
-athletes with the college they are matched to or targeting
-(`src/app/org/[slug]/page.tsx:193` and `:213`), and the preview shots
-`qa/previews/qa-layer/today-light.png` and `today-dark.png` show "Fixture
-Athlete" next to "Fixture College". The rule as written says no schools.
-The product is recruiting: a target college beside an athlete is the
-product. If the rule means the school the minor attends, not the colleges
-being pursued, the shots are clean and the two fixture entries above are
-the only findings. If it means any school, most screens fail it. The gate
-enforces the narrow reading (birthdate, age, contact details, photos, the
-school attended); the checklist records the wide one as a fail so nobody
-decides by accident.
+**Ruled, 2026-09-20 (Clemenza).** The rule is read narrowly and applies to
+real minors. The earlier `minor-school` rule fired on the presence of a
+`school_name` field, not its value, and would have fired forever; deleted.
+The fixture birthdate stays: `src/lib/data/loadEligibility.ts:85` selects
+it and `:188` passes it into the age clock, so the eligibility screens and
+the 88 page render assertions depend on it. Screens that show an athlete
+beside a college are the product, not a finding.
 
 ## Job 1, the git link
 
@@ -86,7 +74,11 @@ real session survives the middleware (`src/lib/supabase/middleware.ts`).
 `qa/reports/latest.json` is committed, so the report names the commit it
 ran on, which is the parent of the commit that carries it. The publisher
 refuses a report from a dirty tree, which is the guard; the convention is
-written in `qa/README.md`.
+written in `qa/README.md`. The first report on this branch said
+`"branch": "main"` because the gate ran on a local `main` before the
+commits were moved to the review branch; the report now records every
+remote branch that contains the commit and whether there is one, so a
+commit that shipped nowhere says so.
 
 **Low. Em dash debt, baselined.** `src/laws/laws.test.ts:29` and `:33`
 carry two em dashes on purpose: the law names the character it forbids.

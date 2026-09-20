@@ -1,0 +1,8 @@
+{
+  "note": "Personal detail values a fixture or seed may carry. The test data rule (Clemenza, 2026-09-20) protects real minors; every person in the fixture is synthetic, so the rule is not 'no such field' but 'no value outside this set'. qa/check.js fails the lint stage on a date_of_birth, age, contact detail, photo or school name on an athlete, course, contact or metric row whose value is not listed here. Every entry carries a reason and the date it was added, same discipline as boot-allowlist.json. What this cannot do is tell an invented value from a real one that somebody added here; the only guard against that is the rule that no fixture value is ever copied from the production database, which nothing here enforces (qa/GAPS.md).",
+  "approved": [
+    { "field": "date_of_birth", "value": "2009-04-02", "reason": "Fixture Athlete's birthdate, invented. Load bearing: src/lib/data/loadEligibility.ts reads it into the NCAA age clock, and the eligibility screens render a different state without it.", "added": "2026-09-20" },
+    { "field": "school_name", "value": "Fixture High School", "reason": "Invented. The transcript, grading scale and approved list screens are built on it.", "added": "2026-09-20" },
+    { "field": "school_name", "value": "Unscaled High School", "reason": "Invented. A school with no grading scale on file, so the eligibility screen shows the assumed scale caveat.", "added": "2026-09-20" }
+  ]
+}
