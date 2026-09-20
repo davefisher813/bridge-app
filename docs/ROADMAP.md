@@ -344,7 +344,7 @@ was a `/schools/new` and no list to see what you had added).
    helper for the four lines every page repeats; `cache()` on
    `getOrgBySlug` and `getCurrentUser` (each runs twice per request);
    one `icons.tsx` for the fifteen inline SVG functions; `unwrap()` in
-   one place; split the 845-line `documents.ts`; rename `middleware.ts`
+   one place; split the 845-line `documents.ts`; `middleware.ts` is `proxy.ts` now
    to `proxy.ts`; `tsconfig` target to ES2022.
 5. **Dependency bumps.** `@supabase/ssr` 0.5 to 0.12, `zod` 3 to 4.
    Tailwind 4 and TypeScript 7 wait.

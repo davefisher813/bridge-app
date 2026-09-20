@@ -1,128 +1,143 @@
-# Styling catalog (LOCKED)
+# Styling contract: the kit (LOCKED)
 
-Status: **locked, 2026-09-15.** Dave selected all fourteen component
-treatments from the visual catalog artifact. This document is the
-contract. A screen that renders one of these components renders it the
-way this file says, or the law tests in `src/laws/` fail.
+Status: **locked, 2026-09-19.** Dave ran a systemic audit of the live
+app ("screens slide all over the place, typing is glitchy, cursors are
+no good, visuals are not uniform, borders and spacing clearly have not
+been established") and selected every decision in the clean-slate
+artifact. This document is the contract those selections produce. A
+screen that draws anything the kit does not provide fails the build.
 
-**Amended 2026-09-16 (C2, the type glyph) and 2026-09-17 (the fill
-removal and the type scale), both by Dave, both recorded below and in
-docs/DECISIONS.md.** The lock is not broken by an amendment Dave asks
-for; it is broken by a judgment call made mid-screen.
+The catalog locked on 2026-09-15 (fourteen component treatments, the
+fills removal, the glyphs) is superseded by this file. What survives
+from it is the palette, the two-tier colour system and the icon set,
+kept below verbatim. What is gone is the idea that a page styles
+itself: fourteen text sizes, seven radii and seventeen paddings had
+accumulated across 53 screens, each one a judgment call made
+mid-screen, and that is what Dave was looking at.
 
 Changing a locked item is a conversation with Dave, not a judgment call
-mid-screen. Adding a component type that is not in this file means
-adding it here first.
+mid-screen. Adding a component means adding it to the kit first, with
+its contract written here.
 
-## The selections
+## Dave's selections, 2026-09-19
 
-| Component | Code | Treatment |
-| --- | --- | --- |
-| Status pills | P1 | Glyph in the stage hue, plain label (was: solid fill) |
-| Section headers | H1 | Colored dot, dotted rule, trailing count |
-| Metadata icon badges | B1 | Bare glyph, one hue per field type (was: solid square) |
-| Cards and rows | C2 | Paper card, colored type glyph; no rail (see below) |
-| Fit score | S2 | The number alone in the band hue (was: tinted pill) |
-| Avatars | AV1 | Gradient fill with initials |
-| Primary buttons | BT3 | Solid rounded rectangle |
-| Stat tiles | ST1 | Paper tile, value in the role hue (was: tinted background) |
-| Bottom tab bar | TB1 | Active tab gets a solid pill behind the icon |
-| Journey stepper | J1 | Connected dots, line fills as it completes |
-| Form inputs | F3 | Filled, no border |
-| Board group headers | G3 | Glyph and label, count after it (was: tinted pill tab) |
-| Empty states | E1 | Icon, title, subtext, centered |
-| Toasts | T3 | Solid pill |
+| Decision | Selection |
+| --- | --- |
+| Type scale | Four sizes: 13 label, 16 body, 20 heading, 28 title |
+| Spacing | One step: 12 / 16 / 24, and 12px is the one radius |
+| Surface | Paper, no border. A card is a flat block on the page |
+| Inputs | Filled paper, no border, red focus ring, 16px so iOS never zooms |
+| Theme | System. The app follows the phone; nothing forces dark |
+| Tab bar | Fixed above the home indicator, never sticky |
+| Sign-in | Email and password on one screen, magic link behind a link |
+| Scope | Rebuild every screen on a strict kit; keep the engine, the schema, the tests |
 
-## The fill removal, 2026-09-17
+## The scale
 
-Dave, looking at the roster in the prototype: "let's make sure there's no
-color highlights on the pills like in pic two, we said we were going with
-icons, make sure it's consistent throughout."
+`tailwind.config.ts` replaces Tailwind's theme rather than extending it,
+so a class outside the scale does not exist.
 
-The September 16 change put a type glyph on every record row and left the
-fills on the pills, so for a day a row carried a bare coloured mark at one
-end and a filled coloured block at the other, both meaning status. That is
-the inconsistency he is pointing at, and he is right about it.
+**Type.** `text-label` 13/16, `text-body` 16/22, `text-heading` 20/26,
+`text-title` 28/34. Weights: normal, `font-semibold` for a row title,
+`font-bold` for a figure or a control, `font-extrabold` for a screen
+title. Numbers stack with `tabular-nums`.
 
-Then, an hour later, looking at the roster: "there's color right here."
-The 5px coloured left rail was still on every card without a `kind`, and
-on a roster row it was the third thing on one line saying status, after
-the avatar and the stage pill. The earlier reasoning for keeping it, that
-a prose row needs a colour because a glyph would be labelling a
-paragraph, was wrong: what a prose row needs is no mark, not a coloured
-one.
+**Space.** 4, 8, 12, 16, 24, 32, 44, 48, 56, 64, 80, 96. A screen has a
+16px gutter, sections sit 24 apart, rows 12 apart, a row is 16 inside.
+44 is the smallest tappable thing, 48 an input, 56 a list row.
 
-**The rule now, everywhere:** a card is paper. A pill, chip, badge or tab
-is a glyph in the role's hue plus a label in `--ink`. No `bg-tint-*`, no
-`bg-solid-*` and no `border-l-[5px]` behind any of them. `RAIL` is
-deleted from `statusHue.ts` rather than left unused, so it cannot come
-back by autocomplete. `Chip` in `src/components/catalog.tsx` is the one
-implementation; `StatusPill`, `GroupTab` and the per-screen status chips
-all render it.
+**Shape.** `rounded` is 12px and is the only radius. `rounded-full` is
+for a dot, a disc and a meter track, never a pill with a fill.
 
-Two things survive the rule, and both for a reason:
+**Colour.** The palette below, unchanged. Text is `text-ink` or
+`text-muted`; coloured text takes a `text-tint-*-on` token (the AA-safe
+pair), never the raw hue, so a text link is `text-tint-accent-on` and a
+destructive button `text-tint-danger-on`. A glyph takes the raw hue
+(`FG`). A page background is `bg-bg`, a card `bg-paper`.
 
-- **Primary and destructive buttons** keep `bg-solid-accent` and
-  `bg-solid-danger`. Reserving red for the action is the oldest rule in
-  this file, and an action that does not look like a button is not a
-  style problem.
-- **A selectable control** (a subject picker, a stage picker, the Doc AI
-  category tabs) shows "chosen" with `ring-2 ring-accent` and a border,
-  not a fill. A control has to show state; it does not have to show it
-  with a coloured block.
+## The kit
 
-**Colour on a glyph and colour on a word are different tokens.** `FG` is
-the raw iOS hue, correct for a 2px stroke. As text it is 2.02:1 on paper.
-The first pass at a bare coloured score number put twenty-six AA failures
-on the board in one build, which is what `TEXT_ON` exists for: the tint
-pairs' foregrounds, already tuned for both themes. A glyph takes `FG`, a
-word or a number takes `TEXT_ON`, and three laws in
-`src/laws/stylingLaws.test.ts` keep it that way.
+`src/components/kit/index.tsx` and `TabBar.tsx`. Everything below is
+the whole vocabulary a screen has.
 
-## The type scale, 2026-09-17
+**Type:** `Title`, `Heading`, `Body` (weight, tone, numeric, truncate),
+`Label` (caps, numeric, tone), `Prose` (a muted paragraph), `Figure` (a
+big number).
 
-Dave: "font size in the app is a little small as well."
+**Layout:** `Screen` (title, back link, lede, one header action; pads
+its bottom for the tab bar), `Panel` (a centred paper card for sign-in
+and the error pages), `Section` (caps label with a glyph or dot, a
+dotted rule, a count), `Stack`, `Inline`, `Grid2`.
 
-Every `text-[Npx]` in the app and in the generators moved up one step, in
-a single pass so nothing cascaded:
+**Surfaces:** `Card` (paper, optionally a link), `Row` (56px, a glyph or
+avatar, a title, a meta line, something on the right; `href` makes the
+whole row the link; `wrap` lets the meta run on when the second line is
+the point), `Stat` and `StatRow`, `Meter` (a stacked share bar),
+`EmptyState` (glyph, title, one line naming the next action), `Notice`
+(success, danger, warning, info), `Skeleton` (loading).
 
-| Was | Now | | Was | Now |
-| --- | --- | --- | --- | --- |
-| 9.5 | 11 | | 13 | 14.5 |
-| 10 | 11 | | 14 | 15 |
-| 10.5 | 11.5 | | 15 | 16 |
-| 11 | 12 | | 16 | 17 |
-| 11.5 | 12.5 | | 18 | 20 |
-| 12 | 13 | | 20 | 22 |
-| 12.5 | 13.5 | | 24 | 26 |
-|  |  | | 26 | 28 |
+**Marks:** `Chip` (a glyph in the role hue and a word in ink; the one
+pill, and it has no fill), `Score` (the fit number in its band colour),
+`Avatar` (initials on one fixed indigo), `Chevron`.
 
-Bigger at the bottom than the top. 10.5 and 11 were the sizes that
-actually hurt on a phone; a 20px screen title going to 26 would have been
-a redesign rather than a legibility fix. Body copy is now 13.5px and the
-smallest label in the app is 11px.
+**Controls:** `Button` (primary solid accent, secondary paper,
+destructive paper with danger text, quiet text only; full width unless
+`inline`), `LinkButton`, `TextLink` (the "+ Add" in a header).
 
-## The icons, redrawn 2026-09-17
+**Fields:** `Field`, `SelectField`, `TextAreaField` (label above, hint
+or error below, filled paper, 16px, 48px tall), `CheckField`,
+`FileField`, `Hidden`, `Option` (a tappable choice that submits),
+`ChoiceRow` and `Choice` (chips, chosen one carries a ring), `Form`
+(the stack, with the whole-form error on top).
 
-Dave: "let's improve the quality of the icons." Four things were wrong and
-none of them was the choice of shape. The full account is in the header of
-`src/components/rowIcons.json`; the short version:
+**Chrome:** `Chrome` (org name above, `TabBar` fixed below).
 
-1. **Stroke.** 1.75 on a 24 box at 18px is a 1.31px line, which falls
-   between device pixels. Now 2.0 at 20px, a 1.67px line. That alone
-   sharpened the set without a path changing.
-2. **Safe area.** Several glyphs ran to the edge of the box, so they
-   optically outsized their neighbours. Everything now sits inside 20x20.
-3. **Detail below the resolution.** Trophy handles, megaphone arcs and a
-   medal ribbon all carried features under 2 units, which merge at 18px.
-4. **Two glyphs said the wrong thing.** `visit` was a calendar, which is a
-   date and not a campus visit. `pledge` was the clock glyph exactly, so a
-   promise and a deadline were one mark.
+The eligibility verdict (`VerdictCard`, `GpaPair`, `SubjectRow`, `Note`)
+and the `JourneyStepper` are composed from the kit in
+`src/components/` and are the only screen-specific pieces.
 
-`board` was a bar chart doing duty for both the recruiting board and the
-board of directors; the second now has its own `governance` glyph. A new
-`stage_*` set carries the recruiting stages, which need shapes of their
-own now that the pills have no fill to carry them.
+## What a page may write
+
+A page file composes the kit. Its own `className` may carry layout
+only: flex and grid, gap, alignment, `min-w-0`, `w-full`, `text-right`,
+`truncate`. The exact list is the `ALLOWED` pattern in
+`src/laws/kitLaws.test.ts`. No page styles text, colour, radius or
+padding, and no page renders a raw input, button, anchor or SVG.
+
+## What is enforced by tests
+
+`src/laws/kitLaws.test.ts`, each proven to bite on a planted violation:
+
+1. No arbitrary value (`text-[15px]`, `rounded-[10px]`) anywhere in the
+   UI. The one exception is the accent colour on a native checkbox,
+   which has no utility, and it lives in the kit.
+2. A page file uses only layout classes.
+3. Every input, select and textarea is a kit field.
+4. No raw button or anchor with its own styling outside the kit.
+5. Nothing is sticky, and only the kit is fixed.
+
+`src/laws/stylingLaws.test.ts` carries over: fills only with their
+paired foreground, no raw hex outside `globals.css`, the palette equals
+Apple's published values, every role has its pairs and they clear
+4.5:1, one icon set that nothing copies, no solid fill used as a text
+colour, muted text clears AA on both surfaces, every tappable kit shape
+carries the 44px minimum, no coloured rail, no filled pill.
+
+`scripts/audit_preview.mjs` checks what the browser computed on every
+screen in both themes: every class in the markup exists in the
+stylesheet, every glyph has a drawing, nothing scrolls sideways at 390,
+text clears AA against the surface it sits on, every link and button is
+44px, no screen renders empty.
+
+## iOS
+
+Three things that were bugs on Dave's phone and are now rules. Inputs
+are 16px, because Safari zooms the page on focus of anything smaller
+and does not always zoom back. The tab bar is `position: fixed` with
+`env(safe-area-inset-bottom)` padding, because a sticky one rode
+Safari's own bar up and down. `touch-action: manipulation` and no tap
+highlight on every control, and `overscroll-behavior-y: none` on the
+body, so the page holds still.
 
 ## The palette: Apple's, exactly
 
@@ -203,187 +218,3 @@ against the dark background, systemGray included, which retired an earlier
 hairline-border rule that existed only because the old neutral fill sat at
 1.87:1.
 
-## Component contracts
-
-### P1, status pills (amended 2026-09-17)
-
-`src/components/StatusPill.tsx` is the only implementation. Do not
-re-style status text inline anywhere.
-
-Rounded full, `px-2.5 py-1`, 11px, `font-bold`. Solid fill plus its
-paired foreground. The status-to-role mapping lives in `src/components/statusHue.ts` and
-nowhere else, so a status can never be one color as a pill and another as
-a rail.
-
-### H1, section headers
-
-Colored dot, label, dotted rule filling the gap, count at the trailing
-edge. Label is ALL CAPS, `font-extrabold`, `text-muted`. The count is
-`text-ink`, not muted, because the number is the useful part. The dot takes the
-section's role where it has one, and falls back to `accent`.
-
-The rule is `border-bottom: 2px dotted var(--line)` on a flexed spacer,
-never a background image or a row of typed characters.
-
-### B1, metadata icon badges (amended 2026-09-17)
-
-A 30px solid square, `rounded-[8px]`, icon centered, one hue per field
-type. Three hues exist and they are named for their role:
-
-- `time` (systemYellow): due dates, last contact, days idle.
-- `people` (systemTeal): coaches, contacts, assigned staff.
-- `place` (systemIndigo): schools, divisions, locations, visits.
-
-Anything outside those three uses `neutral`. The status hues are never
-reused as field badges, so a badge can never be mistaken for a status.
-Adding a fourth field-type hue means adding a token pair here first,
-with its contrast ratio recorded in the table above.
-
-### C2, cards and rows
-
-**Revised 2026-09-16.** Solid `bg-paper`, `rounded-[10px]`, with a
-leading type glyph in a meaningful color: the row's stage for a target,
-or its field role for a row that is not a pipeline item (contacts take
-`people`, visits take `place`). Never red, which belongs to actions. Not
-a glass surface, and not a hairline-divided full-bleed row.
-
-The glyph replaced a 5px coloured left border. Dave, after clicking
-through the prototype: "let's use icons like Jarvis does to identify
-categories instead of the color highlight." The reasoning is the same
-one JARVIS settled on: a stripe can only ever say status, so a list of
-eight rows was eight coloured stripes and no indication of what any of
-them was. The glyph says the KIND and keeps the status in its colour, so
-a row answers both questions before it is read.
-
-Form: a bare coloured glyph, 18px, 1.75 stroke, no tile behind it. This
-is JARVIS's second form (`RowGlyph`, approved there 2026-08-18) rather
-than its first (`RowIcon`, a tinted tile). A filled tile on every row of
-a list reads heavier than the stripe it was meant to lighten; the tile
-belongs on stat and banner surfaces, the same place JARVIS keeps it.
-
-The stripe survives, and is still what `RailCard` renders when no `kind`
-is passed, for rows that are a sentence rather than a record: a warning,
-a note, a piece of prose. A type mark on a paragraph labels the wrong
-thing.
-
-Drawings live in `src/components/rowIcons.json`. One file, read by the
-component and by every generator, because copies of a shared map drifted
-three times in one sitting earlier in this project. Two laws in
-`src/laws/stylingLaws.test.ts` hold it: every icon has a real drawing,
-and no generator keeps its own copy.
-
-This is the one place the catalog departs from JARVIS's own "chassis,
-not a card pile" rule in docs/DESIGN_SYSTEM.md. Dave picked the card
-knowingly. The DESIGN_SYSTEM reference to full-bleed rows now describes
-JARVIS, not this app.
-
-### S2, fit score (amended 2026-09-17)
-
-A TINT carrying the number alone, no label, no ring, no track. Banded
-green above 70, yellow 40 to 69, gray below, by `scoreRole()` in
-`statusHue.ts` and nowhere else. Tinted rather than solid so it never
-competes with the stage pill beside it.
-
-### AV1, avatars
-
-36px circle, a fixed systemBlue-to-systemIndigo gradient, initials in white, `font-extrabold`. The gradient is fixed. Do not
-rotate the gradient per person.
-
-### BT3, primary buttons
-
-Solid `bg-solid-accent text-solid-accent-on`, `rounded-[8px]`, not
-`rounded-full`. One primary action per surface, per the button law in
-docs/DESIGN_SYSTEM.md.
-
-Buttons are the only rectangular element in the system while pills,
-tabs and toasts are all fully rounded. That contrast is intentional and
-is what separates a control you press from a label you read. Do not
-"fix" it by rounding buttons fully.
-
-### ST1, stat tiles (amended 2026-09-17)
-
-`rounded-[12px]`, background is the stat's tint pair rather than a solid
-fill, so a row of tiles does not compete with the pills next to it.
-Number at 18px `font-extrabold`, label below at 10.5px ALL CAPS at
-`opacity-80` of the tint's paired foreground.
-
-### TB1, bottom tab bar
-
-The active tab's icon sits on a solid `--solid-accent` pill,
-`rounded-[8px]`, label below in `--ink`. Inactive tabs are `--muted`
-with no pill. Only the icon gets the pill, never the whole tab column.
-
-### J1, journey stepper
-
-Four nodes for Profile, In Contact, Visits, Committed, joined by 2px
-segments. Completed nodes and the segments behind them are `--success`.
-The current node is `--accent` and renders larger (13px against 10px).
-Nodes ahead are `--line`. Derived live from the athlete's targets by
-`src/lib/journey.ts`, never stored.
-
-### F3, form inputs
-
-Filled `bg-paper`, no border, `rounded-[10px]`, `px-3 py-2.5`. Label
-above at 11px `font-bold text-muted`. Focus state is a 2px `--accent`
-ring, since there is no border to recolor. Error state adds a
-`--danger` ring plus the message below at 11.5px.
-
-Every form component in `src/components/` follows this. The current
-`inputClass` constants use a border and need converting.
-
-### G3, board group headers (amended 2026-09-17)
-
-A solid tinted pill tab carrying the group name and its count, tinted
-in the group's status hue rather than solid-filled, because a group
-header sits directly above rows that use the same hue at full
-saturation and would otherwise compete with them.
-
-### E1, empty states
-
-Centered icon, title at 13px `font-extrabold`, one line of subtext at
-11.5px `text-muted`. The subtext names the next action in plain words.
-Never an empty container, and never a bare muted sentence with no icon.
-
-### T3, toasts
-
-A solid pill, full width of the content column, centered text at 12.5px
-`font-extrabold`. Success uses the success pair, errors use accent.
-Toasts confirm that something happened and never carry an action.
-
-## What is enforced by tests
-
-`src/laws/stylingLaws.test.ts`:
-
-1. No component pairs a `bg-solid-*` fill with anything but its own
-   `text-solid-*-on`, and the same for `bg-tint-*`.
-2. No raw hex color in any component or page. `globals.css` is the only
-   place a literal color may live.
-3. Every `--ios-*` primitive equals Apple's published value, so the
-   palette cannot drift.
-4. Every role has a solid pair, a tint pair in both themes, and an entry
-   in the Tailwind role list.
-5. Every solid pair clears 4.5:1 as shipped, checking the values and not
-   just that both tokens exist, so a hand-edit that skips the generator
-   gets caught.
-6. Every solid fill clears 3:1 against the dark page, so a chip always
-   reads as a shape.
-
-Each has been proven to fail on a planted violation rather than just
-asserted, per `src/laws/README.md`.
-
-## State of the conversion
-
-Applied: all fourteen items across Today, Athletes, athlete detail,
-Board, More, login, every form, and every empty state, on the Apple
-palette and the role map above. The shared
-primitives live in `src/components/catalog.tsx` and the single
-status-to-hue mapping in `src/components/statusHue.ts`.
-
-Not yet applied: **T3 toasts.** The app has no toast anywhere yet, since
-every write is a server action that redirects rather than confirming in
-place. T3 is specified and waiting for the first surface that needs it.
-
-The red-rail problem is resolved. C2 used to give a statusless row an
-accent rail, which put a red rail next to a red "Remove" on every contact
-card. Now that red is action-only, contacts take `people` and visits take
-`place`.

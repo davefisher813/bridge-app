@@ -1,9 +1,9 @@
 # Design system
 
-No screens exist yet (see docs/CURRENT_STATE.md) - this documents what
-was decided to carry over from JARVIS and from Bridge before any UI is
-built, so the first screen is built against a rule set instead of
-improvised and then retrofitted.
+This documents what was decided to carry over from JARVIS and from
+Bridge, so a screen is built against a rule set instead of improvised
+and then retrofitted. The rule set itself is the kit; see
+docs/STYLING_CATALOG.md.
 
 ## What carries over from Bridge
 
@@ -77,12 +77,13 @@ formatting/functionality/styling. After resolving conflicts with him
   not a top link row. No Tasks or Calendar tab - neither is a built
   feature and that pattern is JARVIS's life-management shape, not this
   product's.
-- **Theme**: every `/org/[slug]/*` screen is forced dark
-  (`data-theme="dark"` on the layout) - no light/dark toggle exists yet.
+- **Theme**: follows the phone. `data-theme` is stamped from
+  `prefers-color-scheme` before first paint (`src/app/layout.tsx`) and
+  nothing forces dark any more (Dave's selection, 2026-09-19).
 - **Status color language**: green = active/on-track, blue-indigo
   (new `--info` token) = in contact, accent = committed/primary, muted
-  = everything else. `src/components/StatusPill.tsx` is the shared
-  implementation - use it, don't re-style status text inline.
+  = everything else. `src/components/StatusPill.tsx` renders a status
+  through the kit's `Chip`; nothing re-styles status text inline.
 - **Home screen content is Dave's call, not the redesign's**: pipeline
   snapshot, needs-follow-up, upcoming - see docs/DECISIONS.md for why
   the redesign's own task/event widgets didn't carry over.
@@ -96,25 +97,26 @@ single-user offline-capable personal app. This is a multi-tenant web
 app with a different product entirely; only the structural rules above
 transfer.
 
-## Component-level treatments: see the locked catalog
+## Component-level treatments: see the kit contract
 
-Every concrete component treatment (pills, section headers, icon badges,
-cards, score display, avatars, buttons, stat tiles, tab bar, stepper,
-form inputs, group headers, empty states, toasts) is specified in
-**docs/STYLING_CATALOG.md**, locked 2026-09-15. Read that before
-building or restyling any screen. It supersedes visual guesswork, and
-its checkable rules are enforced by `src/laws/stylingLaws.test.ts`.
+Every concrete treatment is the kit, `src/components/kit/`, and its
+contract is **docs/STYLING_CATALOG.md**, locked 2026-09-19 from Dave's
+selections in the clean-slate audit. Four text sizes, one spacing step,
+one radius, paper surfaces with no border, filled inputs, a fixed tab
+bar, and a theme that follows the phone. A page composes the kit and
+writes layout classes only; `src/laws/kitLaws.test.ts` fails the build
+on anything else. Read the contract before building or restyling any
+screen.
 
-One item in the catalog knowingly departs from the JARVIS structure
-above: Dave picked solid cards with a colored left rail (C2) over the
-full-bleed hairline row of point 1's "chassis, not a card pile". The
-chassis rule describes JARVIS, not this app.
+One thing in the kit knowingly departs from the JARVIS structure above:
+rows are paper cards, not the full-bleed hairline rows of point 1's
+"chassis, not a card pile". Dave picked paper in the audit. The chassis
+rule describes JARVIS, not this app.
 
 ## Not yet decided
 
-Component library approach (Tailwind utility-first vs. a small internal
-component set), exact typography, and how `orgs.branding` maps onto the
-token system for a third organization that isn't Bridge or Elite Squad.
+How `orgs.branding` maps onto the token system for a third organization
+that isn't Bridge or Elite Squad.
 The `--solid-*` fill pairs are contrast-checked against each other
 rather than against a page background, which is what lets an org's
 branding replace a hue without re-auditing every screen, but no third

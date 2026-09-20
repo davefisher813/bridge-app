@@ -117,13 +117,13 @@ it("builds the app preview from the real pages", async () => {
 /* The preview's own chrome: a toolbar and a phone-width frame. The
    frame carries a transform so the app's fixed tab bar pins to the
    frame rather than the desktop viewport. Nothing here styles the app. */
-html, body { margin: 0; }
-body { background: #111; font-family: -apple-system, system-ui, sans-serif; }
-.bar { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; background: #222; color: #eee; font-size: 13px; }
+html, body { margin: 0; height: 100%; }
+body { display: flex; flex-direction: column; background: #111; font-family: -apple-system, system-ui, sans-serif; }
+.bar { flex: none; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; background: #222; color: #eee; font-size: 13px; }
 .bar select, .bar button { font: inherit; min-height: 36px; border-radius: 8px; border: 0; padding: 0 10px; background: #333; color: #eee; }
 .bar button[aria-pressed="true"] { background: #e5e5ea; color: #111; }
-.bar .grow { flex: 1; min-width: 0; }
-.frame { width: 390px; max-width: 100%; height: calc(100dvh - 52px); margin: 0 auto; overflow-y: auto; overflow-x: hidden; transform: translateZ(0); background: var(--bg); }
+.bar .grow { flex: 1; min-width: 80px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.frame { flex: 1; min-height: 0; width: 390px; max-width: 100%; margin: 0 auto; overflow-y: auto; overflow-x: hidden; transform: translateZ(0); background: var(--bg); }
 .screen { min-height: 100%; }
 .frame form { pointer-events: none; }
 .frame form button, .frame form input, .frame form select, .frame form textarea { pointer-events: auto; }

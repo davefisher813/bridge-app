@@ -52,12 +52,26 @@ the profile trigger and the bucket policies alongside everything else.
 Add each new migration to `run_rls_test.sh` in order; the script is the
 list.
 
-## Where the previews land
+## The preview and the bench
 
-Every generator writes to `PREVIEW_OUT_DIR`, default `/tmp/previews`,
-and the verify and audit scripts read from the same place. The path used
-to be one session's scratchpad written into eleven files, which is why
-`build_previews.sh` failed the first time it ran anywhere else.
+`build_previews.sh` compiles the app's stylesheet, renders every page in
+`src/testing/pages.ts` on the fixture into one click-through file
+(`scripts/preview/build_app_preview.ts`, run under vitest because it
+needs the same mocks as the render law), bundles the shipped engine
+modules into the test bench (`build_testbench.py`), proves the bench's
+checks pass in a browser (`verify_testbench.mjs`), and audits every
+preview screen in both themes (`audit_preview.mjs`): every class in the
+markup exists in the stylesheet, every glyph draws, nothing scrolls
+sideways at 390, text clears AA on the surface it sits on, every link
+and button is 44px, no screen is empty. Any finding fails the build.
+
+The preview is the page code's own output, not a copy of it. The six
+hand-written generators and the 2,700 line prototype that used to live
+here drifted from the app three times in one sitting and were retired
+on 2026-09-19.
+
+Every script writes to `PREVIEW_OUT_DIR`, default `/tmp/previews`, and
+reads from the same place.
 
 The browser scripts launch Playwright's own Chromium unless `PW_CHROMIUM`
 names an executable. Set it when the installed `playwright` package and

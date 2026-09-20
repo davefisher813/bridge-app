@@ -1858,3 +1858,68 @@ person has never signed in, read off a mirror of `auth.users.last_sign_in_at`
 kept by the profile trigger (migration 0018); and members of an org can
 now read each other's profile rows, which the list needs and which
 `users_self` alone forbade.
+
+## 2026-09-19: the clean slate
+
+**Decision.** Every screen is rebuilt on a strict kit
+(`src/components/kit/`) with the scale Dave selected in the audit
+artifact: four text sizes (13/16/20/28), one spacing step (12/16/24),
+one radius (12px), paper surfaces with no border, filled 16px inputs, a
+fixed tab bar, and a theme that follows the phone. Sign-in leads with
+email and password on one screen; the magic link sits behind a link.
+`tailwind.config.ts` replaces the theme rather than extending it, so a
+class outside the scale does not exist. Five laws in
+`src/laws/kitLaws.test.ts` keep a page from styling anything itself.
+The engine, the schema, the actions and the tests are untouched. The
+catalog of 2026-09-15 and `src/components/catalog.tsx` are gone.
+
+**Reason.** Dave, after a day on the deployed app: "The app is extremely
+buggy. Screens slide all over the place, typing is glitchy, cursors are
+no good, visuals are not uniform, borders and spacing clearly have not
+been established... I want to work from a super clean slate this time."
+The audit found the causes rather than the symptoms: 15px inputs make
+Safari zoom on focus and not always zoom back (the "glitchy typing"), a
+sticky tab bar rides Safari's own bar (the "sliding"), and fourteen text
+sizes, seven radii and seventeen paddings across 53 screens with no
+shared field or row component (the "not uniform"). A styling contract
+that pages were trusted to follow had not held; a kit that pages cannot
+step outside of is the version that does.
+
+**Alternatives.** Fix the three iOS bugs and leave the screens. That
+would have cleared the symptoms he named and left the cause, and he
+asked for the slate. Add a kit alongside the catalog and migrate
+screen by screen. That leaves two vocabularies in the app for months,
+which is the drift this exists to end.
+
+**Consequences.** Two kit choices were forced by the audit rather than
+picked: text links, quiet and destructive buttons and field errors use
+the AA-safe `text-tint-*-on` tokens because the raw accent is 3.23:1 on
+the light page, and the avatar is one flat indigo because white on the
+old blue-to-indigo gradient was 3.65:1 at its blue corner. The stat
+tile has no sub-line and a row has two lines, so a few captions moved
+into the meta line or a note beside it. Dave does his page-by-page
+audit against the deployed result, not against the artifact.
+
+## 2026-09-19: the preview is the app, rendered
+
+**Decision.** `scripts/build_previews.sh` no longer runs six hand-written
+Python generators and a 2,700 line prototype. The preview is every page
+in `src/testing/pages.ts`, the list the render law executes, rendered
+by the page code on the fixture with the app's compiled stylesheet into
+one tappable file (`scripts/preview/build_app_preview.ts`).
+`scripts/audit_preview.mjs` inspects what a browser computed on every
+screen in both themes. The test bench stays: it runs the shipped engine
+modules, which no render can.
+
+**Reason.** The generators were a second implementation of every screen.
+They drifted from the app three times in one sitting even after they
+were taught to parse the colour maps, because the markup itself was
+still a copy, and rebuilding 8,000 lines of copies onto the new kit
+would have produced a fourth drift by the first edit. A preview that IS
+the app cannot disagree with it.
+
+**Consequences.** The preview shows fixture data and does not post
+forms. What the prototype could do that this cannot, change an input
+and watch a number move, the bench does with the real modules. A screen
+that only renders in a state the fixture does not carry needs a fixture
+row, which is the same thing the render law already requires.

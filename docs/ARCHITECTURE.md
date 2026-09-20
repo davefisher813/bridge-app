@@ -271,17 +271,31 @@ The bytes never cross a server action call because Next caps that body
 at 1MB and a scanned transcript is not. A law in `src/laws/dataLaws.test.ts`
 keeps it that way.
 
+## The UI
+
+Every screen composes `src/components/kit/` and writes layout classes
+only; the contract is docs/STYLING_CATALOG.md and the laws in
+`src/laws/kitLaws.test.ts` fail the build on anything else. The
+preview is the same pages rendered on the fixture
+(`scripts/preview/build_app_preview.ts`, driven by the list in
+`src/testing/pages.ts` that the render law also executes), so it
+cannot drift from the app, and `scripts/audit_preview.mjs` inspects
+what a browser computed on each screen in both themes.
+
 ## Auth
 
-Supabase Auth with `@supabase/ssr`. `src/middleware.ts` refreshes the
-session on every request and sends a signed-out person to `/login`;
-`/auth` and `/unauthorized` are the only other public paths.
+Supabase Auth with `@supabase/ssr`. `src/proxy.ts` (Next 16's name for
+the middleware file) refreshes the session on every request and sends a
+signed-out person to `/login`; `/auth` and `/unauthorized` are the only
+other public paths.
 
-Two ways in. **Magic link** (`sendMagicLink` in `src/lib/auth/actions.ts`)
-is the default for everyone an org invites: `signInWithOtp` with
-`shouldCreateUser: false`, so the form never creates an account and
-never confirms which addresses have one. **Password** stays as a
-fallback for the one account that has one. Both land on
+Two ways in. **Password** is the first screen (Dave's selection,
+2026-09-19, after Supabase's email rate limit locked him out of the
+link flow for an afternoon): email and password on one form. **Magic
+link** (`sendMagicLink` in `src/lib/auth/actions.ts`) sits behind
+"Email me a link instead": `signInWithOtp` with `shouldCreateUser:
+false`, so the form never creates an account and never confirms which
+addresses have one. Both land on
 `/auth/callback`, which accepts a `token_hash` (the shape the email
 templates should be set to, because a link tapped in Mail on an iPhone
 opens Safari rather than the app that asked) or a PKCE `code`, and only
@@ -297,7 +311,6 @@ never be left without an owner.
 ## What isn't built yet
 
 Doc AI's actual Anthropic API wiring (a `ModelCaller` implementation
-plus a per-org budget table, held pending an API key), the members and
-magic link screens (actions exist; screens wait on the preview), a
-school import, and transfer window entry. See docs/ROADMAP.md and
+plus a per-org budget table, held pending an API key), a school
+import, and transfer window entry. See docs/ROADMAP.md and
 docs/CURRENT_STATE.md.

@@ -1,37 +1,43 @@
 # Current state
 
-Last updated: 2026-09-19, evening.
+Last updated: 2026-09-20, after the clean slate.
 Replaced wholesale when this changes meaningfully, never appended to.
 
-**One-line summary.** The app is deployed and signed into for the first
-time. The code is on GitHub, production is on Vercel, the schema is live
-on Supabase with both orgs seeded, and the first day of real
-infrastructure found four things the six local layers could not: an
-upload path that could never carry a real scan, a profile table nothing
-wrote to, nineteen unindexed foreign keys, and no way for a second
-person to get in.
+**One-line summary.** Every one of the 53 screens is rebuilt on one
+kit with the scale Dave selected on 2026-09-19, the laws that keep a
+page from styling itself are green, the preview is the real pages
+rendered on the fixture, and the deployed app is waiting on Dave's
+page-by-page audit.
 
 ---
 
 ## Where everything is
 
 - **Code:** `github.com/davefisher813/bridge-app`, branch `main`. The
-  repo name is a stand-in like the product name; GitHub redirects after
-  a rename, and Vercel tracks the repo by id.
+  repo name is a stand-in like the product name.
 - **Production:** Vercel project `commit-app`, URL
   `https://commit-app-nu.vercel.app`, deployed from `main`. Vercel
   Authentication is off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
-  us-west-2). 18 migrations applied. 27 tables, RLS on every one, 85 table
-  policies plus 3 on the `documents` storage bucket.
-- **Accounts:** dave@bffsa.org, owner of both orgs. Magic link is the
-  default sign-in; the password still works behind "Use a password
-  instead". Both need the Supabase Auth URL settings below before a link
-  lands anywhere useful.
+  us-west-2). 18 migrations applied. 27 tables, RLS on every one.
+- **Accounts:** dave@bffsa.org and davefisher813@gmail.com, both owners
+  of both orgs, both with the same password. Password is the first
+  screen; the magic link sits behind "Email me a link instead".
 
 ## What exists
 
-**53 pages**, 18 migrations, 626 tests in 42 files, 10 law files.
+**53 pages**, 18 migrations, 636 tests in 43 files, 11 law files.
+
+### The kit, 2026-09-19
+
+`src/components/kit/` is the whole vocabulary a screen has: four text
+sizes, one spacing step, one radius, paper surfaces, filled 16px
+inputs, a fixed tab bar, a theme that follows the phone. The contract
+is docs/STYLING_CATALOG.md; `src/laws/kitLaws.test.ts` fails the build
+on a page that styles anything itself. `tailwind.config.ts` replaces
+the theme, so a class outside the scale does not exist. The old
+catalog, the form style constants and the six preview generators are
+deleted.
 
 ### Recruiting
 
@@ -70,46 +76,38 @@ a scripted stand-in model, and every screen showing a result says so.
 
 Error, not-found and loading screens at the root and inside the org
 chrome. Viewport and Apple web app metadata, a manifest, and icons
-generated at build from the stylesheet's own tokens, so Add to Home
-Screen on an iPhone installs a dark, chromeless app.
+generated at build from the stylesheet's own tokens. `src/proxy.ts`
+(Next 16's name for the middleware) refreshes the session.
 
 ### Membership
 
-Owner-only, under More. The members list (people, and invited people
-who have never signed in, with Resend), an invite form, and a
+Owner-only, under More. The members list, an invite form, and a
 one-person screen to change a role or remove access. An org can never
-be left without an owner. An existing account is added directly; a new
-address gets Supabase's invitation email. "Invited" is read off a
-mirror of `auth.users.last_sign_in_at` kept by the profile trigger, and
-colleagues can read each other's profile rows (migration 0018). Built
-from the preview Dave approved 2026-09-19.
+be left without an owner. "Invited" is read off a mirror of
+`auth.users.last_sign_in_at` kept by the profile trigger.
 
 ---
 
 ## How it is verified
 
-Seven layers, and each exists because something got through the ones
-above it.
-
 1. **Unit tests** over the pure modules.
-2. **Laws** (`src/laws/`, 10 files) encode the rules from CLAUDE.md and
-   BUSINESS_RULES.md as executable checks, each planted, watched to fail,
-   and reverted before it counts. New today: every foreign key is the
-   leading column of an index; no server action accepts file bytes.
-3. **The RLS suite** (`scripts/run_rls_test.sh`) applies all 17
-   migrations to a real Postgres and runs its assertions as a
-   non-superuser role, now including the profile trigger and the storage
-   bucket's policies.
-4. **The page render harness** executes every page, plus the error,
-   not-found and loading screens, against a fake client.
+2. **Laws** (`src/laws/`, 11 files) encode the rules from CLAUDE.md,
+   BUSINESS_RULES.md and STYLING_CATALOG.md as executable checks, each
+   planted, watched to fail, and reverted before it counts. New: the
+   five kit laws.
+3. **The RLS suite** (`scripts/run_rls_test.sh`) applies every migration
+   to a real Postgres and runs its assertions as a non-superuser role.
+4. **The page render harness** executes every page in
+   `src/testing/pages.ts` against a fake client.
 5. **The action harness** executes every server action and asserts what
-   it wrote, including the Storage read-back, the membership writes and
-   the auth callback's redirects.
-6. **The click-through prototype and its audit** walk every screen in
-   headless Chromium and inspect what the browser computed.
-7. **The real project.** Supabase's advisors and a real deployment found
-   what none of the above could. Both advisors are clean apart from one
-   Auth setting listed under "Owed by Dave".
+   it wrote.
+6. **The preview and its audit** render the same page list on the
+   fixture into one tappable file and inspect what a browser computed on
+   every screen in both themes: classes that exist, glyphs that draw, AA
+   contrast on the real surface, 44px targets, no sideways scroll.
+7. **The test bench** runs the shipped engine modules in a browser and
+   proves its own checks.
+8. **The real project.** Supabase's advisors and the deployment.
 
 ---
 
@@ -117,62 +115,47 @@ above it.
 
 ### Owed by Dave (dashboard settings no tool here can reach)
 
-- **`SUPABASE_SERVICE_ROLE_KEY` on Vercel.** Without it, invites, role
-  changes, removals and the schools admin form refuse with a message
-  saying so. docs/SETUP_CHECKLIST.md has the steps.
-- **Supabase Auth URL configuration.** Site URL and the redirect
-  allowlist must include `https://commit-app-nu.vercel.app/auth/callback`
-  or magic links and invitations bounce to localhost. The magic link
-  and invite email templates should link with `token_hash` rather than
-  the default confirmation URL so a link opened in Mail on an iPhone
-  works. Steps in docs/SETUP_CHECKLIST.md.
-- **Leaked-password protection** in Supabase Auth, now relevant because
-  a password exists. One toggle.
+- **Supabase Auth URL configuration** for magic links and invitations,
+  and the email templates on `token_hash`. Steps in
+  docs/SETUP_CHECKLIST.md. Password sign-in does not need them.
+- **Leaked-password protection** in Supabase Auth. One toggle.
 
 ### Blocked on Dave
 
-- **No API key for Doc AI.** The model caller is a stand-in. Note that
-  `isStubbedModel()` keys off `ANTHROPIC_API_KEY` while no real
-  `ModelCaller` exists: setting the key alone would hide the stand-in
-  notice without changing what runs. Wire the caller first.
-- **The name.** "recruiting-platform", "commit-app" and "bridge-app" all
-  appear; none is confirmed.
+- **The page-by-page audit** of the rebuilt app on his phone. He said he
+  would do it once the rebuild was done; it is done.
+- **No API key for Doc AI.** The model caller is a stand-in.
+- **The name.** "BFFSA" is what the app calls itself for now.
 
 ### Known and deliberate
 
 - **`org_members` has no write policy.** Every membership write goes
-  through the service role behind `requireOwner()`. See
-  docs/DECISIONS.md.
+  through the service role behind `requireOwner()`.
 - **`schools` is writable only by the service role**, with
   `requireOwner()` as the actual gate.
+- **The preview shows fixture data and does not post forms.** What a
+  render cannot show, the bench does with the real modules.
 
 ### Not yet done, not blocked
 
 - The database has no schools, no transfer windows and no benchmark
   sets. Until schools exist the board and Today are empty by
   construction; a CSV import is the next piece of work.
-- `benchmark_sets` is never read; athletic scoring uses the tables in
-  `src/lib/fit/benchmarks.ts`.
 - No search or filter on any list.
-- The light theme exists in `globals.css` and is unreachable: the org
-  layout forces dark.
 - The fake client does not implement `.or()` or `.ilike()`; one action
   uses each.
-- `middleware.ts` is the deprecated name in Next 16; rename to
-  `proxy.ts`.
 - `@supabase/ssr` 0.5 and `zod` 3 are both a major behind.
+- A stat tile has no sub-line and a row has two lines; the few captions
+  that lost a home moved into a meta line or a note beside them. Worth a
+  look during the audit.
 
 ---
 
 ## Immediate next steps
 
-1. Dave sets the three dashboard items above. Until then invites and
-   magic links do not send.
-2. The click-through prototype does not include the members screens
-   yet; `scripts/prototype_app.js` needs them added.
-3. School CSV import, so the board has something to target.
-4. Cleanup pass: one page loader, `cache()` on the org and user lookups,
-   shared icons, split `documents.ts`, then the `@supabase/ssr` and `zod`
-   bumps.
+1. Dave's page-by-page audit. Findings go through the kit, not the page.
+2. School CSV import, so the board has something to target.
+3. Cleanup pass: one page loader, `cache()` on the org and user lookups,
+   split `documents.ts`, then the `@supabase/ssr` and `zod` bumps.
 
 See docs/ROADMAP.md for the rest.

@@ -29,8 +29,8 @@ Currently enforced:
    for a grad transfer, sport not sponsored) must never be averaged away
    by a strong score elsewhere. `fitLaws.test.ts`.
 5. **A solid fill never appears without its paired foreground, and the
-   solid token set stays complete.** The locked styling catalog
-   (docs/STYLING_CATALOG.md) is built on solid saturated fills, which is
+   solid token set stays complete.** The styling contract
+   (docs/STYLING_CATALOG.md) keeps solid fills for the primary action, which is
    the easiest way in a dark UI to ship text nobody can read. White on
    the raw `--accent` is 3.4:1. Every fill therefore ships as a
    contrast-checked `--solid-X` / `--solid-X-on` pair, and the pair has
