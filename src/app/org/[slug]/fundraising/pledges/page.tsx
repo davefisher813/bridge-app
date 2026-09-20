@@ -71,7 +71,7 @@ export default async function PledgesPage({ params }: { params: Promise<{ slug: 
       action={canEdit ? <TextLink href={`/org/${slug}/fundraising/pledges/new`}>+ Add</TextLink> : undefined}
     >
       {rows.length === 0 ? (
-        <EmptyState kind="pledge" title="No pledges">
+        <EmptyState kind="pledge" title="No Pledges">
           Nothing promised and unpaid.
         </EmptyState>
       ) : (

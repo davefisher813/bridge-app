@@ -73,7 +73,7 @@ export default async function FundraisingPage({
   if (gifts.length === 0 && pledges.length === 0) {
     return (
       <Screen title="Fundraising" lede={`${fiscalYear}, against the board budget.`}>
-        <EmptyState kind="money" title="Nothing recorded yet">
+        <EmptyState kind="money" title="Nothing Recorded Yet">
           Record the first gift and this starts reporting against your categories. Totals are calculated from the gifts themselves, so
           nothing here can go stale.
         </EmptyState>
@@ -116,7 +116,7 @@ export default async function FundraisingPage({
         />
       )}
 
-      <Section label="By category" role="committed" kind="money">
+      <Section label="By Category" role="committed" kind="money">
         {s.byCategory.map((c) => {
           const role = roleFor(c.percentOfBudget);
           // The category row is the natural way in to the gifts behind
@@ -153,7 +153,7 @@ export default async function FundraisingPage({
           the cash figure tells a treasurer there is money that is not
           there. */}
       {s.totalInKindCents > 0 && (
-        <Section label="In kind" role="place" kind="grant">
+        <Section label="In Kind" role="place" kind="grant">
           <Row
             kind="grant"
             role="place"
@@ -201,7 +201,7 @@ export default async function FundraisingPage({
         </Section>
       )}
 
-      <Section label="This year" role="contact" kind="people">
+      <Section label="This Year" role="contact" kind="people">
         <Note title={`${s.giftCount} ${s.giftCount === 1 ? "gift" : "gifts"} from ${s.donorCount} ${s.donorCount === 1 ? "supporter" : "supporters"}.`}>
           Anonymous gifts count in the total and not in the supporter number, so the figure means people.
         </Note>

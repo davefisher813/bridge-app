@@ -136,7 +136,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       <Stack gap={3}>
         <StatRow>
           <Stat value={athleteCount ?? 0} label="Athletes" kind="athlete" />
-          <Stat value={inContactCount} label="In contact" role="contact" kind="stage_contact" />
+          <Stat value={inContactCount} label="In Contact" role="contact" kind="stage_contact" />
           <Stat value={committedCount} label="Committed" role="committed" kind="stage_committed" />
         </StatRow>
         {totalTargets > 0 && (
@@ -149,9 +149,9 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
         )}
       </Stack>
 
-      <Section label="Needs follow-up" count={needsFollowUp.length} action={needsFollowUp.length > 0 ? <TextLink href={`/org/${slug}/board`}>View board</TextLink> : undefined}>
+      <Section label="Needs Follow-Up" count={needsFollowUp.length} action={needsFollowUp.length > 0 ? <TextLink href={`/org/${slug}/board`}>View Board</TextLink> : undefined}>
         {needsFollowUp.length === 0 ? (
-          <EmptyState kind="check" role="committed" title="Nothing needs a follow-up">
+          <EmptyState kind="check" role="committed" title="Nothing Needs a Follow-Up">
             Every open target has been touched recently.
           </EmptyState>
         ) : (
@@ -171,7 +171,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
       <Section label="Upcoming" count={upcomingVisits.length + upcomingWindows.length} role="visit" kind="clock">
         {upcomingVisits.length === 0 && upcomingWindows.length === 0 ? (
-          <EmptyState kind="clock" title="Nothing scheduled">
+          <EmptyState kind="clock" title="Nothing Scheduled">
             No visits or portal windows in the next 60 days.
           </EmptyState>
         ) : (
@@ -191,7 +191,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
                 key={`${w.sport}-${w.division}-${w.window_label}`}
                 kind="clock"
                 role="time"
-                title="Transfer portal opens"
+                title="Transfer Portal Opens"
                 meta={`${w.sport} ${w.division} · ${w.window_label} · in ${daysUntil(w.opens_on)} days`}
               />
             ))}
@@ -200,9 +200,9 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       </Section>
 
       {org.modules.donor_fundraising && (
-        <Section label="Program overview" role="committed" kind="money">
+        <Section label="Program Overview" role="committed" kind="money">
           {fundraising === null ? (
-            <EmptyState kind="money" title="Nothing recorded yet">
+            <EmptyState kind="money" title="Nothing Recorded Yet">
               Record the first gift and this starts reporting against your categories.
             </EmptyState>
           ) : (

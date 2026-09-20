@@ -95,14 +95,14 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
   return (
     <Screen title="Documents" action={<TextLink href={`/org/${slug}/documents/new`}>+ Add</TextLink>}>
       {stubbed && (
-        <Notice tone="warning" title="Simulated reading">
+        <Notice tone="warning" title="Simulated Reading">
           No AI model is connected yet. Anything here was made up by the stand-in, not read off a page.
         </Notice>
       )}
 
       {rows.length === 0 ? (
         <>
-          <EmptyState kind="document" title="No documents yet">
+          <EmptyState kind="document" title="No Documents Yet">
             A transcript, test scores, an offer letter. It gets read, matched to an athlete, and applied or sent to review.
           </EmptyState>
           <LinkButton href={`/org/${slug}/documents/new`}>Add the First One</LinkButton>
@@ -110,14 +110,14 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
       ) : (
         <>
           {pending.length > 0 && (
-            <Section label="Needs review" count={pending.length} role="offer" kind="warning">
+            <Section label="Needs Review" count={pending.length} role="offer" kind="warning">
               {pending.map((d) => (
                 <DocumentRow key={d.id} slug={slug} doc={d} role="offer" />
               ))}
             </Section>
           )}
           {problems.length > 0 && (
-            <Section label="Not used" count={problems.length} role="danger" kind="blocked">
+            <Section label="Not Used" count={problems.length} role="danger" kind="blocked">
               {problems.map((d) => (
                 <DocumentRow key={d.id} slug={slug} doc={d} role="danger" />
               ))}

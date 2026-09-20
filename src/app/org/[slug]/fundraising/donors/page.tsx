@@ -71,7 +71,7 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
       action={canEdit ? <TextLink href={`/org/${slug}/fundraising/donors/new`}>+ Add</TextLink> : undefined}
     >
       {owing.length > 0 && (
-        <Section label="Owes a pledge" count={owing.length} role="target" kind="pledge">
+        <Section label="Owes a Pledge" count={owing.length} role="target" kind="pledge">
           {owing.map(({ donor, totals }) => (
             <Row
               key={donor.id}
@@ -90,9 +90,9 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
         </Section>
       )}
 
-      <Section label="All donors" count={donors.length} role="contact" kind="donor">
+      <Section label="All Donors" count={donors.length} role="contact" kind="donor">
         {donors.length === 0 ? (
-          <EmptyState kind="donor" title="No donors yet">
+          <EmptyState kind="donor" title="No Donors Yet">
             Add the people and organizations who give, and every gift recorded against them builds their history automatically.
           </EmptyState>
         ) : (

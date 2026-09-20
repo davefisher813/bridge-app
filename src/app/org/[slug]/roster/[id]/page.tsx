@@ -114,13 +114,13 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
       </Card>
 
       <Stack gap={3}>
-        <Row href={`/org/${slug}/roster/${id}/eligibility`} kind="checklist" role="contact" title="NCAA eligibility" meta="Core GPA, qualifier status and the clock" trailing={<Chevron />} />
+        <Row href={`/org/${slug}/roster/${id}/eligibility`} kind="checklist" role="contact" title="NCAA Eligibility" meta="Core GPA, qualifier status and the clock" trailing={<Chevron />} />
         <Row href={`/org/${slug}/roster/${id}/transcript`} kind="course" role="contact" title="Transcript" meta="Every course, and what the NCAA counted" trailing={<Chevron />} />
       </Stack>
 
       <Section label="Colleges" count={targets.length} role="target" kind="school">
         {targets.length === 0 ? (
-          <EmptyState kind="school" title="No colleges yet">
+          <EmptyState kind="school" title="No Colleges Yet">
             Add a target from the board to start tracking one.
           </EmptyState>
         ) : (
@@ -140,7 +140,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
 
       <Section label="Contacts" count={contacts.length} role="people" kind="people">
         {contacts.length === 0 ? (
-          <EmptyState kind="people" title="No contacts yet">
+          <EmptyState kind="people" title="No Contacts Yet">
             Coaches, parents and advisors for this athlete live here.
           </EmptyState>
         ) : (
@@ -179,7 +179,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
 
       <Section label="Visits" count={visits.length} role="place" kind="visit">
         {visits.length === 0 ? (
-          <EmptyState kind="visit" title="No visits logged yet">
+          <EmptyState kind="visit" title="No Visits Logged Yet">
             Log one from a target on the board.
           </EmptyState>
         ) : (

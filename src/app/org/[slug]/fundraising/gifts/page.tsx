@@ -61,7 +61,7 @@ export default async function GiftsPage({
       lede={`${gifts.length} ${gifts.length === 1 ? "gift" : "gifts"} · ${formatMoneyShort(cashCents)} cash${inKindCents > 0 ? ` · ${formatMoneyShort(inKindCents)} in kind` : ""}`}
     >
       {gifts.length === 0 ? (
-        <EmptyState kind="money" title="Nothing here">
+        <EmptyState kind="money" title="Nothing Here">
           {category || method ? "No gift matches this filter." : "No gifts recorded yet."}
         </EmptyState>
       ) : (

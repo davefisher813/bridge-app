@@ -103,7 +103,7 @@ export default async function SeatPage({
     >
       <StatRow>
         <Stat value={formatMoneyShort(p.givenCents)} label="Given" role="committed" kind="money" />
-        <Stat value={formatMoneyShort(p.raisedCents)} label="Brought in" role="visit" kind="people" />
+        <Stat value={formatMoneyShort(p.raisedCents)} label="Brought In" role="visit" kind="people" />
       </StatRow>
 
       {/* Only an active seat carries a live commitment, so only an
@@ -145,7 +145,7 @@ export default async function SeatPage({
       )}
 
       {member.donorId === null && (
-        <Notice tone="warning" title="No donor record linked">
+        <Notice tone="warning" title="No Donor Record Linked">
           Their own giving cannot be found without one, so only gifts they are credited with bringing in are counted here.
         </Notice>
       )}
@@ -160,9 +160,9 @@ export default async function SeatPage({
         </Section>
       )}
 
-      <Section label="Gifts on this seat" count={credited.length} role="committed" kind="money">
+      <Section label="Gifts on This Seat" count={credited.length} role="committed" kind="money">
         {credited.length === 0 ? (
-          <EmptyState kind="money" title="Nothing credited yet">
+          <EmptyState kind="money" title="Nothing Credited Yet">
             No gift is recorded against this seat. A gift counts here when this member is the donor, or when they are credited with bringing it in
             on the gift itself.
           </EmptyState>

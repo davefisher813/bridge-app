@@ -33,7 +33,7 @@ export function VisitForm({ action }: { action: ServerAction }) {
         <Field name="visitDate" label="Date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
       </Grid2>
       <Field name="impression" label="Impression" placeholder="How it went" />
-      <Field name="nextStep" label="Next step" placeholder="What happens next" />
+      <Field name="nextStep" label="Next Step" placeholder="What happens next" />
       <Field name="notes" label="Notes" />
       <Button variant="secondary" disabled={pending}>
         {pending ? "Logging..." : "Log Visit"}

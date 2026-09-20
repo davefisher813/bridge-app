@@ -145,15 +145,15 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
             trailing={amount(aid)}
           />
         )}
-        {fin.instateTotal != null && <Row kind="school" role="contact" title="In state" meta="Cost of attendance" trailing={amount(fin.instateTotal)} />}
-        {fin.outstateTotal != null && <Row kind="school" role="contact" title="Out of state" meta="Cost of attendance" trailing={amount(fin.outstateTotal)} />}
+        {fin.instateTotal != null && <Row kind="school" role="contact" title="In State" meta="Cost of attendance" trailing={amount(fin.instateTotal)} />}
+        {fin.outstateTotal != null && <Row kind="school" role="contact" title="Out of State" meta="Cost of attendance" trailing={amount(fin.outstateTotal)} />}
         {fin.instateTotal == null && fin.outstateTotal == null && (
           <Note>No cost of attendance on file, so the financial dimension of every fit score here is running on defaults.</Note>
         )}
       </Section>
 
       {(at.positionDepth || at.playingTimeOutlook) && (
-        <Section label="Depth chart" role="visit" kind="athlete">
+        <Section label="Depth Chart" role="visit" kind="athlete">
           <Note title={at.playingTimeOutlook ? (OUTLOOK_LABEL[at.playingTimeOutlook] ?? at.playingTimeOutlook) : undefined}>{at.positionDepth}</Note>
         </Section>
       )}
@@ -161,16 +161,16 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
       {/* Conflicts are on the record for a reason and belong on the
           school, not buried inside one athlete's score. */}
       {school.conflicts && school.conflicts.length > 0 && (
-        <Section label="Flags on this school" count={school.conflicts.length} role="offer" kind="warning">
+        <Section label="Flags on This School" count={school.conflicts.length} role="offer" kind="warning">
           {school.conflicts.map((c, i) => (
             <Notice key={i} tone={c.severity === "conflict" ? "danger" : "warning"} title={c.message} />
           ))}
         </Section>
       )}
 
-      <Section label="Your athletes here" count={scored.length} role="contact" kind="athlete">
+      <Section label="Your Athletes Here" count={scored.length} role="contact" kind="athlete">
         {scored.length === 0 ? (
-          <EmptyState kind="athlete" title="Nobody here yet">
+          <EmptyState kind="athlete" title="Nobody Here Yet">
             No athlete on your roster is targeting this school. Adding one from their profile puts it on the board with a fit score.
           </EmptyState>
         ) : (

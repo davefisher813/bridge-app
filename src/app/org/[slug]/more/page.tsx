@@ -24,8 +24,8 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
 
       <Section label="Reference" role="target" kind="school">
         <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" meta="The shared database, and who you are recruiting" />
-        <Row href={`/org/${slug}/grading-scales`} kind="scale" role="contact" title="Grading scales" meta="How each school's numbers become letters" />
-        <Row href={`/org/${slug}/approved-courses`} kind="checklist" role="visit" title="Approved lists" meta="Which courses the NCAA counts at each school" />
+        <Row href={`/org/${slug}/grading-scales`} kind="scale" role="contact" title="Grading Scales" meta="How each school's numbers become letters" />
+        <Row href={`/org/${slug}/approved-courses`} kind="checklist" role="visit" title="Approved Lists" meta="Which courses the NCAA counts at each school" />
       </Section>
 
       <Section label="Organization" role="people" kind="people">
@@ -33,7 +33,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
         <Row kind="settings" role="neutral" title={user.full_name || user.email} meta={`${labelForRole(org.roleLabels, user.role)} at ${org.name}`} />
         <Form action={signout}>
           <Stack gap={2}>
-            <Button variant="destructive">Sign out</Button>
+            <Button variant="destructive">Sign Out</Button>
           </Stack>
         </Form>
       </Section>

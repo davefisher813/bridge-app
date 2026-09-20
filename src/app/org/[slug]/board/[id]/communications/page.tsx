@@ -109,7 +109,7 @@ export default async function CommunicationsPage({ params }: { params: Promise<{
 
       <Section label="History" count={entries.length} role="people" kind="people">
         {entries.length === 0 ? (
-          <EmptyState kind="message" title="Nothing logged">
+          <EmptyState kind="message" title="Nothing Logged">
             No calls, emails or visits are recorded against this school yet. Logging them is also what moves the fit score: sustained
             contact and a completed visit both count as signals.
           </EmptyState>

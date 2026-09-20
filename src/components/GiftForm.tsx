@@ -95,7 +95,7 @@ export function GiftForm({
       {isInKind && (
         <Field
           name="inKindDescription"
-          label="What was given"
+          label="What Was Given"
           error={err("inKindDescription")}
           placeholder="Two cases of water, printing for the event"
           hint="Counted as support, never as cash. An in-kind amount with no description cannot be substantiated later."
@@ -124,7 +124,7 @@ export function GiftForm({
       {pledgesForDonor.length > 0 && (
         <SelectField
           name="pledgeId"
-          label="Pay down a pledge"
+          label="Pay Down a Pledge"
           defaultValue=""
           hint="Linking it reduces what is outstanding instead of leaving the promise open alongside the payment."
         >
@@ -140,7 +140,7 @@ export function GiftForm({
       {boardMembers.length > 0 && (
         <SelectField
           name="solicitedBy"
-          label="Brought in by"
+          label="Brought in By"
           defaultValue=""
           hint="Credits this toward their give/get. If they are also the donor, it still counts once."
         >

@@ -20,7 +20,7 @@ export default async function NewDocumentPage({ params }: { params: Promise<{ sl
       lede="A transcript, test scores, an offer letter. It gets read, matched to an athlete, and either applied or sent to review."
     >
       {stubbed && (
-        <Notice tone="warning" title="Simulated reading">
+        <Notice tone="warning" title="Simulated Reading">
           No AI model is connected yet, so nothing is actually read off the page. The whole flow runs and the results are made up.
         </Notice>
       )}

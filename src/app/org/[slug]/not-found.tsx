@@ -12,7 +12,7 @@ export default function OrgNotFound() {
 
   return (
     <Screen>
-      <EmptyState kind="info" title="Nothing here">
+      <EmptyState kind="info" title="Nothing Here">
         That link points at something that was removed or never existed.
       </EmptyState>
       <LinkButton href={base} variant="secondary">

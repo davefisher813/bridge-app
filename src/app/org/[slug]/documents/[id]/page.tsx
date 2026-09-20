@@ -149,9 +149,9 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   const chip = isApplied ? (
     <Chip label="Applied" kind="check" role="committed" />
   ) : isPending ? (
-    <Chip label="Needs review" kind="warning" role="offer" />
+    <Chip label="Needs Review" kind="warning" role="offer" />
   ) : isFailed ? (
-    <Chip label="Not used" kind="blocked" role="danger" />
+    <Chip label="Not Used" kind="blocked" role="danger" />
   ) : undefined;
 
   return (
@@ -162,18 +162,18 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
       action={chip}
     >
       {stubbed && (
-        <Notice tone="warning" title="Simulated reading">
+        <Notice tone="warning" title="Simulated Reading">
           No AI model is connected yet. Nothing below was read off the page; it is made up by the stand-in so the flow can be used.
         </Notice>
       )}
 
       {doc.requested_category === null && doc.detected_type && (
-        <Note title="Worked out the type itself">Nobody told it what this was. It decided: {doc.detected_type.replace(/_/g, " ")}.</Note>
+        <Note title="Worked Out the Type Itself">Nobody told it what this was. It decided: {doc.detected_type.replace(/_/g, " ")}.</Note>
       )}
 
       {isFailed && (
         <>
-          <Section label="What went wrong" count={doc.triage?.issues?.length || undefined} role="danger" kind="blocked">
+          <Section label="What Went Wrong" count={doc.triage?.issues?.length || undefined} role="danger" kind="blocked">
             <Notice tone="danger" title={doc.failure_reason ?? "It could not be read."}>
               {legibility !== null ? `Legibility ${legibility}%` : undefined}
             </Notice>
@@ -181,7 +181,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
               <Note key={issue}>{issue}</Note>
             ))}
           </Section>
-          <Note title="Try again">
+          <Note title="Try Again">
             Lay it flat, avoid a window behind you, and get the whole page in frame. Nothing was changed on any athlete.
           </Note>
           <LinkButton href={`/org/${slug}/documents/new`}>Add Another</LinkButton>
@@ -221,7 +221,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
           </Section>
 
           {fields.length > 0 && (
-            <Section label="What it says" count={fields.length} role={isApplied ? "committed" : "offer"} kind="document">
+            <Section label="What It Says" count={fields.length} role={isApplied ? "committed" : "offer"} kind="document">
               {fields.map((f) => (
                 <Row
                   key={f.label}
@@ -261,7 +261,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
           {/* What discarding actually did, kept on the row so it
               survives a reload. A discard that silently leaves an
               athlete's GPA rewritten is the bug this replaced. */}
-          {isDiscarded && doc.undo_note && <Note title="What was undone">{doc.undo_note}</Note>}
+          {isDiscarded && doc.undo_note && <Note title="What Was Undone">{doc.undo_note}</Note>}
 
           {/* Discarding an APPLIED document is an undo, so the button
               says so. */}

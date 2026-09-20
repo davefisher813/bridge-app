@@ -58,17 +58,17 @@ export default async function SchoolsPage({ params }: { params: Promise<{ slug: 
   return (
     <Screen title="Schools" action={isOwner ? <TextLink href={`/org/${slug}/schools/new`}>+ Add</TextLink> : undefined}>
       {schools.length === 0 ? (
-        <EmptyState kind="school" title="No schools yet">
+        <EmptyState kind="school" title="No Schools Yet">
           {isOwner ? "Add the first one below." : "An owner adds schools, because the list is shared across every organization."}
         </EmptyState>
       ) : (
         <>
           {pursued.length > 0 && (
-            <Section label="You are recruiting here" count={pursued.length} role="contact" kind="target">
+            <Section label="You Are Recruiting Here" count={pursued.length} role="contact" kind="target">
               {pursued.map((s) => row(s, true))}
             </Section>
           )}
-          <Section label="Everything else" count={rest.length} role="target" kind="school">
+          <Section label="Everything Else" count={rest.length} role="target" kind="school">
             {rest.map((s) => row(s, false))}
           </Section>
         </>

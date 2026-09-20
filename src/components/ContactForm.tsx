@@ -39,7 +39,7 @@ export function ContactForm({ action, schools }: { action: ServerAction; schools
           ))}
         </SelectField>
       </Grid2>
-      <SelectField name="schoolId" label="School (if a college coach)" defaultValue="">
+      <SelectField name="schoolId" label="School (if a College Coach)" defaultValue="">
         <option value="">No school</option>
         {schools.map((s) => (
           <option key={s.id} value={s.id}>

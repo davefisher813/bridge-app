@@ -88,7 +88,7 @@ export function ApprovedListForm({
 
       <TextAreaField
         name="paste"
-        label="Paste the list"
+        label="Paste the List"
         value={paste}
         onChange={(e) => setPaste(e.target.value)}
         rows={5}
@@ -148,18 +148,18 @@ export function ApprovedListForm({
       )}
 
       <Grid2>
-        <Field name="ceebCode" label="CEEB code" inputMode="numeric" placeholder="070415" />
-        <Field name="retrievedOn" label="Read off the portal on" type="date" />
+        <Field name="ceebCode" label="CEEB Code" inputMode="numeric" placeholder="070415" />
+        <Field name="retrievedOn" label="Read Off the Portal On" type="date" />
       </Grid2>
 
-      <Field name="sourceNote" label="Where this came from" placeholder="Transcribed from the NCAA portal" error={state.errors.sourceNote} />
+      <Field name="sourceNote" label="Where This Came From" placeholder="Transcribed from the NCAA portal" error={state.errors.sourceNote} />
 
       {/* The one field that changes what the engine is allowed to conclude. */}
       <CheckField
         name="isComplete"
         checked={isComplete}
         onChange={(e) => setIsComplete(e.target.checked)}
-        label="This is the school's whole list"
+        label="This Is the School's Whole List"
         hint="Only tick this if you copied all of it. A complete list means a course missing from it does not count toward the core GPA. A partial one can confirm a course and never rules one out."
       />
 

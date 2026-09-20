@@ -68,7 +68,7 @@ export default async function BoardGovernancePage({
     >
       {view.boards.length === 0 ? (
         <>
-          <EmptyState kind="governance" title="No boards yet">
+          <EmptyState kind="governance" title="No Boards Yet">
             Add your tiers and the seats on them, and each member&apos;s give/get progress builds itself from the gifts already recorded.
           </EmptyState>
           {canEdit && <LinkButton href={`/org/${slug}/board-governance/new`}>Add the First Board</LinkButton>}

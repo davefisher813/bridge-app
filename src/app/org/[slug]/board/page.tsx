@@ -127,7 +127,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
     <Screen title="Board" action={canEdit ? <TextLink href={`/org/${slug}/board/new`}>+ Add</TextLink> : undefined}>
       {rows.length === 0 ? (
         <>
-          <EmptyState kind="target" title="No recruiting targets yet">
+          <EmptyState kind="target" title="No Recruiting Targets Yet">
             {canEdit ? "A target is one athlete pointed at one school." : "Ask an owner or coordinator to add one."}
           </EmptyState>
           {canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>}

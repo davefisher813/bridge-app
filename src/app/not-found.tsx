@@ -13,7 +13,7 @@ export default function RootNotFound() {
           <Prose>That link points at something that was removed, or that this account cannot see.</Prose>
         </div>
         <LinkButton href="/" variant="secondary">
-          Back to the start
+          Back to the Start
         </LinkButton>
       </Stack>
     </Panel>

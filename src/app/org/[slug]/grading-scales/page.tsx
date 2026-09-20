@@ -99,7 +99,7 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
       lede="How each high school's numbers become letters. The NCAA converts a numeric grade using the school's own published table, never a generic curve, so an 85 is not automatically a B."
     >
       {blockedList.length > 0 && (
-        <Section label="Needed now" count={blockedList.length} role="offer" kind="warning">
+        <Section label="Needed Now" count={blockedList.length} role="offer" kind="warning">
           <Label>
             Transcripts here print numbers and no table is on file, so these core GPAs are running on the assumed ten-point scale until
             the real table is entered.
@@ -118,9 +118,9 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
         </Section>
       )}
 
-      <Section label="On file" count={own.length} role="committed" kind="scale">
+      <Section label="On File" count={own.length} role="committed" kind="scale">
         {own.length === 0 ? (
-          <EmptyState kind="scale" title="No grading scales yet">
+          <EmptyState kind="scale" title="No Grading Scales Yet">
             Enter one for any school whose transcripts print numbers instead of letters. Only this org uses what you enter here, so a
             mistake cannot change another organization&apos;s eligibility verdicts.
           </EmptyState>

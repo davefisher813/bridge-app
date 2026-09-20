@@ -13,7 +13,7 @@ export default function OrgError({ error, reset }: { error: Error & { digest?: s
 
   return (
     <Screen>
-      <EmptyState kind="warning" role="danger" title="Something broke on this screen">
+      <EmptyState kind="warning" role="danger" title="Something Broke on This Screen">
         Your data is fine. Try again, and if it keeps happening tell your organization&apos;s owner what you tapped.
       </EmptyState>
       <Button type="button" onClick={reset}>

@@ -52,7 +52,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
     >
       <StatRow>
         <Stat value={formatMoneyShort(totals.lifetimeCashCents)} label="Lifetime" role="committed" />
-        <Stat value={formatMoneyShort(totals.thisYearCashCents)} label="This year" role="contact" />
+        <Stat value={formatMoneyShort(totals.thisYearCashCents)} label="This Year" role="contact" />
         <Stat value={String(totals.giftCount)} label="Gifts" />
       </StatRow>
 
@@ -69,7 +69,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
           kind="people"
           role="people"
           emphasis="bold"
-          title="Sits on a board"
+          title="Sits on a Board"
           meta={seat.role_title ?? seat.name}
           trailing={<Chevron />}
         />
@@ -99,7 +99,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
 
       <Section label="Gifts" count={gifts.length} role="committed" kind="money">
         {gifts.length === 0 ? (
-          <EmptyState kind="money" title="No gifts yet">
+          <EmptyState kind="money" title="No Gifts Yet">
             This supporter has not given.
           </EmptyState>
         ) : (

@@ -77,7 +77,7 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
         }}
       />
 
-      <Section label="Communication log" count={comms.length} role="contact" kind="message">
+      <Section label="Communication Log" count={comms.length} role="contact" kind="message">
         <CommunicationForm action={commAction} />
         {comms.length === 0 ? (
           <Label>Nothing logged yet.</Label>

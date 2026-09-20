@@ -35,7 +35,7 @@ export function BoardForm({ action }: { action: ServerAction }) {
 
       <Field
         name="giveGet"
-        label="Give/get per seat"
+        label="Give/Get per Seat"
         error={err("giveGet")}
         hint="Prefilled from your governance document. Stored per board, so changing it here changes nothing anybody already agreed to."
         inputMode="decimal"
@@ -45,8 +45,8 @@ export function BoardForm({ action }: { action: ServerAction }) {
       />
 
       <Grid2>
-        <Field name="minSeats" label="Minimum seats" inputMode="numeric" className="tabular-nums" defaultValue={defaults.min} key={`min-${kind}`} />
-        <Field name="maxSeats" label="Maximum seats" error={err("maxSeats")} inputMode="numeric" className="tabular-nums" defaultValue={defaults.max} key={`max-${kind}`} />
+        <Field name="minSeats" label="Minimum Seats" inputMode="numeric" className="tabular-nums" defaultValue={defaults.min} key={`min-${kind}`} />
+        <Field name="maxSeats" label="Maximum Seats" error={err("maxSeats")} inputMode="numeric" className="tabular-nums" defaultValue={defaults.max} key={`max-${kind}`} />
       </Grid2>
       {kind === "sport" && (
         <Prose>Your governance document says a sport board starts at three and can grow to five. Below the minimum is flagged, not blocked.</Prose>
@@ -126,7 +126,7 @@ export function BoardSeatForm({
 
       <SelectField
         name="donorId"
-        label="Donor record"
+        label="Donor Record"
         error={err("donorId")}
         hint="Linking finds their own giving automatically. Without it, only what they bring in can be credited."
         defaultValue=""
@@ -140,8 +140,8 @@ export function BoardSeatForm({
       </SelectField>
 
       <Grid2>
-        <Field name="termStart" label="Term starts" type="date" className="tabular-nums" defaultValue={today} />
-        <Field name="termEnd" label="Term ends" type="date" className="tabular-nums" error={err("termEnd")} />
+        <Field name="termStart" label="Term Starts" type="date" className="tabular-nums" defaultValue={today} />
+        <Field name="termEnd" label="Term Ends" type="date" className="tabular-nums" error={err("termEnd")} />
       </Grid2>
 
       <Grid2>

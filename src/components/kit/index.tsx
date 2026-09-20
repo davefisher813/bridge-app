@@ -471,7 +471,7 @@ export function Chrome({ orgName, slug, children }: { orgName: string; slug: str
 // hue. The widths are data, so they are the one inline style in the app.
 export function Meter({ parts }: { parts: { role: Role; fraction: number }[] }) {
   return (
-    <div className="flex h-1 overflow-hidden rounded-full bg-line" role="img" aria-label="Share of the total">
+    <div className="flex h-1 overflow-hidden rounded-full bg-line" role="img" aria-label="Share of the Total">
       {parts.map((p, i) => (
         <div key={i} className={DOT[p.role]} style={{ width: `${Math.max(0, Math.min(1, p.fraction)) * 100}%` }} />
       ))}

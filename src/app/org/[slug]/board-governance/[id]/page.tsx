@@ -89,7 +89,7 @@ export default async function BoardPage({
       {summary.belowMinimum && <Notice tone="warning" title={`Below the floor of ${board.minSeats} ${board.minSeats === 1 ? "seat" : "seats"}`} />}
 
       <Section label="Seats" count={ordered.length} role="contact" kind="people">
-        {ordered.length === 0 && <EmptyState kind="people" title="No seats on this board yet" />}
+        {ordered.length === 0 && <EmptyState kind="people" title="No Seats on This Board Yet" />}
         {ordered.map((m) => {
           const p = view.progressByMember.get(m.id);
           // The percentage is only worth printing if it can be opened.

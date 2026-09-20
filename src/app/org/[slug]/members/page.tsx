@@ -72,7 +72,7 @@ export default async function MembersPage({
           />
         ))}
         {rows.length === 0 && (
-          <EmptyState kind="people" title="Nobody here yet">
+          <EmptyState kind="people" title="Nobody Here Yet">
             Which cannot be right, since you are reading this.
           </EmptyState>
         )}

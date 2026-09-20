@@ -31,7 +31,7 @@ export default async function NewPledgePage({ params }: { params: Promise<{ slug
     >
       {donors.length === 0 ? (
         <>
-          <Notice tone="warning" title="No donors on file yet">
+          <Notice tone="warning" title="No Donors on File Yet">
             A pledge needs somebody behind it, so add the donor first.
           </Notice>
           <LinkButton href={`/org/${slug}/fundraising/donors/new`}>Add Donor</LinkButton>

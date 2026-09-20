@@ -137,7 +137,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
     >
       {grants.length === 0 ? (
         <>
-          <EmptyState kind="grant" title="No grants tracked yet">
+          <EmptyState kind="grant" title="No Grants Tracked Yet">
             A grant has a life before any money exists: researching, applied, waiting on a decision, then a report due months after the
             cheque clears. Those dates are the part that gets missed.
           </EmptyState>
@@ -146,7 +146,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
       ) : (
         <>
           {soon.length > 0 && (
-            <Section label="Needs attention" count={soon.length} role="offer" kind="warning">
+            <Section label="Needs Attention" count={soon.length} role="offer" kind="warning">
               {soon.map((g) => (
                 <Row
                   key={g.id}
@@ -166,7 +166,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
             </Section>
           )}
 
-          <Section label="All grants" count={grants.length} role="contact" kind="grant">
+          <Section label="All Grants" count={grants.length} role="contact" kind="grant">
             {grants.map((g) => {
               const detail = detailFor(g);
               return (

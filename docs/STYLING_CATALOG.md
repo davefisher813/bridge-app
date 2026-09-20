@@ -96,6 +96,18 @@ The eligibility verdict (`VerdictCard`, `GpaPair`, `SubjectRow`, `Note`)
 and the `JourneyStepper` are composed from the kit in
 `src/components/` and are the only screen-specific pieces.
 
+## Titles are Title Case
+
+Dave, 2026-09-20: "make sure everything is title cased as well, I saw a
+bunch that wasn't." A screen title, a section label, a field label, a
+button, a chip, a stat label, a tab and an empty-state title are
+titles: `Needs Follow-Up`, `Add a School's Scale`, `NCAA Eligibility`.
+Small words stay lowercase inside a title. A lede, a meta line, a hint
+and a notice body are sentences and stay sentences.
+`src/lib/copy/titleCase.ts` is the one implementation and
+`src/laws/copyLaws.test.ts` reads every literal title in the UI through
+it.
+
 ## What a page may write
 
 A page file composes the kit. Its own `className` may carry layout

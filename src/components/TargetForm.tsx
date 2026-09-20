@@ -86,7 +86,7 @@ export function TargetForm({
         <Field name="coachName" label="Coach" defaultValue={initialValues.coachName ?? ""} placeholder="T. Reilly" />
       </Grid2>
 
-      <Field name="visitDate" label="Visit date" type="date" defaultValue={initialValues.visitDate ?? ""} hint="Shows up on Today once set." />
+      <Field name="visitDate" label="Visit Date" type="date" defaultValue={initialValues.visitDate ?? ""} hint="Shows up on Today once set." />
 
       <SelectField
         name="offerType"
@@ -106,7 +106,7 @@ export function TargetForm({
       {offerType === "scholarship" && (
         <Field
           name="offerScholarshipPercent"
-          label="Scholarship percent"
+          label="Scholarship Percent"
           type="number"
           min="0"
           max="100"

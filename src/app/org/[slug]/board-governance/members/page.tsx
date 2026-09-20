@@ -85,7 +85,7 @@ export default async function AllSeatsPage({
       lede={`${fiscalYear}, across all ${view.boards.length} ${view.boards.length === 1 ? "board" : "boards"}. Furthest behind first.`}
     >
       {seats.length === 0 ? (
-        <EmptyState kind="people" title="No seats yet">
+        <EmptyState kind="people" title="No Seats Yet">
           Add a board and its seats, and every one of them shows up here with its give/get progress.
         </EmptyState>
       ) : (
@@ -98,7 +98,7 @@ export default async function AllSeatsPage({
           )}
 
           {byNeed.length > 0 && (
-            <Section label="Active seats" count={byNeed.length} role="contact" kind="people">
+            <Section label="Active Seats" count={byNeed.length} role="contact" kind="people">
               {byNeed.map((m) => {
                 const p = view.progressByMember.get(m.id);
                 const lines: string[] = [`${boardName.get(m.boardId) ?? "Board"}${m.roleTitle ? ` · ${m.roleTitle}` : ""}`];
@@ -131,7 +131,7 @@ export default async function AllSeatsPage({
               the prospect list, which is the thing a chair recruits
               from. */}
           {byStatus.length > 0 && (
-            <Section label="Not carrying a commitment" count={byStatus.length} role="target" kind="people">
+            <Section label="Not Carrying a Commitment" count={byStatus.length} role="target" kind="people">
               {byStatus.map((m) => (
                 <Row
                   key={m.id}

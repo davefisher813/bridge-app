@@ -54,7 +54,7 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
       lede={`${courses.length} courses · ${core?.counted.length ?? 0} counted by the NCAA`}
     >
       {courses.length === 0 ? (
-        <EmptyState kind="course" title="No courses on file">
+        <EmptyState kind="course" title="No Courses on File">
           Upload a transcript from the athlete&apos;s page and the courses land here.
         </EmptyState>
       ) : (
@@ -93,7 +93,7 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
       )}
 
       {view.skipped.length > 0 && (
-        <Section label="Could not be read" count={view.skipped.length} role="offer" kind="warning">
+        <Section label="Could Not Be Read" count={view.skipped.length} role="offer" kind="warning">
           {view.skipped.map((s, i) => (
             <Note key={i} title={`${s.title} · ${s.grade}`}>
               {s.reason}

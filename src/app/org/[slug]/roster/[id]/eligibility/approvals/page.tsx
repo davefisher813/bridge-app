@@ -40,7 +40,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
       lede={`${athlete.name} · ${view.approvals.length} checked`}
     >
       {view.approvals.length === 0 ? (
-        <EmptyState kind="checklist" title="Nothing to check">
+        <EmptyState kind="checklist" title="Nothing to Check">
           No courses on file yet.
         </EmptyState>
       ) : (
@@ -72,7 +72,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
       )}
 
       {view.approvalNotes.length > 0 && (
-        <Section label="Corrections the list made" count={view.approvalNotes.length} role="target" kind="note">
+        <Section label="Corrections the List Made" count={view.approvalNotes.length} role="target" kind="note">
           {view.approvalNotes.map((n) => (
             <Note key={n}>{n}</Note>
           ))}

@@ -23,7 +23,7 @@ export default async function HomePage() {
             <Prose>Your account isn&apos;t a member of any organization. Ask your organization&apos;s owner to add you.</Prose>
           </div>
           <Form action={signout}>
-            <Button variant="quiet">Sign out</Button>
+            <Button variant="quiet">Sign Out</Button>
           </Form>
         </Stack>
       </Panel>

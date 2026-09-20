@@ -27,7 +27,7 @@ export function SignInForm({ magicLink, password, initialError, startWithLink = 
         <Form action={sendLink}>
           <Hidden name="email" value={state.email} />
           <Button variant="secondary" disabled={pending}>
-            {pending ? "Sending..." : "Send it again"}
+            {pending ? "Sending..." : "Send It Again"}
           </Button>
         </Form>
         <Button type="button" variant="quiet" onClick={() => window.location.assign("/login")}>

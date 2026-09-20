@@ -155,7 +155,7 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
 
       <SelectField
         name="sourceRole"
-        label="Where it came from"
+        label="Where It Came From"
         value={sourceRole}
         onChange={(e) => setSourceRole(e.target.value as SourceRole)}
         hint="Changes how far the result is trusted. Something a parent sent is weighted lower than something you uploaded."
@@ -177,7 +177,7 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
       />
 
       {error && (
-        <Notice tone="danger" title="Could not read that">
+        <Notice tone="danger" title="Could Not Read That">
           {error}
         </Notice>
       )}

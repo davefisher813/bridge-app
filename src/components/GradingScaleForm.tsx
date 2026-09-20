@@ -91,7 +91,7 @@ export function GradingScaleForm({
 
       <Field
         name="weightBonus"
-        label="Bonus per weighted course"
+        label="Bonus per Weighted Course"
         inputMode="decimal"
         defaultValue={defaults.weightBonus}
         error={err("weightBonus")}
@@ -100,7 +100,7 @@ export function GradingScaleForm({
 
       <TextAreaField
         name="sourceNote"
-        label="Where this came from"
+        label="Where This Came From"
         defaultValue={defaults.sourceNote}
         placeholder="Legend printed on page 2 of the official transcript"
         required

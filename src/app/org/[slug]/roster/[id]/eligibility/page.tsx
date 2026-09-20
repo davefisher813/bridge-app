@@ -78,7 +78,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   if (!division) {
     return (
       <Screen title="NCAA Eligibility" back={back} lede="Nothing to judge against yet.">
-        <EmptyState kind="school" title="No school on the board yet">
+        <EmptyState kind="school" title="No School on the Board Yet">
           Initial eligibility depends on where an athlete is going, not on the athlete. Add a target school and this starts calculating
           against that division.
         </EmptyState>
@@ -114,7 +114,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           }
         />
         {eligibility.projected && eligibility.coreGpa?.gpa != null && (
-          <Notice tone="warning" title="Not a final status">
+          <Notice tone="warning" title="Not a Final Status">
             {eligibility.coreGpa.totalCredits} of {std?.coreCredits ?? 16} core credits are on file, and the rest can move this either way.
           </Notice>
         )}
@@ -162,7 +162,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                       <TextLink
                         href={`/org/${slug}/grading-scales/new?school=${encodeURIComponent(view.schoolsMissingScale[0] ?? "")}&returnTo=${encodeURIComponent(here)}`}
                       >
-                        Enter the grading scale
+                        Enter the Grading Scale
                       </TextLink>
                     </div>
                   )}
@@ -176,7 +176,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
               the product carried an "estimate" warning. This is the row
               that says whether it still does. */}
           {(view.approvals.length > 0 || view.schoolsMissingApprovedList.length > 0) && (
-            <Section label="Against the approved list" role="committed" kind="checklist">
+            <Section label="Against the Approved List" role="committed" kind="checklist">
               {view.approvals.length > 0 && (
                 <Row
                   href={`${here}/approvals`}
@@ -197,7 +197,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                     {canUpload && (
                       <div>
                         <TextLink href={`/org/${slug}/approved-courses/new?school=${encodeURIComponent(view.schoolsMissingApprovedList[0] ?? "")}`}>
-                          Enter the approved list
+                          Enter the Approved List
                         </TextLink>
                       </div>
                     )}
@@ -212,7 +212,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
               prints letters converts the same either way, and a caveat
               that applies to nothing is worse than no caveat. */}
           {view.scalesUsed.length > 0 && (
-            <Section label="How the grades were converted" role="people" kind="scale">
+            <Section label="How the Grades Were Converted" role="people" kind="scale">
               {view.scalesUsed.map((s, i) => (
                 <Note
                   key={i}
@@ -239,7 +239,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
               then the rest on their own page: a verdict with nine caveats
               stacked under it reads as a wall nobody finishes. */}
           {caveats.length > 0 && (
-            <Section label="Things to know" count={caveats.length} role="offer" kind="warning">
+            <Section label="Things to Know" count={caveats.length} role="offer" kind="warning">
               {caveats.slice(0, 3).map((w, i) => (
                 <Note key={i}>{w}</Note>
               ))}
@@ -251,7 +251,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
 
           {eligibility.coreGpa && eligibility.coreGpa.counted.length > 0 && (
             <Section
-              label="Core courses"
+              label="Core Courses"
               count={eligibility.coreGpa.counted.length}
               role={eligibility.status === "qualifier" || eligibility.status === "early_academic_qualifier" ? "committed" : "offer"}
               kind="course"
@@ -277,13 +277,13 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           )}
 
           {view.skipped.length > 0 && (
-            <Section label="Not counted" count={view.skipped.length} role="target">
+            <Section label="Not Counted" count={view.skipped.length} role="target">
               <Note title={view.skipped.map((s) => s.title).join(", ")}>{view.skipped[0]?.reason}</Note>
             </Section>
           )}
 
           {ageClock.applies && (
-            <Section label="The clock" role="time" kind="clock">
+            <Section label="The Clock" role="time" kind="clock">
               {ageClock.reasons.map((r, i) => (
                 <Note key={i}>{r}</Note>
               ))}

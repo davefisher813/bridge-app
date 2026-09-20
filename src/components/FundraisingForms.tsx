@@ -132,7 +132,7 @@ export function PledgeForm({
     <Form action={formAction} error={state.errors.form}>
       <SelectField
         name="donorId"
-        label="Who promised it"
+        label="Who Promised It"
         error={err("donorId")}
         defaultValue=""
         required
@@ -194,7 +194,7 @@ export function GrantForm({ action }: { action: ServerAction }) {
     <Form action={formAction} error={state.errors.form}>
       <Field name="funderName" label="Funder" error={err("funderName")} required />
 
-      <SelectField name="status" label="Where it stands" error={err("status")} value={status} onChange={(e) => setStatus(e.target.value)}>
+      <SelectField name="status" label="Where It Stands" error={err("status")} value={status} onChange={(e) => setStatus(e.target.value)}>
         {GRANT_STATUSES.map((s) => (
           <option key={s.value} value={s.value}>
             {s.label}
@@ -212,7 +212,7 @@ export function GrantForm({ action }: { action: ServerAction }) {
       {status === "awarded" && (
         <Field
           name="amountAwarded"
-          label="Amount awarded"
+          label="Amount Awarded"
           error={err("amountAwarded")}
           inputMode="decimal"
           placeholder="$0"
@@ -220,13 +220,13 @@ export function GrantForm({ action }: { action: ServerAction }) {
         />
       )}
 
-      <Section label="Dates that bite later" role="time" kind="clock">
+      <Section label="Dates That Bite Later" role="time" kind="clock">
         <Prose>Most of a grant&apos;s life happens before any money exists, and these are the ones that get missed.</Prose>
         <Grid2>
           <Field name="appliedOn" label="Submitted" type="date" />
-          <Field name="decisionExpectedOn" label="Decision expected" type="date" />
+          <Field name="decisionExpectedOn" label="Decision Expected" type="date" />
         </Grid2>
-        <Field name="reportDueOn" label="Report due" type="date" />
+        <Field name="reportDueOn" label="Report Due" type="date" />
       </Section>
 
       <TextAreaField name="notes" label="Notes" rows={2} />

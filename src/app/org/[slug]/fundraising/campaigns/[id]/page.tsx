@@ -67,7 +67,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
 
       <Section label="Gifts" count={gifts.length} role="committed" kind="money">
         {gifts.length === 0 ? (
-          <EmptyState kind="money" title="No gifts yet">
+          <EmptyState kind="money" title="No Gifts Yet">
             Nothing has come in against this campaign.
           </EmptyState>
         ) : (

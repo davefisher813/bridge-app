@@ -58,6 +58,7 @@ Anything new that is pure logic belongs in the bench too, with real assertions, 
 - `org_role` is generic (`owner | staff | member`). An org's display label for each role (Bridge: "Executive Director" / "Coordinator"; Elite Squad: "Owner" / "Coach") lives in `orgs.role_labels`, never in the permission enum itself.
 - `orgs.modules` gates board_governance and donor_fundraising off by default. Every other org-scoped feature ships on by default for every org. Never build a Bridge-specific screen that isn't gated behind its module flag.
 - Every screen composes the kit (`src/components/kit/`) and writes layout classes only. Four text sizes, one spacing step, one radius, paper surfaces, filled 16px inputs, a fixed tab bar, a theme that follows the phone: Dave's selections, 2026-09-19, locked in docs/STYLING_CATALOG.md and enforced by `src/laws/kitLaws.test.ts`. A page that styles text, colour, radius or padding itself, or renders a raw input, button or anchor, fails the build.
+- Every title is Title Case: screen titles, section labels, field labels, buttons, chips, stats, tabs, empty-state titles. Sentences (ledes, meta lines, hints) stay sentences. Dave, 2026-09-20. Enforced by `src/laws/copyLaws.test.ts` through `src/lib/copy/titleCase.ts`.
 - No em dashes anywhere, including comments and strings. Enforced by `src/laws/laws.test.ts`.
 - Never commit secrets. Supabase keys and any AI API keys live in environment config, never in the repo.
 - Never push unless Dave explicitly says "push" or "go" in that session (same rule as every other repo of his).

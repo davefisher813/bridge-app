@@ -139,7 +139,7 @@ describe("LAW: the awkward rows render too", () => {
     const html = await render("@/app/org/[slug]/board/[id]/communications/page", {
       params: p({ slug: ORG_WITH_MODULES, id: IDS.targetNoCoach }),
     });
-    expect(html).toMatch(/Nothing logged/);
+    expect(html).toMatch(/Nothing logged/i);
   });
 
   it("a donor who sits on no board", async () => {
@@ -165,7 +165,7 @@ describe("LAW: the awkward rows render too", () => {
       params: p({ slug: ORG_WITH_MODULES, id: IDS.board, memberId: "bm2" }),
       searchParams: p({}),
     });
-    expect(html).toMatch(/No donor record linked/);
+    expect(html).toMatch(/No donor record linked/i);
   });
 });
 
@@ -233,7 +233,7 @@ describe("LAW: the screens around the pages render too", () => {
 
   it("the org error screen offers a retry and keeps its tone", async () => {
     const html = await renderElement("@/app/org/[slug]/error", { error: new Error("boom"), reset: () => {} });
-    expect(html).toMatch(/Something broke/);
+    expect(html).toMatch(/Something broke/i);
     expect(html).toMatch(/Try Again/);
     expect(html).not.toMatch(/boom/);
   });
@@ -245,13 +245,13 @@ describe("LAW: the screens around the pages render too", () => {
 
   it("the org not-found screen links back to that org's Today", async () => {
     const html = await renderElement("@/app/org/[slug]/not-found", {});
-    expect(html).toMatch(/Nothing here/);
+    expect(html).toMatch(/Nothing here/i);
     expect(html).toMatch(/Back to Today/);
   });
 
   it("the root not-found screen links to the start", async () => {
     const html = await renderElement("@/app/not-found", {});
-    expect(html).toMatch(/Nothing here/);
+    expect(html).toMatch(/Nothing here/i);
   });
 
   it("the org loading screen is paper, not empty", async () => {

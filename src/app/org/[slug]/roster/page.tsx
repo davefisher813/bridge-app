@@ -45,7 +45,7 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
     <Screen title="Athletes" action={canEdit ? <TextLink href={`/org/${slug}/roster/new`}>+ Add</TextLink> : undefined}>
       <Section label="Roster" count={rows.length} role="people" kind="athlete">
         {rows.length === 0 ? (
-          <EmptyState kind="athlete" title="No athletes yet">
+          <EmptyState kind="athlete" title="No Athletes Yet">
             {canEdit ? "Add the first one below." : "Ask an owner or coordinator to add one."}
           </EmptyState>
         ) : (

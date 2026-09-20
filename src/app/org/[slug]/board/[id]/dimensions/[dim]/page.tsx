@@ -78,7 +78,7 @@ export default async function DimensionPage({ params }: { params: Promise<{ slug
           say it above everything else. A veto means the blend was thrown
           away and this dimension set the number by itself. */}
       {d.veto && (
-        <Notice tone="warning" title="This one overrides the others">
+        <Notice tone="warning" title="This One Overrides the Others">
           A veto is not a low score averaged in with the rest. The overall fit was set by this dimension alone, because nothing the athlete
           does elsewhere gets past it.
         </Notice>
@@ -86,7 +86,7 @@ export default async function DimensionPage({ params }: { params: Promise<{ slug
 
       <Section label="Why" count={d.reasons.length} role={role} kind={meta.kind}>
         {d.reasons.length === 0 ? (
-          <EmptyState kind="note" title="No reason given">
+          <EmptyState kind="note" title="No Reason Given">
             The engine returned a score without a stated reason, which normally means it had nothing specific to this school to work from.
           </EmptyState>
         ) : (
@@ -99,14 +99,14 @@ export default async function DimensionPage({ params }: { params: Promise<{ slug
           change it. Mixing them is how a coordinator reads "not
           verified" as a finding. */}
       {d.warnings.length > 0 && (
-        <Section label="What could still change this" count={d.warnings.length} role="offer" kind="warning">
+        <Section label="What Could Still Change This" count={d.warnings.length} role="offer" kind="warning">
           {d.warnings.map((w, i) => (
             <Note key={i}>{w}</Note>
           ))}
         </Section>
       )}
 
-      <Section label="How sure" role="contact" kind="info">
+      <Section label="How Sure" role="contact" kind="info">
         <Note title={CONFIDENCE_LABEL[d.confidence] ?? d.confidence}>{CONFIDENCE_NOTE[d.confidence] ?? "No confidence reported."}</Note>
       </Section>
 

@@ -110,7 +110,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
           sentence attached is a number somebody has to take on faith. */}
       {fit.reasons.length > 0 && <Notice tone="info" title={fit.reasons[0]} />}
 
-      <Section label="How the score is built" role="contact" kind="target">
+      <Section label="How the Score Is Built" role="contact" kind="target">
         {DIM.map(({ key, label, kind }) => {
           const d = fit[key] as DimensionResult | undefined;
           if (!d) return null;
@@ -140,7 +140,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
       </Section>
 
       {fit.warnings.length > 0 && (
-        <Section label="Worth knowing" count={fit.warnings.length} role="offer" kind="warning">
+        <Section label="Worth Knowing" count={fit.warnings.length} role="offer" kind="warning">
           {fit.warnings.map((w) => (
             <Note key={w}>{w}</Note>
           ))}

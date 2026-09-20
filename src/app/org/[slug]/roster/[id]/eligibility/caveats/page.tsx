@@ -49,7 +49,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
       lede={`${athlete.name} · ${total} ${total === 1 ? "item" : "items"}`}
     >
       {total === 0 ? (
-        <EmptyState kind="check" role="committed" title="Nothing outstanding">
+        <EmptyState kind="check" role="committed" title="Nothing Outstanding">
           Every core course is matched to an approved list and every school has a grading scale on file. The verdict is built on real data
           rather than defaults.
         </EmptyState>
@@ -59,7 +59,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
               clear. A coordinator who reads the standing caveats first
               takes the verdict as final and stops. */}
           {dataCaveats.length > 0 && (
-            <Section label="What the app could not read" count={dataCaveats.length} role="offer" kind="warning">
+            <Section label="What the App Could Not Read" count={dataCaveats.length} role="offer" kind="warning">
               {dataCaveats.map((w, i) => (
                 <Note key={i}>{w}</Note>
               ))}
@@ -70,7 +70,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
           )}
 
           {standingCaveats.length > 0 && (
-            <Section label="About their standing" count={standingCaveats.length} role="contact" kind="checklist">
+            <Section label="About Their Standing" count={standingCaveats.length} role="contact" kind="checklist">
               {standingCaveats.map((w, i) => (
                 <Note key={i}>{w}</Note>
               ))}
@@ -84,13 +84,13 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
           every one of these screens. The two named actions appear above
           it when they apply: "enter a grading scale" is advice, "enter
           one for Cardinal Ridge" is a task. */}
-      <Section label="What to do" role="accent" kind="info">
+      <Section label="What to Do" role="accent" kind="info">
         {view.schoolsMissingScale.length > 0 && (
           <Row
             href={`/org/${slug}/grading-scales/new`}
             kind="scale"
             role="offer"
-            title="Enter a grading scale"
+            title="Enter a Grading Scale"
             meta={`${view.schoolsMissingScale.join(", ")}. Until then the core GPA assumes a ten-point scale.`}
             wrap
           />
@@ -100,7 +100,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
             href={`/org/${slug}/approved-courses/new`}
             kind="checklist"
             role="offer"
-            title="Enter an approved course list"
+            title="Enter an Approved Course List"
             meta={`${view.schoolsMissingApprovedList.join(", ")}. Without one, no course can be confirmed as counting.`}
             wrap
           />
@@ -109,7 +109,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
           href={`/org/${slug}/roster/${id}/transcript`}
           kind="course"
           role="contact"
-          title="See the transcript"
+          title="See the Transcript"
           meta="Every course the core GPA counted, and every one it did not."
         />
         {canEdit && (
@@ -117,7 +117,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
             href={`/org/${slug}/roster/${id}/eligibility/approvals`}
             kind="checklist"
             role="contact"
-            title="Check course approvals"
+            title="Check Course Approvals"
             meta="Settle the courses a list could not match on its own."
           />
         )}

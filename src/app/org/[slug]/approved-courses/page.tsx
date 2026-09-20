@@ -80,7 +80,7 @@ export default async function ApprovedCoursesPage({ params }: { params: Promise<
   return (
     <Screen title="Approved Lists" back={{ href: `/org/${slug}/more`, label: "More" }} lede={`${onFile.length} on file`}>
       {missing.length > 0 && (
-        <Section label="Needed now" count={missing.length} role="offer" kind="warning">
+        <Section label="Needed Now" count={missing.length} role="offer" kind="warning">
           {missing.map(([key, name]) => (
             <Row
               key={key}
@@ -95,9 +95,9 @@ export default async function ApprovedCoursesPage({ params }: { params: Promise<
         </Section>
       )}
 
-      <Section label="On file" count={onFile.length} role="committed" kind="checklist">
+      <Section label="On File" count={onFile.length} role="committed" kind="checklist">
         {onFile.length === 0 ? (
-          <EmptyState kind="checklist" title="No approved lists yet">
+          <EmptyState kind="checklist" title="No Approved Lists Yet">
             The Eligibility Center publishes one per high school. Without it a core GPA is an estimate.
           </EmptyState>
         ) : (
