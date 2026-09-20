@@ -107,6 +107,14 @@ it("builds the app preview from the real pages", async () => {
   // The marks under /public travel inside the one file.
   for (const s of screens) {
     s.html = s.html.replace(/src="(\/logos\/[^"]+)"/g, (_m, path) => `src="data:image/png;base64,${readFileSync(`public${path}`).toString("base64")}"`);
+    // The app's tab bar is position: fixed, which pins to the viewport,
+    // not to the frame. A transformed frame used to fake it and put the
+    // bar mid-page on a phone once the document scrolled instead of the
+    // frame (Dave's screenshot, 2026-09-20). In the preview the bar is
+    // sticky at the end of the screen instead: it hugs the bottom of
+    // whatever scrolls (the frame on a laptop, the page on a phone) and
+    // the screen no longer needs to pad for it.
+    s.html = s.html.replace(/\bpb-safe fixed inset-x-0 bottom-0\b/g, "pb-safe sticky bottom-0").replace(/\s?\bpb-bar\b/g, "");
   }
 
   const first = screens.find((s) => s.name === "today") ?? screens[0];
@@ -126,17 +134,23 @@ it("builds the app preview from the real pages", async () => {
 <style>${fontFace}</style>
 <style>${css}</style>
 <style>
-/* The preview's own chrome: a toolbar and a phone-width frame. The
-   frame carries a transform so the app's fixed tab bar pins to the
-   frame rather than the desktop viewport. Nothing here styles the app. */
+/* The preview's own chrome: a toolbar and a phone-width frame. On a
+   laptop the frame scrolls; on a phone the page does and the toolbar
+   sticks to the top. Nothing here styles the app. */
 html, body { margin: 0; height: 100%; }
 body { display: flex; flex-direction: column; background: #111; font-family: -apple-system, system-ui, sans-serif; }
 .bar { flex: none; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; background: #222; color: #eee; font-size: 13px; }
 .bar select, .bar button { font: inherit; min-height: 36px; border-radius: 8px; border: 0; padding: 0 10px; background: #333; color: #eee; }
 .bar button[aria-pressed="true"] { background: #e5e5ea; color: #111; }
 .bar .grow { flex: 1; min-width: 80px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.frame { flex: 1; min-height: 0; width: 390px; max-width: 100%; margin: 0 auto; overflow-y: auto; overflow-x: hidden; transform: translateZ(0); background: var(--bg); font-family: "Inter Preview", system-ui, sans-serif; }
+.frame { flex: 1; min-height: 0; width: 390px; max-width: 100%; margin: 0 auto; overflow-y: auto; overflow-x: hidden; background: var(--bg); font-family: "Inter Preview", system-ui, sans-serif; }
 .screen { min-height: 100%; }
+@media (max-width: 599px) {
+  html, body { height: auto; min-height: 100%; }
+  .bar { position: sticky; top: 0; z-index: 30; }
+  .frame { overflow: visible; width: 100%; }
+  .screen > div { min-height: calc(100dvh - 96px); }
+}
 .frame form { pointer-events: none; }
 .frame form button, .frame form input, .frame form select, .frame form textarea { pointer-events: auto; }
 </style>
@@ -174,6 +188,7 @@ ${sections}
     frame.querySelectorAll(".screen").forEach(function (s) { s.hidden = true; });
     target.hidden = false;
     frame.scrollTop = 0;
+    if (window.innerWidth < 600) window.scrollTo(0, 0);
     pick.value = target.getAttribute("data-route");
     where.textContent = target.getAttribute("data-route");
     return true;
