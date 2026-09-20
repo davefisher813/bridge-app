@@ -19,6 +19,7 @@ import Link from "next/link";
 import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 import { DOT, TEXT_ON, scoreRole, type Role } from "@/components/statusHue";
 import { TabBar } from "@/components/kit/TabBar";
+import { OrgHeader } from "@/components/kit/OrgHeader";
 
 export type { Role, RowKind };
 
@@ -511,22 +512,7 @@ export function Chrome({ orgName, slug, logo, lockup, children }: { orgName: str
       {/* 672 wide on a laptop, the whole screen on a phone. Dave's
           pick, 2026-09-20, over the 448 phone column. */}
       <div className="mx-auto max-w-2xl">
-        {/* The wordmark alone when the org has one (Dave, 2026-09-20:
-            "use the word mark for the logo and words, get rid of that
-            default title"); the mark and the name otherwise. */}
-        <div className="flex min-h-11 items-center gap-3 px-4 pt-3">
-          {lockup ? (
-            <>
-              <OrgMark src={lockup} size="xl" />
-              <span className="sr-only">{orgName}</span>
-            </>
-          ) : (
-            <>
-              {logo && <OrgMark src={logo} size="md" />}
-              <span className="text-body font-extrabold text-ink">{orgName}</span>
-            </>
-          )}
-        </div>
+        <OrgHeader slug={slug} orgName={orgName} logo={logo} lockup={lockup} />
         {children}
       </div>
       <TabBar slug={slug} />
