@@ -32,7 +32,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  viewportFit: "cover",
+  // Not "cover". Installed from the share sheet, cover draws the page
+  // under the status bar, and with the default status bar style iOS
+  // then reports a zero safe-area inset, so nothing can pad for it and
+  // the title sat under the clock. Without cover iOS lays the app out
+  // below the status bar itself and fills that strip with themeColor.
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: cssToken("bg", "light") },
     { media: "(prefers-color-scheme: dark)", color: cssToken("bg", "dark") },

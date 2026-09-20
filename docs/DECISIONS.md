@@ -2038,3 +2038,23 @@ screen, so the screen title shares its line rather than sitting under
 it, and the org name survives for screen readers only. `Screen` keeps
 that corner clear: the title reserves it, and a header action (the add
 disc, an Edit link) drops below the mark instead of colliding with it.
+
+## 2026-09-20: no viewport-fit=cover
+
+**Decision.** The viewport drops `viewport-fit=cover`. iOS lays the
+installed app out below the status bar and fills that strip with
+`themeColor` instead. The body keeps `padding-top:
+env(safe-area-inset-top)` as a guard, which now measures zero here.
+
+**Reason.** Dave's screenshot: the screen title and the wordmark sat on
+top of the clock and the signal icons in the home-screen app. With
+cover, iOS draws the page under the status bar, and with the status bar
+style left at `default` it reports a zero safe-area inset, so the
+padding that was supposed to clear it measured nothing. The other way
+out, `black-translucent`, forces white status bar text, which is
+unreadable on the light theme.
+
+**Consequences.** `env(safe-area-inset-bottom)` is zero too, so
+`pb-safe` and `pb-bar` now pad by the tab bar's height alone; iOS keeps
+the viewport clear of the home indicator itself. Nothing in the layout
+changes in a browser.
