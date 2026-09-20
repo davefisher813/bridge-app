@@ -1,15 +1,19 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "4142945",
-  "commitFull": "41429455b3867b1898539e57aabe5c3c0f1fe3a8",
-  "branch": "main",
+  "commit": "a482787",
+  "commitFull": "a48278738b7d14016cbc13e452295bf6f769d5f0",
+  "branch": "claude/downloads-directory-4mf6gv",
+  "remoteBranches": [
+    "origin/claude/downloads-directory-4mf6gv"
+  ],
+  "shipped": true,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-09-20T21:26:59.203Z",
-  "durationMs": 9230,
-  "result": "fail",
-  "stagesNotRun": 1,
+  "startedAt": "2026-09-20T21:41:02.474Z",
+  "durationMs": 10589,
+  "result": "pass",
+  "stagesNotRun": 0,
   "allowlistFired": [],
   "stages": [
     {
@@ -104,7 +108,7 @@
             "location": "/login"
           }
         },
-        "ms": 1063
+        "ms": 1086
       },
       "errors": [],
       "warnings": [],
@@ -113,39 +117,28 @@
     },
     {
       "name": "lint",
-      "result": "fail",
-      "findings": [
-        {
-          "rule": "minor-field",
-          "file": "src/testing/fixture.ts:116",
-          "detail": "date_of_birth on an athlete record"
-        },
-        {
-          "rule": "minor-school",
-          "file": "src/testing/fixture.ts:267",
-          "detail": "a course row names the school a minor attends"
-        },
-        {
-          "rule": "minor-school",
-          "file": "src/testing/fixture.ts:268",
-          "detail": "a course row names the school a minor attends"
-        }
-      ],
+      "result": "pass",
+      "findings": [],
       "baselined": {
         "src/laws/laws.test.ts": 2
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 21,
-      "filesScanned": 309
+      "touchedFiles": 22,
+      "filesScanned": 313
+    },
+    {
+      "name": "types",
+      "result": "pass",
+      "output": []
     }
   ],
   "manual": {
     "checklist": "qa/checklist.md",
-    "checklistCommit": "8831012",
-    "checklistSays": "fail",
-    "result": "fail",
-    "reason": "checklist.md covers this commit and says fail"
+    "checklistCommit": "4c13132",
+    "checklistSays": "pass",
+    "result": "pass",
+    "reason": "checklist.md covers this commit and says pass"
   },
   "preview": {
     "applicable": true,
