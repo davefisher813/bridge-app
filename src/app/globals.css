@@ -188,6 +188,10 @@ body {
   color: var(--ink);
   background: var(--bg);
   min-height: 100dvh;
+  /* Installed from the share sheet, the app runs edge to edge under the
+     iPhone's status bar (viewport-fit=cover). Without this the org name
+     sat behind the clock and the Dynamic Island. */
+  padding-top: env(safe-area-inset-top, 0px);
   /* No rubber-band scroll behind the fixed tab bar. */
   overscroll-behavior-y: none;
   /* A word wider than the screen (an email address as a title, a long
