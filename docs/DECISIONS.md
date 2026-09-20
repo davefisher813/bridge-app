@@ -2058,3 +2058,30 @@ unreadable on the light theme.
 `pb-safe` and `pb-bar` now pad by the tab bar's height alone; iOS keeps
 the viewport clear of the home indicator itself. Nothing in the layout
 changes in a browser.
+
+## 2026-09-20: matching and metrics, forty picks
+
+**Decision.** Dave went through the Matching and Metrics catalog and
+answered all forty decisions. docs/MATCHING_CONTRACT.md is the result.
+The shape: a dated metrics log with sources that set confidence, staff
+grades on the 20 to 80 scale blended into the athletic score by position
+group, matches stored per athlete and school and recomputed only when an
+input changes, a Program Tier on the school, a family budget and net
+cost driving a money-first default preset, an athlete goal that shifts
+the blend, positional need per org, offers and visits shown but never
+scored, CSV import into a shared school table with a private per-org
+overlay.
+
+**Reason.** "I don't see the school matching feature or anywhere to log
+metrics. It was the most important function in the app." Neither had
+been built; the engine was ported without the screens that feed it or
+run it. And the old site's version "drained API usage like crazy, data
+never stored, we had to always rerun the matches", which is why storage
+and no outside calls are hard rules in the contract.
+
+**Consequences.** Three numbers in the contract are interpretations of
+his words rather than picks (the preset weights, the goal shift, the
+grade blend) and are marked as such; all of them live in
+`src/lib/fit/contract.ts`. Matching lands in phases: data model and
+engine first, the metrics log, then matching screens, then the CSV
+import, each behind the laws and the preview.

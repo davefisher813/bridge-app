@@ -7,9 +7,10 @@ Owner: Dave Fisher, personally. Explicitly not built with Bridge/BFFSA resources
 
 1. docs/CURRENT_STATE.md
 2. docs/BUSINESS_RULES.md (org/module model, NCAA facts, fit-scoring design)
-3. docs/STYLING_CATALOG.md before touching any screen. Locked 2026-09-15; it is the contract for every component treatment and overrides visual judgment.
-4. docs/DESIGN_SYSTEM.md before touching any screen (structure, typography, status language, and what carries over from JARVIS)
-5. docs/ARCHITECTURE.md before touching the multi-tenant boundary, the fit engine, or Doc AI
+3. docs/MATCHING_CONTRACT.md before touching metrics, matching, the fit engine or school data. Locked 2026-09-20 from Dave's forty picks; it is the contract for how an athlete is scored against a school and overrides judgment.
+4. docs/STYLING_CATALOG.md before touching any screen. Locked 2026-09-15; it is the contract for every component treatment and overrides visual judgment.
+5. docs/DESIGN_SYSTEM.md before touching any screen (structure, typography, status language, and what carries over from JARVIS)
+6. docs/ARCHITECTURE.md before touching the multi-tenant boundary, the fit engine, or Doc AI
 
 ## Visual previews before building a new screen
 
