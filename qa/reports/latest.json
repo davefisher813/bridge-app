@@ -1,13 +1,13 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "8831012",
-  "commitFull": "88310125a3e6bf5182cb4822b3b86701b43489a5",
+  "commit": "4142945",
+  "commitFull": "41429455b3867b1898539e57aabe5c3c0f1fe3a8",
   "branch": "main",
-  "dirty": true,
-  "onMain": true,
-  "startedAt": "2026-09-20T21:19:24.658Z",
-  "durationMs": 16107,
+  "dirty": false,
+  "onMain": false,
+  "startedAt": "2026-09-20T21:26:59.203Z",
+  "durationMs": 9230,
   "result": "fail",
   "stagesNotRun": 1,
   "allowlistFired": [],
@@ -104,7 +104,7 @@
             "location": "/login"
           }
         },
-        "ms": 1095
+        "ms": 1063
       },
       "errors": [],
       "warnings": [],
@@ -136,14 +136,16 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 9,
-      "filesScanned": 302
+      "touchedFiles": 21,
+      "filesScanned": 309
     }
   ],
   "manual": {
-    "checklist": null,
-    "result": "provisional",
-    "reason": "no qa/checklist.md"
+    "checklist": "qa/checklist.md",
+    "checklistCommit": "8831012",
+    "checklistSays": "fail",
+    "result": "fail",
+    "reason": "checklist.md covers this commit and says fail"
   },
   "preview": {
     "applicable": true,
