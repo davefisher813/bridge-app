@@ -2085,3 +2085,24 @@ grade blend) and are marked as such; all of them live in
 `src/lib/fit/contract.ts`. Matching lands in phases: data model and
 engine first, the metrics log, then matching screens, then the CSV
 import, each behind the laws and the preview.
+
+## 2026-09-20: grey only where it means something
+
+**Decision.** After the matching screens shipped Dave said "let's make
+sure all the visual rules stay intact and let's keep all grey subject to
+need only and minimal." The grey roles (target, neutral, low) are now
+reserved for a status: the Target stage, a seat status with no colour,
+a low score, an empty state, a section whose point is absence (Not
+Counted, Not Carrying a Commitment). Every other section and row takes
+the role for what it is. A neutral stat prints in ink.
+
+**Reason.** The new screens had leaned on role="target" for anything
+about matching, and on the neutral default for reference and settings
+rows, so the Matches section, the Ranked list, the preset and the
+positions of need all read grey next to a board where grey means "not
+in contact yet".
+
+**Consequences.** A law in `src/laws/kitLaws.test.ts` lists the four
+literal grey roles that remain, each with its reason, and fails on any
+new one. docs/STYLING_CATALOG.md carries the rule.
+

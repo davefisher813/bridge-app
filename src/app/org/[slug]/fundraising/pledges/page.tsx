@@ -83,7 +83,7 @@ export default async function PledgesPage({ params }: { params: Promise<{ slug: 
             </Section>
           )}
           {open.length > 0 && (
-            <Section label="Open" count={open.length} role="target" kind="pledge">
+            <Section label="Open" count={open.length} role="time" kind="pledge">
               {open.map((r) => row(r, "target"))}
             </Section>
           )}

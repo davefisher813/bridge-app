@@ -175,7 +175,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
         />
         <Row
           kind="flag"
-          role="target"
+          role="committed"
           title="Goal and Budget"
           meta={`${goal} · ${budgetCents ? `${money(budgetCents / 100)} a year` : "No family budget"}${athlete.home_state ? ` · ${athlete.home_state}` : ""}`}
           trailing={canEdit ? <TextLink href={`/org/${slug}/roster/${id}/edit`}>Edit</TextLink> : undefined}
@@ -185,7 +185,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
       <Section
         label="Matches"
         count={fits.length}
-        role="target"
+        role="place"
         kind="target"
         action={fits.length > 5 ? <TextLink href={`/org/${slug}/roster/${id}/matches`}>See All</TextLink> : undefined}
       >
@@ -200,7 +200,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
                 key={f.school_id}
                 href={`/org/${slug}/roster/${id}/matches`}
                 kind="school"
-                role={f.tag === "Conflict" ? "danger" : f.tag === "Safety" ? "committed" : "target"}
+                role={f.tag === "Conflict" ? "danger" : f.tag === "Safety" ? "committed" : "place"}
                 title={f.school.name}
                 meta={`${f.school.division} · ${f.partial ? (f.warnings[0] ?? "Partial score") : (f.reasons[0] ?? f.warnings[0] ?? "")}`}
                 trailing={
@@ -221,7 +221,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
         )}
       </Section>
 
-      <Section label="Colleges" count={targets.length} role="target" kind="school">
+      <Section label="Colleges" count={targets.length} role="place" kind="school">
         {targets.length === 0 ? (
           <EmptyState kind="school" title="No Colleges Yet">
             Add a target from the board to start tracking one.

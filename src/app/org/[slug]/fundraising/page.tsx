@@ -219,7 +219,7 @@ export default async function FundraisingPage({
           <Row
             href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`}
             kind="settings"
-            role="neutral"
+            role="committed"
             title="Budget"
             meta={s.totalBudgetCents > 0 ? `${fiscalYear}, as the board approved it` : "Not set yet"}
             trailing={<Chevron />}

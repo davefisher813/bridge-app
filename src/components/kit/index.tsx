@@ -240,7 +240,7 @@ export function Stat({ value, label, role = "neutral", kind }: { value: ReactNod
         {/* A figure never splits: "$40,000" broke after the comma on a
             320 screen. The tile keeps its content width and the row
             wraps instead (StatRow). */}
-        <div className={`whitespace-nowrap text-heading font-extrabold tabular-nums ${TEXT_ON[role]}`}>{value}</div>
+        <div className={`whitespace-nowrap text-heading font-extrabold tabular-nums ${role === "neutral" ? "text-ink" : TEXT_ON[role]}`}>{value}</div>
       </div>
       {/* 12px sides, not 16: three tiles at 375 wide with COMMITTED in
           caps on one of them is 15px over the screen at 16. */}

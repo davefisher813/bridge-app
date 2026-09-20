@@ -137,7 +137,7 @@ export default async function MatchesPage({
         <Row
           href={`/org/${slug}/schools/${f.school_id}`}
           kind="school"
-          role={dim ? "danger" : f.tag === "Safety" ? "committed" : "target"}
+          role={dim ? "danger" : f.tag === "Safety" ? "committed" : "place"}
           title={dim ? <Body tone="muted" weight="semibold">{f.school.name}</Body> : f.school.name}
           meta={`${meta} · ${line}`}
           wrap
@@ -182,7 +182,7 @@ export default async function MatchesPage({
         <>
           <MatchFilters values={filters} options={options} />
 
-          <Section label="Ranked" count={ranked.length} role="target" kind="target">
+          <Section label="Ranked" count={ranked.length} role="place" kind="target">
             {ranked.length === 0 ? (
               <EmptyState kind="target" title="Nothing Matches These Filters">
                 Loosen one and the list comes back.

@@ -27,7 +27,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
         {org.modules.board_governance && <Row href={`/org/${slug}/board-governance`} kind="governance" role="people" title="Board" meta="Seats and give/get progress across every tier" wrap />}
       </Section>
 
-      <Section label="Reference" role="target" kind="school">
+      <Section label="Reference" role="place" kind="school">
         <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" meta="The shared database, and who you are recruiting" wrap />
         <Row href={`/org/${slug}/grading-scales`} kind="scale" role="contact" title="Grading Scales" meta="How each school's numbers become letters" wrap />
         <Row href={`/org/${slug}/approved-courses`} kind="checklist" role="visit" title="Approved Lists" meta="Which courses the NCAA counts at each school" wrap />
@@ -37,7 +37,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
           preset, set by an owner. Recalculate All rescores everything in
           the org, which is how rows written before the store existed get
           a score. */}
-      <Section label="Matching" role="target" kind="target">
+      <Section label="Matching" role="place" kind="target">
         {user.role === "owner" ? (
           <Stack gap={4}>
             <PresetForm action={setScoringPreset.bind(null, slug)} current={preset} />
@@ -51,13 +51,13 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
             </Form>
           </Stack>
         ) : (
-          <Row kind="target" role="target" title="Scoring Preset" meta={`${presetLabel} · set by an owner`} wrap />
+          <Row kind="target" role="place" title="Scoring Preset" meta={`${presetLabel} · set by an owner`} wrap />
         )}
       </Section>
 
       <Section label="Organization" role="people" kind="people">
         {user.role === "owner" && <Row href={`/org/${slug}/members`} kind="people" role="people" title="Members" meta="Who can sign in, and what each person can do" wrap />}
-        <Row kind="settings" role="neutral" title={user.full_name || user.email} meta={`${labelForRole(org.roleLabels, user.role)} at ${org.name}`} wrap />
+        <Row kind="settings" role="people" title={user.full_name || user.email} meta={`${labelForRole(org.roleLabels, user.role)} at ${org.name}`} wrap />
         <Form action={signout}>
           <Stack gap={2}>
             <Button variant="destructive">Sign Out</Button>

@@ -122,7 +122,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           ))}
           <Row
             kind="scale"
-            role="target"
+            role="contact"
             title="Transcript GPA"
             meta="The school's own number, unconverted"
             trailing={

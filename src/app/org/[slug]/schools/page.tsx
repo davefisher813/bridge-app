@@ -76,7 +76,7 @@ export default async function SchoolsPage({ params, searchParams }: { params: Pr
             </Section>
           )}
           {rest.length > 0 && (
-            <Section label="Everything Else" count={rest.length} role="target" kind="school">
+            <Section label="Everything Else" count={rest.length} role="place" kind="school">
               {rest.map((s) => row(s, false))}
             </Section>
           )}

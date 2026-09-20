@@ -154,3 +154,42 @@ describe("LAW: the screen holds still", () => {
     expect(read(join(SRC, "app/layout.tsx"))).toMatch(/prefers-color-scheme: dark/);
   });
 });
+
+describe("LAW: grey is for a status, not for decoration", () => {
+  // Dave, 2026-09-20: "keep all grey subject to need only and minimal."
+  // The grey roles (target, neutral, low) mean something: the Target
+  // stage, a status with no colour of its own, a low score. A section
+  // or row that is merely about matching, reference data or settings
+  // does not get grey because nothing warmer came to mind. Every literal
+  // grey role on a page is on this list with its reason; a role derived
+  // from a status (statusRole, scoreRole) is not literal and is fine.
+  // Verified this law bites: set the Matches section on the athlete
+  // page back to role="target", watched it fail naming the file and the
+  // label, reverted.
+  const NEEDED: Array<{ file: string; near: string; why: string }> = [
+    { file: "board-governance/[id]/page.tsx", near: "STATUS_LABEL[m.status]", why: "a seat status chip" },
+    { file: "board-governance/members/page.tsx", near: "STATUS_LABEL[m.status]", why: "a seat status chip" },
+    { file: "board-governance/members/page.tsx", near: "Not Carrying a Commitment", why: "seats with no give/get, the absence is the point" },
+    { file: "roster/[id]/eligibility/page.tsx", near: "Not Counted", why: "courses the NCAA does not count, de-emphasised on purpose" },
+  ];
+
+  it("a literal grey role appears only where the grey means something", () => {
+    const offenders: string[] = [];
+    for (const f of UI) {
+      if (KIT(f)) continue;
+      const src = read(f);
+      for (const m of src.matchAll(/role="(target|neutral|low)"/g)) {
+        const around = src.slice(Math.max(0, m.index! - 400), m.index! + 200);
+        const allowed = NEEDED.some((n) => f.endsWith(n.file) && around.includes(n.near));
+        if (!allowed) offenders.push(`${rel(f)}: role="${m[1]}" with no listed need`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  // A figure with no status is a figure, not a status: it reads in ink.
+  it("a neutral stat renders its number in ink", () => {
+    const kit = read(join(SRC, "components/kit/index.tsx"));
+    expect(kit).toMatch(/role === "neutral" \? "text-ink" : TEXT_ON\[role\]/);
+  });
+});

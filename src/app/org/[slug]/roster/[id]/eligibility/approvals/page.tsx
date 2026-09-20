@@ -72,7 +72,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
       )}
 
       {view.approvalNotes.length > 0 && (
-        <Section label="Corrections the List Made" count={view.approvalNotes.length} role="target" kind="note">
+        <Section label="Corrections the List Made" count={view.approvalNotes.length} role="contact" kind="note">
           {view.approvalNotes.map((n) => (
             <Note key={n}>{n}</Note>
           ))}

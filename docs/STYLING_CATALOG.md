@@ -203,6 +203,17 @@ rather than five unrelated labels:
 | Offer | systemOrange |
 | Committed | systemGreen |
 
+**Grey is for a status, not for decoration.** Dave, 2026-09-20: "keep
+all grey subject to need only and minimal." The grey roles (target,
+neutral, low) appear where grey means something: the Target stage, a
+status with no colour of its own, a low score, an empty state, a course
+the NCAA does not count. A section or row about matching, schools,
+settings or money takes the role for what it is (place, contact,
+committed, people), never grey for want of a better idea. A neutral stat
+prints its number in ink. Muted text stays for the second line of a row
+and for hints. Enforced by `src/laws/kitLaws.test.ts`, which lists every
+literal grey role on a page with its reason.
+
 **Score** (tints only) is green above 70, yellow 40 to 69, gray below.
 Rendered as a tint rather than a solid because stage and score are two
 different questions about the same row: if both were solid pills, green

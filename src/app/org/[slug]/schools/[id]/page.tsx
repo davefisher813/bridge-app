@@ -148,7 +148,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
         {note && (note.coach_name || note.coach_email) && (
           <Row kind="people" role="people" title={note.coach_name ?? "Head Coach"} meta={note.coach_email ?? undefined} wrap />
         )}
-        {needs && <Row kind="target" role="target" title="Positions of Need" meta={needs} wrap />}
+        {needs && <Row kind="target" role="contact" title="Positions of Need" meta={needs} wrap />}
         {note?.notes && <Note>{note.notes}</Note>}
         {!note && !canEdit && (
           <EmptyState kind="note" title="Nothing Noted Yet">

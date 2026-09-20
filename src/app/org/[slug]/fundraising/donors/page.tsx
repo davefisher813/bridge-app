@@ -70,13 +70,13 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
       action={canEdit ? <AddButton href={`/org/${slug}/fundraising/donors/new`} label="Add" /> : undefined}
     >
       {owing.length > 0 && (
-        <Section label="Owes a Pledge" count={owing.length} role="target" kind="pledge">
+        <Section label="Owes a Pledge" count={owing.length} role="offer" kind="pledge">
           {owing.map(({ donor, totals }) => (
             <Row
               key={donor.id}
               href={`/org/${slug}/fundraising/donors/${donor.id}`}
               kind="pledge"
-              role="target"
+              role="offer"
               title={donor.name}
               meta="Promised and not yet received. Not counted in anything raised."
               wrap
