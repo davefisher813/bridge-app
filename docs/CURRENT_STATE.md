@@ -20,7 +20,8 @@ nothing past the edge.
 - **Production:** Vercel project `commit-app`, URL
   `https://commit-app-nu.vercel.app`. Deployments are created through
   the Vercel API from a commit on `main`; the project is not yet git
-  connected (needs a Vercel token for the team, open with Clemenza), so
+  connected (needs a Vercel token for the team, open with Dave or a
+  delegate; Clemenza has no access to that scope), so
   a push to `main` deploys nothing on its own. Vercel Authentication is
   off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
