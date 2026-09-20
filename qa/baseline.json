@@ -1,0 +1,6 @@
+{
+  "note": "Debt that predates the gate, recorded so the gate can ratchet it down rather than fail forever. emDash counts em dashes per file. A file this change touches must be zero; an untouched file must match its number exactly; anything not listed must be zero. src/laws/laws.test.ts carries two on purpose: it is the law that forbids them, and it names the character it looks for.",
+  "emDash": {
+    "src/laws/laws.test.ts": 2
+  }
+}

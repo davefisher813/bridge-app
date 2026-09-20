@@ -8,7 +8,10 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "qa:check": "node qa/check.js",
+    "qa:preview": "node qa/preview.mjs",
+    "qa:publish": "node qa/publish.js"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

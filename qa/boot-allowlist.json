@@ -1,0 +1,4 @@
+{
+  "note": "Boot log lines allowed during a QA run. EXACT STRING MATCH on the trimmed line: no wildcards, no regular expressions, so an entry can never quietly widen to cover something it was not reviewed for. Every entry carries a reason and the date it was added. Two things are enforced in qa/check.js rather than left to good intentions: the file is refused if any entry contains Error or Unhandled, and every entry that actually fires is named in the report, because an allowlist nobody looks at is exactly the drift this layer exists to catch.",
+  "allow": []
+}

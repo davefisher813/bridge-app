@@ -1,0 +1,9 @@
+# Copy to qa/publish-deny.txt (gitignored, never committed).
+# One term per line, matched case insensitively against every text file that
+# qa/publish.js is about to push. A hit refuses the whole publish and prints
+# the entry NUMBER, never the term.
+#
+# Put here: the name of any real athlete, family or donor that must never
+# appear in a published artifact, by every spelling that could appear. Dave
+# holds the list. The repo does not, on purpose: writing the names into a
+# committed file would be the leak this list exists to prevent.

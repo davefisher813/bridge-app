@@ -8,3 +8,9 @@ dist/
 .DS_Store
 coverage/
 __pycache__/
+
+# QA: local only, never committed
+qa/env.qa
+qa/publish-deny.txt
+qa/reports/*
+!qa/reports/latest.json
