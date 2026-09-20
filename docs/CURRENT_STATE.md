@@ -18,8 +18,11 @@ nothing past the edge.
 - **Code:** `github.com/davefisher813/bridge-app`, branch `main`. The
   repo name is a stand-in like the product name.
 - **Production:** Vercel project `commit-app`, URL
-  `https://commit-app-nu.vercel.app`, deployed from `main`. Vercel
-  Authentication is off; the app's own sign-in is the gate.
+  `https://commit-app-nu.vercel.app`. Deployments are created through
+  the Vercel API from a commit on `main`; the project is not yet git
+  connected (needs a Vercel token for the team, open with Clemenza), so
+  a push to `main` deploys nothing on its own. Vercel Authentication is
+  off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
   us-west-2). 21 migrations applied, 0021 (matching and metrics) on
   2026-09-20. 30 tables, RLS on every one.
@@ -154,6 +157,15 @@ be left without an owner. "Invited" is read off a mirror of
    font hid overflows that Inter causes.
 8. **The test bench** runs the shipped engine modules in a browser and
    proves its own checks.
+10. **The QA gate** (`qa/`, signed off by Clemenza 2026-09-20).
+   `npm run qa:check` runs tests, the production build with a boot on
+   placeholder env, the house rules (em dash ratchet, secret shapes, the
+   test data rule against `qa/approved-values.json`) and types, with no
+   browser, and writes `qa/reports/latest.json`. `npm run qa:preview`
+   shoots sign-in, the email page, the org picker and Today at 390px in
+   both themes. `qa/publish.js` sends the evidence to the public
+   `basecode-qa` repo after a secret scan that refuses on any hit.
+   `qa/GAPS.md` lists what none of this covers.
 9. **The real project.** Supabase's advisors and the deployment.
 
 ---
