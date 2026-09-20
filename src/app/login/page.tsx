@@ -1,6 +1,6 @@
 import { login, sendMagicLink } from "@/lib/auth/actions";
 import { SignInForm } from "@/components/SignInForm";
-import { Label, Panel, Stack } from "@/components/kit";
+import { Label, OrgMark, Panel, Stack } from "@/components/kit";
 
 // Supabase sends a failed email link back here with its own codes in the
 // query string. Those are for a developer; the person reading the screen
@@ -24,6 +24,12 @@ export default async function LoginPage({
   return (
     <Panel>
       <Stack gap={6}>
+        {/* The Bridge lockup. The app calls itself BFFSA today (layout.tsx),
+            so the sign-in screen carries Bridge's mark until the platform
+            has a name of its own. An org's own mark shows once inside. */}
+        <div className="flex justify-center">
+          <OrgMark src="/logos/bridge-lockup.png" size="xl" />
+        </div>
         <SignInForm magicLink={sendMagicLink} password={login} initialError={error} startWithLink={mode === "link"} />
         <div className="text-center">
           <Label>Accounts are created by your organization, not self-service.</Label>

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getOrgMemberships } from "@/lib/org/membership";
 import { signout } from "@/lib/auth/actions";
-import { Button, Form, Heading, Panel, Prose, Row, Stack } from "@/components/kit";
+import { Button, Form, Heading, OrgMark, Panel, Prose, Row, Stack } from "@/components/kit";
 
 // Post-login landing: a person can belong to more than one org (a coach
 // at Elite Squad who also volunteers for Bridge), so this is where that
@@ -36,7 +36,7 @@ export default async function HomePage() {
         <Heading>Choose an Organization</Heading>
         <Stack gap={3}>
           {memberships.map((m) => (
-            <Row key={m.orgId} href={`/org/${m.orgSlug}`} kind="org" role="place" title={m.orgName} meta={m.role} />
+            <Row key={m.orgId} href={`/org/${m.orgSlug}`} kind="org" role="place" leading={m.logo ? <OrgMark src={m.logo} size="lg" /> : undefined} title={m.orgName} meta={m.role} />
           ))}
         </Stack>
       </Stack>

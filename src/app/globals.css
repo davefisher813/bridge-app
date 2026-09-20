@@ -213,6 +213,12 @@ input, select, textarea {
   color-scheme: light dark;
 }
 
+/* An org's mark is a white shape on a transparent PNG. Light theme
+   inverts it to ink; dark leaves it white. */
+html:not([data-theme="dark"]) .org-mark {
+  filter: invert(1);
+}
+
 @layer utilities {
   /* The one place a value outside the scale is allowed: the iPhone's
      home indicator. The fixed tab bar and every screen's bottom padding

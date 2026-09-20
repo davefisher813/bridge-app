@@ -35,6 +35,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0015_helpers_out_of
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0016_fk_indexes_and_initplan_policies.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0017_users_trigger_and_documents_bucket.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0018_members_see_each_other.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0019_bridge_branding_logo.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

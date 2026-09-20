@@ -16,6 +16,7 @@
 // Run: PREVIEW_OUT_DIR=... npx vitest run --config scripts/preview/vitest.config.mts
 // (build_previews.sh does this after compiling the CSS to /tmp/preview.css)
 
+import { parseBranding } from "@/lib/org/branding";
 import { it, vi } from "vitest";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createElement, type ReactNode } from "react";
@@ -85,7 +86,7 @@ it("builds the app preview from the real pages", async () => {
     // Every org screen sits inside the org layout's chrome, so the
     // preview wraps it the same way rather than rendering the bare page.
     const inOrg = route.startsWith("/org/");
-    const html = renderToStaticMarkup(inOrg ? createElement(Chrome, { orgName: String(org.name), slug: ORG_WITH_MODULES, children: tree }) : tree);
+    const html = renderToStaticMarkup(inOrg ? createElement(Chrome, { orgName: String(org.name), slug: ORG_WITH_MODULES, logo: parseBranding(org.branding).logo, children: tree }) : tree);
     screens.push({ route, name: page.name, html });
   }
 
@@ -102,6 +103,11 @@ it("builds the app preview from the real pages", async () => {
   }
   const unauthorized = (await import("@/app/unauthorized/page")) as { default: () => ReactNode };
   screens.push({ route: "/unauthorized", name: "unauthorized", html: renderToStaticMarkup(unauthorized.default()) });
+
+  // The marks under /public travel inside the one file.
+  for (const s of screens) {
+    s.html = s.html.replace(/src="(\/logos\/[^"]+)"/g, (_m, path) => `src="data:image/png;base64,${readFileSync(`public${path}`).toString("base64")}"`);
+  }
 
   const first = screens.find((s) => s.name === "today") ?? screens[0];
 

@@ -9,12 +9,14 @@ import { createClient } from "@/lib/supabase/server";
 import type { OrgRole } from "@/lib/auth/guard";
 import { parseOrgModules, type OrgModules } from "@/lib/org/modules";
 import { parseRoleLabels, type RoleLabels } from "@/lib/org/roleLabels";
+import { parseBranding } from "@/lib/org/branding";
 
 export interface OrgMembership {
   orgId: string;
   orgName: string;
   orgSlug: string;
   role: OrgRole;
+  logo: string | null;
 }
 
 export async function getOrgMemberships(): Promise<OrgMembership[]> {
@@ -24,7 +26,7 @@ export async function getOrgMemberships(): Promise<OrgMembership[]> {
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const { data, error } = await supabase.from("org_members").select("org_id, role, orgs(id, name, slug)").eq("user_id", user.id);
+  const { data, error } = await supabase.from("org_members").select("org_id, role, orgs(id, name, slug, branding)").eq("user_id", user.id);
 
   if (error || !data) return [];
 
@@ -32,7 +34,7 @@ export async function getOrgMemberships(): Promise<OrgMembership[]> {
     .map((row) => {
       const org = Array.isArray(row.orgs) ? row.orgs[0] : row.orgs;
       if (!org) return null;
-      return { orgId: row.org_id, orgName: org.name, orgSlug: org.slug, role: row.role as OrgRole };
+      return { orgId: row.org_id, orgName: org.name, orgSlug: org.slug, role: row.role as OrgRole, logo: parseBranding(org.branding).logo };
     })
     .filter((m): m is OrgMembership => m !== null);
 }
@@ -46,6 +48,7 @@ export interface OrgSummary {
   // and Coordinator; Elite Squad says Owner and Coach. The permission
   // enum stays generic either way.
   roleLabels: RoleLabels;
+  logo: string | null;
 }
 
 // Cached per request: the org layout resolves the slug and then the page
@@ -53,7 +56,7 @@ export interface OrgSummary {
 // before a page had read a single row of its own.
 export const getOrgBySlug = cache(async function getOrgBySlug(slug: string): Promise<OrgSummary | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("orgs").select("id, name, slug, modules, role_labels").eq("slug", slug).single();
+  const { data, error } = await supabase.from("orgs").select("id, name, slug, modules, role_labels, branding").eq("slug", slug).single();
   if (error || !data) return null;
   return {
     id: data.id,
@@ -61,5 +64,6 @@ export const getOrgBySlug = cache(async function getOrgBySlug(slug: string): Pro
     slug: data.slug,
     modules: parseOrgModules(data.modules),
     roleLabels: parseRoleLabels(data.role_labels),
+    logo: parseBranding(data.branding).logo,
   };
 });

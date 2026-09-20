@@ -288,6 +288,15 @@ export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg"
   return <div className={`flex flex-shrink-0 items-center justify-center rounded-full bg-ios-indigo font-extrabold text-white ${box}`}>{initials}</div>;
 }
 
+// An org's mark: a white shape on a transparent PNG (orgs.branding.logo),
+// drawn in ink for the theme by .org-mark in globals.css. Decorative:
+// the org's name is always beside it or is the page.
+export function OrgMark({ src, size = "md" }: { src: string; size?: "md" | "lg" | "xl" }) {
+  const h = size === "xl" ? "h-16" : size === "lg" ? "h-12" : "h-8";
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" className={`org-mark ${h} w-auto flex-shrink-0`} />;
+}
+
 // A glyph, a title, one line naming the next action. Never an empty
 // container and never a bare muted sentence.
 export function EmptyState({ kind = "info", role = "neutral", title, action, children }: { kind?: RowKind; role?: Role; title: string; action?: ReactNode; children?: ReactNode }) {
@@ -496,13 +505,14 @@ export function Form({ action, error, children, onPaper = false }: { action: (fo
 // ── Chrome ───────────────────────────────────────────────────────────
 // What every org screen sits inside: the org's name up top, the fixed
 // tab bar below. The screen itself pads for the bar.
-export function Chrome({ orgName, slug, children }: { orgName: string; slug: string; children: ReactNode }) {
+export function Chrome({ orgName, slug, logo, children }: { orgName: string; slug: string; logo?: string | null; children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg">
       {/* 672 wide on a laptop, the whole screen on a phone. Dave's
           pick, 2026-09-20, over the 448 phone column. */}
       <div className="mx-auto max-w-2xl">
-        <div className="flex min-h-11 items-center px-4 pt-3">
+        <div className="flex min-h-11 items-center gap-3 px-4 pt-3">
+          {logo && <OrgMark src={logo} size="md" />}
           <span className="text-body font-extrabold text-ink">{orgName}</span>
         </div>
         {children}

@@ -11,7 +11,7 @@ export default async function OrgLayout({ children, params }: { children: React.
   if (!org) notFound();
 
   return (
-    <Chrome orgName={org.name} slug={slug}>
+    <Chrome orgName={org.name} slug={slug} logo={org.logo}>
       {children}
     </Chrome>
   );

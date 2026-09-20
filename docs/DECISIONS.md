@@ -2008,3 +2008,24 @@ instead (a 96px basis), a row's meta clamps to two lines instead of one,
 and the journey stepper runs to the panel's edges. Vercel never sets
 `FIXTURE_MODE`. WebKit cannot be installed here, so iOS-only control
 rendering stays unverified.
+
+## 2026-09-20: the org's mark, and the app is Bridge's until it has a name
+
+**Decision.** `orgs.branding.logo` (a path under /public or an https
+URL to a white shape on a transparent PNG) is the org's mark. The kit's
+`OrgMark` draws it: inverted to ink in the light theme, white in the
+dark one, so one file serves both. It sits beside the org name in the
+chrome and on the org chooser. The sign-in screen and the app icons
+carry Bridge's mark and lockup outright, because the app already calls
+itself BFFSA; when the platform has a name of its own, `login/page.tsx`
+and `icon.tsx` are the two places that change.
+
+**Reason.** "Put our logo." Dave sent the mark and the lockup as white
+on black JPEGs; they were cut to transparent PNGs in a browser canvas
+(`public/logos/`). The column already existed since 0001 for exactly
+this; migration 0019 is the first row to use it.
+
+**Consequences.** The body pads by the top safe-area inset (the same
+change fixed the org name sitting behind the iPhone status bar in the
+installed app). Elite Squad has no mark on file and shows its name
+alone. The preview inlines the PNGs so the one file still carries them.
