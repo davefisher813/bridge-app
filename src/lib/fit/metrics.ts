@@ -7,7 +7,7 @@
 // Pure: a list of entries in, a measurables map out. The data layer reads
 // athlete_metrics rows into MetricEntry; nothing here knows a column.
 
-import { METRICS, metricSpec, sourceSpec, type Confidence, type MetricSource, type MetricSpec } from "./contract";
+import { METRICS, metricSpec, normalizeSport, sourceSpec, type Confidence, type MetricSource, type MetricSpec } from "./contract";
 
 export interface MetricEntry {
   id: string;
@@ -71,7 +71,7 @@ export function combinedConfidence(keys: string[], confidence: Record<string, Co
 // More (docs/MATCHING_CONTRACT.md section 1). An unknown sport shows
 // every metric under More rather than nothing.
 export function metricsFor(sport: string, positionGroup: string | null): { first: MetricSpec[]; more: MetricSpec[] } {
-  const s = (sport || "").toLowerCase();
+  const s = normalizeSport(sport);
   const forSport = METRICS.filter((m) => !s || m.sports.includes(s));
   const list = forSport.length > 0 ? forSport : METRICS;
   const first = positionGroup ? list.filter((m) => m.first.includes(positionGroup)) : [];

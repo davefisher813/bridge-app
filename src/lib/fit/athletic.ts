@@ -9,21 +9,9 @@
 import type { Athlete, DimensionResult, School } from "./types";
 import { BASEBALL_SOFTBALL_POSITIONS, tierFor } from "./benchmarks";
 import { clampScore } from "./bands";
-import { GRADE_KEYS, GRADE_WEIGHT, GRADE_WEIGHT_DEFAULT, NEAR_FACTOR, POP_TIME_FLOOR_GRACE, STRIKE_PCT_TARGET, gradeToScore } from "./contract";
+import { GRADE_KEYS, GRADE_WEIGHT, GRADE_WEIGHT_DEFAULT, NEAR_FACTOR, POP_TIME_FLOOR_GRACE, STRIKE_PCT_TARGET, gradeToScore, normalizeSport } from "./contract";
 import { combinedConfidence } from "./metrics";
 
-function normalizeSport(s: string | undefined): string {
-  const raw = (s || "").toLowerCase().trim();
-  if (!raw) return "";
-  if (raw.includes("baseball")) return "baseball";
-  if (raw.includes("softball")) return "softball";
-  if (raw.includes("basketball") || raw.includes("hoops")) return "basketball";
-  if (raw.includes("football") || raw === "fb") return "football";
-  if (raw.includes("soccer")) return "soccer";
-  if (raw.includes("volleyball")) return "volleyball";
-  if (raw.includes("lacrosse") || raw === "lax") return "lacrosse";
-  return raw;
-}
 
 export function baseballPositionGroup(position: string | undefined): string | null {
   const pos = (position || "").toUpperCase();
@@ -257,7 +245,7 @@ export function scoreAthletic(athlete: Athlete, school: School): DimensionResult
 // baseball has no readable position, so the log form falls back to
 // every metric under More.
 export function positionGroupOf(sport: string, position: string | undefined): string | null {
-  const s = (sport || "").toLowerCase();
+  const s = normalizeSport(sport);
   if (s === "baseball" || s === "softball") return baseballPositionGroup(position);
   if (!s) return null;
   return positionGroupFor(s, position);

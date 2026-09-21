@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { RECRUIT_TYPES, ATHLETE_STATUSES, ATHLETE_GOALS } from "@/lib/validation/athlete";
-import { GRADE_KEYS, GRADE_LABEL, GRADE_MAX, GRADE_MIN } from "@/lib/fit/contract";
+import { GRADE_KEYS, GRADE_MAX, GRADE_MIN, SPORTS, gradeLabel, sportSpec } from "@/lib/fit/contract";
 import type { AthleteActionState } from "@/lib/actions/athletes";
 import type { RecruitType } from "@/lib/fit/types";
 import { Button, CheckField, Field, Form, Grid2, Label, SelectField, Stack } from "@/components/kit";
@@ -73,12 +73,26 @@ export function AthleteForm({ action, initialValues = {}, submitLabel }: { actio
   const f = (key: string) => field(state, initialValues, key);
   const err = (key: string) => state.errors[key];
 
+  // The sport picks the IQ label and the position hint. A record whose
+  // sport is not one the engine knows keeps its own word as an option,
+  // so an edit never silently changes it.
+  const [sport, setSport] = useState<string>(f("sport") || "Baseball");
+  const sportOptions = SPORTS.map((s) => s.label);
+  if (sport && !sportOptions.includes(sport)) sportOptions.push(sport);
+  const positions = sportSpec(sport)?.positions;
+
   return (
     <Form action={formAction} error={state.errors.form}>
       <Field name="name" label="Name" hint="For example, Jose Ulloa." defaultValue={f("name")} required error={err("name")} />
       <Grid2>
-        <Field name="sport" label="Sport" hint="For example, Baseball." defaultValue={f("sport")} required error={err("sport")} />
-        <Field name="position" label="Position" hint="For example, RHP." defaultValue={f("position")} />
+        <SelectField name="sport" label="Sport" value={sport} onChange={(e) => setSport(e.target.value)} error={err("sport")}>
+          {sportOptions.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </SelectField>
+        <Field name="position" label="Position" hint={positions ? `For example, ${positions}.` : undefined} defaultValue={f("position")} />
       </Grid2>
       <SelectField name="recruitType" label="Recruit Type" value={recruitType} onChange={(e) => setRecruitType(e.target.value as RecruitType)}>
         {RECRUIT_TYPES.map((t) => (
@@ -176,7 +190,7 @@ export function AthleteForm({ action, initialValues = {}, submitLabel }: { actio
         <Label caps>Staff assessment</Label>
         <Grid2>
           {GRADE_KEYS.map((k) => (
-            <Field key={k} name={k} label={GRADE_LABEL[k]} type="number" min={GRADE_MIN} max={GRADE_MAX} step="5" inputMode="numeric" defaultValue={f(k)} error={err(k)} />
+            <Field key={k} name={k} label={gradeLabel(k, sport)} type="number" min={GRADE_MIN} max={GRADE_MAX} step="5" inputMode="numeric" defaultValue={f(k)} error={err(k)} />
           ))}
         </Grid2>
         <Label>{`The ${GRADE_MIN} to ${GRADE_MAX} scale. 50 is average for the level; leave blank to score on metrics alone.`}</Label>

@@ -65,6 +65,42 @@ export function sourceSpec(key: string) {
   return SOURCES.find((s) => s.key === key) ?? SOURCES[SOURCES.length - 1];
 }
 
+// ── Sports ───────────────────────────────────────────────────────────
+// The sports the engine knows. The first four are Dave's picks in the
+// matching catalog; the rest have position groups and a metric or two.
+// The label is what the athlete record stores and what a screen shows;
+// the key is what the engine matches on.
+export const SPORTS: { key: string; label: string; positions: string }[] = [
+  { key: "baseball", label: "Baseball", positions: "RHP, LHP, C, MIF, 1B, 3B or OF" },
+  { key: "softball", label: "Softball", positions: "P, C, MIF, 1B, 3B or OF" },
+  { key: "basketball", label: "Basketball", positions: "PG, SG, SF, PF or C" },
+  { key: "soccer", label: "Soccer", positions: "GK, CB, FB, CM, W or ST" },
+  { key: "football", label: "Football", positions: "QB, RB, WR, TE, OL, DL, LB or DB" },
+  { key: "volleyball", label: "Volleyball", positions: "S, OH, MB, OPP or L" },
+  { key: "lacrosse", label: "Lacrosse", positions: "A, M, D, LSM, FOGO or G" },
+];
+
+// "Baseball", "baseball (varsity)", "hoops", "lax" all resolve to a key
+// the engine knows; anything else comes back lowercased as typed. One
+// place, so the form, the metrics list and the athletic score agree.
+export function normalizeSport(s: string | undefined): string {
+  const raw = (s || "").toLowerCase().trim();
+  if (!raw) return "";
+  if (raw.includes("baseball")) return "baseball";
+  if (raw.includes("softball")) return "softball";
+  if (raw.includes("basketball") || raw.includes("hoops")) return "basketball";
+  if (raw.includes("football") || raw === "fb") return "football";
+  if (raw.includes("soccer")) return "soccer";
+  if (raw.includes("volleyball")) return "volleyball";
+  if (raw.includes("lacrosse") || raw === "lax") return "lacrosse";
+  return raw;
+}
+
+export function sportSpec(sport: string | undefined): { key: string; label: string; positions: string } | undefined {
+  const key = normalizeSport(sport);
+  return SPORTS.find((s) => s.key === key);
+}
+
 // ── Staff grades ─────────────────────────────────────────────────────
 // 20 to 80 scouting scale. 50 scores 50, 80 scores 100, 20 scores 0.
 export const GRADE_KEYS = ["frame", "athleticism", "skill", "iq", "competitiveness"] as const;
@@ -73,9 +109,18 @@ export const GRADE_LABEL: Record<GradeKey, string> = {
   frame: "Frame",
   athleticism: "Athleticism",
   skill: "Skill",
-  iq: "Baseball IQ",
+  iq: "Game IQ",
   competitiveness: "Competitiveness",
 };
+
+// The IQ grade is named for the sport: Baseball IQ for a baseball
+// player, Soccer IQ for a soccer player. Dave, 2026-09-21, after the
+// form said Baseball IQ for a soccer athlete.
+export function gradeLabel(key: GradeKey, sport?: string): string {
+  if (key !== "iq") return GRADE_LABEL[key];
+  const spec = sportSpec(sport);
+  return spec ? `${spec.label} IQ` : GRADE_LABEL.iq;
+}
 export const GRADE_MIN = 20;
 export const GRADE_MAX = 80;
 

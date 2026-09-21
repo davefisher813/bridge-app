@@ -2303,3 +2303,23 @@ reference data, entered on purpose).
 `KnownAid` on `scoreFit`, the contract's financial section extended,
 the bench checks it, and `applied_changes` carries the target, the
 detail fields and the contact so discard can put each back.
+
+## 2026-09-21: the athlete form follows the sport
+
+**Decision.** Sport is a picker of the sports the engine knows
+(Baseball, Softball, Basketball, Soccer, Football, Volleyball,
+Lacrosse; a record with any other word keeps it as its own option).
+The IQ grade is named for the sport (Soccer IQ, Basketball IQ) and
+"Game IQ" for a sport the engine does not know. The position hint lists
+that sport's positions. One `normalizeSport()` in the contract serves
+the form, the metrics list and the athletic score.
+
+**Reason.** Dave, from the Add Athlete screen: "I selected soccer and
+it has baseball stuff." The label was a constant and the sport was a
+free text field with a baseball example.
+
+**Consequences.** `SPORTS`, `sportSpec()`, `gradeLabel()` and
+`normalizeSport()` in `src/lib/fit/contract.ts`; the metrics and
+position group lookups normalize through it, so "Boys Soccer" and
+"Soccer" score the same. A law covers the label, the spellings and
+that a soccer athlete is never asked for a fastball.
