@@ -103,18 +103,17 @@ export function Screen({
         </Link>
       )}
       {(title || action) && (
-        <div className={`flex items-start justify-between gap-3 ${back ? "mt-3" : ""}`}>
-          {/* With no back link the title is the first thing on the
-              screen, so it shares its line with the org's wordmark in
-              the corner (Chrome). The title keeps clear of it and the
-              action drops below it; where there is an action its own
-              column already holds most of that width, so the title only
-              reserves the remainder. */}
-          <div className={`min-w-0 ${back ? "" : action ? "pr-4" : "pr-20"}`}>
+        <div className={`flex items-start justify-between gap-3 ${back ? "mt-3" : "mt-12"}`}>
+          {/* With no back link the org's mark sits alone in the corner
+              (Chrome) and everything starts under it, on its own line:
+              the top was too crowded with the title beside it (Dave,
+              2026-09-21). A back link is small enough to share the
+              corner's line, so the title follows it as before. */}
+          <div className="min-w-0">
             {title && <Title>{title}</Title>}
             {lede && <div className="mt-1 text-body text-muted">{lede}</div>}
           </div>
-          {action && <div className={`flex-shrink-0 pt-1 ${back ? "" : "mt-6"}`}>{action}</div>}
+          {action && <div className="flex-shrink-0 pt-1">{action}</div>}
         </div>
       )}
       <div className={`flex flex-col gap-6 ${title || action ? "mt-4" : ""}`}>{children}</div>
@@ -518,11 +517,12 @@ export function Chrome({ orgName, slug, logo, lockup, tabs = "org", children }: 
       {/* 672 wide on a laptop, the whole screen on a phone. Dave's
           pick, 2026-09-20, over the 448 phone column. */}
       <div className="relative mx-auto max-w-2xl">
-        {/* Small, in the corner, across from the screen title rather than
-            above it. Dave, 2026-09-20. Out of the flow so the title sits
-            level with it; Screen keeps the corner clear. */}
+        {/* The mark alone, small, in the corner: no wordmark, and the
+            screen's content starts under it (Dave, 2026-09-21, after the
+            lockup beside the title read as clutter). Out of the flow;
+            Screen leaves the first line to it. */}
         <div className="absolute right-4 top-3 z-10">
-          {lockup || logo ? <OrgMark src={(lockup ?? logo) as string} size="sm" /> : null}
+          {logo ? <OrgMark src={logo} size="sm" /> : null}
           <span className="sr-only">{orgName}</span>
         </div>
         {children}

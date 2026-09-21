@@ -2169,3 +2169,24 @@ The render law proves the boundary from the app side, the RLS suite
 from the database side. Invite Family on the athlete's page is the one
 pick not yet built; the invite is under Members with an athlete picker
 until it is.
+
+## 2026-09-21: the mark alone in the corner, and the screen starts under it
+
+**Decision.** The top right corner carries the org's mark
+(`orgs.branding.logo`) only, never the lockup, and every screen with no
+back link starts one working step below it: the title, the add disc,
+an Edit link, all on their own line under the mark. A screen with a
+back link keeps the back link level with the mark, since it is small,
+and the title follows as before.
+
+**Reason.** Dave, from his phone on Today and Athletes: "Just the logo
+in the corner no word mark and drop all content under it down. It's
+way too cluttered at the top." The lockup beside a 28px title was two
+wordmarks fighting on one line.
+
+**Consequences.** `Chrome` renders `logo` and ignores `lockup`; the
+lockup stays on the org record and on the sign-in screen. `Screen`
+drops the corner reservation (`pr-20`) and the action's drop
+(`mt-6`) and adds `mt-12` above the title block when there is no back
+link. This replaces the 2026-09-20 "across from good morning"
+arrangement.
