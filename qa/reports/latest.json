@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "5c5ecd3",
-  "commitFull": "5c5ecd37c50267958e2d27bbb7880b4588cf50eb",
+  "commit": "a8e7491",
+  "commitFull": "a8e749175d387e42276ffb7e54d7248593a942e0",
   "branch": "main",
   "remoteBranches": [],
   "shipped": false,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-09-21T16:55:37.183Z",
-  "durationMs": 21176,
+  "startedAt": "2026-09-21T17:19:41.664Z",
+  "durationMs": 21059,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,18 +18,18 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 874,
+        "pass": 926,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
         "suitesFailed": 0,
-        "filesOnDisk": 49,
-        "filesLoaded": 49
+        "filesOnDisk": 50,
+        "filesLoaded": 50
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
       "testsPerFile": {
-        "src/laws/actionRun.test.ts": 82,
+        "src/laws/actionRun.test.ts": 92,
         "src/laws/copyLaws.test.ts": 2,
         "src/laws/dataLaws.test.ts": 6,
         "src/laws/fitLaws.test.ts": 7,
@@ -49,8 +49,9 @@
         "src/lib/data/undoPlan.test.ts": 15,
         "src/lib/docai/acceptance.test.ts": 12,
         "src/lib/docai/gpa.test.ts": 6,
+        "src/lib/docai/lenient.test.ts": 24,
         "src/lib/docai/magicBytes.test.ts": 11,
-        "src/lib/docai/pipeline.test.ts": 13,
+        "src/lib/docai/pipeline.test.ts": 31,
         "src/lib/docai/provenance.test.ts": 11,
         "src/lib/docai/realDocuments.test.ts": 17,
         "src/lib/docai/resolver.test.ts": 9,
@@ -109,7 +110,7 @@
             "location": "/login"
           }
         },
-        "ms": 1449
+        "ms": 1447
       },
       "errors": [],
       "warnings": [],
@@ -125,8 +126,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 23,
-      "filesScanned": 355
+      "touchedFiles": 19,
+      "filesScanned": 359
     },
     {
       "name": "types",
