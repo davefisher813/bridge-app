@@ -104,3 +104,12 @@ that forbids em dashes names the character it looks for.
 ## What is not covered
 
 `qa/GAPS.md`, with a severity and a file reference for each.
+
+## Is the Vercel git link live
+
+A linked project builds every push to `main` on its own, and the
+deployment's `meta.githubCommitSha` is the pushed commit. An unlinked
+project only has deployments somebody created through the API or the CLI.
+So the test is a push: if no deployment for that commit appears within a
+few minutes, the link is not there, whatever the dashboard was told.
+
