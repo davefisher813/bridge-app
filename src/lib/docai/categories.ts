@@ -211,11 +211,28 @@ export function listCategories(): DocCategory[] {
   return Object.values(REGISTRY);
 }
 
+// What every extraction is held to, whatever the category. These are
+// the rules a misread breaks: a value that was inferred rather than
+// read, a number typed as a string, a date in the wrong order, a
+// confidence that does not reflect the doubt the model actually had.
+// The category prompt says what to read; this says how.
+export const EXTRACTION_RULES =
+  "Rules for every document:\n" +
+  "- Transcribe. Copy every value exactly as printed on the page. Never infer, estimate, round or fill in a value that is not printed. A field that is not on the page is null, and never a typical or likely value.\n" +
+  "- Numbers are JSON numbers, never strings. Dates are YYYY-MM-DD, or YYYY-MM when only the month is printed. Booleans are true or false.\n" +
+  "- Names are copied as printed, in the order printed, with suffixes kept.\n" +
+  "- If two values on the page could fill the same field (two GPAs, two dates), pick the one the page labels as what the schema asks for, and name the other in `warnings`.\n" +
+  "- `warnings` lists every doubt, one short sentence each: a value that was hard to read, a field that was missing, a page that was cut off, anything you were not sure of. An empty list means every field was read cleanly.\n" +
+  "- `confidence` is your honest 0-1 belief that EVERY value returned is exactly what the page says. Use 0.95 or above only when nothing was hard to read and `warnings` is empty. Use below 0.6 when any material value is uncertain.\n" +
+  "- If the document is not the kind described, say so in `warnings` and set confidence below 0.3 rather than forcing the page into the schema.\n";
+
 export function buildExtractionSystemPrompt(id: DocCategoryId, rosterContext: unknown[], override?: string): string {
   const cat = getCategory(id);
   if (cat.shape === "unsupported") throw new Error(cat.unsupportedMessage || "Unsupported document type");
   return (
     `You are a structured-data extraction service for a youth sports recruiting platform. ${cat.extractionPrompt}\n\n` +
+    EXTRACTION_RULES +
+    "\n" +
     "ROSTER CONTEXT (existing athletes, for reference only - do NOT match yourself; that is a separate step):\n" +
     JSON.stringify(rosterContext.slice(0, 50)) +
     "\n\n" +

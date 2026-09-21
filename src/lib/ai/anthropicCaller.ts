@@ -115,6 +115,10 @@ export function createAnthropicCaller(opts: AnthropicCallerOptions = {}): ModelC
       // ceiling, so the floor is high enough that an answer is never
       // cut off mid-brace.
       max_tokens: Math.max(call.maxTokens, 16000),
+      // Transcription, not composition: the same page should read the
+      // same way twice, and a retry after a network blip should not
+      // produce a different GPA.
+      temperature: 0,
       system: call.system,
       messages: [{ role: "user", content }],
     });

@@ -8,14 +8,35 @@
 // applied - same "Postgres validates ownership, the app validates
 // shape" principle as src/lib/fit/schema.ts, applied to model output
 // instead of a jsonb column.
+//
+// Strict about meaning, lenient about spelling. Every field goes
+// through the preprocessors in lenient.ts, so "3.5" is the number 3.5,
+// 04/11/2026 is 2026-04-11, "N/A" is null and "Walk-On" is walk_on.
+// What is still refused is a value that means nothing: a GPA that is
+// not a number, a date that is not a date, a metric key the engine
+// does not have. A field that is descriptive rather than load-bearing
+// (a course load, a letter's tone) falls back to a safe default rather
+// than failing the whole document, because losing a four-year
+// transcript over an unlisted adjective is the mistake this file exists
+// to stop.
 
 import { z } from "zod";
 import { METRICS, SOURCES } from "@/lib/fit/contract";
+import { bool, dated, datedOrNull, enumOr, int, num, str, strOrNull, toGpa, toNumber, toYear } from "./lenient";
+
+const nullable = <T extends z.ZodTypeAny>(s: T) => z.preprocess((v) => (v === "" ? null : v), s.nullable());
+const emptyToNullYear = (v: unknown) => {
+  const y = toYear(v);
+  return typeof y === "number" ? Math.round(y) : y;
+};
 
 const baseFields = {
-  confidence: z.number().min(0).max(1).nullable().optional(),
-  warnings: z.array(z.string()).optional().default([]),
+  confidence: z.preprocess(toNumber, z.number().min(0).max(1).nullable()).optional(),
+  warnings: z.preprocess((v) => (typeof v === "string" ? [v] : Array.isArray(v) ? v.filter((w) => typeof w === "string" && w.trim()) : []), z.array(z.string())).optional().default([]),
 };
+
+// A count that is missing or unreadable is zero, not a failed document.
+const count = () => z.preprocess((v) => (v == null || v === "" ? 0 : v), int().pipe(z.number().min(0))).default(0);
 
 export const transcriptSchema = z.object({
   ...baseFields,
@@ -25,30 +46,33 @@ export const transcriptSchema = z.object({
   // validation step, before the coordinator's "this is for X" override
   // was ever consulted. The pipeline handles the missing name by
   // refusing to auto-apply it, which is the right place for that call.
-  studentName: z.string().min(1).nullable(),
-  school: z.string().min(1),
-  gradYear: z.number().int().min(2000).max(2100),
-  sport: z.string().nullable().optional(),
-  gpa: z.number().nullable(),
-  gpaScale: z.enum(["4.0", "5.0", "10", "20", "100", "other"]),
-  gpaVerified: z.boolean().default(true),
-  courseLoad: z.enum(["Regular", "Mixed (some Honors)", "Mostly Honors/AP", "Heavy AP/IB"]),
-  apCount: z.number().int().min(0).default(0),
-  honorsCount: z.number().int().min(0).default(0),
-  regularCount: z.number().int().min(0).default(0),
-  ibCount: z.number().int().min(0).default(0),
-  dualCount: z.number().int().min(0).default(0),
-  courseRigorNotes: z.string().optional(),
+  studentName: strOrNull().optional().default(null),
+  // Also nullable: a transcript whose header is cut off is still a
+  // course list, and the pipeline warns and sends it to review instead
+  // of losing it.
+  school: strOrNull().optional().default(null),
+  gradYear: z.preprocess((v) => emptyToNullYear(v), z.number().int().min(2000).max(2100).nullable()).optional().default(null),
+  sport: strOrNull().optional(),
+  gpa: z.preprocess(toGpa, z.number().finite().nullable()).optional().default(null),
+  gpaScale: enumOr(["4.0", "5.0", "10", "20", "100", "other"], "other").default("other"),
+  gpaVerified: z.preprocess((v) => (v == null ? true : v), bool()).default(true),
+  courseLoad: enumOr(["Regular", "Mixed (some Honors)", "Mostly Honors/AP", "Heavy AP/IB"], "Regular").default("Regular"),
+  apCount: count(),
+  honorsCount: count(),
+  regularCount: count(),
+  ibCount: count(),
+  dualCount: count(),
+  courseRigorNotes: strOrNull().optional(),
   // Needed for the age-based eligibility clock, which can start before
   // an athlete enrols anywhere. Transcripts usually print it.
-  dateOfBirth: z.string().nullable().optional(),
+  dateOfBirth: datedOrNull().optional(),
   // Many transcripts print the school's own numeric-to-letter table
   // (Westminster prints "86-83 = B", Cardinal Hayes weights H/R
   // courses). The NCAA converts numeric grades using the school's own
   // published scale, not a generic curve, so when the table is on the
   // page it is the authoritative thing to capture.
   gradingScale: z
-    .array(z.object({ letter: z.string().min(1), min: z.number(), max: z.number() }))
+    .array(z.object({ letter: str().pipe(z.string().min(1)), min: num(), max: num() }))
     .nullable()
     .optional(),
   // The per-course rows an NCAA core-course GPA is actually computed
@@ -60,112 +84,121 @@ export const transcriptSchema = z.object({
   // missing course list is the mistake that was already made once with
   // studentName.
   courses: z
-    .array(
-      z.object({
-        title: z.string().min(1),
-        subject: z.enum(["english", "math", "science", "social_science", "other_academic", "non_academic"]),
-        credit: z.number().min(0),
-        // A string because transcripts print letters, numbers, and
-        // markers like W, P and CR, and coercing early loses the
-        // difference between a C and a credit-only course.
-        grade: z.string(),
-        weighted: z.boolean().optional().default(false),
-        term: z.string().nullable().optional(),
-        // The school this course was taken at, when the transcript says
-        // so per row rather than only in the header.
-        //
-        // A transfer student's transcript legitimately covers two
-        // schools, and two schools convert numeric grades differently:
-        // one school's 85 is a B and another's is a C. The storage
-        // (athlete_courses.school_name) and the adapter have supported
-        // that since the core-GPA work, but the extractor could not
-        // express it, so every course from one document took that
-        // document's single header school and half a transfer student's
-        // transcript converted against the wrong table.
-        //
-        // Null, not absent, when the row does not say: the caller falls
-        // back to the document's header school, which is right for the
-        // ordinary single-school transcript.
-        school: z.string().nullable().optional(),
-      })
+    .preprocess(
+      (v) => (Array.isArray(v) ? v : []),
+      z.array(
+        z.object({
+          title: str().pipe(z.string().min(1)),
+          subject: enumOr(["english", "math", "science", "social_science", "other_academic", "non_academic"], "other_academic"),
+          // A missing credit is zero, which the engine treats as a row
+          // that carries no weight rather than as a failed transcript.
+          credit: z.preprocess((v) => (v == null || v === "" ? 0 : v), num().pipe(z.number().min(0))).default(0),
+          // A string because transcripts print letters, numbers, and
+          // markers like W, P and CR, and coercing early loses the
+          // difference between a C and a credit-only course.
+          grade: z.preprocess((v) => (v == null ? "" : typeof v === "number" ? String(v) : v), str()),
+          weighted: z.preprocess((v) => (v == null ? false : v), bool()).default(false),
+          term: strOrNull().optional(),
+          // The school this course was taken at, when the transcript says
+          // so per row rather than only in the header.
+          //
+          // A transfer student's transcript legitimately covers two
+          // schools, and two schools convert numeric grades differently:
+          // one school's 85 is a B and another's is a C. The storage
+          // (athlete_courses.school_name) and the adapter have supported
+          // that since the core-GPA work, but the extractor could not
+          // express it, so every course from one document took that
+          // document's single header school and half a transfer student's
+          // transcript converted against the wrong table.
+          //
+          // Null, not absent, when the row does not say: the caller falls
+          // back to the document's header school, which is right for the
+          // ordinary single-school transcript.
+          school: strOrNull().optional(),
+        })
+      )
     )
-    .optional()
     .default([]),
 });
 
+const sectionScore = () => nullable(num()).optional();
+
 export const testScoreItemSchema = z.object({
-  type: z.enum(["SAT", "ACT", "AP", "PSAT", "Subject", "Other"]),
-  testDate: z.string(),
-  totalScore: z.number().nullable(),
+  type: enumOr(["SAT", "ACT", "AP", "PSAT", "Subject", "Other"], "Other"),
+  testDate: datedOrNull().optional().default(null),
+  totalScore: nullable(num()).optional().default(null),
   breakdown: z
-    .object({
-      math: z.number().optional(),
-      ebrw: z.number().optional(),
-      english: z.number().optional(),
-      reading: z.number().optional(),
-      science: z.number().optional(),
-      writing: z.number().optional(),
-      subject: z.string().optional(),
-    })
+    .preprocess(
+      (v) => (v && typeof v === "object" ? v : undefined),
+      z.object({
+        math: sectionScore(),
+        ebrw: sectionScore(),
+        english: sectionScore(),
+        reading: sectionScore(),
+        science: sectionScore(),
+        writing: sectionScore(),
+        subject: strOrNull().optional(),
+      })
+    )
     .optional(),
-  percentile: z.number().nullable().optional(),
+  percentile: nullable(num()).optional(),
 });
 
 export const testScoresSchema = z.object({
   ...baseFields,
-  studentName: z.string().min(1),
-  tests: z.array(testScoreItemSchema).min(1),
+  studentName: strOrNull().optional().default(null),
+  tests: z.preprocess((v) => (Array.isArray(v) ? v : []), z.array(testScoreItemSchema).min(1)),
 });
 
 export const offerLetterSchema = z.object({
   ...baseFields,
-  studentName: z.string().min(1),
-  college: z.string().min(1),
-  sport: z.string().nullable().optional(),
-  offerType: z.enum(["verbal", "written", "scholarship", "walk_on", "preferred_walk_on", "admission_only", "other"]),
-  scholarshipPercent: z.number().min(0).max(100).nullable().optional(),
-  offerDate: z.string(),
-  decisionDeadline: z.string().nullable().optional(),
-  position: z.string().nullable().optional(),
-  coachName: z.string().nullable().optional(),
-  coachTitle: z.string().nullable().optional(),
-  isOfficial: z.boolean().default(false),
-  notes: z.string().optional(),
+  studentName: strOrNull().optional().default(null),
+  college: str().pipe(z.string().min(1)),
+  sport: strOrNull().optional(),
+  offerType: enumOr(["verbal", "written", "scholarship", "walk_on", "preferred_walk_on", "admission_only", "other"], "other"),
+  scholarshipPercent: nullable(num().pipe(z.number().min(0).max(100))).optional(),
+  offerDate: datedOrNull().optional().default(null),
+  decisionDeadline: datedOrNull().optional(),
+  position: strOrNull().optional(),
+  coachName: strOrNull().optional(),
+  coachTitle: strOrNull().optional(),
+  isOfficial: z.preprocess((v) => (v == null ? false : v), bool()).default(false),
+  notes: strOrNull().optional(),
 });
 
 export const recommendationSchema = z.object({
   ...baseFields,
-  studentName: z.string().min(1),
-  recommenderName: z.string().min(1),
-  recommenderTitle: z.enum(["Coach", "Teacher", "Counselor", "Mentor", "Other"]),
-  recommenderOrg: z.string().optional(),
-  recType: z.enum(["academic", "athletic", "character", "mixed"]),
-  letterDate: z.string(),
-  addressedTo: z.string().nullable().optional(),
-  tone: z.enum(["strong", "supportive", "lukewarm", "neutral"]),
-  themes: z.array(z.string()).default([]),
-  summary: z.string(),
-  wordCount: z.number().int().nullable().optional(),
+  studentName: strOrNull().optional().default(null),
+  recommenderName: str().pipe(z.string().min(1)),
+  recommenderTitle: enumOr(["Coach", "Teacher", "Counselor", "Mentor", "Other"], "Other"),
+  recommenderOrg: strOrNull().optional(),
+  recType: enumOr(["academic", "athletic", "character", "mixed"], "mixed"),
+  letterDate: datedOrNull().optional().default(null),
+  addressedTo: strOrNull().optional(),
+  tone: enumOr(["strong", "supportive", "lukewarm", "neutral"], "neutral"),
+  themes: z.preprocess((v) => (Array.isArray(v) ? v.filter((t) => typeof t === "string" && t.trim()) : []), z.array(z.string())).default([]),
+  summary: z.preprocess((v) => (v == null ? "" : v), str()),
+  wordCount: nullable(int()).optional(),
 });
 
 export const financialAidAwardSchema = z.object({
-  type: z.enum(["grant", "scholarship", "subsidized_loan", "unsubsidized_loan", "work_study", "parent_plus", "other"]),
-  name: z.string(),
-  amount: z.number(),
-  renewable: z.boolean().nullable().optional(),
+  type: enumOr(["grant", "scholarship", "subsidized_loan", "unsubsidized_loan", "work_study", "parent_plus", "other"], "other"),
+  name: z.preprocess((v) => (v == null ? "" : v), str()),
+  amount: z.preprocess((v) => (v == null || v === "" ? 0 : v), num()),
+  renewable: nullable(bool()).optional(),
 });
 
 export const financialAidSchema = z.object({
   ...baseFields,
-  studentName: z.string().nullable().optional(),
-  documentType: z.enum(["fafsa_sar", "css_profile", "award_letter", "efc_report", "other"]),
-  college: z.string().nullable().optional(),
-  academicYear: z.string(),
-  efc: z.number().nullable().optional(),
-  sai: z.number().nullable().optional(),
-  awards: z.array(financialAidAwardSchema).default([]),
-  totalCostOfAttendance: z.number().nullable().optional(),
-  netCost: z.number().nullable().optional(),
+  studentName: strOrNull().optional(),
+  documentType: enumOr(["fafsa_sar", "css_profile", "award_letter", "efc_report", "other"], "other"),
+  college: strOrNull().optional(),
+  academicYear: strOrNull().optional().default(null),
+  efc: nullable(num()).optional(),
+  sai: nullable(num()).optional(),
+  awards: z.preprocess((v) => (Array.isArray(v) ? v : []), z.array(financialAidAwardSchema)).default([]),
+  totalCostOfAttendance: nullable(num()).optional(),
+  netCost: nullable(num()).optional(),
 });
 
 // A metrics report: a showcase profile, an event results sheet or a
@@ -177,40 +210,34 @@ const sourceKeys = SOURCES.map((s) => s.key) as [string, ...string[]];
 
 export const metricsReportItemSchema = z.object({
   key: z.enum(metricKeys),
-  value: z.number().finite().min(0).max(10000),
-  note: z.string().nullable().optional(),
+  value: num().pipe(z.number().min(0).max(10000)),
+  note: strOrNull().optional(),
 });
 
 export const metricsReportSchema = z.object({
   ...baseFields,
-  studentName: z.string().nullable().optional(),
-  sport: z.string().nullable().optional(),
-  source: z.enum(sourceKeys),
-  eventName: z.string().nullable().optional(),
-  measuredOn: z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/, "YYYY-MM-DD or YYYY-MM"),
-  metrics: z.array(metricsReportItemSchema).min(1),
+  studentName: strOrNull().optional(),
+  sport: strOrNull().optional(),
+  source: enumOr(sourceKeys, "event"),
+  eventName: strOrNull().optional(),
+  // A day or a month, never a bare year: a metric is ranked by when it
+  // was measured and a year is not a measurement date.
+  measuredOn: dated().pipe(z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/, "YYYY-MM-DD or YYYY-MM")),
+  metrics: z.preprocess((v) => (Array.isArray(v) ? v : []), z.array(metricsReportItemSchema).min(1)),
 });
 
 export const triageResultSchema = z.object({
-  readable: z.boolean(),
-  legibilityScore: z.number().min(0).max(1),
-  detectedType: z.enum([
-    "transcript",
-    "test_scores",
-    "offer_letter",
-    "recommendation",
-    "financial_aid",
-    "metrics_report",
-    "highlight_video_screenshot",
-    "id_document",
-    "other",
-    "unreadable",
-  ]),
-  typeMatchesExpected: z.boolean(),
-  pagesDetected: z.number().int().min(0),
-  issues: z.array(z.string()).default([]),
-  recommendation: z.enum(["proceed", "retake", "wrong_category", "partial_only"]),
-  reason: z.string(),
+  readable: z.preprocess((v) => (v == null ? true : v), bool()),
+  legibilityScore: z.preprocess(toNumber, z.number().min(0).max(1)),
+  detectedType: enumOr(
+    ["transcript", "test_scores", "offer_letter", "recommendation", "financial_aid", "metrics_report", "highlight_video_screenshot", "id_document", "other", "unreadable"],
+    "other"
+  ),
+  typeMatchesExpected: z.preprocess((v) => (v == null ? true : v), bool()),
+  pagesDetected: z.preprocess((v) => (v == null || v === "" ? 0 : v), int().pipe(z.number().min(0))),
+  issues: z.preprocess((v) => (typeof v === "string" ? [v] : Array.isArray(v) ? v.filter((w) => typeof w === "string" && w.trim()) : []), z.array(z.string())).default([]),
+  recommendation: enumOr(["proceed", "retake", "wrong_category", "partial_only"], "proceed"),
+  reason: z.preprocess((v) => (v == null ? "" : v), str()),
 });
 
 export type TranscriptExtraction = z.infer<typeof transcriptSchema>;

@@ -332,6 +332,65 @@ nothing and says to add the school first; a FAFSA or EFC report is kept
 on file and changes nothing, since only an award letter carries a
 school's numbers.
 
+**Hardened against misreads (2026-09-21).** A deep audit of the
+pipeline found six ways a good document was lost or a wrong value
+written, and each is now a law with a test:
+
+- *Lenient shape, strict meaning.* Every schema field goes through
+  `src/lib/docai/lenient.ts`: a quoted number, a thousands separator, a
+  unit ("88 mph"), a slashed or spelled-out date, "N/A" for null, a
+  word for a boolean, "Class of 2027" for a year, "3.5/4.0" for a GPA,
+  and an enum written with different case or punctuation all read as
+  what they mean. A descriptive enum (course load, tone, offer type)
+  falls back to a safe default instead of failing the document. What is
+  still refused is a value with no meaning: a GPA that is not a number,
+  a date that is not a date, a metric key the engine does not have.
+- *Sanity after the schema.* `pipeline.ts` checks what a schema cannot:
+  a metric outside its reading range (`plausibility.ts`: a fastball at
+  8.8, a 60 at 68, a height of 6) is dropped and named; a test total
+  the agency cannot score is dropped; a date in the future, a decision
+  deadline before its offer, a net cost above the cost of attendance, a
+  date of birth that is not a student's, a transcript with neither a
+  GPA nor a course list, a triage verdict of partial_only, and the
+  model's own reported doubt each add a warning and hold the document
+  for a human. Every warning is stored on the document and shown on
+  its screen under What It Flagged, where they used to be stored and
+  never shown.
+- *The name on the page outranks the page the upload started from.* A
+  pinned upload (from an athlete's own screen) scores 1.0 in the
+  resolver by design. When the document names somebody who does not
+  look like the pinned athlete, it goes to review with a warning
+  instead of being written onto the wrong record.
+- *One triage.* The detect path used to run triage twice on the same
+  pages. `detectCategory` now runs it in detect mode (no expected type,
+  so no meaningless mismatch) and hands the verdict to the pipeline as
+  `priorTriage`. A triage CALL that fails (budget ledger, network, a
+  refusal) stops the reading with stage `model_call` instead of paying
+  for an extraction that fails the same way; a triage ANSWER that
+  cannot be read still proceeds, as before. Triage naming another
+  supported type is refused as a wrong category even when it says
+  proceed.
+- *Applied once, discarded once.* `applyDocument` claims the row
+  (status pending to applied, conditional on it still being pending)
+  before touching the athlete, so two taps or two reviewers apply it
+  once; `discardDocument` claims the same way. An apply that throws
+  partway keeps what it recorded and puts the throw on the document as
+  a warning. A reading that throws outside the pipeline leaves a failed
+  row with stage `crash`, never one stuck at processing. A refused
+  upload removes what the browser put in the bucket.
+- *Rescoring and totals.* A transcript that changes the GPA rescores
+  the athlete's matches, and the undo rescores again (the other types
+  did from the start). An SAT or ACT whose total did not read is scored
+  from its sections. The real caller sends `temperature: 0`, so the
+  same page reads the same way twice. The stub returns every category's
+  real shape (four of six failed their own schema before), so the
+  stand-in flow reaches every screen.
+
+`EXTRACTION_RULES` in `categories.ts` is appended to every extraction
+prompt: transcribe, never infer; null for what is not printed; numbers
+as numbers; dates ISO; every doubt in `warnings`; confidence calibrated
+to whether every value was read cleanly.
+
 **Where the file goes (2026-09-19).** The browser uploads each
 ingested file to a private Supabase Storage bucket, `documents`, at
 `<org id>/<request id>/<n>-<name>`, and the server action receives a

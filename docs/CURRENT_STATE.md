@@ -130,6 +130,18 @@ ledger reaches it, and the More screen shows the month against the cap.
 The action picks the real caller the moment `ANTHROPIC_API_KEY` is set
 on the server; nothing else changes. No key is set on Vercel yet.
 
+Hardened against misreads (2026-09-21, later the same day): every
+schema field reads what a model actually sends (quoted numbers, slashed
+dates, "N/A", hyphenated enums) while still refusing a value with no
+meaning; a plausibility pass drops a metric in the wrong unit, a test
+total the agency cannot score, a future date, and holds anything
+doubtful for a human; every warning is shown on the document under
+What It Flagged; a pinned upload naming somebody else goes to review;
+the detect path runs one triage; a failed model call stops the reading;
+apply and discard are claimed so they happen once; a crash leaves a
+failed row; the stub reaches every category's screen. See
+docs/ARCHITECTURE.md, "Hardened against misreads".
+
 Every type applies now (2026-09-21), not only the transcript: test
 scores onto the athlete (best SAT and ACT), an offer letter onto the
 board (the college as Offer, with type, percentage and coach), an award

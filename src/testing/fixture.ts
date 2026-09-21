@@ -352,7 +352,9 @@ export function buildFixture(): Dataset {
         route: "review",
         category: "transcript",
         provenance: "model",
-        extracted: { gpa: 3.4 },
+        // Two warnings, so the document screen's What It Flagged section
+        // is rendered and audited rather than an untested branch.
+        extracted: { gpa: 3.4, warnings: ["The GPA cell was smudged; 3.4 could be 3.1.", "No graduation year was read off this transcript."] },
         confidence: { score: 0.62, reasons: ["fixture"] },
         candidates: [],
         failure_reason: null,

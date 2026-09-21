@@ -180,6 +180,14 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   const legibility = doc.triage?.legibilityScore != null ? Math.round(doc.triage.legibilityScore * 100) : null;
   const modelPct = doc.provenance?.modelConfidence != null ? Math.round(doc.provenance.modelConfidence * 100) : null;
   const candidates = doc.candidates ?? [];
+  // Every doubt the reading raised: the model's own warnings, the
+  // pipeline's checks (a number that is not a plausible reading, a date
+  // in the future, a name that does not match the athlete it was pinned
+  // to) and triage's issues with the scan. These used to be stored and
+  // never shown, so a reviewer approving a document could not see what
+  // it was unsure of.
+  const modelWarnings = Array.isArray(doc.extracted?.warnings) ? (doc.extracted!.warnings as unknown[]).filter((w): w is string => typeof w === "string" && w.trim() !== "") : [];
+  const flagged = [...new Set([...modelWarnings, ...(doc.triage?.issues ?? [])])];
   const isApplied = doc.status === "applied";
   const isPending = doc.status === "pending";
   const isFailed = doc.status === "failed";
@@ -293,6 +301,14 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
                     </Body>
                   }
                 />
+              ))}
+            </Section>
+          )}
+
+          {flagged.length > 0 && (
+            <Section label="What It Flagged" count={flagged.length} role="offer" kind="warning">
+              {flagged.map((w) => (
+                <Note key={w}>{w}</Note>
               ))}
             </Section>
           )}

@@ -940,7 +940,9 @@ describe("LAW: every document type applies to the record and every apply can be 
     created_at: "2026-09-21",
   });
   const applied = () => writes.find((w) => w.table === "documents" && w.op === "update" && w.rows[0]?.status === "applied");
-  const changesOf = () => applied()!.rows[0]!.applied_changes as Record<string, unknown>;
+  // The status moves first (the claim) and what changed is recorded
+  // after the apply, in a second write.
+  const changesOf = () => writes.find((w) => w.table === "documents" && w.op === "update" && w.rows[0]?.applied_changes !== undefined)!.rows[0]!.applied_changes as Record<string, unknown>;
 
   it("test scores land on the athlete's detail as the best SAT and ACT, and come back off", async () => {
     data.documents!.push(pendingDoc("doc-scores", "test_scores", { studentName: "Fixture Athlete", tests: [{ type: "SAT", testDate: "2026-03-01", totalScore: 1180 }, { type: "SAT", testDate: "2026-06-01", totalScore: 1250 }, { type: "ACT", testDate: "2026-04-01", totalScore: 27 }] }));
@@ -1125,7 +1127,7 @@ describe("LAW: metrics are logged from the Add form and from a metrics report, a
     expect(logged.rows).toHaveLength(2);
     expect(logged.rows[0]).toMatchObject({ athlete_id: IDS.athlete, metric: "fbVelo", value: 88, measured_on: "2026-07-01", source: "perfect_game", source_detail: "PG Northeast", entered_by: OWNER_ID });
     expect(writes.find((w) => w.table === "athlete_school_fits")).toBeTruthy();
-    const applied = writes.find((w) => w.table === "documents" && w.op === "update" && w.rows[0]?.status === "applied")!;
+    const applied = writes.find((w) => w.table === "documents" && w.op === "update" && w.rows[0]?.applied_changes !== undefined)!;
     const changes = applied.rows[0]!.applied_changes as { metricIds: string[] };
     expect(changes.metricIds).toHaveLength(2);
 
@@ -1136,5 +1138,152 @@ describe("LAW: metrics are logged from the Add form and from a metrics report, a
     expect(u.undone!.join(" ")).toMatch(/Removed the 2 metric entries/);
     const del = writes.find((w) => w.table === "athlete_metrics" && w.op === "delete")!;
     expect(del.filters).toEqual(expect.arrayContaining([expect.objectContaining({ column: "id", value: changes.metricIds })]));
+  });
+});
+
+describe("LAW: a document is read once, applied once, and a reading that stops leaves a row that says so", () => {
+  const stored = (path: string, over: Record<string, unknown> = {}) => ({
+    originalName: "transcript.pdf",
+    originalSize: 1000,
+    originalMime: "application/pdf",
+    kind: "pdf" as const,
+    sourceRole: "coordinator" as const,
+    ingestedAt: "2026-09-21T12:00:00.000Z",
+    requestId: "req_once",
+    mediaType: "application/pdf",
+    blockType: "document" as const,
+    storagePath: path,
+    ...over,
+  });
+  const bridgePath = () => `${data.orgs[0]!.id as string}/req_fixture/1-transcript.pdf`;
+  const docUpdates = () => writes.filter((w) => w.table === "documents" && w.op === "update");
+
+  it("the detect path pays for one triage, and its verdict is the one the reading uses", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-only";
+    try {
+      const { processDocument } = await import("@/lib/actions/documents");
+      const r = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "coordinator", requestedCategory: null });
+      expect(r.ok).toBe(true);
+      const ledger = writes.filter((w) => w.table === "docai_usage" && w.op === "insert").map((w) => String(w.rows[0]!.request_id));
+      // The stand-in model's triage for this seed says retake. One
+      // triage charged, and the reading stopped on that answer instead
+      // of asking a second time.
+      expect(ledger).toEqual(["req_once_triage"]);
+      const failed = docUpdates().find((w) => w.rows[0]?.status === "failed");
+      expect(failed?.rows[0]).toMatchObject({ failure_stage: "triage_retake", detected_type: "transcript", category: "transcript" });
+    } finally {
+      delete process.env.ANTHROPIC_API_KEY;
+    }
+  });
+
+  it("a refused upload removes what the browser put in the bucket", async () => {
+    const orgId = data.orgs[0]!.id as string;
+    const path = `${orgId}/req_junk/1-notes.pdf`;
+    data.storage_objects!.push({ bucket: "documents", name: path, base64: Buffer.from("just some text, not a pdf").toString("base64") });
+    const { processDocument } = await import("@/lib/actions/documents");
+    const r = await processDocument(ORG_WITH_MODULES, { records: [stored(path)], sourceRole: "coordinator", requestedCategory: "transcript" });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/not a PDF or an image/);
+    expect(writes.filter((w) => w.table === "documents")).toEqual([]);
+    const removed = writes.find((w) => w.table === "storage:documents" && w.op === "delete");
+    expect(removed?.rows.map((x) => x.name)).toEqual([path]);
+  });
+
+  it("a reading that crashes leaves a failed row, never one stuck at processing", async () => {
+    // The roster table vanishing is the fake's way of throwing from
+    // inside the reading, after the row exists.
+    const { processDocument } = await import("@/lib/actions/documents");
+    const athletes = data.athletes;
+    delete (data as Record<string, unknown>).athletes;
+    let r;
+    try {
+      r = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "coordinator", requestedCategory: "transcript" });
+    } finally {
+      data.athletes = athletes;
+    }
+    expect(r.ok).toBe(true);
+    const failed = docUpdates().find((w) => w.rows[0]?.status === "failed");
+    expect(failed).toBeTruthy();
+    expect(failed!.rows[0]).toMatchObject({ failure_stage: "crash" });
+    expect(String(failed!.rows[0]!.failure_reason)).toMatch(/Nothing was changed on any athlete/);
+  });
+
+  const pending = (id: string, category: string, extracted: Record<string, unknown>) => ({
+    id, org_id: data.orgs[0]!.id, athlete_id: null, file_name: "x.pdf", file_size: 1, media_type: "application/pdf", source_role: "coordinator", status: "pending", route: "review", category, provenance: null,
+    extracted, candidates: [], failure_reason: null, applied_at: null, applied_changes: null, undo_note: null, created_at: "2026-09-21",
+  });
+
+  it("a second Apply on an applied document is refused and touches nothing", async () => {
+    data.documents!.push(pending("doc-once", "metrics", { studentName: "Fixture Athlete", source: "pbr", measuredOn: "2026-07-04", metrics: [{ key: "fbVelo", value: 84 }] }));
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const first = await applyDocument(ORG_WITH_MODULES, "doc-once", IDS.athlete);
+    expect(first.ok).toBe(true);
+    expect(writes.filter((w) => w.table === "athlete_metrics" && w.op === "insert")).toHaveLength(1);
+    writes.length = 0;
+    const second = await applyDocument(ORG_WITH_MODULES, "doc-once", IDS.athlete);
+    expect(second.ok).toBe(false);
+    expect(second.error).toMatch(/already been applied/);
+    expect(writes.filter((w) => w.table === "athlete_metrics")).toEqual([]);
+  });
+
+  it("the claim comes before the write: if the document cannot be claimed the athlete is not touched", async () => {
+    data.documents!.push(pending("doc-claim", "metrics", { studentName: "Fixture Athlete", source: "pbr", measuredOn: "2026-07-04", metrics: [{ key: "fbVelo", value: 84 }] }));
+    failOn = (table, op) => (table === "documents" && op === "update" ? "row locked" : null);
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-claim", IDS.athlete);
+    expect(r.ok).toBe(false);
+    expect(writes.filter((w) => w.table === "athlete_metrics")).toEqual([]);
+  });
+
+  it("a second discard finds the document already discarded", async () => {
+    data.documents!.push(pending("doc-twice", "metrics", { studentName: "Fixture Athlete", source: "pbr", measuredOn: "2026-07-04", metrics: [{ key: "fbVelo", value: 84 }] }));
+    const { discardDocument } = await import("@/lib/actions/documents");
+    expect((await discardDocument(ORG_WITH_MODULES, "doc-twice")).ok).toBe(true);
+    const again = await discardDocument(ORG_WITH_MODULES, "doc-twice");
+    expect(again.ok).toBe(false);
+    expect(again.error).toMatch(/already discarded/);
+  });
+
+  it("a metrics report dated in the future logs nothing and says why", async () => {
+    data.documents!.push(pending("doc-future", "metrics", { studentName: "Fixture Athlete", source: "pbr", measuredOn: "2099-01-01", metrics: [{ key: "fbVelo", value: 84 }] }));
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-future", IDS.athlete);
+    expect(r.ok).toBe(true);
+    expect(r.error).toMatch(/in the future/);
+    expect(writes.filter((w) => w.table === "athlete_metrics")).toEqual([]);
+  });
+
+  it("a metric that is not a plausible reading is left out at apply time too", async () => {
+    data.documents!.push(pending("doc-slip", "metrics", { studentName: "Fixture Athlete", source: "pbr", measuredOn: "2026-07-04", metrics: [{ key: "fbVelo", value: 8.4 }, { key: "sixty", value: 6.9 }] }));
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-slip", IDS.athlete);
+    expect(r.ok).toBe(true);
+    expect(r.error).toMatch(/fbVelo 8.4/);
+    const logged = writes.find((w) => w.table === "athlete_metrics" && w.op === "insert")!;
+    expect(logged.rows.map((x) => x.metric)).toEqual(["sixty"]);
+  });
+
+  it("an SAT whose total did not read is still scored from its sections", async () => {
+    data.documents!.push(pending("doc-sections", "test_scores", { studentName: "Fixture Athlete", tests: [{ type: "SAT", testDate: "2026-03-01", totalScore: null, breakdown: { math: 640, ebrw: 610 } }] }));
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-sections", IDS.athlete);
+    expect(r.ok).toBe(true);
+    const detail = writes.find((w) => w.table === "athletes" && w.op === "update")!.rows[0]!.detail as Record<string, unknown>;
+    expect(detail.satTotal).toBe(1250);
+  });
+
+  it("a transcript that changes the GPA rescores the athlete's matches, and the undo rescores again", async () => {
+    data.documents!.push(pending("doc-gpa", "transcript", { studentName: "Fixture Athlete", school: "Fixture High", gradYear: 2027, gpa: 3.9, gpaScale: "4.0", gpaVerified: true, courseLoad: "Regular", courses: [] }));
+    const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-gpa", IDS.athlete);
+    expect(r.ok).toBe(true);
+    expect(writes.find((w) => w.table === "athlete_school_fits")).toBeTruthy();
+    const changes = writes.find((w) => w.table === "documents" && w.op === "update" && w.rows[0]?.applied_changes !== undefined)!.rows[0]!.applied_changes as Record<string, unknown>;
+    (data.documents!.find((d) => d.id === "doc-gpa") as Record<string, unknown>).applied_changes = changes;
+    writes.length = 0;
+    const u = await discardDocument(ORG_WITH_MODULES, "doc-gpa");
+    expect(u.ok).toBe(true);
+    expect(u.undone!.join(" ")).toMatch(/Put back the athlete's previous GPA/);
+    expect(writes.find((w) => w.table === "athlete_school_fits")).toBeTruthy();
   });
 });

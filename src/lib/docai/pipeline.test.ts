@@ -175,7 +175,7 @@ describe("runExtractionPipeline", () => {
     expect(called).toBe(false);
   });
 
-  it("proceeds to extraction when triage itself throws, same as Bridge's original behavior", async () => {
+  it("proceeds to extraction when triage answers something unreadable, same as Bridge's original behavior", async () => {
     const result = await runExtractionPipeline({
       categoryId: "transcript",
       records: [fakeRecord()],
@@ -184,12 +184,34 @@ describe("runExtractionPipeline", () => {
       rosterContext: roster,
       priorVersions: [],
       callModel: async (opts) => {
-        if (opts.requestId.endsWith("_triage")) throw new Error("triage service unavailable");
+        if (opts.requestId.endsWith("_triage")) return "I cannot assess this.";
         return GOOD_TRANSCRIPT;
       },
     });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.triage).toBeNull();
+  });
+
+  it("stops after a triage CALL fails rather than paying for an extraction that will fail the same way", async () => {
+    const calls: string[] = [];
+    const result = await runExtractionPipeline({
+      categoryId: "transcript",
+      records: [fakeRecord()],
+      sourceRole: "admin",
+      roster,
+      rosterContext: roster,
+      priorVersions: [],
+      callModel: async (opts) => {
+        calls.push(opts.requestId);
+        throw new Error("budget ledger unavailable");
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.stage).toBe("model_call");
+      expect(result.error).toMatch(/budget ledger unavailable/);
+    }
+    expect(calls).toEqual(["r_test_1_triage"]);
   });
 });
 
@@ -236,19 +258,19 @@ describe("detectCategory", () => {
     }
   });
 
-  it("returns null when triage itself fails", async () => {
+  it("says so when the triage call itself fails", async () => {
     const result = await detectCategory({
       records: [fakeRecord()],
       callModel: async () => {
         throw new Error("model down");
       },
     });
-    expect(result).toEqual({ categoryId: null, triage: null });
+    expect(result).toEqual({ ok: false, error: "model down", categoryId: null, triage: null });
   });
 
   it("has nothing to detect from no files", async () => {
     const result = await detectCategory({ records: [], callModel: scriptedCaller({}) });
-    expect(result).toEqual({ categoryId: null, triage: null });
+    expect(result).toEqual({ ok: true, categoryId: null, triage: null });
   });
 });
 
@@ -290,4 +312,158 @@ describe("a metrics report", () => {
     const r = metricsReportSchema.safeParse({ source: "pbr", measuredOn: "2026-08", metrics: [{ key: "verticalJump", value: 30 }] });
     expect(r.success).toBe(false);
   });
+});
+
+describe("the guards against a misread", () => {
+  const rec = () => fakeRecord();
+  const base = { records: [rec()], sourceRole: "admin" as const, roster, rosterContext: roster, priorVersions: [] };
+  const triage = (over: Record<string, unknown>) =>
+    JSON.stringify({ readable: true, legibilityScore: 0.95, detectedType: "transcript", typeMatchesExpected: true, pagesDetected: 1, issues: [], recommendation: "proceed", reason: "ok", ...over });
+
+  it("a triage already in hand is used, not asked for again", async () => {
+    const calls: string[] = [];
+    const result = await runExtractionPipeline({
+      ...base,
+      categoryId: "transcript",
+      priorTriage: JSON.parse(triage({})) ,
+      callModel: async (opts) => {
+        calls.push(opts.requestId);
+        return GOOD_TRANSCRIPT;
+      },
+    });
+    expect(result.ok).toBe(true);
+    expect(calls).toEqual(["r_test_1_extract"]);
+  });
+
+  it("a partly readable document is never applied on its own", async () => {
+    const result = await runExtractionPipeline({
+      ...base,
+      categoryId: "transcript",
+      callModel: scriptedCaller({ _triage: triage({ recommendation: "partial_only", issues: ["Page 2 is cut off"] }), _extract: GOOD_TRANSCRIPT }),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.route).toBe("review");
+      expect(result.extracted.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/Only part of this document/)]));
+    }
+  });
+
+  it("triage naming another supported type is a wrong category even when it says proceed", async () => {
+    const result = await runExtractionPipeline({
+      ...base,
+      categoryId: "transcript",
+      callModel: scriptedCaller({ _triage: triage({ detectedType: "test_scores", typeMatchesExpected: false }), _extract: GOOD_TRANSCRIPT }),
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.stage).toBe("triage_wrong_category");
+  });
+
+  it("a page that names someone other than the athlete it was pinned to goes to review", async () => {
+    const two: ResolverAthlete[] = [...roster, { id: "2", name: "Marcus Lee", school: "Stamford High", gradYear: 2027 }];
+    const result = await runExtractionPipeline({
+      ...base,
+      roster: two,
+      rosterContext: two,
+      categoryId: "transcript",
+      override: "Marcus Lee",
+      callModel: scriptedCaller({ _triage: triage({}), _extract: GOOD_TRANSCRIPT }),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.candidates[0]?.athlete.id).toBe("2");
+      expect(result.route).toBe("review");
+      expect(result.extracted.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/names "Xavier Davis", which does not look like Marcus Lee/)]));
+    }
+  });
+
+  it("a pinned upload whose page agrees still applies on its own", async () => {
+    const result = await runExtractionPipeline({
+      ...base,
+      categoryId: "transcript",
+      override: "Xavier Davis",
+      callModel: scriptedCaller({ _triage: triage({}), _extract: GOOD_TRANSCRIPT }),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.route).toBe("auto_apply");
+  });
+
+  it("a transcript with neither a GPA nor a course list is held for a human", async () => {
+    const empty = JSON.stringify({ ...JSON.parse(GOOD_TRANSCRIPT), gpa: null, courses: [] });
+    const result = await runExtractionPipeline({ ...base, categoryId: "transcript", callModel: scriptedCaller({ _triage: triage({}), _extract: empty }) });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.route).toBe("review");
+      expect(result.extracted.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/nothing here to put on a record/)]));
+    }
+  });
+
+  it("a date of birth that is not a student's is dropped rather than written", async () => {
+    const odd = JSON.stringify({ ...JSON.parse(GOOD_TRANSCRIPT), dateOfBirth: "2024-03-15" });
+    const result = await runExtractionPipeline({ ...base, categoryId: "transcript", callModel: scriptedCaller({ _triage: triage({}), _extract: odd }) });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.extracted.dateOfBirth).toBeNull();
+      expect(result.route).toBe("review");
+    }
+  });
+
+  it("a metric that is not a plausible reading is left out and named", async () => {
+    const report = JSON.stringify({ studentName: "Xavier Davis", source: "pbr", measuredOn: "2026-08-15", metrics: [{ key: "fbVelo", value: 8.8 }, { key: "sixty", value: 6.9 }], confidence: 0.97, warnings: [] });
+    const result = await runExtractionPipeline({ ...base, categoryId: "metrics", callModel: scriptedCaller({ _triage: triage({ detectedType: "metrics_report" }), _extract: report }) });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect((result.extracted.metrics as { key: string }[]).map((m) => m.key)).toEqual(["sixty"]);
+      expect(result.extracted.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/fbVelo read as 8.8/)]));
+      expect(result.route).toBe("review");
+    }
+  });
+
+  it("a measurement dated in the future is a misread, not a reading", async () => {
+    const report = JSON.stringify({ studentName: "Xavier Davis", source: "pbr", measuredOn: "2099-08-15", metrics: [{ key: "fbVelo", value: 88 }], confidence: 0.97, warnings: [] });
+    const result = await runExtractionPipeline({ ...base, categoryId: "metrics", callModel: scriptedCaller({ _triage: triage({ detectedType: "metrics_report" }), _extract: report }) });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.route).toBe("review");
+      expect(result.extracted.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/in the future/)]));
+    }
+  });
+
+  it("an SAT total the agency cannot have scored is dropped", async () => {
+    const report = JSON.stringify({ studentName: "Xavier Davis", tests: [{ type: "SAT", testDate: "2026-04-11", totalScore: 12500 }], confidence: 0.97, warnings: [] });
+    const result = await runExtractionPipeline({ ...base, categoryId: "test_scores", callModel: scriptedCaller({ _triage: triage({ detectedType: "test_scores" }), _extract: report }) });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect((result.extracted.tests as { totalScore: number | null }[])[0]!.totalScore).toBeNull();
+      expect(result.route).toBe("review");
+    }
+  });
+
+  it("the model's own doubt is kept on the document, in its words", async () => {
+    const doubtful = JSON.stringify({ ...JSON.parse(GOOD_TRANSCRIPT), warnings: ["The GPA cell was smudged; 3.7 could be 3.1"], confidence: 0.5 });
+    const result = await runExtractionPipeline({ ...base, categoryId: "transcript", callModel: scriptedCaller({ _triage: triage({}), _extract: doubtful }) });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.route).toBe("review");
+      expect(result.extracted.warnings).toContain("The GPA cell was smudged; 3.7 could be 3.1");
+    }
+  });
+});
+
+describe("the stub drives every supported category through its own schema", () => {
+  for (const c of ["transcript", "test_scores", "offer_letter", "recommendation", "financial_aid", "metrics"] as const) {
+    it(`${c} reads to a result, not a schema failure`, async () => {
+      const { createStubCaller } = await import("./stubCaller");
+      const result = await runExtractionPipeline({
+        categoryId: c,
+        records: [fakeRecord()],
+        sourceRole: "coordinator",
+        roster: [{ id: "a1", name: "Sample Athlete" }],
+        rosterContext: [],
+        priorVersions: [],
+        callModel: createStubCaller({ category: c, seedText: "clean-scan.pdf:9000" }),
+      });
+      if (!result.ok) throw new Error(`${c}: ${result.stage} ${result.error}`);
+      expect(["auto_apply", "review"]).toContain(result.route);
+    });
+  }
 });

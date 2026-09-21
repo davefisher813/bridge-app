@@ -23,10 +23,11 @@ import {
   MAX_RECORDS_PER_UPLOAD,
 } from "@/lib/docai/acceptance";
 import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
+import { isRealDate } from "@/lib/docai/lenient";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
 import { applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, undoContact, undoMetrics, undoTarget, undoTestScores, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
-import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole, StoredRecord } from "@/lib/docai/types";
+import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole, StoredRecord, TriageResult } from "@/lib/docai/types";
 
 // The caller side of src/lib/docai. The pipeline deliberately returns a
 // result and never writes anything, because org_id, RLS and the athlete
@@ -159,8 +160,24 @@ function validateRecords(records: IngestedRecord[]): string | null {
 const STORAGE_PATH = /^[0-9a-f-]{36}\/[A-Za-z0-9_-]+\/[A-Za-z0-9._-]+$/;
 
 type StorageReader = {
-  storage: { from(bucket: string): { download(path: string): Promise<{ data: Blob | null; error: { message: string } | null }> } };
+  storage: {
+    from(bucket: string): {
+      download(path: string): Promise<{ data: Blob | null; error: { message: string } | null }>;
+      remove(paths: string[]): Promise<{ error: { message: string } | null }>;
+    };
+  };
 };
+
+// A refused upload leaves nothing behind in the bucket. Best effort: a
+// file that cannot be removed is not worth failing the refusal over.
+async function dropStored(supabase: StorageReader, paths: string[]): Promise<void> {
+  if (!paths.length) return;
+  try {
+    await supabase.storage.from("documents").remove(paths);
+  } catch {
+    // nothing to do: the refusal stands either way
+  }
+}
 
 async function readStoredRecords(
   supabase: StorageReader,
@@ -264,7 +281,13 @@ export async function processDocument(
   // call to this action skipped the size cap, the format sniffing and
   // the HEIC refusal entirely. See src/lib/docai/acceptance.ts.
   const rejection = validateRecords(records);
-  if (rejection) return { ok: false, error: rejection };
+  if (rejection) {
+    await dropStored(
+      supabase,
+      input.records.map((r) => r.storagePath)
+    );
+    return { ok: false, error: rejection };
+  }
 
   const first = records[0]!;
 
@@ -289,6 +312,39 @@ export async function processDocument(
   if (insertError || !created) return { ok: false, error: "Could not start processing." };
   const documentId = (created as { id: string }).id;
 
+  // Anything that throws from here leaves a row that says so, rather
+  // than one stuck at "processing" for good. The reading itself
+  // reports its own failures through the pipeline result; this is for
+  // the unexpected: a roster query that fails, a bug.
+  try {
+    return await readAndFile(slug, org.id, documentId, input, records);
+  } catch (e) {
+    await supabase
+      .from("documents")
+      .update({
+        status: "failed",
+        failure_stage: "crash",
+        failure_reason: `Reading stopped unexpectedly: ${(e as Error).message || "unknown error"}. Nothing was changed on any athlete.`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", documentId)
+      .eq("org_id", org.id);
+    revalidatePath(`/org/${slug}/documents`);
+    return { ok: true, documentId };
+  }
+}
+
+async function readAndFile(
+  slug: string,
+  orgId: string,
+  documentId: string,
+  input: { records: StoredRecord[]; sourceRole: SourceRole; requestedCategory: DocCategoryId | null; athleteId?: string },
+  records: IngestedRecord[]
+): Promise<ProcessResult> {
+  const supabase = await createClient();
+  const org = { id: orgId };
+  const first = records[0]!;
+
   const seedText = `${first.originalName}:${first.originalSize}`;
   const callModel = await modelCallerFor(org.id, documentId, {
     category: input.requestedCategory ?? "transcript",
@@ -298,9 +354,25 @@ export async function processDocument(
   // Detect first when no category was forced.
   let categoryId = input.requestedCategory;
   let detectedType: string | null = null;
+  let priorTriage: TriageResult | null | undefined;
   if (!categoryId) {
     const detected = await detectCategory({ records, callModel });
+    if (!detected.ok) {
+      await supabase
+        .from("documents")
+        .update({
+          status: "failed",
+          failure_stage: "model_call",
+          failure_reason: `The document could not be read: ${detected.error}`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId)
+        .eq("org_id", org.id);
+      revalidatePath(`/org/${slug}/documents`);
+      return { ok: true, documentId };
+    }
     detectedType = detected.triage?.detectedType ?? null;
+    priorTriage = detected.triage;
     if (!detected.categoryId) {
       await supabase
         .from("documents")
@@ -349,16 +421,22 @@ export async function processDocument(
   const pinnedAthlete = input.athleteId ? roster.find((a) => a.id === input.athleteId) ?? null : null;
 
   // Prior versions of this athlete's data are what let the pipeline say
-  // whether an upload is a first, a correction or a stale re-send. Without
-  // a matched athlete yet, the lookup is by category across the org.
-  const { data: priorRows } = await supabase
-    .from("documents")
-    .select("request_id, category, extracted, created_at")
-    .eq("org_id", org.id)
-    .eq("category", categoryId)
-    .eq("status", "applied")
-    .order("created_at", { ascending: false })
-    .limit(20);
+  // whether an upload is a first, a correction or a stale re-send. Only
+  // meaningful for an athlete already known: the first version of this
+  // compared the new document against the org's latest applied one of
+  // the same category, whoever's it was, and called a different
+  // athlete's transcript a "replacement".
+  const { data: priorRows } = pinnedAthlete
+    ? await supabase
+        .from("documents")
+        .select("request_id, category, extracted, created_at")
+        .eq("org_id", org.id)
+        .eq("category", categoryId)
+        .eq("status", "applied")
+        .eq("athlete_id", pinnedAthlete.id)
+        .order("created_at", { ascending: false })
+        .limit(20)
+    : { data: [] as unknown[] };
 
   const priorVersions = ((priorRows ?? []) as { request_id: string | null; category: string; extracted: Record<string, unknown> | null; created_at: string }[])
     .filter((r) => r.request_id && r.extracted)
@@ -378,6 +456,7 @@ export async function processDocument(
     rosterContext: context,
     priorVersions,
     callModel,
+    priorTriage,
     // The resolver's override is still passed, because the extraction
     // prompt uses it, but the routing decision below does not depend on
     // it: a pinned upload resolves by ID.
@@ -431,7 +510,7 @@ export async function processDocument(
     .eq("org_id", org.id);
 
   if (canAutoApply) {
-    const outcome = await applyExtractionToAthlete(org.id, topCandidate!.athlete.id, categoryId, result.extracted, documentId);
+    const outcome = await applyGuarded(org.id, topCandidate!.athlete.id, categoryId, result.extracted, documentId, null);
     // applied_changes is written whether or not there were warnings. An
     // apply that half succeeded is exactly the one somebody will want to
     // undo, so it must not be the one with nothing recorded.
@@ -449,6 +528,26 @@ export async function processDocument(
   revalidatePath(`/org/${slug}/documents`);
   revalidatePath(`/org/${slug}/roster`);
   return { ok: true, documentId };
+}
+
+// An apply that throws halfway is still an apply that changed things.
+// What it managed to record is kept so a discard can put it back, and
+// the throw becomes a warning on the document instead of a row left
+// saying "applied" with nothing recorded.
+async function applyGuarded(
+  orgId: string,
+  athleteId: string,
+  categoryId: DocCategoryId,
+  extracted: Record<string, unknown>,
+  documentId: string | null,
+  appliedBy: string | null
+): Promise<ApplyOutcome> {
+  const changes: AppliedChanges = { athleteId, athleteFields: {}, gradingScaleId: null, coursesSuperseded: 0 };
+  try {
+    return await applyExtractionToAthlete(orgId, athleteId, categoryId, extracted, documentId, appliedBy, changes);
+  } catch (e) {
+    return { warnings: [`Applying stopped partway: ${(e as Error).message || "unknown error"}. Discard this document to put back what it did change.`], changes };
+  }
 }
 
 // Writes the extracted fields onto the athlete. Only the fields this app
@@ -469,22 +568,18 @@ async function applyExtractionToAthlete(
   documentId: string | null,
   // Who pressed Apply, for the metric entries' entered_by. Null on an
   // auto-apply, where nobody did.
-  appliedBy: string | null = null
-): Promise<ApplyOutcome> {
-  const supabase = await createClient();
-  const patch: Record<string, unknown> = {};
-  const warnings: string[] = [];
+  appliedBy: string | null = null,
   // What this apply changed, so discarding it can put things back. Each
   // field records both the value before and the value written: the undo
   // restores a field only when its current value still matches what this
   // document put there, so a correction made by hand afterwards is never
-  // reverted to a number from before the document existed.
-  const changes: AppliedChanges = {
-    athleteId,
-    athleteFields: {},
-    gradingScaleId: null,
-    coursesSuperseded: 0,
-  };
+  // reverted to a number from before the document existed. Handed in by
+  // applyGuarded so a throw partway still leaves what was recorded.
+  changes: AppliedChanges = { athleteId, athleteFields: {}, gradingScaleId: null, coursesSuperseded: 0 }
+): Promise<ApplyOutcome> {
+  const supabase = await createClient();
+  const patch: Record<string, unknown> = {};
+  const warnings: string[] = [];
 
   // Read once up front rather than per field. The date-of-birth branch
   // used to run its own query for exactly this.
@@ -568,16 +663,16 @@ async function applyExtractionToAthlete(
     warnings.push(`Could not update the athlete's record: ${error.message}`);
     // Nothing was written, so nothing is recorded as needing an undo.
     changes.athleteFields = {};
+    return { warnings, changes };
+  }
+  // The GPA is an academic input, so the stored matches are stale the
+  // moment it changes. The other document types rescored on apply from
+  // the start; the transcript, built first, did not.
+  if ("gpa" in patch) {
+    const { error: fitError } = await recomputeFitsForAthlete(supabase, orgId, athleteId);
+    if (fitError) warnings.push(`Applied, but the matches could not be rescored: ${fitError}`);
   }
   return { warnings, changes };
-}
-
-// A regex says 2026-02-30 looks like a date. Postgres disagrees, and the
-// rejection used to discard the GPA in the same patch.
-function isRealDate(iso: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
-  const d = new Date(`${iso}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso;
 }
 
 interface ExtractedCourse {
@@ -807,18 +902,35 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
     .single();
   if (!athlete) return { ok: false, error: "That athlete isn't on this org's roster." };
 
-  const outcome = await applyExtractionToAthlete(org.id, athleteId, doc.category, doc.extracted, doc.id, user.id);
-  const applyWarnings = outcome.warnings;
-
-  const { error: statusError } = await supabase
+  // Claim the document before touching the athlete: the status moves to
+  // applied only if it is still pending at that moment, so two taps on
+  // Apply, or two people reviewing the same queue, apply it once. The
+  // second one is told so instead of logging every metric twice.
+  const { data: claimed, error: claimError } = await supabase
     .from("documents")
     .update({
       status: "applied",
       athlete_id: athleteId,
       applied_at: new Date().toISOString(),
       applied_by: user.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", documentId)
+    .eq("org_id", org.id)
+    .eq("status", "pending")
+    .select("id");
+  if (claimError) return { ok: false, error: `Could not apply the document: ${claimError.message}` };
+  if (!claimed || (claimed as unknown[]).length === 0) return { ok: false, error: "That document was just applied or discarded by someone else." };
+
+  const outcome = await applyGuarded(org.id, athleteId, doc.category, doc.extracted, doc.id, user.id);
+  const applyWarnings = outcome.warnings;
+
+  const { error: statusError } = await supabase
+    .from("documents")
+    .update({
       // What to put back if this is discarded later. See migrations/0011.
       applied_changes: outcome.changes,
+      ...(applyWarnings.length ? { failure_reason: applyWarnings.join(" ") } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", documentId)
@@ -826,7 +938,7 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
 
   revalidatePath(`/org/${slug}/documents`);
   revalidatePath(`/org/${slug}/roster`);
-  if (statusError) return { ok: false, error: `Applied, but the document status could not be updated: ${statusError.message}` };
+  if (statusError) return { ok: false, error: `Applied, but what it changed could not be recorded: ${statusError.message}` };
   // Partial failures surface instead of being reported as a clean
   // success. Every write in this path used to be unchecked, so a
   // rejected insert looked identical to a completed one.
@@ -867,13 +979,26 @@ export async function discardDocument(
   const doc = data as { id: string; status: string; applied_changes: AppliedChanges | null } | null;
   if (!doc) return { ok: false, error: "Document not found." };
   if (doc.status === "discarded") return { ok: false, error: "That document was already discarded." };
+  if (doc.status === "processing") return { ok: false, error: "That document is still being read." };
+
+  // Claimed first, from the status it was read at, so two discards of
+  // the same applied document undo it once: the second finds it already
+  // discarded and stops here.
+  const { data: claimed, error: claimError } = await supabase
+    .from("documents")
+    .update({ status: "discarded", updated_at: new Date().toISOString() })
+    .eq("id", documentId)
+    .eq("org_id", org.id)
+    .eq("status", doc.status)
+    .select("id");
+  if (claimError) return { ok: false, error: `Could not discard the document: ${claimError.message}` };
+  if (!claimed || (claimed as unknown[]).length === 0) return { ok: false, error: "That document was just changed by someone else. Reload and look again." };
 
   const undone = doc.status === "applied" ? await undoApply(org.id, doc.id, doc.applied_changes) : [];
 
   const { error } = await supabase
     .from("documents")
     .update({
-      status: "discarded",
       // The record is consumed. Leaving it would let a second discard,
       // or a later bug, try to restore values a second time.
       applied_changes: null,
@@ -884,7 +1009,7 @@ export async function discardDocument(
     })
     .eq("id", documentId)
     .eq("org_id", org.id);
-  if (error) return { ok: false, error: `Undid the changes, but the document status could not be updated: ${error.message}` };
+  if (error) return { ok: false, error: `Undid the changes, but what was undone could not be recorded: ${error.message}` };
 
   revalidatePath(`/org/${slug}/documents`);
   revalidatePath(`/org/${slug}/roster`);
@@ -952,6 +1077,10 @@ async function undoApply(orgId: string, documentId: string, changes: AppliedChan
       const { error } = await supabase.from("athletes").update(restore).eq("id", changes.athleteId).eq("org_id", orgId);
       if (error) done.push(`Could not restore the athlete's previous values: ${error.message}`);
       else done.push(`Put back the athlete's previous ${Object.keys(restore).map(readableColumn).join(" and ")}.`);
+      if (!error && "gpa" in restore) {
+        const { error: fitError } = await recomputeFitsForAthlete(supabase, orgId, changes.athleteId);
+        if (fitError) done.push(`The matches could not be rescored afterwards: ${fitError}`);
+      }
     }
     if (kept.length > 0) {
       // Somebody corrected it by hand after the apply. Their value is

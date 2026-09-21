@@ -291,7 +291,19 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
       if (this.writes.op === "delete") {
         for (let i = table.length - 1; i >= 0; i--) if (this.matches(table[i])) table.splice(i, 1);
       }
-      if (this.writes.op !== "delete") {
+      // An update changes the rows the filters match, in place, and
+      // answers with those rows: an action that claims a row with
+      // `.update().eq("status", "pending").select()` gets nothing back
+      // when the row has moved on, the way Postgres answers.
+      if (this.writes.op === "update") {
+        const values = rows[0] ?? {};
+        for (const row of table) {
+          if (!this.matches(row)) continue;
+          Object.assign(row, values);
+          inserted.push(row);
+        }
+      }
+      if (this.writes.op === "insert" || this.writes.op === "upsert") {
         for (const r of rows) {
           const row = { id: r.id ?? `fake-${this.table}-${table.length + inserted.length + 1}`, ...r };
           table.push(row);
@@ -418,6 +430,10 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
           async upload(path: string, _body: unknown, options?: { contentType?: string }) {
             recorded.push({ op: "insert", table: `storage:${bucket}`, rows: [{ name: path, contentType: options?.contentType ?? null }], filters: [] });
             return { data: { path }, error: null };
+          },
+          async remove(paths: string[]) {
+            recorded.push({ op: "delete", table: `storage:${bucket}`, rows: paths.map((name) => ({ name })), filters: [] });
+            return { data: paths.map((name) => ({ name })), error: null };
           },
         };
       },

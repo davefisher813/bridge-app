@@ -2349,3 +2349,42 @@ create action logs then rescores; `metricsReportSchema`, a prompt that
 lists the engine's own keys and units, a stub case, and
 `applyMetricsReport()` with the ids recorded for discard. A metric key
 the engine does not know is refused at extraction and dropped on apply.
+
+## 2026-09-21: Doc AI hardened against errors and misreads
+
+**Decision.** The document pipeline is strict about meaning and
+lenient about shape, checks what a schema cannot after validation,
+shows every doubt on the document, and makes every state change
+happen once. Specifically: a lenient value layer under every schema
+field; a plausibility pass (metric ranges, test ranges, dates) that
+drops the unusable and holds the doubtful; a What It Flagged section
+on the document screen; the name on the page outranking a pinned
+athlete; one triage on the detect path and a stop on a failed model
+call; claims on apply and discard; a crash guard around the reading;
+transcript applies rescoring matches; the stub returning every
+category's real shape.
+
+**Reason.** Dave: "deep deep dive into the logic and functionality of
+the doc ai. Make it bulletproof from errors and bugs and misreads."
+The audit found that four of six stub payloads failed their own
+schemas, a quoted number or a slashed date lost a whole transcript,
+the detect path paid for triage twice, a triage call failure was
+swallowed and followed by a paid extraction, warnings were stored and
+never shown, a pinned upload auto-applied another student's transcript
+onto the pinned athlete, two taps on Apply logged every metric twice,
+a throw mid-reading left a row at processing forever, and a
+transcript's GPA change never rescored the matches.
+
+**Alternatives.** Coercing every string to a number (rejected: a
+course grade of "85" must stay a string). Refusing the whole document
+on one implausible metric (rejected: the rest of the sheet is fine and
+the human sees what was dropped). Correcting a slipped decimal point
+automatically (rejected: the fix is a human reading the page, not the
+engine guessing which digit moved).
+
+**Consequences.** `src/lib/docai/lenient.ts`, `plausibility.ts`, a
+walked-brace `parseModelJson`, `EXTRACTION_RULES` on every prompt,
+`temperature: 0` on the real caller, and the fake Supabase client now
+updates rows in place so a conditional claim can be tested. 52 new
+tests across the lenient layer, the pipeline guards, the stub and the
+document actions.

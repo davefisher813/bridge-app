@@ -16,6 +16,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseAthleteDetail } from "@/lib/fit/schema";
 import { METRICS } from "@/lib/fit/contract";
+import { metricPlausible } from "@/lib/docai/plausibility";
+import { daysAhead, isRealDate } from "@/lib/docai/lenient";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = SupabaseClient<any, any, any>;
@@ -69,9 +71,27 @@ export async function matchSchool(client: Client, name: string): Promise<{ id: s
 // ── Test scores ──────────────────────────────────────────────────────
 export async function applyTestScores(client: Client, orgId: string, athleteId: string, extracted: Record<string, unknown>): Promise<ApplyPart> {
   const warnings: string[] = [];
-  const tests = Array.isArray(extracted.tests) ? (extracted.tests as { type?: string; totalScore?: number | null }[]) : [];
+  const tests = Array.isArray(extracted.tests) ? (extracted.tests as { type?: string; totalScore?: number | null; breakdown?: Record<string, unknown> }[]) : [];
+  // A report that prints the sections but not the total, or where the
+  // total was the value that did not read, still carries the total: an
+  // SAT is math plus reading and writing, an ACT composite is the
+  // rounded mean of its four sections.
+  const totalOf = (t: { type?: string; totalScore?: number | null; breakdown?: Record<string, unknown> }): number | null => {
+    if (typeof t.totalScore === "number") return t.totalScore;
+    const b = t.breakdown ?? {};
+    const n = (k: string) => (typeof b[k] === "number" ? (b[k] as number) : null);
+    if (t.type === "SAT" && n("math") !== null && n("ebrw") !== null) return n("math")! + n("ebrw")!;
+    if (t.type === "ACT") {
+      const parts = ["english", "math", "reading", "science"].map(n);
+      if (parts.every((p) => p !== null)) return Math.round(parts.reduce((a, p) => a + (p as number), 0) / 4);
+    }
+    return null;
+  };
   const best = (type: string, min: number, max: number): number | undefined => {
-    const scores = tests.filter((t) => t.type === type && typeof t.totalScore === "number" && t.totalScore! >= min && t.totalScore! <= max).map((t) => t.totalScore as number);
+    const scores = tests
+      .filter((t) => t.type === type)
+      .map(totalOf)
+      .filter((v): v is number => v !== null && v >= min && v <= max);
     return scores.length ? Math.max(...scores) : undefined;
   };
   const satTotal = best("SAT", 400, 1600);
@@ -186,7 +206,9 @@ export async function applyOfferLetter(client: Client, orgId: string, athleteId:
   }
   const offerType = OFFER_TYPE[String(extracted.offerType ?? "")] ?? null;
   if (!offerType) warnings.push("The letter's offer type could not be mapped, so the target keeps its offer type.");
-  const percent = offerType === "scholarship" && typeof extracted.scholarshipPercent === "number" ? Math.round(extracted.scholarshipPercent) : null;
+  // A printed percentage is kept whatever the letter called the offer:
+  // a "written" offer at 50% is a scholarship offer by another name.
+  const percent = typeof extracted.scholarshipPercent === "number" && extracted.scholarshipPercent > 0 ? Math.round(extracted.scholarshipPercent) : null;
   const coach = typeof extracted.coachName === "string" && extracted.coachName.trim() ? extracted.coachName.trim() : null;
 
   const existing = await findTarget(client, orgId, athleteId, school.id);
@@ -202,7 +224,7 @@ export async function applyOfferLetter(client: Client, orgId: string, athleteId:
 
   const after: Record<string, unknown> = {};
   if (offerType) after.offer_type = offerType;
-  if (offerType) after.offer_scholarship_percent = percent;
+  if (percent !== null || offerType === "scholarship") after.offer_scholarship_percent = percent;
   if (coach && !existing.coach_name) after.coach_name = coach;
   if (BEFORE_OFFER.has(existing.status)) after.status = "Offer";
   if (Object.keys(after).length === 0) {
@@ -321,17 +343,30 @@ export async function applyMetricsReport(client: Client, orgId: string, athleteI
   // extraction time; a row applied later is checked again here, since
   // what is stored on the document is not re-validated on apply.
   const known = new Set(METRICS.map((m) => m.key));
+  const implausible: string[] = [];
   const rows = items
     .filter((m) => typeof m.key === "string" && known.has(m.key) && typeof m.value === "number" && Number.isFinite(m.value) && m.value >= 0)
+    .filter((m) => {
+      // The pipeline drops these before the document is stored; a row
+      // applied from an older document is checked again here.
+      if (metricPlausible(m.key as string, m.value as number)) return true;
+      implausible.push(`${m.key} ${m.value}`);
+      return false;
+    })
     .map((m) => ({ metric: m.key as string, value: m.value as number }));
+  if (implausible.length) warnings.push(`Left out ${implausible.join(", ")}: not a plausible reading.`);
   if (rows.length === 0) {
     warnings.push("No metric the engine knows was read off this, so nothing was logged. Anything it did read stays on the document.");
     return { warnings };
   }
   const raw = typeof extracted.measuredOn === "string" ? extracted.measuredOn : "";
   const measuredOn = /^\d{4}-\d{2}$/.test(raw) ? `${raw}-01` : raw;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(measuredOn)) {
+  if (!isRealDate(measuredOn)) {
     warnings.push("The report carries no usable date, so nothing was logged: a metric without a date cannot be ranked.");
+    return { warnings };
+  }
+  if (daysAhead(measuredOn) > 1) {
+    warnings.push(`The report is dated ${measuredOn}, which is in the future, so nothing was logged. Fix the date on the report and read it again.`);
     return { warnings };
   }
   const source = typeof extracted.source === "string" ? extracted.source : "event";

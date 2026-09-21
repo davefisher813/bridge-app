@@ -200,33 +200,57 @@ function stubExtraction(seed: number, category: DocCategoryId): string {
       return JSON.stringify({
         ...base,
         studentName: "Sample Athlete",
-        satTotal: 1000 + Math.round(seed * 400),
-        actComposite: 20 + Math.round(seed * 10),
-        testDate: "2026-04-11",
+        tests: [
+          { type: "SAT", testDate: "2026-04-11", totalScore: 1000 + Math.round(seed * 400), breakdown: { math: 500 + Math.round(seed * 200), ebrw: 500 + Math.round(seed * 200) }, percentile: null },
+          { type: "ACT", testDate: "2026-06-13", totalScore: 20 + Math.round(seed * 10), percentile: null },
+        ],
       });
     case "offer_letter":
       return JSON.stringify({
         ...base,
         studentName: "Sample Athlete",
-        school: "Sample State University",
+        college: "Sample State University",
+        sport: "Baseball",
         offerType: "scholarship",
         scholarshipPercent: 25 + Math.round(seed * 50),
+        offerDate: "2026-08-01",
+        decisionDeadline: "2026-11-01",
+        position: "RHP",
+        coachName: "Sample Coach",
+        coachTitle: "Head Coach",
+        isOfficial: true,
+        notes: "Simulated offer letter.",
       });
     case "recommendation":
       return JSON.stringify({
         ...base,
         studentName: "Sample Athlete",
         recommenderName: "Sample Coach",
-        recommenderRole: "Head Coach",
+        recommenderTitle: "Coach",
+        recommenderOrg: "Sample High School",
+        recType: "athletic",
+        letterDate: "2026-05-20",
+        addressedTo: null,
+        tone: "strong",
+        themes: ["work ethic", "leadership"],
         summary: "Simulated recommendation text.",
+        wordCount: 320,
       });
     case "financial_aid":
       return JSON.stringify({
         ...base,
         studentName: "Sample Athlete",
-        school: "Sample State University",
+        documentType: "award_letter",
+        college: "Sample State University",
+        academicYear: "2027-2028",
+        efc: null,
+        sai: null,
+        awards: [
+          { type: "scholarship", name: "Athletic Scholarship", amount: 12000 + Math.round(seed * 8000), renewable: true },
+          { type: "grant", name: "University Grant", amount: 4000, renewable: true },
+        ],
         totalCostOfAttendance: 42000,
-        grantAid: 12000 + Math.round(seed * 8000),
+        netCost: null,
       });
     case "metrics":
       // A showcase sheet. The numbers slide with the seed so a "better"
