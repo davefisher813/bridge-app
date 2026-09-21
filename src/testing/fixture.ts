@@ -329,7 +329,9 @@ export function buildFixture(): Dataset {
       { id: IDS.board, org_id: BRIDGE, name: "Fixture Executive Board", kind: "executive", sport: null, give_get_amount: 10000, min_seats: 1, max_seats: 15, description: null, sort_order: 0 },
     ],
     board_members: [
-      { id: IDS.boardMember, org_id: BRIDGE, board_id: IDS.board, name: "Fixture Chair", donor_id: IDS.donor, user_id: null, role_title: "Chair", status: "active", term_start: "2026-01-01", term_end: "2028-12-31", commitment_amount: 10000, email: null, phone: null, notes: null },
+      // The chair's seat is the fixture member's sign-in, so the member
+      // screens (Bridge: Board) have a seat to show.
+      { id: IDS.boardMember, org_id: BRIDGE, board_id: IDS.board, name: "Fixture Chair", donor_id: IDS.donor, user_id: MEMBER, role_title: "Chair", status: "active", term_start: "2026-01-01", term_end: "2028-12-31", commitment_amount: 10000, email: null, phone: null, notes: null },
       // A seat with no donor record, which is the branch that cannot find
       // its own giving and has to say so rather than report zero.
       { id: "bm2", org_id: BRIDGE, board_id: IDS.board, name: "Fixture Prospect", donor_id: null, user_id: null, role_title: null, status: "prospect", term_start: null, term_end: null, commitment_amount: 0, email: null, phone: null, notes: null },

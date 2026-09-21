@@ -108,7 +108,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();

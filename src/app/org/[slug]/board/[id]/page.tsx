@@ -54,7 +54,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
@@ -100,7 +100,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
   return (
     <Screen
       title={school.name}
-      back={{ href: `/org/${slug}/board`, label: "Board" }}
+      back={{ href: `/org/${slug}/board`, label: "Targets" }}
       lede={`${school.division} · ${athlete.name}`}
       action={
         <div className="text-right">

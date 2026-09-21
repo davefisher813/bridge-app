@@ -226,6 +226,26 @@ Not built, by Dave's picks: Invite Family on the athlete's page (he
 picked the athlete page as the place to invite from; the invite lives
 under Members until that button exists, see next steps).
 
+### The member role's own version, 2026-09-21
+
+Bridge calls the third role Board. Until today a Board login saw every
+screen a coordinator sees, read only. From the Board Access catalog
+(Dave's ten picks): the program first, then their seat; four tabs
+(Home, Program, Giving, More; no Giving without the fundraising
+module); athletes as names and stages, never grades or numbers; each
+athlete's schools and stages, never calls or notes; fundraising as the
+year against budget and the campaigns, never donor names; their own
+seat with the whole give/get account and every gift credited to it;
+the board's total without names; nothing editable; More lists who to
+ask. Migration 0031 enforces it from the database side: a member reads
+no org rows and gets three summary functions instead (129 PASS lines
+in the RLS suite). The screens live under `/org/[slug]/member`; Today
+sends a member there; every org screen refuses the role; the render
+law proves a member opens member screens and nothing else, that staff
+cannot open them, and that no GPA, score, metric, call note or donor
+name appears on them. The recruiting board is now called Targets in
+the tab bar and on its screen (Dave: "most won't get what that means").
+
 ---
 
 ## How it is verified

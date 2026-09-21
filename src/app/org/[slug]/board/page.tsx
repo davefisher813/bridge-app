@@ -59,7 +59,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
@@ -130,7 +130,7 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
   if (unknownStatusRows.length > 0) grouped.push({ status: "Other", rows: unknownStatusRows });
 
   return (
-    <Screen title="Board" action={canEdit ? <AddButton href={`/org/${slug}/board/new`} label="Add" /> : undefined}>
+    <Screen title="Targets" action={canEdit ? <AddButton href={`/org/${slug}/board/new`} label="Add" /> : undefined}>
       {rows.length === 0 ? (
         <>
           <EmptyState kind="target" title="No Recruiting Targets Yet" action={canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>}>

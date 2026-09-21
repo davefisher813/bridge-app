@@ -19,7 +19,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
   const preset = (org.scoringPreset ?? DEFAULT_PRESET) as ScoringPreset;
   const presetLabel = PRESETS[preset]?.label ?? PRESETS[DEFAULT_PRESET].label;

@@ -171,7 +171,25 @@ family` + `requireRole()` pattern. The *label* a person sees (Bridge:
 org-level config in `orgs.role_labels`, never a second permission
 system - see `src/lib/auth/guard.ts`.
 
-The first three read the whole org and differ only in what they write.
+`owner` and `staff` read the whole org and differ only in what they
+write. `member` (Bridge calls it Board) reads no org rows at all since
+migration 0031: three SECURITY DEFINER functions hand back what a
+board member is allowed to know, `member_program(org)` (each athlete
+as a name and a stage), `member_program_schools(org, athlete)` (one
+athlete's schools and stages) and `member_giving(org)` (the giving
+rows with every name stripped except on gifts credited to the caller's
+own seat). `private._member_org_ids()` is owner and staff only since
+0031, so every read policy written against it narrowed at once;
+`private._observer_org_ids()` names the orgs where the caller is a
+member, and the users and org_members policies admit the owner and
+staff of those orgs so a member's More screen can list who to ask.
+The member screens live under `/org/[slug]/member` (home, program, one
+athlete, giving, more) with their own tab bar, read through
+`src/lib/data/member.ts`, and the give/get arithmetic runs through the
+same `giveGet.ts` staff use, so a member's number is the staff's
+number. The fake client mirrors the three functions in
+`src/testing/fakeRpc.ts`; the SQL is asserted on its own seed in
+`scripts/rls_test.sql`, the mirror on the fixture by the render laws.
 `family` (migrations 0022 and 0023) reads one athlete: the rows in
 `athlete_guardians` for their user id say which. The RLS helpers in the
 `private` schema carry the split: `_member_org_ids()` returns the orgs

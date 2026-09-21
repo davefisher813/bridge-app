@@ -32,6 +32,13 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // The family screens, as the family login. Two athletes are linked, so
   // home is the picker and Colleges groups by athlete.
   { name: "family", path: "@/app/org/[slug]/family/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Your Athletes[\s\S]*Fixture Athlete[\s\S]*Fixture Unknown/, as: FAMILY_ID },
+  // The member screens (Bridge: Board), as the member login. The
+  // fixture chair's seat is this login's, so Your Seat renders.
+  { name: "member-home", path: "@/app/org/[slug]/member/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Athletes[\s\S]*Your Seat[\s\S]*Commitment/, as: MEMBER_ID },
+  { name: "member-program", path: "@/app/org/[slug]/member/program/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Athlete[\s\S]*Offer/, as: MEMBER_ID },
+  { name: "member-athlete", path: "@/app/org/[slug]/member/program/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Fixture State University/, as: MEMBER_ID },
+  { name: "member-giving", path: "@/app/org/[slug]/member/giving/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Campaign[\s\S]*Your Seat[\s\S]*Credited to You[\s\S]*The Board/, as: MEMBER_ID },
+  { name: "member-more", path: "@/app/org/[slug]/member/more/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Who to Ask[\s\S]*Example Owner[\s\S]*Sign Out/, as: MEMBER_ID },
   { name: "family-athlete", path: "@/app/org/[slug]/family/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Matches[\s\S]*Documents/, as: FAMILY_ID },
   { name: "family-eligibility", path: "@/app/org/[slug]/family/[id]/eligibility/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /core/i, as: FAMILY_ID },
   { name: "family-approvals", path: "@/app/org/[slug]/family/[id]/eligibility/approvals/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /approv/i, as: FAMILY_ID },

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 
-// Today / Athletes / Board / More. Fixed to the screen above the iPhone's
+// Today / Athletes / Targets / More. Fixed to the screen above the iPhone's
 // home indicator (Dave's pick, 2026-09-19): the old bar scrolled with
 // the page and rode Safari's own bar up and down as it collapsed. Every Screen pads
 // its bottom by the bar's height plus the safe area, so nothing hides
@@ -13,12 +13,17 @@ import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 // A family login gets three tabs instead (Dave's pick in the Family
 // Access catalog, 2026-09-21): their athlete is home, Colleges is their
 // list, More has who to ask and the way out. Same bar, different tabs.
-export type TabBarVariant = "org" | "family";
+// A member (Bridge: Board) gets Home, Program, Giving, More (Dave's pick
+// in the Board Access catalog, 2026-09-21); an org without the
+// fundraising module drops Giving.
+export type TabBarVariant = "org" | "family" | "member" | "member-lite";
 
 const ORG_TABS: { href: string; label: string; kind: RowKind }[] = [
   { href: "", label: "Today", kind: "org" },
   { href: "roster", label: "Athletes", kind: "athlete" },
-  { href: "board", label: "Board", kind: "school" },
+  // Targets, not Board: "most won't get what that means" (Dave,
+  // 2026-09-21). The route stays /board.
+  { href: "board", label: "Targets", kind: "school" },
   { href: "more", label: "More", kind: "settings" },
 ];
 
@@ -28,10 +33,17 @@ const FAMILY_TABS: { href: string; label: string; kind: RowKind }[] = [
   { href: "family/more", label: "More", kind: "settings" },
 ];
 
+const MEMBER_TABS: { href: string; label: string; kind: RowKind }[] = [
+  { href: "member", label: "Home", kind: "org" },
+  { href: "member/program", label: "Program", kind: "athlete" },
+  { href: "member/giving", label: "Giving", kind: "money" },
+  { href: "member/more", label: "More", kind: "settings" },
+];
+
 export function TabBar({ slug, variant = "org" }: { slug: string; variant?: TabBarVariant }) {
   const pathname = usePathname();
   const base = `/org/${slug}`;
-  const tabs = variant === "family" ? FAMILY_TABS : ORG_TABS;
+  const tabs = variant === "family" ? FAMILY_TABS : variant === "member" ? MEMBER_TABS : variant === "member-lite" ? MEMBER_TABS.filter((t) => t.href !== "member/giving") : ORG_TABS;
 
   // The active tab is the one whose path is the longest prefix of where
   // we are, so /family/colleges lights Colleges and not Athlete.

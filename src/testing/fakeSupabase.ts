@@ -1,3 +1,5 @@
+import { fakeRpc } from "./fakeRpc";
+
 // An in-memory stand-in for the Supabase client, good enough to render a
 // page and nothing more.
 //
@@ -375,6 +377,11 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
   return {
     from(table: string) {
       return new FakeQuery(data, table, unsupported, recorded, failOn);
+    },
+    // The summary functions of migration 0031, mirrored in fakeRpc.ts.
+    // Awaitable like a query, so a page writes `await supabase.rpc(...)`.
+    async rpc(name: string, args: Record<string, unknown> = {}) {
+      return fakeRpc(data, opts.userId, name, args);
     },
     auth: {
       async getUser() {

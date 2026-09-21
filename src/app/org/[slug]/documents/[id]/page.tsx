@@ -109,8 +109,8 @@ const APPLY_COPY: Record<string, { applied: string; undo: string }> = {
     undo: "The courses it added come off and the previous GPA and date of birth go back.",
   },
   test_scores: { applied: "Discarding this puts back the athlete's previous SAT and ACT. Anything corrected by hand since is left alone.", undo: "The previous SAT and ACT go back." },
-  offer_letter: { applied: "Discarding this puts the college back the way it was on the board, or takes it off if this letter added it.", undo: "The college goes back the way it was on the board." },
-  financial_aid: { applied: "Discarding this takes the award off the college on the board and rescores the match.", undo: "The award comes off the college and the match is rescored." },
+  offer_letter: { applied: "Discarding this puts the college back the way it was as a target, or takes it off if this letter added it.", undo: "The college goes back the way it was as a target." },
+  financial_aid: { applied: "Discarding this takes the award off the target college and rescores the match.", undo: "The award comes off the college and the match is rescored." },
   recommendation: { applied: "Discarding this removes the contact it added.", undo: "The contact it added comes off." },
   metrics: { applied: "Discarding this removes the metric entries it logged and rescores the matches.", undo: "The metric entries it logged come off the log." },
 };

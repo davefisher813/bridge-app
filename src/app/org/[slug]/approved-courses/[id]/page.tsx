@@ -42,7 +42,7 @@ export default async function ApprovedListPage({
   const { origin } = await searchParams;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const fromPortal = origin === "portal";

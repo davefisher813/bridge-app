@@ -42,7 +42,7 @@ export default async function BoardPage({
   if (!org) notFound();
   if (!org.modules.board_governance) notFound();
 
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const fiscalYear = Number(year) || new Date().getFullYear();

@@ -57,7 +57,7 @@ export default async function CommunicationsPage({ params }: { params: Promise<{
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const bundle = await loadTarget(org.id, id);

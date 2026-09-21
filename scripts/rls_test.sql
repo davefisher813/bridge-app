@@ -129,9 +129,11 @@ insert into benchmark_sets (org_id, sport, tiers, positions) values
 insert into boards (id, org_id, name, kind, give_get_amount, min_seats, max_seats) values
   ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000010', 'Executive Board', 'executive', 10000.00, 1, 15),
   ('00000000-0000-0000-0000-000000000420', '00000000-0000-0000-0000-000000000020', 'Elite Board', 'general', 1000.00, 1, 10);
-insert into board_members (id, org_id, board_id, name, donor_id, status, commitment_amount) values
-  ('00000000-0000-0000-0000-000000000430', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000410', 'Example Board Member', '00000000-0000-0000-0000-000000000310', 'active', 10000.00),
-  ('00000000-0000-0000-0000-000000000440', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000420', 'Elite Board Member', '00000000-0000-0000-0000-000000000320', 'active', 1000.00);
+-- The Bridge seat is user3's: the member login, so member_giving()
+-- (migration 0031) has a seat to find.
+insert into board_members (id, org_id, board_id, name, donor_id, user_id, status, commitment_amount) values
+  ('00000000-0000-0000-0000-000000000430', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000410', 'Example Board Member', '00000000-0000-0000-0000-000000000310', '00000000-0000-0000-0000-000000000003', 'active', 10000.00),
+  ('00000000-0000-0000-0000-000000000440', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000420', 'Elite Board Member', '00000000-0000-0000-0000-000000000320', null, 'active', 1000.00);
 
 -- Matching and metrics (migration 0021). Each org gets a metric log
 -- entry on its own athlete, a private note on the SAME shared school,
@@ -725,14 +727,12 @@ begin
   raise notice 'PASS: an owner can log a metric, edit a school note and restore a stored match in their own org';
 end $$;
 
--- ── The member pass. user3 belongs to Bridge with role `member`, which
--- in this app means read-only: every write path in the application goes
--- through requireRole(..., STAFF_ROLES). Before migration 0010 the
--- database did not know that, and since the anon key ships to the
--- browser, a member could write to any org-scoped table in their own org
--- straight through PostgREST with their own token.
---
--- Reads should behave exactly like an owner's. Writes should all fail. ──
+-- ── The member pass. user3 belongs to Bridge with role `member` (Bridge
+-- calls it Board). Until migration 0031 a member read every org table
+-- exactly like an owner and could only be stopped from writing. Since
+-- 0031 a member reads no org rows at all: what they get is the three
+-- summary functions, and this pass proves both halves. Writes still
+-- all fail. ──
 select set_test_user('00000000-0000-0000-0000-000000000003');
 
 do $$
@@ -741,20 +741,83 @@ begin
   -- user3 belongs to both orgs, as a member of Bridge and staff of Elite
   -- Squad, so the totals are checked per org rather than overall.
   select count(*) into n from athletes where org_id = '00000000-0000-0000-0000-000000000010';
-  if n <> 2 then raise exception 'FAIL: a member saw % Bridge athletes, expected 2 (same as an owner)', n; end if;
-  raise notice 'PASS: a member reads their org exactly like an owner does';
+  if n <> 0 then raise exception 'FAIL: a member saw % Bridge athlete rows, expected 0 (migration 0031: summaries only)', n; end if;
+  select count(*) into n from athletes where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 1 then raise exception 'FAIL: as Elite staff, user3 saw % Elite athletes, expected 1', n; end if;
+  raise notice 'PASS: a member reads no athlete rows in the org where they are a member, and still reads them where they are staff';
 end $$;
 
--- Donor records specifically: a member reads them and cannot change one.
+do $$
+declare n int;
+begin
+  select count(*) into n from recruiting_targets where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: a member saw % Bridge targets', n; end if;
+  select count(*) into n from target_communications where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: a member saw % Bridge call notes', n; end if;
+  select count(*) into n from documents where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: a member saw % Bridge documents', n; end if;
+  select count(*) into n from gifts where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: a member saw % Bridge gift rows', n; end if;
+  raise notice 'PASS: a member reads no targets, call notes, documents or gift rows';
+end $$;
+
+-- Donor records specifically: a member reads none and cannot change one.
 do $$
 declare n int;
 begin
   select count(*) into n from donors where org_id = '00000000-0000-0000-0000-000000000010';
-  if n <> 1 then raise exception 'FAIL: a member saw % Bridge donors, expected 1', n; end if;
+  if n <> 0 then raise exception 'FAIL: a member saw % Bridge donors, expected 0', n; end if;
   update donors set email = 'member@example.com' where org_id = '00000000-0000-0000-0000-000000000010';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: a member rewrote % donor records', n; end if;
-  raise notice 'PASS: a member reads donors and cannot change one';
+  raise notice 'PASS: a member reads no donors and cannot change one';
+end $$;
+
+-- What a member does get: the program as names and stages.
+do $$
+declare n int; st text;
+begin
+  select count(*) into n from member_program('00000000-0000-0000-0000-000000000010');
+  if n <> 2 then raise exception 'FAIL: member_program returned % Bridge athletes, expected 2', n; end if;
+  select stage into st from member_program('00000000-0000-0000-0000-000000000010') where athlete_id = '00000000-0000-0000-0000-000000000110';
+  if st <> 'Targeting' then raise exception 'FAIL: the seeded athlete with an In Contact target reads as %, expected Targeting', st; end if;
+  select count(*) into n from member_program_schools('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110');
+  if n <> 1 then raise exception 'FAIL: member_program_schools returned % schools, expected 1', n; end if;
+  raise notice 'PASS: a member reads the program as names and stages through member_program';
+end $$;
+
+-- And giving: the rows with names stripped except on their own gifts.
+do $$
+declare j jsonb; n int; dn text;
+begin
+  j := member_giving('00000000-0000-0000-0000-000000000010');
+  if j is null then raise exception 'FAIL: member_giving returned null for the member''s own org'; end if;
+  if (j->>'my_seat_id') <> '00000000-0000-0000-0000-000000000430' then raise exception 'FAIL: member_giving did not find the caller''s seat: %', j->>'my_seat_id'; end if;
+  -- Earlier passes booked more gifts as the owner; what matters is that
+  -- the seeded gift from the seat's own donor carries its donor's name
+  -- and every gift not credited to the seat carries none.
+  select count(*) into n from jsonb_array_elements(j->'gifts') g where g->>'donor_id' = '00000000-0000-0000-0000-000000000310' and g->>'donor_name' = 'Bridge Donor';
+  if n < 1 then raise exception 'FAIL: a gift credited to the caller''s seat lost its donor name'; end if;
+  select count(*) into n from jsonb_array_elements(j->'gifts') g
+    where g->>'donor_name' is not null
+      and not (g->>'solicited_by' = '00000000-0000-0000-0000-000000000430' or g->>'donor_id' = '00000000-0000-0000-0000-000000000310');
+  if n <> 0 then raise exception 'FAIL: member_giving named the donor on % gifts not credited to the caller', n; end if;
+  dn := null;
+  -- Another seat's name is not.
+  select count(*) into n from jsonb_array_elements(j->'seats') s where s->>'name' is not null and s->>'id' <> '00000000-0000-0000-0000-000000000430';
+  if n <> 0 then raise exception 'FAIL: member_giving exposed % other seats'' names', n; end if;
+  raise notice 'PASS: a member reads giving through member_giving, with names only on their own credited gifts';
+end $$;
+
+-- A member still sees who to ask: the org's owner and staff.
+do $$
+declare n int;
+begin
+  select count(*) into n from org_members where org_id = '00000000-0000-0000-0000-000000000010' and role in ('owner', 'staff');
+  if n < 1 then raise exception 'FAIL: a member cannot see the owner or staff of their org (saw %)', n; end if;
+  select count(*) into n from users where id = '00000000-0000-0000-0000-000000000001';
+  if n <> 1 then raise exception 'FAIL: a member cannot read the owner''s profile row'; end if;
+  raise notice 'PASS: a member sees the org''s owner and staff, so Who to Ask has names';
 end $$;
 
 do $$
@@ -772,8 +835,8 @@ do $$
 declare n int;
 begin
   select count(*) into n from org_grading_scales where org_id = '00000000-0000-0000-0000-000000000010';
-  if n <> 2 then raise exception 'FAIL: a member saw % Bridge grading scales, expected 2 (the seeded one plus the one the owner entered earlier in this file)', n; end if;
-  raise notice 'PASS: a member reads their org''s grading scales';
+  if n <> 0 then raise exception 'FAIL: a member saw % Bridge grading scales, expected 0 (migration 0031)', n; end if;
+  raise notice 'PASS: a member reads no grading scales';
 end $$;
 
 -- Every org-scoped table, insert. A loop rather than eight copies: the
@@ -827,7 +890,7 @@ begin
   update athletes set name = 'Tampered' where org_id = '00000000-0000-0000-0000-000000000010';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: a member updated % athlete rows in their own org', n; end if;
-  raise notice 'PASS: a member cannot update an athlete they can read';
+  raise notice 'PASS: a member cannot update an athlete';
 end $$;
 
 do $$
@@ -866,16 +929,16 @@ begin
   raise notice 'PASS: a member cannot delete a document';
 end $$;
 
--- The metrics log and the stored matches: a member reads them exactly
--- like an owner (the contract says students and families see their own
--- scores) and cannot change a number or remove a match.
+-- The metrics log and the stored matches: since migration 0031 a member
+-- reads neither (a board member sees names and stages, not numbers) and
+-- still cannot change a number or remove a match.
 do $$
 declare n int;
 begin
   select count(*) into n from athlete_metrics where org_id = '00000000-0000-0000-0000-000000000010';
-  if n <> 1 then raise exception 'FAIL: a member saw % Bridge metric entries, expected 1', n; end if;
+  if n <> 0 then raise exception 'FAIL: a member saw % Bridge metric entries, expected 0 (migration 0031)', n; end if;
   select count(*) into n from athlete_school_fits where org_id = '00000000-0000-0000-0000-000000000010';
-  if n <> 1 then raise exception 'FAIL: a member saw % Bridge stored matches, expected 1', n; end if;
+  if n <> 0 then raise exception 'FAIL: a member saw % Bridge stored matches, expected 0 (migration 0031)', n; end if;
   update athlete_metrics set value = 99 where org_id = '00000000-0000-0000-0000-000000000010';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: a member rewrote % metric entries', n; end if;
@@ -885,7 +948,7 @@ begin
   delete from athlete_school_fits where org_id = '00000000-0000-0000-0000-000000000010';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: a member deleted % stored matches', n; end if;
-  raise notice 'PASS: a member reads metrics and matches and cannot rewrite a number, a note or a match';
+  raise notice 'PASS: a member reads no metrics or matches and cannot rewrite a number, a note or a match';
 end $$;
 
 -- The shared benchmark set has a null org_id and belongs to nobody. The
@@ -1254,8 +1317,10 @@ do $$
 declare n int;
 begin
   select count(*) into n from storage.objects where bucket_id = 'documents';
-  if n <> 1 then raise exception 'FAIL: Bridge member saw % document object(s), expected 1', n; end if;
-  raise notice 'PASS: a Bridge member can read Bridge''s uploaded documents';
+  -- Since migration 0031 a member reads no documents: the bucket policy
+  -- keys off the same helper as the documents table.
+  if n <> 0 then raise exception 'FAIL: Bridge member saw % document object(s), expected 0 (migration 0031)', n; end if;
+  raise notice 'PASS: a Bridge member reads none of Bridge''s uploaded documents';
   begin
     insert into storage.objects (bucket_id, name) values
       ('documents', '00000000-0000-0000-0000-000000000010/req2/scan.jpg');
@@ -1519,17 +1584,18 @@ select set_test_user('00000000-0000-0000-0000-000000000003'); -- Bridge MEMBER
 do $$
 declare n int;
 begin
-  -- Bridge's two rows, plus Elite Squad's one: user3 is staff there.
+  -- Elite Squad's one row only: user3 is staff there and a member of
+  -- Bridge, and a member reads no spend (migration 0031).
   select count(*) into n from docai_usage;
-  if n <> 3 then raise exception 'FAIL: a Bridge member who is Elite staff saw % spend rows, expected 3', n; end if;
+  if n <> 1 then raise exception 'FAIL: a Bridge member who is Elite staff saw % spend rows, expected 1 (Elite''s)', n; end if;
   select count(*) into n from docai_usage where org_id = '00000000-0000-0000-0000-000000000010';
-  if n <> 2 then raise exception 'FAIL: a Bridge member saw % of Bridge''s spend rows, expected 2', n; end if;
+  if n <> 0 then raise exception 'FAIL: a Bridge member saw % of Bridge''s spend rows, expected 0', n; end if;
   begin
     insert into docai_usage (org_id, request_id, model, cost_cents) values
       ('00000000-0000-0000-0000-000000000010', 'req_z', 'claude-opus-5', 0.5);
     raise exception 'FAIL: a member logged Doc AI spend';
   exception when insufficient_privilege then
-    raise notice 'PASS: a member reads the spend and cannot write it';
+    raise notice 'PASS: a member reads no spend and cannot write it';
   end;
 end $$;
 

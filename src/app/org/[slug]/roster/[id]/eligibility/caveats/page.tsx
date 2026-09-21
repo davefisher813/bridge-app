@@ -25,7 +25,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member", "family"]);
+  const user = await requireRole(org.id, ["owner", "staff", "family"]);
   await assertMayViewAthlete(org.id, user, id);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
   // The org's reference screens are not a family's to open; the

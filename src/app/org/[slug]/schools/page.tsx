@@ -7,7 +7,7 @@
 
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { AddButton, Body, EmptyState, LinkButton, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 
@@ -19,7 +19,7 @@ export default async function SchoolsPage({ params, searchParams }: { params: Pr
   const importedCount = imported ? Number(imported) : 0;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const isOwner = user.role === "owner";
 
   const supabase = await createClient();

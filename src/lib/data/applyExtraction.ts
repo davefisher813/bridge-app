@@ -216,7 +216,7 @@ export async function applyOfferLetter(client: Client, orgId: string, athleteId:
     const row: Record<string, unknown> = { org_id: orgId, athlete_id: athleteId, school_id: school.id, status: "Offer", offer_type: offerType, offer_scholarship_percent: percent, coach_name: coach };
     const { data, error } = await client.from("recruiting_targets").insert(row).select("id").single();
     if (error || !data) {
-      warnings.push(`Could not add ${school.name} to the board: ${error?.message ?? "no row came back"}.`);
+      warnings.push(`Could not add ${school.name} as a target: ${error?.message ?? "no row came back"}.`);
       return { warnings };
     }
     return { warnings, target: { id: (data as { id: string }).id, created: true, before: {}, after: row }, recompute: true };
@@ -235,7 +235,7 @@ export async function applyOfferLetter(client: Client, orgId: string, athleteId:
   for (const k of Object.keys(after)) before[k] = (existing as unknown as Record<string, unknown>)[k] ?? null;
   const { error } = await client.from("recruiting_targets").update(after).eq("id", existing.id).eq("org_id", orgId);
   if (error) {
-    warnings.push(`Could not update ${school.name} on the board: ${error.message}`);
+    warnings.push(`Could not update the ${school.name} target: ${error.message}`);
     return { warnings };
   }
   return { warnings, target: { id: existing.id, created: false, before, after }, recompute: true };
@@ -286,7 +286,7 @@ export async function applyFinancialAid(client: Client, orgId: string, athleteId
     const row: Record<string, unknown> = { org_id: orgId, athlete_id: athleteId, school_id: school.id, status: "Target", aid };
     const { data, error } = await client.from("recruiting_targets").insert(row).select("id").single();
     if (error || !data) {
-      warnings.push(`Could not add ${school.name} to the board: ${error?.message ?? "no row came back"}.`);
+      warnings.push(`Could not add ${school.name} as a target: ${error?.message ?? "no row came back"}.`);
       return { warnings };
     }
     return { warnings, target: { id: (data as { id: string }).id, created: true, before: {}, after: row }, recompute: true };
@@ -309,12 +309,12 @@ export async function undoTarget(client: Client, orgId: string, change: TargetCh
     .maybeSingle();
   const current = data as TargetRow | null;
   if (!current) {
-    done.push("The college this document touched is no longer on the board.");
+    done.push("The college this document touched is no longer a target.");
     return done;
   }
   if (change.created) {
     const { error } = await client.from("recruiting_targets").delete().eq("id", change.id).eq("org_id", orgId);
-    done.push(error ? `Could not remove the college this document added to the board: ${error.message}` : "Removed the college this document had added to the board.");
+    done.push(error ? `Could not remove the college this document added as a target: ${error.message}` : "Removed the college this document had added as a target.");
     return done;
   }
   const restore: Record<string, unknown> = {};

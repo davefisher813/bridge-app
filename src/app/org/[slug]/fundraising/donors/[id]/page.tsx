@@ -7,7 +7,7 @@
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { donorTotals, formatMoney, formatMoneyShort, outstandingOn, CATEGORY_LABEL, type GiftCategory } from "@/lib/fundraising/rollup";
@@ -22,7 +22,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
-  await requireRole(org.id, ["owner", "staff", "member"]);
+  await requireRole(org.id, STAFF_ROLES);
 
   const fiscalYear = Number(new Date().toISOString().slice(0, 4));
   const supabase = await createClient();

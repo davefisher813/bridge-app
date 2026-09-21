@@ -19,7 +19,11 @@ export const OWNER_ROLES: OrgRole[] = ["owner"];
 // written for a family checks this list, so a family member who types
 // the URL of the roster lands on Not Authorized rather than on an empty
 // roster.
-export const ORG_WIDE_ROLES: OrgRole[] = ["owner", "staff", "member"];
+// The roles that open the org's own screens. A member (Bridge: Board)
+// has their own version under /member since 2026-09-21 and opens none
+// of these; a family has theirs under /family.
+export const ORG_WIDE_ROLES: OrgRole[] = ["owner", "staff"];
+export const MEMBER_ROLES: OrgRole[] = ["member"];
 export const FAMILY_ROLES: OrgRole[] = ["family"];
 
 export interface CurrentUser {
@@ -94,4 +98,21 @@ export async function requireOwner(activeOrgId: string): Promise<CurrentUser> {
 // links from this.
 export function athleteHome(slug: string, athleteId: string, role: OrgRole): string {
   return `/org/${slug}/${role === "family" ? "family" : "roster"}/${athleteId}`;
+}
+
+// The member screens are for the member role only: a board member's
+// version of the app (Dave's picks, 2026-09-21). Staff have the whole
+// org; a family has their athlete.
+export async function requireMember(activeOrgId: string): Promise<CurrentUser> {
+  const user = await getCurrentUser(activeOrgId);
+  if (!user) redirect("/login");
+  if (user.role !== "member") redirect("/unauthorized");
+  return user;
+}
+
+// Where a role lands after signing in to an org.
+export function homeFor(slug: string, role: OrgRole): string {
+  if (role === "family") return `/org/${slug}/family`;
+  if (role === "member") return `/org/${slug}/member`;
+  return `/org/${slug}`;
 }

@@ -39,7 +39,7 @@ export function InviteForm({ action, roleLabels, athletes = [] }: { action: Serv
         hint={
           role === "family"
             ? `${L("family")} sees one athlete's record, read only, and nothing else.`
-            : `${L("staff")}s add and edit athletes, targets and documents. ${L("member")}s can see everything and change nothing. ${L("owner")}s can also manage members and schools.`
+            : `${L("staff")}s add and edit athletes, targets and documents. ${L("member")}s see the program as names and stages, the year's giving and their own seat, and change nothing. ${L("owner")}s can also manage members and schools.`
         }
       >
         {roles.map((r) => (

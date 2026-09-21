@@ -76,7 +76,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
@@ -283,7 +283,7 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
       <Section label="Visits" count={visits.length} role="place" kind="visit">
         {visits.length === 0 ? (
           <EmptyState kind="visit" title="No Visits Logged Yet">
-            Log one from a target on the board.
+            Log one from one of their targets.
           </EmptyState>
         ) : (
           visits.map((v) => (

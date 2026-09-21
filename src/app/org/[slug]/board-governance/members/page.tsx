@@ -12,7 +12,7 @@
 
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { Avatar, Body, Chip, EmptyState, Row, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
@@ -48,7 +48,7 @@ export default async function AllSeatsPage({
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.board_governance) notFound();
-  await requireRole(org.id, ["owner", "staff", "member"]);
+  await requireRole(org.id, STAFF_ROLES);
 
   const fiscalYear = Number(year) || new Date().getFullYear();
   const view = await loadGovernance(org.id, fiscalYear);

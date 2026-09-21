@@ -276,20 +276,21 @@ describe("LAW: a page with no signed-in user does not render", () => {
   });
 });
 
-describe("LAW: a member sees the read screens and not the write controls", () => {
-  it("a member can open the roster", async () => {
+describe("LAW: a member reads the program as stages, never the roster", () => {
+  // Until 2026-09-21 a member opened the roster read-only. A board
+  // member now has their own Program screen (migration 0031, the Board
+  // Access catalog) and the roster is staff's.
+  it("a member is sent away from the roster", async () => {
     currentUser = MEMBER_ID;
-    const html = await render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }) });
-    expect(html).toMatch(/Fixture Athlete/);
+    await expect(render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }) })).rejects.toThrow(REDIRECT + "/unauthorized");
   });
 
-  it("a member does not get the add-an-athlete control", async () => {
+  it("a member's Program names the athletes with a stage and no grades", async () => {
     currentUser = MEMBER_ID;
-    const asMember = await render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }) });
-    currentUser = OWNER_ID;
-    const asOwner = await render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }) });
-    expect(asOwner).toMatch(/roster\/new/);
-    expect(asMember).not.toMatch(/roster\/new/);
+    const html = await render("@/app/org/[slug]/member/program/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    expect(html).toMatch(/Fixture Athlete/);
+    expect(html).toMatch(/Offer|Targeting|Committed/);
+    expect(html).not.toMatch(/GPA|3\.4/);
   });
 });
 
@@ -355,5 +356,56 @@ describe("LAW: the members screens are the owner's alone", () => {
     expect(html).toMatch(/Email Me a Link Instead/);
     const link = await render("@/app/login/page", { searchParams: p({ mode: "link" }) });
     expect(link).toMatch(/Email Me a Link/);
+  });
+});
+
+// The member role (Bridge: Board) reads summaries, never rows
+// (migration 0031), and has its own screens under /member (Dave's picks
+// in the Board Access catalog, 2026-09-21). The database enforces the
+// reads; this proves the screens do too: a member login opens the
+// member screens and nothing else, every link on them stays on the
+// member side, and staff cannot open them.
+describe("LAW: a member login opens member screens and nothing else, and staff cannot open them", () => {
+  const member = PAGES.filter((x) => x.as === MEMBER_ID);
+  const everythingElse = PAGES.filter((x) => x.as !== MEMBER_ID && x.path.startsWith("@/app/org/"));
+
+  it("there are member screens to check", () => {
+    expect(member.length).toBeGreaterThanOrEqual(5);
+  });
+
+  for (const page of member) {
+    it(`a member opening ${page.name} sees only member links, and a form only to sign out`, async () => {
+      currentUser = MEMBER_ID;
+      const html = await render(page.path, page.props);
+      const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+      expect(links.filter((l) => l.startsWith("/org/") && !l.includes("/member"))).toEqual([]);
+      const forms = (html.match(/<form/g) ?? []).length;
+      expect(forms).toBe(page.name === "member-more" ? 1 : 0);
+      // Nothing a board member must not see: a GPA, a test score, a
+      // metric, a call note, a donor's name.
+      expect(html).not.toMatch(/GPA|SAT|ACT|FB Velo|Fixture Donor|coach@/);
+    });
+
+    it(`an owner cannot open ${page.name}`, async () => {
+      currentUser = OWNER_ID;
+      await expect(render(page.path, page.props)).rejects.toThrow(REDIRECT + "/unauthorized");
+    });
+  }
+
+  for (const page of everythingElse) {
+    it(`a member login cannot open ${page.name}`, async () => {
+      currentUser = MEMBER_ID;
+      const outcome = await render(page.path, page.props).then(
+        () => "rendered",
+        (e: Error) => e.message,
+      );
+      expect(outcome).not.toBe("rendered");
+      if (outcome.startsWith(REDIRECT)) expect(outcome).toMatch(/\/unauthorized$|\/member$/);
+    });
+  }
+
+  it("a member cannot open an athlete that is not in the program", async () => {
+    currentUser = MEMBER_ID;
+    await expect(render("@/app/org/[slug]/member/program/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: "00000000-0000-0000-0000-00000000dead" }) })).rejects.toThrow(NOT_FOUND);
   });
 });

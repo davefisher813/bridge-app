@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { getCurrentUser, requireRole } from "@/lib/auth/guard";
+import { getCurrentUser, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
 import { Body, Card, EmptyState, Label, Meter, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
@@ -69,7 +69,9 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   // 2026-09-21). Sent there before the org-wide gate refuses them.
   const who = await getCurrentUser(org.id);
   if (who?.role === "family") redirect(`/org/${slug}/family`);
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  // A member (Bridge: Board) has their own home too, since 2026-09-21.
+  if (who?.role === "member") redirect(`/org/${slug}/member`);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
 
@@ -195,7 +197,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
               kind="target"
               role="committed"
               title={m.athleteName}
-              meta={`${m.schoolName} · ${m.tag}${m.more > 0 ? ` · ${m.more} more not on the board` : " · not on the board yet"}`}
+              meta={`${m.schoolName} · ${m.tag}${m.more > 0 ? ` · ${m.more} more not yet a target` : " · not a target yet"}`}
               trailing={<Score score={m.score} />}
             />
           ))}

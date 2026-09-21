@@ -28,7 +28,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member", "family"]);
+  const user = await requireRole(org.id, ["owner", "staff", "family"]);
   await assertMayViewAthlete(org.id, user, id);
 
   const bundle = await loadEligibility(org.id, id, new Date().toISOString().slice(0, 10));

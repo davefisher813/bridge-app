@@ -58,7 +58,7 @@ export default async function MatchesPage({
   const sp = await searchParams;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
@@ -157,11 +157,11 @@ export default async function MatchesPage({
           ) : canEdit ? (
             <Form action={addMatchToBoard.bind(null, slug, id, f.school_id)}>
               <Button inline variant="secondary">
-                Add to Board
+                Make a Target
               </Button>
             </Form>
           ) : (
-            <Label>Not on the board</Label>
+            <Label>Not a target yet</Label>
           )}
         </div>
       </Stack>

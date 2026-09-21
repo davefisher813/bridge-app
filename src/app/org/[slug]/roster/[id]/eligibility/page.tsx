@@ -50,7 +50,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   if (!org) notFound();
   // Uploading a document is a staff action, same as everywhere else.
   // A member can read the verdict and cannot change what it is built on.
-  const user = await requireRole(org.id, ["owner", "staff", "member", "family"]);
+  const user = await requireRole(org.id, ["owner", "staff", "family"]);
   await assertMayViewAthlete(org.id, user, id);
   const canUpload = (STAFF_ROLES as string[]).includes(user.role);
 
@@ -83,7 +83,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   if (!division) {
     return (
       <Screen title="NCAA Eligibility" back={back}>
-        <EmptyState kind="school" title="No School on the Board Yet">
+        <EmptyState kind="school" title="No Target Schools Yet">
           Initial eligibility depends on where an athlete is going, not on the athlete. Add a target school and this starts calculating
           against that division.
         </EmptyState>

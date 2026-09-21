@@ -27,7 +27,7 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
   return (
     <Screen
       title="Add Target"
-      back={{ href: `/org/${slug}/board`, label: "Board" }}
+      back={{ href: `/org/${slug}/board`, label: "Targets" }}
       action={isOwner ? <TextLink href={`/org/${slug}/schools/new`}>New School</TextLink> : undefined}
     >
       {athletes.length === 0 ? (

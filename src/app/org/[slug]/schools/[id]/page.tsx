@@ -48,7 +48,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
   const isOwner = user.role === "owner";
 
@@ -212,7 +212,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
       <Section label="Your Athletes Here" count={scored.length} role="contact" kind="athlete">
         {scored.length === 0 ? (
           <EmptyState kind="athlete" title="Nobody Here Yet">
-            No athlete on your roster is targeting this school. Adding one from their profile puts it on the board with a fit score.
+            No athlete on your roster is targeting this school. Adding one from their profile makes it a target with a fit score.
           </EmptyState>
         ) : (
           scored.map((t) => (

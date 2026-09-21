@@ -45,7 +45,7 @@ export default async function FundraisingPage({
   // all, the same way it has no board-governance screen.
   if (!org.modules.donor_fundraising) notFound();
 
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const today = new Date().toISOString().slice(0, 10);

@@ -2445,3 +2445,44 @@ from three (Sport First, follow the org's sport, keep it).
 **Alternatives.** Following the org's sport (rejected for now: an org
 does not carry one sport, its athletes do). Renaming the key
 (rejected: a data migration for a label).
+
+## 2026-09-21: what a board member sees, ten picks
+
+**Decision.** From the Board Access catalog, tapped by Dave: home is
+the program first, then their seat; the tabs are Home, Program, Giving
+and More, and an org without the fundraising module drops Giving;
+athletes appear as names with a stage (Committed, Offers, Targeting)
+and never a grade, a score or a record to open; each athlete's schools
+appear with their stage and never the calls, notes, visits or the
+coach's contact; fundraising is the year against budget and the
+campaigns, never a donor's name; their own seat shows the whole
+give/get account with every gift credited to it; the rest of the board
+appears as a total without names; a member changes nothing; More lists
+who to ask and the way out. His answers: nothing is missing from what
+they must never see, and all four board members and their friends and
+family try it first.
+
+**Reason.** "Did you set this up for student and board access /
+versions?" The honest answer was that a Board login saw everything
+staff saw, and Dave picked a version built for them. The privacy
+picks (no grades, no donor names, no notes) are the ones that decided
+the database side: a member's own token could read every row, so the
+screens alone would not have kept the promise.
+
+**Alternatives.** Keeping the read-only staff view and verifying it
+(offered, not picked). Reading only summaries in the app while leaving
+the rows readable (rejected: the anon key ships to the browser).
+Computing give/get in SQL (rejected: two implementations of one number;
+the function ships the rows with names stripped and the app's own
+arithmetic runs on them).
+
+**Consequences.** Migration 0031 (applied live): `_member_org_ids()`
+is owner and staff only, `_observer_org_ids()` and
+`_observer_staff_rows()` for members, and three SECURITY DEFINER
+functions. Five screens under `/member`, `requireMember()`, a member
+tab bar, `src/lib/data/member.ts`, `SeatCard`, a fake `rpc()` mirrored
+in `fakeRpc.ts`, the fixture chair's seat linked to the member login,
+five page entries and a render law for the boundary. The recruiting
+board is labelled Targets everywhere a person sees it (Dave: "board
+isn't a great name. Most won't get what that means"); the route stays
+/board.

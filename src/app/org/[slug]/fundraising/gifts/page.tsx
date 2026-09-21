@@ -12,7 +12,7 @@
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, type GiftRow } from "@/lib/data/fundraisingAdapters";
 import { formatMoney, formatMoneyShort, CATEGORY_LABEL, METHOD_LABEL, type GiftCategory } from "@/lib/fundraising/rollup";
@@ -32,7 +32,7 @@ export default async function GiftsPage({
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
-  await requireRole(org.id, ["owner", "staff", "member"]);
+  await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
   const [{ data: giftRows }, { data: donorRows }, { data: campaignRows }] = await Promise.all([

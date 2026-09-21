@@ -12,7 +12,7 @@
 
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { EmptyState, Figure, LinkButton, Notice, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
@@ -53,7 +53,7 @@ export default async function DimensionPage({ params }: { params: Promise<{ slug
 
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireRole(org.id, ["owner", "staff", "member"]);
+  await requireRole(org.id, STAFF_ROLES);
 
   const bundle = await loadTarget(org.id, id);
   if (!bundle) notFound();
