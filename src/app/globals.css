@@ -22,8 +22,9 @@
   recruiting pipeline as one progression: gray, blue, mint, orange, green.
   Score axis is tints only, so a fit score never competes with a stage pill
   even where they share a hue. Field-badge axis is yellow, teal, indigo.
-  Action axis is red for the primary action and pink for destructive, kept
-  apart so Remove never looks like Add.
+  Action axis is red for the primary action and for destructive ones; a
+  destructive button is outlined rather than filled, which is what keeps
+  Remove from looking like Add.
 */
 :root {
   --ink: #0a0a0a;
@@ -42,7 +43,7 @@
   /* Aliases the components use for text, borders and rules. */
   --accent: #ff3b30;
   --success: #34c759;
-  --danger: #ff2d55;
+  --danger: #ff3b30;
   --info: #007aff;
 
   /* BEGIN GENERATED TOKENS - scripts/gen_tokens.py */
@@ -86,7 +87,7 @@
   --solid-place-on: #ffffff;
   --solid-accent: #e90b00;
   --solid-accent-on: #ffffff;
-  --solid-danger: #e6002e;
+  --solid-danger: #e90b00;
   --solid-danger-on: #ffffff;
   --solid-neutral: #75757a;
   --solid-neutral-on: #ffffff;
@@ -115,8 +116,8 @@
   --tint-place-on: #4846d2;
   --tint-accent: #ffd4d1;
   --tint-accent-on: #b70a00;
-  --tint-danger: #ffd1da;
-  --tint-danger-on: #b40020;
+  --tint-danger: #ffd4d1;
+  --tint-danger-on: #b70a00;
   --tint-neutral: #e6e6e7;
   --tint-neutral-on: #66666b;
   /* END GENERATED TOKENS */
@@ -133,7 +134,7 @@
 
   --accent: #ff453a;
   --success: #30d158;
-  --danger: #ff375f;
+  --danger: #ff453a;
   --info: #0a84ff;
 
   /* A tint is mixed into the paper behind it, and that paper flips between
@@ -163,8 +164,8 @@
   --tint-place-on: #9392ef;
   --tint-accent: #4c2321;
   --tint-accent-on: #ff6b62;
-  --tint-danger: #4c2029;
-  --tint-danger-on: #ff5f7f;
+  --tint-danger: #4c2321;
+  --tint-danger-on: #ff6b62;
   --tint-neutral: #343435;
   --tint-neutral-on: #a2a2a7;
   /* END GENERATED DARK TINTS */

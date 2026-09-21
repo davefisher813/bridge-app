@@ -60,10 +60,11 @@ STAGE = {
 SCORE = {"high": "green", "mid": "yellow", "low": "gray"}
 # Field-type badge axis (small square badges on metadata rows):
 FIELD = {"time": "yellow", "people": "teal", "place": "indigo"}
-# Action axis. Red is the brand and the primary action. Pink is destructive
-# and stalled, deliberately a different color from the button so "Remove"
-# never looks like "Add".
-ACTION = {"accent": "red", "danger": "pink", "neutral": "gray"}
+# Action axis. Red is the brand, the primary action and the destructive
+# one. Danger used to be pink so Remove never looked like Add; Dave
+# dropped the pink for the red he chose (2026-09-21). The two names
+# stay separate so a destructive control is still marked in the code.
+ACTION = {"accent": "red", "danger": "red", "neutral": "gray"}
 
 PAPER = {"light": "#ffffff", "dark": "#1a1a1a"}
 TARGET = 4.5

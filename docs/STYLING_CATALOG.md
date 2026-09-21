@@ -223,9 +223,11 @@ color stays free to mean one thing inside each.
 **Field badges** (B1 square badges) are systemYellow for anything on a
 clock, systemTeal for people, systemIndigo for places.
 
-**Action** is systemRed for the primary action and systemPink for
-destructive ones, kept deliberately apart so Remove never looks like Add.
-**Red is not a status.** It was previously both the brand action color and
+**Action** is systemRed for the primary action and for destructive
+ones. Destructive controls were systemPink until 2026-09-21, when Dave
+dropped the pink for the red he chose; a destructive button is still
+outlined with red text rather than filled, so Remove does not look like
+Add. **Red is not a status.** It was previously both the brand action color and
 the Committed stage, which is why the Add button did not stand out. Giving
 the win to green and reserving red for action fixed both ends of that.
 

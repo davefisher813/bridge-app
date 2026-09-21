@@ -2190,3 +2190,19 @@ drops the corner reservation (`pr-20`) and the action's drop
 (`mt-6`) and adds `mt-12` above the title block when there is no back
 link. This replaces the 2026-09-20 "across from good morning"
 arrangement.
+
+## 2026-09-21: no pink, the danger hue is the red
+
+**Decision.** The danger axis (destructive buttons, the Conflict tag,
+the failed document, form errors) takes the same red as the primary
+action. systemPink leaves the palette in use.
+
+**Reason.** Dave, on the More screen: "Get rid of the pink and use the
+red we selected." The pink Recalculate and Sign Out beside a red Add
+disc read as two brands.
+
+**Consequences.** `scripts/gen_tokens.py` maps danger to red; the
+generated pairs in globals.css and the two `--danger` aliases follow;
+the status glyph and dot for danger are systemRed. Nothing else names
+pink. A destructive button stays outlined, not filled, which is the
+remaining difference from Add.

@@ -7,9 +7,9 @@ import type { RowKind } from "@/components/RowGlyph";
 // The language, per docs/STYLING_CATALOG.md: the pipeline is a single
 // progression, cold to warm to green, so a board reads as distance
 // travelled rather than five unrelated labels. Committed is green because
-// it is the win. Red is NOT a stage: it belongs to the primary action, and
-// pink to destructive ones, which is what keeps the Add button meaning
-// something.
+// it is the win. Red is NOT a stage: it belongs to the actions, primary
+// and destructive alike (Dave dropped the pink, 2026-09-21), which is
+// what keeps the Add button meaning something.
 
 export type Role =
   | "target"
@@ -140,7 +140,7 @@ export const DOT: Record<Role, string> = {
   people: "bg-ios-teal",
   place: "bg-ios-indigo",
   accent: "bg-ios-red",
-  danger: "bg-ios-pink",
+  danger: "bg-ios-red",
   neutral: "bg-ios-gray",
 };
 
@@ -195,6 +195,6 @@ export const FG: Record<Role, string> = {
   people: "text-ios-teal",
   place: "text-ios-indigo",
   accent: "text-ios-red",
-  danger: "text-ios-pink",
+  danger: "text-ios-red",
   neutral: "text-ios-gray",
 };
