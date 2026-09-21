@@ -53,7 +53,7 @@ async function modelCallerFor(orgId: string, documentId: string, stub: { categor
   const supabase = await createClient();
   return createAnthropicCaller({
     onUsage: async (u) => {
-      await supabase.from("docai_usage").insert({
+      const { error } = await supabase.from("docai_usage").insert({
         org_id: orgId,
         document_id: documentId,
         request_id: u.requestId,
@@ -64,6 +64,10 @@ async function modelCallerFor(orgId: string, documentId: string, stub: { categor
         cache_write_tokens: u.cacheWriteTokens,
         cost_cents: u.costCents,
       });
+      // A call that cannot be recorded cannot be allowed to count as
+      // read: the cap would never fill. The pipeline files the throw as
+      // a failed extraction and the document says so.
+      if (error) throw new Error(`The reading was done but could not be recorded (${error.message}), so it was not used.`);
     },
   });
 }

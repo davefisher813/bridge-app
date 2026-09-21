@@ -569,6 +569,46 @@ describe("LAW: membership is written by the service role, only by an owner, and 
     expect(guardian?.rows[0]).toMatchObject({ user_id: OUTSIDER_ID, org_id: data.orgs[0]!.id, athlete_id: IDS.athlete });
   });
 
+  it("a family member invited for a second athlete gets the link, not a refusal", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    // The fixture parent is linked to two athletes already; the transfer athlete is a third.
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "parent@example.test", role: "family", athleteId: IDS.athleteTransfer })));
+    expect(r.redirect).toContain("as%20well");
+    expect(writes.find((w) => w.table === "org_members")).toBeUndefined();
+    const guardian = writes.find((w) => w.table === "athlete_guardians" && w.op === "insert");
+    expect(guardian?.rows[0]).toMatchObject({ user_id: FAMILY_ID, athlete_id: IDS.athleteTransfer, org_id: data.orgs[0]!.id });
+  });
+
+  it("linking a family member to an athlete they already see is refused", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "parent@example.test", role: "family", athleteId: IDS.athlete })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.athleteId).toMatch(/already linked/);
+    expect(writes).toEqual([]);
+  });
+
+  it("a staff member invited again as family is still already a member", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "member@example.test", role: "family", athleteId: IDS.athlete })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.email).toMatch(/Already/);
+    expect(writes).toEqual([]);
+  });
+
+  it("removing a family member removes their athlete links with the membership", async () => {
+    withKey();
+    const { removeMember } = await import("@/lib/actions/members");
+    const r = await removeMember(ORG_WITH_MODULES, FAMILY_ID);
+    expect(r.ok).toBe(true);
+    const links = writes.find((w) => w.table === "athlete_guardians" && w.op === "delete");
+    expect(links).toBeTruthy();
+    expect(links!.filters).toEqual(expect.arrayContaining([expect.objectContaining({ column: "user_id", value: FAMILY_ID }), expect.objectContaining({ column: "org_id", value: data.orgs[0]!.id })]));
+    expect(writes.find((w) => w.table === "org_members" && w.op === "delete")).toBeTruthy();
+  });
+
   it("a family invite without an athlete is refused before anything is written", async () => {
     withKey();
     const { inviteMember } = await import("@/lib/actions/members");
@@ -784,6 +824,23 @@ describe("LAW: a real model call is charged to the org, and stops at the month's
         expect(row.rows[0]!.document_id).toBeTruthy();
         expect(doc).toBeTruthy();
       }
+    } finally {
+      withoutModel();
+    }
+  });
+
+  it("a call that cannot be recorded is not used: the document fails rather than the cap staying empty", async () => {
+    withModel();
+    try {
+      failOn = (table, op) => (table === "docai_usage" && op === "insert" ? "ledger is down" : null);
+      const { processDocument } = await import("@/lib/actions/documents");
+      const r = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "parent", requestedCategory: "transcript" });
+      // The action answers ok with a document id, as it does for every
+      // failed extraction: the failure lives on the document row.
+      expect(r.ok).toBe(true);
+      const failed = writes.find((w) => w.table === "documents" && w.op === "update" && w.rows[0]?.status === "failed");
+      expect(failed).toBeTruthy();
+      expect(String(failed!.rows[0]!.failure_reason)).toMatch(/could not be recorded/);
     } finally {
       withoutModel();
     }

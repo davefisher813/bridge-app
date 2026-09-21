@@ -14,7 +14,7 @@ export default async function OrgLayout({ children, params }: { children: React.
   const user = await getCurrentUser(org.id);
 
   return (
-    <Chrome orgName={org.name} slug={slug} logo={org.logo} lockup={org.lockup} tabs={user?.role === "family" ? "family" : "org"}>
+    <Chrome orgName={org.name} slug={slug} logo={org.logo} tabs={user?.role === "family" ? "family" : "org"}>
       {children}
     </Chrome>
   );

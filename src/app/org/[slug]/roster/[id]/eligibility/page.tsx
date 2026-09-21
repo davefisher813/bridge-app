@@ -24,6 +24,9 @@ import { DIVISION_STANDARDS } from "@/lib/fit/ncaa/initialEligibility";
 import type { SubjectArea } from "@/lib/fit/ncaa/coreGpa";
 
 export const dynamic = "force-dynamic";
+// A real model call on a scanned transcript can run past a minute.
+// The upload action runs under this page's limit on Vercel.
+export const maxDuration = 300;
 
 const SUBJECT_LABEL: Record<SubjectArea, string> = {
   english: "English",

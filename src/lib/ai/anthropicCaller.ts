@@ -38,11 +38,23 @@ export const PRICE_PER_MILLION: Record<string, { input: number; output: number }
   "claude-haiku-4-5-20251001": { input: 1, output: 5 },
 };
 
+// The API answers with the resolved snapshot id (a dated one) for an
+// alias, so the lookup takes the longest listed id that prefixes the
+// model. Nothing listed falls through to the Opus rate.
+export function priceFor(model: string): { input: number; output: number } {
+  const exact = PRICE_PER_MILLION[model];
+  if (exact) return exact;
+  const prefix = Object.keys(PRICE_PER_MILLION)
+    .filter((k) => model.startsWith(k))
+    .sort((a, b) => b.length - a.length)[0];
+  return prefix ? PRICE_PER_MILLION[prefix]! : PRICE_PER_MILLION["claude-opus-5"]!;
+}
+
 // Cache reads are a tenth of the input rate and cache writes a quarter
 // over it. Rounded to a thousandth of a cent, which is what the ledger
 // column holds.
 export function costCents(model: string, usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }): number {
-  const price = PRICE_PER_MILLION[model] ?? PRICE_PER_MILLION["claude-opus-5"]!;
+  const price = priceFor(model);
   const dollars =
     (usage.inputTokens * price.input + usage.outputTokens * price.output + usage.cacheReadTokens * price.input * 0.1 + usage.cacheWriteTokens * price.input * 1.25) / 1_000_000;
   return Math.round(dollars * 100 * 1000) / 1000;
@@ -116,7 +128,9 @@ export function createAnthropicCaller(opts: AnthropicCallerOptions = {}): ModelC
       cacheWriteTokens: response.usage.cache_creation_input_tokens ?? 0,
       costCents: 0,
     };
-    usage.costCents = costCents(usage.model, usage);
+    // Priced on the model that was asked for: the ledger records what the
+    // API says it served, but the rate is looked up by the alias first.
+    usage.costCents = costCents(call.model, usage);
     if (opts.onUsage) await opts.onUsage(usage);
 
     if (response.stop_reason === "refusal") {

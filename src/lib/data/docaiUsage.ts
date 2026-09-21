@@ -25,10 +25,10 @@ export async function loadMonthSpend(client: Client, orgId: string, now = new Da
   const since = monthStart(now);
   const [{ data: org }, { data: rows }] = await Promise.all([
     client.from("orgs").select("docai_budget_cents").eq("id", orgId).maybeSingle(),
-    client.from("docai_usage").select("cost_cents, created_at").eq("org_id", orgId),
+    client.from("docai_usage").select("cost_cents, created_at").eq("org_id", orgId).gte("created_at", since),
   ]);
   const capCents = Number((org as { docai_budget_cents?: number } | null)?.docai_budget_cents ?? 0);
-  const thisMonth = ((rows ?? []) as { cost_cents: number | string; created_at: string }[]).filter((r) => r.created_at >= since);
+  const thisMonth = (rows ?? []) as { cost_cents: number | string; created_at: string }[];
   const spentCents = Math.round(thisMonth.reduce((s, r) => s + Number(r.cost_cents), 0) * 1000) / 1000;
   return { spentCents, capCents, calls: thisMonth.length, exhausted: spentCents >= capCents };
 }

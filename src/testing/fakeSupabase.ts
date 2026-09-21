@@ -111,7 +111,7 @@ const EMBEDS: Record<string, Record<string, EmbedSpec>> = {
 };
 
 interface Filter {
-  kind: "eq" | "is" | "in" | "neq" | "not";
+  kind: "eq" | "is" | "in" | "neq" | "not" | "gte";
   column: string;
   value: unknown;
 }
@@ -172,6 +172,10 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
     this.filters.push({ kind: "not", column, value });
     return this;
   }
+  gte(column: string, value: unknown) {
+    this.filters.push({ kind: "gte", column, value });
+    return this;
+  }
   order(column: string, opts?: { ascending?: boolean }) {
     this.orderBy = { column, ascending: opts?.ascending !== false };
     return this;
@@ -219,6 +223,7 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
       if (f.kind === "is") return f.value === null ? v === null || v === undefined : v === f.value;
       if (f.kind === "in") return (f.value as unknown[]).includes(v);
       if (f.kind === "not") return v !== f.value;
+      if (f.kind === "gte") return v !== null && v !== undefined && (v as string | number) >= (f.value as string | number);
       return true;
     });
   }

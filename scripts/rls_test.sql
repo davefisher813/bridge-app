@@ -1542,3 +1542,49 @@ begin
   raise notice 'PASS: a family member sees no spend';
 end $$;
 reset role;
+
+-- ── Migration 0026: a family link is only as alive as the membership,
+-- and staff rows open per org, never across orgs. ──
+reset role;
+-- user5 becomes family in Elite Squad too, linked to its athlete. user3
+-- is staff in Elite and a plain member in Bridge: their Elite row is
+-- readable to user5, their Bridge row is not.
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000020', 'family');
+insert into athlete_guardians (org_id, athlete_id, user_id) values
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000005');
+
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000005');
+do $$
+declare n int;
+begin
+  select count(*) into n from athletes;
+  if n <> 2 then raise exception 'FAIL: a family member of two orgs saw % athletes, expected 2 (one in each)', n; end if;
+  select count(*) into n from org_members where user_id = '00000000-0000-0000-0000-000000000003' and org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 1 then raise exception 'FAIL: family cannot see Elite Squad''s staff row for user3'; end if;
+  select count(*) into n from org_members where user_id = '00000000-0000-0000-0000-000000000003' and org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: family read user3''s Bridge MEMBER row through their Elite staff role'; end if;
+  raise notice 'PASS: staff rows open to a family per org, never across orgs';
+end $$;
+
+-- The Bridge membership goes, the guardian row is left behind on
+-- purpose: the database must stop honouring it by itself.
+reset role;
+delete from org_members where user_id = '00000000-0000-0000-0000-000000000005' and org_id = '00000000-0000-0000-0000-000000000010';
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000005');
+do $$
+declare n int;
+begin
+  select count(*) into n from athletes where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: a removed family member still read % Bridge athlete(s) through a stale guardian row', n; end if;
+  select count(*) into n from athlete_metrics where athlete_id = '00000000-0000-0000-0000-000000000110';
+  if n <> 0 then raise exception 'FAIL: a removed family member still read the athlete''s metrics'; end if;
+  select count(*) into n from documents where athlete_id = '00000000-0000-0000-0000-000000000110';
+  if n <> 0 then raise exception 'FAIL: a removed family member still read the athlete''s documents'; end if;
+  select count(*) into n from athletes where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 1 then raise exception 'FAIL: the other org''s link stopped working too'; end if;
+  raise notice 'PASS: a family link dies with the membership, org by org';
+end $$;
+reset role;

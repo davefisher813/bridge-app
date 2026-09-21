@@ -511,7 +511,7 @@ export function Form({ action, error, children, onPaper = false }: { action: (fo
 // What every org screen sits inside: the org's wordmark in the top
 // right corner, the fixed tab bar below. The screen itself pads for the
 // bar, and reserves the corner so a title never runs under the mark.
-export function Chrome({ orgName, slug, logo, lockup, tabs = "org", children }: { orgName: string; slug: string; logo?: string | null; lockup?: string | null; tabs?: TabBarVariant; children: ReactNode }) {
+export function Chrome({ orgName, slug, logo, tabs = "org", children }: { orgName: string; slug: string; logo?: string | null; tabs?: TabBarVariant; children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg">
       {/* 672 wide on a laptop, the whole screen on a phone. Dave's

@@ -2240,3 +2240,40 @@ unit tests run on a fake client; the action laws prove the ledger row,
 the cap, the month boundary and the zero-means-off rule on the fixture.
 Dave owes the key on Vercel; until then reading stays simulated and
 labelled.
+
+## 2026-09-21: the review of the day's work, and what it changed
+
+**Decision.** An independent review of everything shipped today (the
+family role and its screens, the corner, the red, the real Doc AI
+caller) found nine things; six were bugs and were fixed the same hour,
+with a law or an RLS assertion for each.
+
+- A family link now dies with the membership (migration 0026: the
+  helper joins org_members), and removing a member deletes their links.
+  Before, a removed parent's account could still read the athlete
+  through the API.
+- Staff rows open to a family per org, as (org, person) pairs, never by
+  a person's role in some other org.
+- A family member can be invited for a second athlete: the link is
+  added rather than the email refused. A parent with two kids was the
+  case the fixture named and the invite could not produce.
+- A ledger write that fails now fails the reading: the document is
+  filed as failed with the reason, rather than the spend vanishing and
+  the cap never filling.
+- Cost is priced on the model that was asked for, with dated snapshot
+  ids matched by prefix, so a Sonnet or Haiku call is never charged at
+  the Opus rate.
+- The month's spend is read with a date filter through the index the
+  migration created, not the whole ledger summed in JavaScript.
+
+Also: the budget is whole dollars only, a discarded document reads
+"Set aside by staff" to a family, `Chrome` no longer carries a lockup it
+does not render, and the two pages that read a document declare a
+300-second function limit so a real model call is not cut off by the
+platform default.
+
+**Reason.** Dave: "fully proof your work." A same-day review by a
+reader who did not write the code is the cheapest proof there is.
+
+**Consequences.** Migration 0026 applied to the live project. The RLS
+suite is at 125 assertions.

@@ -5,6 +5,10 @@ import { isStubbedModel } from "@/lib/actions/documents";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { Notice, Screen } from "@/components/kit";
 
+// A real model call on a scanned transcript can run past a minute.
+// The upload action runs under this page's limit on Vercel.
+export const maxDuration = 300;
+
 export default async function NewDocumentPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const org = await getOrgBySlug(slug);

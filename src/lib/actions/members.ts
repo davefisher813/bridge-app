@@ -78,6 +78,21 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   if (userId) {
     const { data: membership } = await admin.from("org_members").select("role").eq("user_id", userId).eq("org_id", org.id).maybeSingle();
     if (membership) {
+      // A family member invited for a second athlete (a parent with two
+      // kids) gets the link added, not a refusal. Anyone else who is
+      // already in the org is already in.
+      if (role === "family" && (membership as { role: string }).role === "family" && athleteId) {
+        const { data: linked } = await admin.from("athlete_guardians").select("athlete_id").eq("user_id", userId).eq("athlete_id", athleteId).maybeSingle();
+        if (linked) {
+          return { errors: { athleteId: `${email} is already linked to ${athleteName ?? "this athlete"}.` }, values: Object.fromEntries(formData.entries()) };
+        }
+        const { error: guardianError } = await admin.from("athlete_guardians").insert({ org_id: org.id, athlete_id: athleteId, user_id: userId });
+        if (guardianError) {
+          return { errors: { form: `Could not link ${email} to ${athleteName ?? "the athlete"}: ${guardianError.message}` }, values: Object.fromEntries(formData.entries()) };
+        }
+        revalidatePath(`/org/${slug}/members`);
+        redirect(`/org/${slug}/members?notice=${encodeURIComponent(`${email} now sees ${athleteName ?? "that athlete"} as well.`)}`);
+      }
       return { errors: { email: "Already a member of this organization." }, values: Object.fromEntries(formData.entries()) };
     }
     notice = `${email} already had an account and has been added. They can sign in with their email.`;
@@ -164,8 +179,13 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
   if (!serviceRoleConfigured()) return { ok: false, error: "Removing members is not set up on this server yet: the service role key is missing." };
 
   // The account stays; only this org's membership goes. Their other
-  // organizations, if any, are untouched.
+  // organizations, if any, are untouched. A family member's links to
+  // this org's athletes go with the membership: the database stops
+  // honouring them the moment the membership is gone (migration 0026),
+  // and a stale row must not come back to life on a re-invite.
   const admin = createAdminClient();
+  const { error: linkError } = await admin.from("athlete_guardians").delete().eq("user_id", userId).eq("org_id", org.id);
+  if (linkError) return { ok: false, error: linkError.message };
   const { error } = await admin.from("org_members").delete().eq("user_id", userId).eq("org_id", org.id);
   if (error) return { ok: false, error: error.message };
 

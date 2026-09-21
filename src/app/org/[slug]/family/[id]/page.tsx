@@ -49,7 +49,7 @@ const DOC_STATUS: Record<string, string> = {
   pending: "Being checked by staff",
   processing: "Being read",
   failed: "Could not be read",
-  undone: "Taken back off the record",
+  discarded: "Set aside by staff",
 };
 
 interface TargetRow {

@@ -9,6 +9,7 @@ export function parseBudgetDollars(raw: unknown): { ok: true; cents: number } | 
   if (text === "") return { ok: false, error: "Enter a dollar amount" };
   const n = Number(text);
   if (!Number.isFinite(n) || n < 0) return { ok: false, error: "A dollar amount, zero or more" };
+  if (!Number.isInteger(n)) return { ok: false, error: "Whole dollars" };
   if (n > MAX_DOCAI_BUDGET_DOLLARS) return { ok: false, error: `Up to $${MAX_DOCAI_BUDGET_DOLLARS.toLocaleString("en-US")} a month` };
   return { ok: true, cents: Math.round(n * 100) };
 }

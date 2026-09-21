@@ -97,6 +97,17 @@ describe("the real model caller", () => {
     await expect(caller(call())).rejects.toThrow(/cut off/);
   });
 
+  it("prices a dated snapshot id by its alias, and the cost is on the model that was asked for", async () => {
+    expect(costCents("claude-sonnet-5-20260601", { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 })).toBe(200);
+    expect(costCents("claude-haiku-4-5-20251001", { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 })).toBe(100);
+    const usages: ModelUsage[] = [];
+    const caller = createAnthropicCaller({ client: fakeClient({ model: "claude-haiku-4-5-20251001" }), onUsage: (u) => void usages.push(u) });
+    await caller(call({ model: "claude-haiku-4-5" }));
+    expect(usages[0]!.model).toBe("claude-haiku-4-5-20251001");
+    // 1200 in at $1/M plus 300 out at $5/M: 0.27 cents, the Haiku rate.
+    expect(usages[0]!.costCents).toBe(0.27);
+  });
+
   it("prices cache reads and writes, and an unknown model at the Opus rate", () => {
     expect(costCents("claude-haiku-4-5", { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 })).toBe(100);
     expect(costCents("claude-opus-5", { inputTokens: 0, outputTokens: 0, cacheReadTokens: 1_000_000, cacheWriteTokens: 0 })).toBe(50);

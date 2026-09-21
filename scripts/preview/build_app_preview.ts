@@ -88,7 +88,7 @@ it("builds the app preview from the real pages", async () => {
     // Every org screen sits inside the org layout's chrome, so the
     // preview wraps it the same way rather than rendering the bare page.
     const inOrg = route.startsWith("/org/");
-    const html = renderToStaticMarkup(inOrg ? createElement(Chrome, { orgName: String(org.name), slug: ORG_WITH_MODULES, logo: parseBranding(org.branding).logo, lockup: parseBranding(org.branding).lockup, tabs: page.as === FAMILY_ID ? "family" : "org", children: tree }) : tree);
+    const html = renderToStaticMarkup(inOrg ? createElement(Chrome, { orgName: String(org.name), slug: ORG_WITH_MODULES, logo: parseBranding(org.branding).logo, tabs: page.as === FAMILY_ID ? "family" : "org", children: tree }) : tree);
     screens.push({ route, name: page.name, html });
   }
 
