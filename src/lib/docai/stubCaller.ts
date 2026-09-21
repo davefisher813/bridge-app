@@ -32,6 +32,7 @@ const TRIAGE_TYPE: Record<DocCategoryId, string> = {
   offer_letter: "offer_letter",
   recommendation: "recommendation",
   financial_aid: "financial_aid",
+  metrics: "metrics_report",
   film: "highlight_video_screenshot",
 };
 
@@ -226,6 +227,22 @@ function stubExtraction(seed: number, category: DocCategoryId): string {
         school: "Sample State University",
         totalCostOfAttendance: 42000,
         grantAid: 12000 + Math.round(seed * 8000),
+      });
+    case "metrics":
+      // A showcase sheet. The numbers slide with the seed so a "better"
+      // file reads as a better athlete on the metrics screen.
+      return JSON.stringify({
+        ...base,
+        studentName: "Sample Athlete",
+        sport: "Baseball",
+        source: "pbr",
+        eventName: "Sample Showcase",
+        measuredOn: "2026-08-15",
+        metrics: [
+          { key: "fbVelo", value: 80 + Math.round(seed * 12), note: null },
+          { key: "sixty", value: Number((7.4 - seed * 0.7).toFixed(2)), note: null },
+          { key: "exitVelo", value: 84 + Math.round(seed * 14), note: null },
+        ],
       });
     case "film":
       // The registry carries film as an explicit not-yet-supported

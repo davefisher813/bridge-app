@@ -12,7 +12,8 @@
 
 import type { z } from "zod";
 import type { DocCategory, DocCategoryId } from "./types";
-import { financialAidSchema, offerLetterSchema, recommendationSchema, testScoresSchema, transcriptSchema } from "./schemas";
+import { financialAidSchema, metricsReportSchema, offerLetterSchema, recommendationSchema, testScoresSchema, transcriptSchema } from "./schemas";
+import { METRICS } from "@/lib/fit/contract";
 
 export const CATEGORY_SCHEMAS: Record<Exclude<DocCategoryId, "film">, z.ZodTypeAny> = {
   transcript: transcriptSchema,
@@ -20,7 +21,12 @@ export const CATEGORY_SCHEMAS: Record<Exclude<DocCategoryId, "film">, z.ZodTypeA
   offer_letter: offerLetterSchema,
   recommendation: recommendationSchema,
   financial_aid: financialAidSchema,
+  metrics: metricsReportSchema,
 };
+
+// The keys and units the metrics prompt lists, from the contract, so a
+// metric added there is readable off a report without a second edit.
+const METRIC_KEY_LIST = METRICS.map((m) => `${m.key} (${m.label}${m.unit ? `, ${m.unit}` : ""}; ${m.sports.join("/")})`).join(", ");
 
 const REGISTRY: Record<DocCategoryId, DocCategory> = {
   transcript: {
@@ -160,13 +166,38 @@ const REGISTRY: Record<DocCategoryId, DocCategory> = {
       '  "confidence": number 0-1,\n' +
       '  "warnings": []\n}',
   },
+  metrics: {
+    id: "metrics",
+    label: "Metrics Report",
+    shape: "collection_append",
+    collectionKey: "metrics",
+    triageType: "metrics_report",
+    extractionPrompt:
+      "Extract measured athletic metrics from a showcase profile, an event results sheet, a scouting report or a dashboard screenshot (PBR, Perfect Game, Premier, Rapsodo, TrackMan, a team combine). Return ONLY valid JSON.\n\n" +
+      "Schema:\n{\n" +
+      '  "studentName": "name on the report or null",\n' +
+      '  "sport": "sport if printed, else null",\n' +
+      '  "source": "premier"|"pbr"|"perfect_game"|"event"|"coach"|"self",\n' +
+      '  "eventName": "the event, showcase or product name as printed, or null",\n' +
+      '  "measuredOn": "YYYY-MM-DD, or YYYY-MM if only the month is printed",\n' +
+      '  "metrics": [{ "key": "one of the keys below", "value": number, "note": "string or null" }],\n' +
+      '  "confidence": number 0-1,\n' +
+      '  "warnings": []\n}\n\n' +
+      `Metric keys (label, unit; sports): ${METRIC_KEY_LIST}.\n\n` +
+      "Rules:\n" +
+      "- Use only the keys listed. A number with no matching key is left out and named in `warnings`.\n" +
+      "- Copy each value in the listed unit. Convert feet and inches to inches (6'1\" is 73), a fastball range to its top (86-88 is 88), a 60-yard time in seconds exactly as printed.\n" +
+      "- `source`: premier for a Premier report; pbr for Prep Baseball Report; perfect_game for Perfect Game; event for any other showcase, combine or tournament sheet; coach for a team practice or a coach's own timing; self if the athlete or a parent wrote the numbers down themselves.\n" +
+      "- `measuredOn` is when the numbers were measured, not when the report was printed. If neither is printed, leave measuredOn as the month printed or put the most likely YYYY-MM and say so in `warnings`.\n" +
+      "- Never invent a metric. A blank or illegible value is left out.",
+  },
   film: {
     id: "film",
     label: "Film / Highlights",
     shape: "unsupported",
     triageType: "highlight_video_screenshot",
     extractionPrompt: "",
-    unsupportedMessage: "Video pipeline is not yet built. Upload a screenshot of a metrics dashboard, or record a link to the film for now.",
+    unsupportedMessage: "Video is not read yet. Upload the showcase profile or a screenshot of the metrics dashboard as a Metrics Report instead.",
   },
 };
 

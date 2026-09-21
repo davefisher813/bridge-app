@@ -15,7 +15,7 @@ export default async function NewAthletePage({ params }: { params: Promise<{ slu
 
   return (
     <Screen title="Add Athlete" back={{ href: `/org/${slug}/roster`, label: "Athletes" }}>
-      <AthleteForm action={action} submitLabel="Add Athlete" />
+      <AthleteForm action={action} submitLabel="Add Athlete" firstMetrics />
     </Screen>
   );
 }

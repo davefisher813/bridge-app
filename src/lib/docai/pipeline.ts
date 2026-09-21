@@ -79,7 +79,7 @@ async function runTriage(input: PipelineInput, requestId: string): Promise<Triag
   const systemPrompt =
     "You are a document triage assistant for a youth sports recruiting platform. You receive 1+ images or PDF pages and must rapidly assess whether they can be processed for structured data extraction.\n\n" +
     "Return ONLY valid JSON, no markdown, with this exact schema:\n" +
-    '{\n  "readable": boolean,\n  "legibilityScore": number 0-1,\n  "detectedType": "transcript" | "test_scores" | "offer_letter" | "recommendation" | "financial_aid" | "highlight_video_screenshot" | "id_document" | "other" | "unreadable",\n  "typeMatchesExpected": boolean,\n  "pagesDetected": number,\n  "issues": ["array of short specific problems"],\n  "recommendation": "proceed" | "retake" | "wrong_category" | "partial_only",\n  "reason": "1-2 sentence explanation"\n}\n\n' +
+    '{\n  "readable": boolean,\n  "legibilityScore": number 0-1,\n  "detectedType": "transcript" | "test_scores" | "offer_letter" | "recommendation" | "financial_aid" | "metrics_report" | "highlight_video_screenshot" | "id_document" | "other" | "unreadable",\n  "typeMatchesExpected": boolean,\n  "pagesDetected": number,\n  "issues": ["array of short specific problems"],\n  "recommendation": "proceed" | "retake" | "wrong_category" | "partial_only",\n  "reason": "1-2 sentence explanation"\n}\n\n' +
     "Be strict. If anything material is illegible or cropped, recommend retake. Do NOT extract data; this is triage only.";
   const userText = `Expected category: ${cat.triageType}\nFiles attached: ${input.records.length}\n\nAssess and return JSON only.`;
 
@@ -117,6 +117,8 @@ const DETECTED_TO_CATEGORY: Record<string, DocCategoryId | null> = {
   offer_letter: "offer_letter",
   recommendation: "recommendation",
   financial_aid: "financial_aid",
+  // A showcase profile, an event results sheet, a metrics dashboard.
+  metrics_report: "metrics",
   highlight_video_screenshot: "film",
   // A driving licence, a random page, or something unreadable is not a
   // category. Null means "ask the user", never a guess.

@@ -15,6 +15,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseAthleteDetail } from "@/lib/fit/schema";
+import { METRICS } from "@/lib/fit/contract";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = SupabaseClient<any, any, any>;
@@ -40,6 +41,8 @@ export interface ApplyPart {
   target?: TargetChange;
   // The contact a recommendation letter added.
   contactId?: string | null;
+  // The athlete_metrics rows a metrics report logged.
+  metricIds?: string[];
   // True when the stored matches for the athlete should be rescored.
   recompute?: boolean;
 }
@@ -305,6 +308,53 @@ export async function undoTarget(client: Client, orgId: string, change: TargetCh
   }
   if (kept.length) done.push(`Left the college's ${kept.join(", ")} alone, because it has been changed since this was applied.`);
   return done;
+}
+
+// ── Metrics report ───────────────────────────────────────────────────
+// Every number on the report becomes a dated entry in the log, with
+// the source that sets its trust. The ids are recorded so a discard
+// removes exactly those rows and nothing typed by hand.
+export async function applyMetricsReport(client: Client, orgId: string, athleteId: string, extracted: Record<string, unknown>, enteredBy: string | null): Promise<ApplyPart> {
+  const warnings: string[] = [];
+  const items = Array.isArray(extracted.metrics) ? (extracted.metrics as { key?: string; value?: number }[]) : [];
+  // Only keys the engine scores. The schema refuses others at
+  // extraction time; a row applied later is checked again here, since
+  // what is stored on the document is not re-validated on apply.
+  const known = new Set(METRICS.map((m) => m.key));
+  const rows = items
+    .filter((m) => typeof m.key === "string" && known.has(m.key) && typeof m.value === "number" && Number.isFinite(m.value) && m.value >= 0)
+    .map((m) => ({ metric: m.key as string, value: m.value as number }));
+  if (rows.length === 0) {
+    warnings.push("No metric the engine knows was read off this, so nothing was logged. Anything it did read stays on the document.");
+    return { warnings };
+  }
+  const raw = typeof extracted.measuredOn === "string" ? extracted.measuredOn : "";
+  const measuredOn = /^\d{4}-\d{2}$/.test(raw) ? `${raw}-01` : raw;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(measuredOn)) {
+    warnings.push("The report carries no usable date, so nothing was logged: a metric without a date cannot be ranked.");
+    return { warnings };
+  }
+  const source = typeof extracted.source === "string" ? extracted.source : "event";
+  const detail = typeof extracted.eventName === "string" && extracted.eventName.trim() ? extracted.eventName.trim() : null;
+  const { data, error } = await client
+    .from("athlete_metrics")
+    .insert(rows.map((r) => ({ org_id: orgId, athlete_id: athleteId, metric: r.metric, value: r.value, measured_on: measuredOn, source, source_detail: detail, entered_by: enteredBy })))
+    .select("id");
+  if (error) {
+    warnings.push(`Could not log the metrics: ${error.message}`);
+    return { warnings };
+  }
+  return { warnings, metricIds: ((data ?? []) as { id: string }[]).map((r) => r.id), recompute: true };
+}
+
+export async function undoMetrics(client: Client, orgId: string, metricIds: string[]): Promise<string[]> {
+  if (metricIds.length === 0) return [];
+  const { data } = await client.from("athlete_metrics").select("id").eq("org_id", orgId).in("id", metricIds);
+  const present = ((data ?? []) as { id: string }[]).map((r) => r.id);
+  if (present.length === 0) return ["The metric entries this document logged had already been removed."];
+  const { error } = await client.from("athlete_metrics").delete().eq("org_id", orgId).in("id", present);
+  if (error) return [`Could not remove the ${present.length} metric ${present.length === 1 ? "entry" : "entries"} this document logged: ${error.message}`];
+  return [`Removed the ${present.length} metric ${present.length === 1 ? "entry" : "entries"} this document logged.`];
 }
 
 // ── Recommendation ───────────────────────────────────────────────────

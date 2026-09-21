@@ -10,6 +10,7 @@
 // instead of a jsonb column.
 
 import { z } from "zod";
+import { METRICS, SOURCES } from "@/lib/fit/contract";
 
 const baseFields = {
   confidence: z.number().min(0).max(1).nullable().optional(),
@@ -167,6 +168,29 @@ export const financialAidSchema = z.object({
   netCost: z.number().nullable().optional(),
 });
 
+// A metrics report: a showcase profile, an event results sheet or a
+// dashboard screenshot. The keys are the engine's own metric keys and
+// the source is the trust tier from the contract, so a row goes
+// straight into athlete_metrics.
+const metricKeys = METRICS.map((m) => m.key) as [string, ...string[]];
+const sourceKeys = SOURCES.map((s) => s.key) as [string, ...string[]];
+
+export const metricsReportItemSchema = z.object({
+  key: z.enum(metricKeys),
+  value: z.number().finite().min(0).max(10000),
+  note: z.string().nullable().optional(),
+});
+
+export const metricsReportSchema = z.object({
+  ...baseFields,
+  studentName: z.string().nullable().optional(),
+  sport: z.string().nullable().optional(),
+  source: z.enum(sourceKeys),
+  eventName: z.string().nullable().optional(),
+  measuredOn: z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/, "YYYY-MM-DD or YYYY-MM"),
+  metrics: z.array(metricsReportItemSchema).min(1),
+});
+
 export const triageResultSchema = z.object({
   readable: z.boolean(),
   legibilityScore: z.number().min(0).max(1),
@@ -176,6 +200,7 @@ export const triageResultSchema = z.object({
     "offer_letter",
     "recommendation",
     "financial_aid",
+    "metrics_report",
     "highlight_video_screenshot",
     "id_document",
     "other",
@@ -193,3 +218,4 @@ export type TestScoresExtraction = z.infer<typeof testScoresSchema>;
 export type OfferLetterExtraction = z.infer<typeof offerLetterSchema>;
 export type RecommendationExtraction = z.infer<typeof recommendationSchema>;
 export type FinancialAidExtraction = z.infer<typeof financialAidSchema>;
+export type MetricsReportExtraction = z.infer<typeof metricsReportSchema>;

@@ -70,6 +70,10 @@ picks in docs/MATCHING_CONTRACT.md.
   with a sparkline and the entry that scores marked. The best number in
   the most trusted source tier scores, and that tier is the athletic
   confidence. Staff and owners log; anyone in the org reads.
+- **On the Add Athlete form**: a First Metrics section, the sport's
+  metrics with the position's first, one date and one source, each
+  number logged as an entry when the athlete is saved (Dave,
+  2026-09-21: metrics while the profile is built, not after).
 - **On the athlete**: metric tiles, a goal (shifts the blend), a family
   budget and home state (net cost), five staff grades on the 20 to 80
   scale (blended into the athletic score by position group).
@@ -130,9 +134,13 @@ Every type applies now (2026-09-21), not only the transcript: test
 scores onto the athlete (best SAT and ACT), an offer letter onto the
 board (the college as Offer, with type, percentage and coach), an award
 letter onto the same college as the net cost the financial score uses
-(migration 0027), a recommendation letter as a contact. Each is undone
-by discard, each is proven by an action law, and the document screen
-says what applying and discarding do for each type.
+(migration 0027), a recommendation letter as a contact, and a metrics
+report (a PBR or Perfect Game profile, a Premier report, a showcase
+sheet, a dashboard screenshot; migration 0028 adds the type) as dated,
+sourced entries in the metrics log, the source read off the report so
+its trust is right. Each is undone by discard, each is proven by an
+action law, and the document screen says what applying and discarding
+do for each type.
 
 ### Around the pages
 

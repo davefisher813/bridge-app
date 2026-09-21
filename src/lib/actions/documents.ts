@@ -24,7 +24,7 @@ import {
 } from "@/lib/docai/acceptance";
 import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
-import { applyFinancialAid, applyOfferLetter, applyRecommendation, applyTestScores, undoContact, undoTarget, undoTestScores, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
+import { applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, undoContact, undoMetrics, undoTarget, undoTestScores, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
 import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole, StoredRecord } from "@/lib/docai/types";
 
@@ -99,6 +99,8 @@ interface AppliedChanges {
   target?: TargetChange;
   // The contact a recommendation letter added.
   contactId?: string | null;
+  // The metric entries a metrics report logged.
+  metricIds?: string[];
   // Course rows from OTHER documents that this apply superseded. They
   // are gone and an undo cannot bring them back, so it says so rather
   // than implying a clean reversal.
@@ -464,7 +466,10 @@ async function applyExtractionToAthlete(
   athleteId: string,
   categoryId: DocCategoryId,
   extracted: Record<string, unknown>,
-  documentId: string | null
+  documentId: string | null,
+  // Who pressed Apply, for the metric entries' entered_by. Null on an
+  // auto-apply, where nobody did.
+  appliedBy: string | null = null
 ): Promise<ApplyOutcome> {
   const supabase = await createClient();
   const patch: Record<string, unknown> = {};
@@ -538,11 +543,14 @@ async function applyExtractionToAthlete(
             ? await applyFinancialAid(supabase, orgId, athleteId, extracted, documentId)
             : categoryId === "recommendation"
               ? await applyRecommendation(supabase, orgId, athleteId, extracted)
-              : { warnings: [`${categoryId} documents are kept on file and not applied to the record.`] };
+              : categoryId === "metrics"
+                ? await applyMetricsReport(supabase, orgId, athleteId, extracted, appliedBy)
+                : { warnings: [`${categoryId} documents are kept on file and not applied to the record.`] };
     warnings.push(...part.warnings);
     if (part.detail) changes.detail = part.detail;
     if (part.target) changes.target = part.target;
     if (part.contactId) changes.contactId = part.contactId;
+    if (part.metricIds) changes.metricIds = part.metricIds;
     if (part.recompute) {
       const { error } = await recomputeFitsForAthlete(supabase, orgId, athleteId);
       if (error) warnings.push(`Applied, but the matches could not be rescored: ${error}`);
@@ -799,7 +807,7 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
     .single();
   if (!athlete) return { ok: false, error: "That athlete isn't on this org's roster." };
 
-  const outcome = await applyExtractionToAthlete(org.id, athleteId, doc.category, doc.extracted, doc.id);
+  const outcome = await applyExtractionToAthlete(org.id, athleteId, doc.category, doc.extracted, doc.id, user.id);
   const applyWarnings = outcome.warnings;
 
   const { error: statusError } = await supabase
@@ -914,7 +922,8 @@ async function undoApply(orgId: string, documentId: string, changes: AppliedChan
   if (changes.detail && changes.athleteId) done.push(...(await undoTestScores(supabase, orgId, changes.athleteId, changes.detail)));
   if (changes.target) done.push(...(await undoTarget(supabase, orgId, changes.target)));
   if (changes.contactId) done.push(...(await undoContact(supabase, orgId, changes.contactId)));
-  if ((changes.target || changes.detail) && changes.athleteId) {
+  if (changes.metricIds?.length) done.push(...(await undoMetrics(supabase, orgId, changes.metricIds)));
+  if ((changes.target || changes.detail || changes.metricIds?.length) && changes.athleteId) {
     const { error } = await recomputeFitsForAthlete(supabase, orgId, changes.athleteId);
     if (error) done.push(`The matches could not be rescored afterwards: ${error}`);
   }

@@ -2,7 +2,8 @@
 
 import { useActionState, useState } from "react";
 import { RECRUIT_TYPES, ATHLETE_STATUSES, ATHLETE_GOALS } from "@/lib/validation/athlete";
-import { GRADE_KEYS, GRADE_MAX, GRADE_MIN, SPORTS, gradeLabel, sportSpec } from "@/lib/fit/contract";
+import { GRADE_KEYS, GRADE_MAX, GRADE_MIN, SOURCES, SPORTS, gradeLabel, sportSpec } from "@/lib/fit/contract";
+import { metricsFor, positionGroupOf } from "@/lib/fit";
 import type { AthleteActionState } from "@/lib/actions/athletes";
 import type { RecruitType } from "@/lib/fit/types";
 import { Button, CheckField, Field, Form, Grid2, Label, SelectField, Stack } from "@/components/kit";
@@ -62,7 +63,11 @@ function field(state: AthleteActionState, initial: AthleteFormInitialValues, key
   return fromInitial === undefined || fromInitial === null ? "" : String(fromInitial);
 }
 
-export function AthleteForm({ action, initialValues = {}, submitLabel }: { action: ServerAction; initialValues?: AthleteFormInitialValues; submitLabel: string }) {
+// `firstMetrics` puts a First Metrics section on the form (the Add
+// screen): the sport's metrics, one date, one source, each number
+// logged as a dated entry when the athlete is saved. The Edit screen
+// leaves it out; the Metrics screen is the log there.
+export function AthleteForm({ action, initialValues = {}, submitLabel, firstMetrics = false }: { action: ServerAction; initialValues?: AthleteFormInitialValues; submitLabel: string; firstMetrics?: boolean }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const [recruitType, setRecruitType] = useState<RecruitType>((state.values.recruitType as RecruitType) || initialValues.recruitType || "hs");
   const [isInternational, setIsInternational] = useState<boolean>(
@@ -77,9 +82,14 @@ export function AthleteForm({ action, initialValues = {}, submitLabel }: { actio
   // sport is not one the engine knows keeps its own word as an option,
   // so an edit never silently changes it.
   const [sport, setSport] = useState<string>(f("sport") || "Baseball");
+  const [position, setPosition] = useState<string>(f("position"));
   const sportOptions = SPORTS.map((s) => s.label);
   if (sport && !sportOptions.includes(sport)) sportOptions.push(sport);
   const positions = sportSpec(sport)?.positions;
+  // The metrics the engine scores for the position first, the rest of
+  // the sport's after, docs/MATCHING_CONTRACT.md section 1.
+  const metricList = firstMetrics ? metricsFor(sport, positionGroupOf(sport, position || undefined)) : { first: [], more: [] };
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <Form action={formAction} error={state.errors.form}>
@@ -92,7 +102,7 @@ export function AthleteForm({ action, initialValues = {}, submitLabel }: { actio
             </option>
           ))}
         </SelectField>
-        <Field name="position" label="Position" hint={positions ? `For example, ${positions}.` : undefined} defaultValue={f("position")} />
+        <Field name="position" label="Position" hint={positions ? `For example, ${positions}.` : undefined} value={position} onChange={(e) => setPosition(e.target.value)} />
       </Grid2>
       <SelectField name="recruitType" label="Recruit Type" value={recruitType} onChange={(e) => setRecruitType(e.target.value as RecruitType)}>
         {RECRUIT_TYPES.map((t) => (
@@ -195,6 +205,29 @@ export function AthleteForm({ action, initialValues = {}, submitLabel }: { actio
         </Grid2>
         <Label>{`The ${GRADE_MIN} to ${GRADE_MAX} scale. 50 is average for the level; leave blank to score on metrics alone.`}</Label>
       </Stack>
+
+      {firstMetrics && (
+        <Stack gap={3}>
+          <Label caps>First metrics</Label>
+          <Label>{`Optional. Each number becomes a dated entry in the log${metricList.first.length ? ", the ones that score for the position first" : ""}. The best verified number is what scores.`}</Label>
+          <Grid2>
+            {[...metricList.first, ...metricList.more].map((m) => (
+              <Field key={m.key} name={`metric_${m.key}`} label={m.label} hint={m.unit || undefined} type="number" step="any" min="0" inputMode="decimal" defaultValue={f(`metric_${m.key}`)} error={err(`metric_${m.key}`)} />
+            ))}
+          </Grid2>
+          <Grid2>
+            <Field name="metricsMeasuredOn" label="Measured On" type="date" defaultValue={f("metricsMeasuredOn") || today} error={err("metricsMeasuredOn")} />
+            <SelectField name="metricsSource" label="Source" defaultValue={f("metricsSource") || "event"} error={err("metricsSource")}>
+              {SOURCES.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.label}
+                </option>
+              ))}
+            </SelectField>
+          </Grid2>
+          <Field name="metricsSourceDetail" label="Event or Detail" hint="For example, PBR Connecticut or fall practice." maxLength={120} defaultValue={f("metricsSourceDetail")} />
+        </Stack>
+      )}
 
       <CheckField name="isInternational" label="International Athlete" checked={isInternational} onChange={(e) => setIsInternational(e.target.checked)} />
 

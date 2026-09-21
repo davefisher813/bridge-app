@@ -9,6 +9,7 @@ import { z } from "zod";
 import { athleteDetailSchema } from "@/lib/fit/schema";
 import type { AthleteDetail, RecruitType } from "@/lib/fit/types";
 import { GOAL_LABEL, GRADE_KEYS, GRADE_MAX, GRADE_MIN, type AthleteGoal } from "@/lib/fit/contract";
+import { METRICS, SOURCES } from "@/lib/fit/contract";
 
 export const RECRUIT_TYPES: { value: RecruitType; label: string }[] = [
   { value: "hs", label: "High School" },
@@ -157,4 +158,44 @@ export function matchingColumnsFrom(values: AthleteFormValues): { goal: string; 
     home_state: values.homeState ?? null,
     grades,
   };
+}
+
+
+// ── First metrics, typed while the profile is built ──────────────────
+// Dave, 2026-09-21: "when building the athlete's profile, I should be
+// able to log metrics." Each number typed becomes a dated entry in the
+// log, all sharing one date and one source, so the record is complete
+// the first time anyone opens it. Every field is optional; a value with
+// no date is the one thing refused.
+
+
+export interface FirstMetrics {
+  entries: { metric: string; value: number }[];
+  measuredOn: string;
+  source: string;
+  sourceDetail: string | null;
+}
+
+export function parseFirstMetrics(formData: FormData): { ok: true; metrics: FirstMetrics | null } | { ok: false; errors: Record<string, string> } {
+  const errors: Record<string, string> = {};
+  const entries: { metric: string; value: number }[] = [];
+  for (const m of METRICS) {
+    const raw = String(formData.get(`metric_${m.key}`) ?? "").trim();
+    if (raw === "") continue;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || n > 10000) {
+      errors[`metric_${m.key}`] = "A number, zero or more";
+      continue;
+    }
+    entries.push({ metric: m.key, value: n });
+  }
+  if (Object.keys(errors).length) return { ok: false, errors };
+  if (entries.length === 0) return { ok: true, metrics: null };
+
+  const measuredOn = String(formData.get("metricsMeasuredOn") ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(measuredOn)) return { ok: false, errors: { metricsMeasuredOn: "Pick the date these were measured" } };
+  const source = String(formData.get("metricsSource") ?? "").trim();
+  if (!SOURCES.some((s) => s.key === source)) return { ok: false, errors: { metricsSource: "Say where they were measured" } };
+  const detail = String(formData.get("metricsSourceDetail") ?? "").trim().slice(0, 120);
+  return { ok: true, metrics: { entries, measuredOn, source, sourceDetail: detail || null } };
 }

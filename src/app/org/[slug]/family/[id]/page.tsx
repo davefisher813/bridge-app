@@ -39,6 +39,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   offer_letter: "Offer Letter",
   recommendation: "Recommendation",
   financial_aid: "Financial Aid",
+  metrics: "Metrics Report",
   film: "Film",
 };
 

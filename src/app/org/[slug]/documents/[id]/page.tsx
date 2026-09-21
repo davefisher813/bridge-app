@@ -41,6 +41,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   offer_letter: "Offer Letter",
   recommendation: "Recommendation",
   financial_aid: "Financial Aid",
+  metrics: "Metrics Report",
   film: "Film",
 };
 
@@ -92,6 +93,10 @@ const FIELD_LABEL: Record<string, string> = {
   sai: "SAI",
   tests: "Tests",
   awards: "Awards",
+  source: "Measured by",
+  eventName: "Event",
+  measuredOn: "Measured on",
+  metrics: "Metrics",
 };
 
 // What applying each type does, and what discarding puts back. The
@@ -106,6 +111,7 @@ const APPLY_COPY: Record<string, { applied: string; undo: string }> = {
   offer_letter: { applied: "Discarding this puts the college back the way it was on the board, or takes it off if this letter added it.", undo: "The college goes back the way it was on the board." },
   financial_aid: { applied: "Discarding this takes the award off the college on the board and rescores the match.", undo: "The award comes off the college and the match is rescored." },
   recommendation: { applied: "Discarding this removes the contact it added.", undo: "The contact it added comes off." },
+  metrics: { applied: "Discarding this removes the metric entries it logged and rescores the matches.", undo: "The metric entries it logged come off the log." },
 };
 
 // A list read off the document, in one line a person can scan.
@@ -115,6 +121,9 @@ function summarizeList(key: string, value: unknown): string | null {
     return (value as { type?: string; totalScore?: number | null; testDate?: string }[])
       .map((t) => `${t.type ?? "Test"} ${t.totalScore ?? "?"}${t.testDate ? ` (${t.testDate})` : ""}`)
       .join(", ");
+  }
+  if (key === "metrics") {
+    return (value as { key?: string; value?: number }[]).map((m) => `${m.key ?? "?"} ${m.value ?? "?"}`).join(", ");
   }
   if (key === "awards") {
     return (value as { name?: string; amount?: number; type?: string }[]).map((a) => `${a.name || a.type || "Award"} $${Math.round(a.amount ?? 0).toLocaleString("en-US")}`).join(", ");

@@ -83,3 +83,26 @@ describe("parseAthleteForm", () => {
     expect(r.values.gpaVerified).toBe(false);
   });
 });
+
+describe("first metrics on the Add form", async () => {
+  const { parseFirstMetrics } = await import("./athlete");
+  const fdm = (o: Record<string, string>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(o)) f.set(k, v);
+    return f;
+  };
+  it("nothing typed is nothing logged, and no error", () => {
+    expect(parseFirstMetrics(fdm({ metricsMeasuredOn: "", metricsSource: "" }))).toEqual({ ok: true, metrics: null });
+  });
+  it("each number becomes an entry sharing one date and source", () => {
+    const r = parseFirstMetrics(fdm({ metric_fbVelo: "86", metric_sixty: "6.9", metric_popTime: "", metricsMeasuredOn: "2026-08-15", metricsSource: "pbr", metricsSourceDetail: "PBR Connecticut" }));
+    expect(r).toEqual({ ok: true, metrics: { entries: [{ metric: "fbVelo", value: 86 }, { metric: "sixty", value: 6.9 }], measuredOn: "2026-08-15", source: "pbr", sourceDetail: "PBR Connecticut" } });
+  });
+  it("a number without a date is refused, and so is a bad number", () => {
+    const noDate = parseFirstMetrics(fdm({ metric_fbVelo: "86", metricsMeasuredOn: "", metricsSource: "pbr" }));
+    expect(noDate.ok).toBe(false);
+    expect((noDate as { errors: Record<string, string> }).errors.metricsMeasuredOn).toMatch(/date/);
+    const bad = parseFirstMetrics(fdm({ metric_fbVelo: "-4", metricsMeasuredOn: "2026-08-15", metricsSource: "pbr" }));
+    expect((bad as { errors: Record<string, string> }).errors.metric_fbVelo).toBeTruthy();
+  });
+});

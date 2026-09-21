@@ -319,7 +319,11 @@ existing one to Offer with the offer type, percentage and coach; an
 award letter puts its numbers on the same target's `aid` column
 (migration 0027), which the financial dimension reads as the known net
 cost; a recommendation letter becomes a contact with the letter's kind,
-tone, date and summary in its notes, once per name. Every apply records
+tone, date and summary in its notes, once per name; a metrics report
+(migration 0028 adds the `metrics` category) writes one dated
+`athlete_metrics` row per number, with the source the report names
+(Premier, PBR, Perfect Game, an event, a coach, self) so the trust tier
+is right, and records the ids for the undo. Every apply records
 before and after in `documents.applied_changes`, discard restores a
 value only while it still holds what the document wrote, a created
 target or contact is removed, and a target or score change rescores the

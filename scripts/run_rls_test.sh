@@ -44,6 +44,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0024_family_reads_s
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0025_docai_usage.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0026_family_links_follow_membership.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0027_target_aid.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0028_doc_category_metrics.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

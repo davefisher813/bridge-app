@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { matchingColumnsFrom, parseAthleteForm } from "@/lib/validation/athlete";
+import { matchingColumnsFrom, parseFirstMetrics, parseAthleteForm } from "@/lib/validation/athlete";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
 
 // Athlete add/edit was the top ROADMAP.md item once roster/board existed
@@ -27,11 +27,12 @@ function valuesFromFormData(formData: FormData): Record<string, FormDataEntryVal
 export async function createAthlete(slug: string, _prevState: AthleteActionState, formData: FormData): Promise<AthleteActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const parsed = parseAthleteForm(formData);
-  if (!parsed.ok) {
-    return { errors: parsed.errors, values: valuesFromFormData(formData) };
+  const first = parseFirstMetrics(formData);
+  if (!parsed.ok || !first.ok) {
+    return { errors: { ...parsed.errors, ...(first.ok ? {} : first.errors) }, values: valuesFromFormData(formData) };
   }
 
   const supabase = await createClient();
@@ -61,9 +62,24 @@ export async function createAthlete(slug: string, _prevState: AthleteActionState
     return { errors: { form: error.message }, values: valuesFromFormData(formData) };
   }
 
+  // The first metrics, typed on the same form: one dated entry each,
+  // the same rows the metrics screen logs, so the best verified number
+  // scores from day one.
+  let metricsWarning: string | null = null;
+  if (created?.id && first.metrics) {
+    const m = first.metrics;
+    const { error: metricError } = await supabase.from("athlete_metrics").insert(
+      m.entries.map((e) => ({ org_id: org.id, athlete_id: created.id, metric: e.metric, value: e.value, measured_on: m.measuredOn, source: m.source, source_detail: m.sourceDetail, entered_by: user.id })),
+    );
+    if (metricError) metricsWarning = metricError.message;
+  }
+
   // Stored fits: a new athlete is scored against every school now, so
   // the Matches section is full the first time anyone opens the record.
   if (created?.id) await recomputeFitsForAthlete(supabase, org.id, created.id);
+  if (metricsWarning) {
+    return { errors: { form: `${parsed.values.name} was added, but the metrics could not be logged: ${metricsWarning}. Log them from the athlete's Metrics screen.` }, values: valuesFromFormData(formData) };
+  }
 
   // Land on the record that was just made, not the list it sits in. A
   // list after a save makes the person find what they just typed.

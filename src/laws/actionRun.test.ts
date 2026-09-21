@@ -1086,3 +1086,55 @@ describe("LAW: every document type applies to the record and every apply can be 
     expect(writes.find((w) => w.table === "contacts" && w.op === "delete")).toBeTruthy();
   });
 });
+
+describe("LAW: metrics are logged from the Add form and from a metrics report, and both are dated and sourced", () => {
+  it("createAthlete logs each first metric as a dated entry with the source, then scores", async () => {
+    const { createAthlete } = await import("@/lib/actions/athletes");
+    const r = await run(() =>
+      createAthlete(ORG_WITH_MODULES, { errors: {}, values: {} }, form({ name: "New Athlete", sport: "Baseball", position: "RHP", recruitType: "hs", status: "Active", metric_fbVelo: "86", metric_strikePct: "61", metricsMeasuredOn: "2026-08-15", metricsSource: "pbr", metricsSourceDetail: "PBR Connecticut" })),
+    );
+    expect(r.redirect).toMatch(/\/roster\//);
+    const athlete = writes.find((w) => w.table === "athletes" && w.op === "insert")!;
+    const logged = writes.find((w) => w.table === "athlete_metrics" && w.op === "insert")!;
+    expect(logged.rows).toHaveLength(2);
+    // The fake mints the athlete's id on insert; the recorded write holds the input, so the id is checked by shape.
+    expect(athlete.rows[0]!.name).toBe("New Athlete");
+    expect(logged.rows[0]).toMatchObject({ org_id: data.orgs[0]!.id, athlete_id: expect.stringMatching(/^fake-athletes-/), metric: "fbVelo", value: 86, measured_on: "2026-08-15", source: "pbr", source_detail: "PBR Connecticut", entered_by: OWNER_ID });
+    expect(writes.findIndex((w) => w.table === "athlete_metrics")).toBeLessThan(writes.findIndex((w) => w.table === "athlete_school_fits"));
+  });
+
+  it("createAthlete with a metric and no date saves nothing and says which field", async () => {
+    const { createAthlete } = await import("@/lib/actions/athletes");
+    const r = await run(() => createAthlete(ORG_WITH_MODULES, { errors: {}, values: {} }, form({ name: "New Athlete", sport: "Baseball", recruitType: "hs", status: "Active", metric_fbVelo: "86", metricsMeasuredOn: "", metricsSource: "pbr" })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as { errors: Record<string, string> }).errors.metricsMeasuredOn).toMatch(/date/);
+    expect(writes).toEqual([]);
+  });
+
+  it("a metrics report applies as dated, sourced entries and the undo removes exactly those", async () => {
+    data.documents!.push({
+      id: "doc-metrics", org_id: data.orgs[0]!.id, athlete_id: null, file_name: "showcase.pdf", file_size: 1000, media_type: "application/pdf", source_role: "coordinator", status: "pending", route: "review", category: "metrics", provenance: null,
+      extracted: { studentName: "Fixture Athlete", sport: "Baseball", source: "perfect_game", eventName: "PG Northeast", measuredOn: "2026-07", metrics: [{ key: "fbVelo", value: 88 }, { key: "sixty", value: 6.85 }, { key: "verticalJump", value: 30 }] },
+      candidates: [], failure_reason: null, applied_at: null, applied_changes: null, undo_note: null, created_at: "2026-09-21",
+    });
+    const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-metrics", IDS.athlete);
+    expect(r.ok).toBe(true);
+    const logged = writes.find((w) => w.table === "athlete_metrics" && w.op === "insert")!;
+    // The unknown key is dropped; a month-only date lands on the first.
+    expect(logged.rows).toHaveLength(2);
+    expect(logged.rows[0]).toMatchObject({ athlete_id: IDS.athlete, metric: "fbVelo", value: 88, measured_on: "2026-07-01", source: "perfect_game", source_detail: "PG Northeast", entered_by: OWNER_ID });
+    expect(writes.find((w) => w.table === "athlete_school_fits")).toBeTruthy();
+    const applied = writes.find((w) => w.table === "documents" && w.op === "update" && w.rows[0]?.status === "applied")!;
+    const changes = applied.rows[0]!.applied_changes as { metricIds: string[] };
+    expect(changes.metricIds).toHaveLength(2);
+
+    (data.documents!.find((d) => d.id === "doc-metrics") as Record<string, unknown>).status = "applied";
+    (data.documents!.find((d) => d.id === "doc-metrics") as Record<string, unknown>).applied_changes = changes;
+    writes.length = 0;
+    const u = await discardDocument(ORG_WITH_MODULES, "doc-metrics");
+    expect(u.undone!.join(" ")).toMatch(/Removed the 2 metric entries/);
+    const del = writes.find((w) => w.table === "athlete_metrics" && w.op === "delete")!;
+    expect(del.filters).toEqual(expect.arrayContaining([expect.objectContaining({ column: "id", value: changes.metricIds })]));
+  });
+});

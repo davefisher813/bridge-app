@@ -22,6 +22,7 @@ const CATEGORIES: { id: DocCategoryId | null; label: string }[] = [
   { id: "offer_letter", label: "Offer Letter" },
   { id: "recommendation", label: "Recommendation" },
   { id: "financial_aid", label: "Financial Aid" },
+  { id: "metrics", label: "Metrics Report" },
 ];
 
 const SOURCE_ROLES: { id: SourceRole; label: string }[] = [

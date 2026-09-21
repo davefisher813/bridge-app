@@ -5,7 +5,7 @@
 // patch stack) - see docs/ARCHITECTURE.md for what's a faithful port vs.
 // a genuine redesign here.
 
-export type DocCategoryId = "transcript" | "test_scores" | "offer_letter" | "recommendation" | "financial_aid" | "film";
+export type DocCategoryId = "transcript" | "test_scores" | "offer_letter" | "recommendation" | "financial_aid" | "metrics" | "film";
 
 // A category's extraction "shape" says how the parsed JSON gets applied
 // to an athlete record: field_update overwrites scalar fields (a

@@ -251,3 +251,43 @@ describe("detectCategory", () => {
     expect(result).toEqual({ categoryId: null, triage: null });
   });
 });
+
+describe("a metrics report", () => {
+  it("extracts dated, sourced metric entries the engine can log", async () => {
+    const { runExtractionPipeline } = await import("./pipeline");
+    const { createStubCaller } = await import("./stubCaller");
+    const { metricsReportSchema } = await import("./schemas");
+    const record = {
+      originalName: "pbr-profile.pdf",
+      originalSize: 2048,
+      originalMime: "application/pdf",
+      kind: "pdf" as const,
+      sourceRole: "coordinator" as const,
+      ingestedAt: "2026-09-21T00:00:00.000Z",
+      requestId: "req_metrics",
+      mediaType: "application/pdf",
+      base64: "JVBERi0=",
+      blockType: "document" as const,
+    };
+    const result = await runExtractionPipeline({
+      categoryId: "metrics",
+      records: [record],
+      sourceRole: "coordinator",
+      roster: [{ id: "a1", name: "Sample Athlete" }],
+      rosterContext: [],
+      priorVersions: [],
+      callModel: createStubCaller({ category: "metrics", seedText: "pbr-profile.pdf:2048" }),
+    });
+    if (!result.ok) throw new Error(`${result.stage}: ${result.error}`);
+    const parsed = metricsReportSchema.parse(result.extracted);
+    expect(parsed.source).toBe("pbr");
+    expect(parsed.measuredOn).toBe("2026-08-15");
+    expect(parsed.metrics.map((m) => m.key)).toEqual(["fbVelo", "sixty", "exitVelo"]);
+  });
+
+  it("refuses a metric key the engine does not know", async () => {
+    const { metricsReportSchema } = await import("./schemas");
+    const r = metricsReportSchema.safeParse({ source: "pbr", measuredOn: "2026-08", metrics: [{ key: "verticalJump", value: 30 }] });
+    expect(r.success).toBe(false);
+  });
+});

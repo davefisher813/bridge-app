@@ -2323,3 +2323,29 @@ free text field with a baseball example.
 position group lookups normalize through it, so "Boys Soccer" and
 "Soccer" score the same. A law covers the label, the spellings and
 that a soccer athlete is never asked for a fastball.
+
+## 2026-09-21: metrics while the profile is built, and metrics reports read by Doc AI
+
+**Decision.** The Add Athlete form carries a First Metrics section:
+the sport's metrics (the position's first), one measured-on date, one
+source, each number saved as a dated entry in the log at the same time
+as the athlete. Doc AI gains a sixth document type, Metrics Report: a
+showcase profile, an event results sheet or a dashboard screenshot is
+read into the same log with the date and the source the report names.
+Both write exactly the rows the Metrics screen logs by hand.
+
+**Reason.** Dave: "when building the athlete's profile, I should be
+able to log metrics. As of now I can only add them after the profile
+is built. Make sure doc AI is wired to add metrics properly and
+seamlessly when someone uploads them." The log was the right store
+(catalog pick, 2026-09-20); it just had one door.
+
+**Alternatives.** A metrics column on the athlete (rejected: the log is
+what makes "best verified, else most recent" possible). Reading video
+(still not built; the film type now points at the metrics report).
+
+**Consequences.** `parseFirstMetrics()` in the athlete validation, the
+create action logs then rescores; `metricsReportSchema`, a prompt that
+lists the engine's own keys and units, a stub case, and
+`applyMetricsReport()` with the ids recorded for discard. A metric key
+the engine does not know is refused at extraction and dropped on apply.
