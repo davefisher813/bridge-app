@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "5767350",
-  "commitFull": "5767350eefda3a78caacd1091adc35c788898d4b",
+  "commit": "8f3cac2",
+  "commitFull": "8f3cac26ffc2cdd96423d440e453557781efce34",
   "branch": "main",
   "remoteBranches": [],
   "shipped": false,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-09-21T18:36:01.002Z",
-  "durationMs": 23382,
+  "startedAt": "2026-09-21T18:37:21.503Z",
+  "durationMs": 25438,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,7 +18,7 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 940,
+        "pass": 941,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
@@ -46,7 +46,7 @@
         "src/lib/data/eligibilityLoop.test.ts": 10,
         "src/lib/data/fitAdapters.test.ts": 14,
         "src/lib/data/ncaaAdapters.test.ts": 20,
-        "src/lib/data/undoPlan.test.ts": 15,
+        "src/lib/data/undoPlan.test.ts": 16,
         "src/lib/docai/acceptance.test.ts": 12,
         "src/lib/docai/gpa.test.ts": 6,
         "src/lib/docai/lenient.test.ts": 24,
@@ -110,7 +110,7 @@
             "location": "/login"
           }
         },
-        "ms": 1445
+        "ms": 1463
       },
       "errors": [],
       "warnings": [],
@@ -126,8 +126,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 24,
-      "filesScanned": 362
+      "touchedFiles": 3,
+      "filesScanned": 363
     },
     {
       "name": "types",
