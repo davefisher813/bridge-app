@@ -467,3 +467,48 @@ describe("the stub drives every supported category through its own schema", () =
     });
   }
 });
+
+describe("the shapes a model wraps its answer in", () => {
+  it("one extra layer around the object is unwrapped", async () => {
+    const wrapped = JSON.stringify({ transcript: JSON.parse(GOOD_TRANSCRIPT) });
+    const result = await runExtractionPipeline({
+      categoryId: "transcript",
+      records: [fakeRecord()],
+      sourceRole: "admin",
+      roster,
+      rosterContext: roster,
+      priorVersions: [],
+      callModel: scriptedCaller({ _triage: GOOD_TRIAGE, _extract: wrapped }),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.extracted.gpa).toBe(3.7);
+  });
+
+  it("a page that lists several students is not forced onto one", async () => {
+    const sheet = JSON.stringify({ ...JSON.parse(GOOD_TRANSCRIPT), studentName: null, confidence: 0.2, warnings: ["The page lists several students."] });
+    const result = await runExtractionPipeline({
+      categoryId: "transcript",
+      records: [fakeRecord()],
+      sourceRole: "admin",
+      roster,
+      rosterContext: roster,
+      priorVersions: [],
+      callModel: scriptedCaller({ _triage: GOOD_TRIAGE, _extract: sheet }),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.route).toBe("reject");
+      expect(result.extracted.warnings).toContain("The page lists several students.");
+    }
+  });
+
+  it("a college transcript is flagged, a middle school one is held", async () => {
+    const college = JSON.stringify({ ...JSON.parse(GOOD_TRANSCRIPT), level: "College" });
+    const r1 = await runExtractionPipeline({ categoryId: "transcript", records: [fakeRecord()], sourceRole: "admin", roster, rosterContext: roster, priorVersions: [], callModel: scriptedCaller({ _triage: GOOD_TRIAGE, _extract: college }) });
+    expect(r1.ok && r1.extracted.level).toBe("college");
+    expect(r1.ok && r1.extracted.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/college transcript/)]));
+    const middle = JSON.stringify({ ...JSON.parse(GOOD_TRANSCRIPT), level: "middle_school" });
+    const r2 = await runExtractionPipeline({ categoryId: "transcript", records: [fakeRecord()], sourceRole: "admin", roster, rosterContext: roster, priorVersions: [], callModel: scriptedCaller({ _triage: GOOD_TRIAGE, _extract: middle }) });
+    expect(r2.ok && r2.route).toBe("review");
+  });
+});

@@ -25,7 +25,7 @@
 
 import type { IngestedRecord, SourceRole } from "./types";
 import { sniffKind } from "./magicBytes";
-import { MAX_INGEST_BYTES } from "./limits";
+import { MAX_IMAGE_EDGE, MAX_INGEST_BYTES } from "./limits";
 
 // Re-exported so existing callers keep working. The constant itself
 // moved to ./limits so the server can import it without pulling this
@@ -60,12 +60,18 @@ interface NormalizedImage {
   height?: number;
   skipped: boolean;
   fallbackReason?: string;
+  // The format the bytes are in after normalising, which can differ
+  // from the input when a photo was scaled down.
+  mediaType?: string;
 }
 
 // Decodes the image and re-encodes it through canvas, so the output
 // format/base64 shape is consistent regardless of input format, and
 // width/height are real decoded values rather than trusted from the
-// file's own claims. createImageBitmap applies the image's EXIF
+// file's own claims. A photo bigger than MAX_IMAGE_EDGE on its long
+// side is scaled down first: a 12 megapixel phone photo is four
+// megabytes of pixels the model would downsample anyway, and scaling it
+// here is what lets a camera shot fit under the cap at all. createImageBitmap applies the image's EXIF
 // orientation itself (this sandbox's Chromium does so unconditionally -
 // see the file header comment), so bitmap.width/height are already the
 // correctly-oriented, final dimensions; no manual rotation needed or
@@ -81,14 +87,21 @@ async function normalizeImage(bytes: Uint8Array, mediaType: string): Promise<Nor
     const blob = new Blob([bytes as unknown as BlobPart], { type: mediaType });
     const bitmap = await createImageBitmap(blob, { imageOrientation: "from-image" });
 
+    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
     const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2D canvas context unavailable");
-    ctx.drawImage(bitmap, 0, 0);
-    const base64 = canvasToBase64(canvas, mediaType);
-    return { base64, width: bitmap.width, height: bitmap.height, skipped: false };
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    // A scaled photo goes as JPEG whatever it arrived as: a PNG
+    // screenshot keeps its format at full size, but a PNG of a
+    // camera photo scaled down is several times the JPEG for no gain.
+    const outType = scale < 1 && mediaType === "image/png" ? "image/jpeg" : mediaType;
+    const base64 = canvasToBase64(canvas, outType);
+    return { base64, width, height, skipped: false, mediaType: outType };
   } catch (e) {
     return { base64: bytesToBase64(bytes), skipped: true, fallbackReason: `Could not normalize image, sending as-is: ${(e as Error).message}` };
   }
@@ -115,24 +128,31 @@ export async function ingestFile(file: File, opts: IngestOptions): Promise<Inges
     requestId: opts.requestId,
   };
 
-  if (file.size > MAX_INGEST_BYTES) {
-    const mb = (file.size / 1024 / 1024).toFixed(1);
+  const tooLarge = (size: number, kind: IngestedRecord["kind"], mediaType: string): IngestedRecord => {
+    const mb = (size / 1024 / 1024).toFixed(1);
     return {
       ...base,
-      kind: "unknown",
-      mediaType: base.originalMime,
+      kind,
+      mediaType,
       base64: "",
       blockType: "document",
       normalizedSkipped: true,
       fallbackReason: `File too large for AI processing (${mb}MB, max ${(MAX_INGEST_BYTES / 1024 / 1024).toFixed(0)}MB).`,
     };
-  }
+  };
+
+  // A photo over the cap may still fit once it is scaled down, so only
+  // a file too big to even read into memory is refused here. Anything
+  // else is checked again after normalising, on the bytes that would
+  // actually be sent.
+  if (file.size > MAX_INGEST_BYTES * 4) return tooLarge(file.size, "unknown", base.originalMime);
 
   const buf = await readAsArrayBuffer(file);
   const bytes = new Uint8Array(buf);
   const sniffed = sniffKind(bytes);
 
   if (sniffed === "pdf") {
+    if (bytes.length > MAX_INGEST_BYTES) return tooLarge(bytes.length, "pdf", "application/pdf");
     return { ...base, kind: "pdf", mediaType: "application/pdf", base64: bytesToBase64(bytes), blockType: "document" };
   }
 
@@ -156,10 +176,13 @@ export async function ingestFile(file: File, opts: IngestOptions): Promise<Inges
   if (SUPPORTED_IMAGE_KINDS.has(sniffed)) {
     const mediaType = `image/${sniffed}`;
     const normalized = await normalizeImage(bytes, mediaType);
+    // Base64 is a third bigger than the bytes it carries.
+    const sentBytes = Math.floor((normalized.base64.length * 3) / 4);
+    if (sentBytes > MAX_INGEST_BYTES) return tooLarge(sentBytes, "image", normalized.mediaType ?? mediaType);
     return {
       ...base,
       kind: "image",
-      mediaType,
+      mediaType: normalized.mediaType ?? mediaType,
       base64: normalized.base64,
       blockType: "image",
       width: normalized.width,
@@ -169,6 +192,7 @@ export async function ingestFile(file: File, opts: IngestOptions): Promise<Inges
     };
   }
 
+  if (bytes.length > MAX_INGEST_BYTES) return tooLarge(bytes.length, "unknown", base.originalMime);
   return {
     ...base,
     kind: "unknown",

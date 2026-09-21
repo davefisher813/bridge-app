@@ -51,6 +51,10 @@ export const transcriptSchema = z.object({
   // course list, and the pipeline warns and sends it to review instead
   // of losing it.
   school: strOrNull().optional().default(null),
+  // Which kind of school issued it. A college transcript belongs to a
+  // transfer athlete and its courses are not the NCAA core list, so
+  // the apply keeps the GPA and leaves the course table alone.
+  level: z.preprocess((v) => (v == null || v === "" ? null : v), enumOr(["high_school", "college", "middle_school"], "high_school").nullable()).optional().default(null),
   gradYear: z.preprocess((v) => emptyToNullYear(v), z.number().int().min(2000).max(2100).nullable()).optional().default(null),
   sport: strOrNull().optional(),
   gpa: z.preprocess(toGpa, z.number().finite().nullable()).optional().default(null),

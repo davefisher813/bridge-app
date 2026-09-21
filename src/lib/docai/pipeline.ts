@@ -216,6 +216,11 @@ function sanityCheck(categoryId: DocCategoryId, extracted: Record<string, unknow
   };
 
   if (categoryId === "transcript") {
+    if (extracted.level === "college") warn("This is a college transcript. Its GPA is kept; its courses are not a high school core list and are not stored as one.");
+    if (extracted.level === "middle_school") {
+      warn("This is a middle school transcript. Its grades do not count toward NCAA eligibility, so nothing from it is put on the record.");
+      hold = true;
+    }
     if (!extracted.school) warn("No school name was read off this transcript.");
     if (extracted.gradYear == null) warn("No graduation year was read off this transcript.");
     const courses = Array.isArray(extracted.courses) ? extracted.courses : [];
@@ -368,6 +373,14 @@ export async function runExtractionPipeline(input: PipelineInput): Promise<Pipel
   } catch (e) {
     const msg = e instanceof ModelJsonParseError ? "The model's answer was not the JSON it was asked for." : (e as Error).message;
     return { ok: false, stage: "extraction_parse", error: msg, triage: triage ?? undefined };
+  }
+
+  // A model sometimes wraps the object it was asked for in one more
+  // layer ({"data": {...}}, {"transcript": {...}}). One key whose value
+  // is the object is unwrapped; anything else is left for the schema.
+  if (rawJson && typeof rawJson === "object" && !Array.isArray(rawJson)) {
+    const entries = Object.entries(rawJson as Record<string, unknown>);
+    if (entries.length === 1 && entries[0]![1] && typeof entries[0]![1] === "object" && !Array.isArray(entries[0]![1])) rawJson = entries[0]![1];
   }
 
   const schema = CATEGORY_SCHEMAS[cat.id as keyof typeof CATEGORY_SCHEMAS];

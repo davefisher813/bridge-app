@@ -15,7 +15,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseAthleteDetail } from "@/lib/fit/schema";
-import { METRICS } from "@/lib/fit/contract";
+import { METRICS, normalizeSport } from "@/lib/fit/contract";
 import { metricPlausible } from "@/lib/docai/plausibility";
 import { daysAhead, isRealDate } from "@/lib/docai/lenient";
 
@@ -342,10 +342,22 @@ export async function applyMetricsReport(client: Client, orgId: string, athleteI
   // Only keys the engine scores. The schema refuses others at
   // extraction time; a row applied later is checked again here, since
   // what is stored on the document is not re-validated on apply.
-  const known = new Set(METRICS.map((m) => m.key));
+  const known = new Map(METRICS.map((m) => [m.key, m]));
   const implausible: string[] = [];
+  const wrongSport: string[] = [];
+  // A basketball sheet applied to a baseball player logs numbers the
+  // engine never scores for that sport and the log never shows. That
+  // is a mismatch, not a reading, so those rows are left out and named.
+  const { data: athleteRow } = await client.from("athletes").select("sport").eq("id", athleteId).eq("org_id", orgId).maybeSingle();
+  const sport = normalizeSport((athleteRow as { sport?: string } | null)?.sport ?? undefined);
   const rows = items
     .filter((m) => typeof m.key === "string" && known.has(m.key) && typeof m.value === "number" && Number.isFinite(m.value) && m.value >= 0)
+    .filter((m) => {
+      const spec = known.get(m.key as string)!;
+      if (!sport || spec.sports.includes(sport)) return true;
+      wrongSport.push(`${spec.label} ${m.value}`);
+      return false;
+    })
     .filter((m) => {
       // The pipeline drops these before the document is stored; a row
       // applied from an older document is checked again here.
@@ -355,6 +367,7 @@ export async function applyMetricsReport(client: Client, orgId: string, athleteI
     })
     .map((m) => ({ metric: m.key as string, value: m.value as number }));
   if (implausible.length) warnings.push(`Left out ${implausible.join(", ")}: not a plausible reading.`);
+  if (wrongSport.length) warnings.push(`Left out ${wrongSport.join(", ")}: not a ${sport} metric. Check this report is the right athlete's.`);
   if (rows.length === 0) {
     warnings.push("No metric the engine knows was read off this, so nothing was logged. Anything it did read stays on the document.");
     return { warnings };

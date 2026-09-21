@@ -3,6 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { applyDocument, discardDocument, isStubbedModel } from "@/lib/actions/documents";
+import { isStaleProcessing } from "@/lib/data/documentState";
 import { Avatar, Body, Button, Chip, ConfirmButton, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { Role } from "@/components/statusHue";
@@ -192,6 +193,10 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   const isPending = doc.status === "pending";
   const isFailed = doc.status === "failed";
   const isDiscarded = doc.status === "discarded";
+  const isProcessing = doc.status === "processing";
+  // A reading that never finished: the row was written, the function
+  // was killed. It can be cleared once it is plainly not going to end.
+  const isStuck = isProcessing && isStaleProcessing(doc.created_at);
 
   // Both wrappers exist to return void: a form action's return value has
   // to be void, and applyDocument/discardDocument return a result object
@@ -208,6 +213,10 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
 
   const headline = isFailed
     ? "Could Not Use This"
+    : isProcessing
+      ? isStuck
+        ? "This Reading Did Not Finish"
+        : "Still Being Read"
     : isPending
       ? matched || candidates.length
         ? "Check This Before It Lands"
@@ -216,6 +225,8 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
 
   const chip = isApplied ? (
     <Chip label="Applied" kind="check" role="committed" />
+  ) : isProcessing ? (
+    <Chip label={isStuck ? "Stuck" : "Reading"} kind="warning" role="offer" />
   ) : isPending ? (
     <Chip label="Needs Review" kind="warning" role="offer" />
   ) : isFailed ? (
@@ -239,6 +250,26 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
         <Note title="Worked Out the Type Itself">Nobody told it what this was. It decided: {doc.detected_type.replace(/_/g, " ")}.</Note>
       )}
 
+      {isProcessing && (
+        <>
+          {isStuck ? (
+            <>
+              <Note title="It Was Cut Off">
+                The reading started {Math.round((Date.now() - new Date(doc.created_at).getTime()) / 60000)} minutes ago and never came back, so it is not going to. Nothing was changed on any athlete. Discard this and upload the file again.
+              </Note>
+              <Form action={discardAction}>
+                <ConfirmButton title="Discard this document?" body="Nothing was applied, so nothing changes on any athlete. The file can be uploaded again." confirmLabel="Discard">
+                  Discard
+                </ConfirmButton>
+              </Form>
+            </>
+          ) : (
+            <Note title="Give It a Minute">A transcript takes a minute or two to read. Come back to this page; it fills in on its own.</Note>
+          )}
+          <LinkButton href={`/org/${slug}/documents`}>Back to Documents</LinkButton>
+        </>
+      )}
+
       {isFailed && (
         <>
           <Section label="What Went Wrong" count={doc.triage?.issues?.length || undefined} role="danger" kind="blocked">
@@ -256,7 +287,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
         </>
       )}
 
-      {!isFailed && (
+      {!isFailed && !isProcessing && (
         <>
           <Section label={matched ? "Matched to" : "Pick the athlete"} count={matched ? undefined : candidates.length} role={matched ? "people" : "offer"} kind="athlete">
             {matched ? (
@@ -338,6 +369,12 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
               survives a reload. A discard that silently leaves an
               athlete's GPA rewritten is the bug this replaced. */}
           {isDiscarded && doc.undo_note && <Note title="What Was Undone">{doc.undo_note}</Note>}
+
+          {/* What applying did that was not a clean write: a metric left
+              out, a school not on file, a rescoring that failed. Kept on
+              the row and shown here, where the person who applied it
+              looks. */}
+          {isApplied && doc.failure_reason && <Note title="What Applying Did">{doc.failure_reason}</Note>}
 
           {/* Discarding an APPLIED document is an undo, so the button
               says so. */}

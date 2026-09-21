@@ -1287,3 +1287,86 @@ describe("LAW: a document is read once, applied once, and a reading that stops l
     expect(writes.find((w) => w.table === "athlete_school_fits")).toBeTruthy();
   });
 });
+
+describe("LAW: the same file is read once, a stuck reading can be cleared, and a transcript is applied by its level", () => {
+  const stored = (path: string) => ({
+    originalName: "transcript.pdf",
+    originalSize: 1000,
+    originalMime: "application/pdf",
+    kind: "pdf" as const,
+    sourceRole: "coordinator" as const,
+    ingestedAt: "2026-09-21T12:00:00.000Z",
+    requestId: "req_twice",
+    mediaType: "application/pdf",
+    blockType: "document" as const,
+    storagePath: path,
+  });
+  const bridgePath = () => `${data.orgs[0]!.id as string}/req_fixture/1-transcript.pdf`;
+  const pending = (id: string, category: string, extracted: Record<string, unknown>, over: Record<string, unknown> = {}) => ({
+    id, org_id: data.orgs[0]!.id, athlete_id: null, file_name: "x.pdf", file_size: 1, media_type: "application/pdf", source_role: "coordinator", status: "pending", route: "review", category, provenance: null,
+    extracted, candidates: [], failure_reason: null, applied_at: null, applied_changes: null, undo_note: null, created_at: "2026-09-21", ...over,
+  });
+
+  it("the second upload of the same bytes is refused, pointing at the first, and its file is dropped", async () => {
+    const { processDocument } = await import("@/lib/actions/documents");
+    const first = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "coordinator", requestedCategory: "transcript" });
+    expect(first.ok).toBe(true);
+    const insert = writes.find((w) => w.table === "documents" && w.op === "insert")!;
+    expect(String(insert.rows[0]!.content_hash)).toMatch(/^[0-9a-f]{64}$/);
+    writes.length = 0;
+    const second = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "coordinator", requestedCategory: "transcript" });
+    expect(second.ok).toBe(false);
+    expect(second.error).toMatch(/already uploaded/);
+    expect(second.documentId).toBe(first.documentId);
+    expect(writes.filter((w) => w.table === "documents")).toEqual([]);
+    expect(writes.find((w) => w.table === "storage:documents" && w.op === "delete")).toBeTruthy();
+  });
+
+  it("a discarded copy does not block reading the file again", async () => {
+    const { processDocument, discardDocument } = await import("@/lib/actions/documents");
+    const first = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "coordinator", requestedCategory: "transcript" });
+    expect((await discardDocument(ORG_WITH_MODULES, first.documentId!)).ok).toBe(true);
+    const again = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "coordinator", requestedCategory: "transcript" });
+    expect(again.ok).toBe(true);
+    expect(again.documentId).not.toBe(first.documentId);
+  });
+
+  it("a reading still marked processing after ten minutes can be discarded; a fresh one cannot", async () => {
+    data.documents!.push(pending("doc-old", "transcript", {}, { status: "processing", created_at: new Date(Date.now() - 11 * 60 * 1000).toISOString() }));
+    data.documents!.push(pending("doc-fresh", "transcript", {}, { status: "processing", created_at: new Date().toISOString() }));
+    const { discardDocument } = await import("@/lib/actions/documents");
+    expect((await discardDocument(ORG_WITH_MODULES, "doc-old")).ok).toBe(true);
+    const fresh = await discardDocument(ORG_WITH_MODULES, "doc-fresh");
+    expect(fresh.ok).toBe(false);
+    expect(fresh.error).toMatch(/still being read/);
+  });
+
+  it("a college transcript keeps its GPA and leaves its courses on the document", async () => {
+    data.documents!.push(pending("doc-college", "transcript", { studentName: "Fixture Athlete", school: "Sample College", level: "college", gpa: 3.2, gpaScale: "4.0", courses: [{ title: "Calculus I", subject: "math", credit: 4, grade: "B" }] }));
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-college", IDS.athlete);
+    expect(r.ok).toBe(true);
+    expect(r.error).toMatch(/College courses were left on the document/);
+    expect(writes.find((w) => w.table === "athletes" && w.op === "update")!.rows[0]!.gpa).toBe(3.2);
+    expect(writes.filter((w) => w.table === "athlete_courses")).toEqual([]);
+  });
+
+  it("a middle school transcript changes nothing", async () => {
+    data.documents!.push(pending("doc-ms", "transcript", { studentName: "Fixture Athlete", school: "Sample Middle", level: "middle_school", gpa: 3.9, gpaScale: "4.0", courses: [] }));
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-ms", IDS.athlete);
+    expect(r.ok).toBe(true);
+    expect(r.error).toMatch(/middle school/);
+    expect(writes.filter((w) => w.table === "athletes")).toEqual([]);
+  });
+
+  it("a metric from another sport is left out and named", async () => {
+    data.documents!.push(pending("doc-hoops", "metrics", { studentName: "Fixture Athlete", source: "event", measuredOn: "2026-07-04", metrics: [{ key: "ppg", value: 18 }, { key: "fbVelo", value: 84 }] }));
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-hoops", IDS.athlete);
+    expect(r.ok).toBe(true);
+    expect(r.error).toMatch(/Points per Game 18: not a baseball metric/);
+    const logged = writes.find((w) => w.table === "athlete_metrics" && w.op === "insert")!;
+    expect(logged.rows.map((x) => x.metric)).toEqual(["fbVelo"]);
+  });
+});

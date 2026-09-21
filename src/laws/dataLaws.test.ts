@@ -165,7 +165,7 @@ describe("LAW: both halves of a shared-and-org table pair are read together", ()
 
 // ── File bytes never ride a server action ────────────────────────────
 //
-// Next caps a server action's request body at 1MB. The app allows a 4MB
+// Next caps a server action's request body at 1MB. The app allows a 10MB
 // document. For its first two weeks the uploader base64-encoded the file
 // and passed it straight into processDocument(), which meant every real
 // scanned transcript would have failed on the way in, and no test could

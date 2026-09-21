@@ -89,6 +89,7 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
     .limit(60);
 
   const rows = (data ?? []) as DocRow[];
+  const reading = rows.filter((r) => r.status === "processing");
   const pending = rows.filter((r) => r.status === "pending");
   const applied = rows.filter((r) => r.status === "applied");
   const problems = rows.filter((r) => r.status === "failed");
@@ -110,6 +111,13 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
         </>
       ) : (
         <>
+          {reading.length > 0 && (
+            <Section label="Being Read" count={reading.length} role="offer" kind="document">
+              {reading.map((d) => (
+                <DocumentRow key={d.id} slug={slug} doc={d} role="offer" />
+              ))}
+            </Section>
+          )}
           {pending.length > 0 && (
             <Section label="Needs Review" count={pending.length} role="offer" kind="warning">
               {pending.map((d) => (

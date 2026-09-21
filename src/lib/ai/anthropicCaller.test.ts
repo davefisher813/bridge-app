@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
-import { contentFor, costCents, createAnthropicCaller, ModelRefusedError, type MessagesClient, type ModelUsage } from "./anthropicCaller";
+import { contentFor, costCents, createAnthropicCaller, explainApiError, ModelRefusedError, type MessagesClient, type ModelUsage } from "./anthropicCaller";
 import type { ModelCallOptions } from "@/lib/docai/pipeline";
 import type { IngestedRecord } from "@/lib/docai/types";
 
@@ -113,5 +113,31 @@ describe("the real model caller", () => {
     expect(costCents("claude-opus-5", { inputTokens: 0, outputTokens: 0, cacheReadTokens: 1_000_000, cacheWriteTokens: 0 })).toBe(50);
     expect(costCents("claude-opus-5", { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 1_000_000 })).toBe(625);
     expect(costCents("some-future-model", { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 })).toBe(500);
+  });
+});
+
+describe("what the API's errors mean to the person uploading", () => {
+  it("names the fix for the errors a real upload hits", () => {
+    expect(explainApiError({ status: 400, message: "Could not process PDF: the document is encrypted" })).toMatch(/password protected/);
+    expect(explainApiError({ status: 400, message: "Could not process image" })).toMatch(/could not be opened/);
+    expect(explainApiError({ status: 413, message: "request_too_large" })).toMatch(/too large/);
+    expect(explainApiError({ status: 401, message: "invalid x-api-key" })).toMatch(/AI key/);
+    expect(explainApiError({ status: 429, message: "rate_limit_error" })).toMatch(/busy/);
+    expect(explainApiError({ status: 529, message: "overloaded_error" })).toMatch(/overloaded/);
+    expect(explainApiError({ name: "APIConnectionTimeoutError", message: "Request timed out." })).toMatch(/took too long/);
+    expect(explainApiError({ name: "APIConnectionError", message: "Connection error." })).toMatch(/could not be reached/);
+  });
+  it("keeps an unrecognised message so it can still be diagnosed", () => {
+    expect(explainApiError({ status: 500, message: "internal_server_error: xyz" })).toBe("internal_server_error: xyz");
+  });
+  it("a failing call reaches the pipeline as that sentence", async () => {
+    const client: MessagesClient = {
+      messages: {
+        async create() {
+          throw Object.assign(new Error("Could not process PDF: encrypted"), { status: 400 });
+        },
+      },
+    };
+    await expect(createAnthropicCaller({ client })(call())).rejects.toThrow(/password protected/);
   });
 });

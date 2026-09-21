@@ -139,8 +139,15 @@ doubtful for a human; every warning is shown on the document under
 What It Flagged; a pinned upload naming somebody else goes to review;
 the detect path runs one triage; a failed model call stops the reading;
 apply and discard are claimed so they happen once; a crash leaves a
-failed row; the stub reaches every category's screen. See
-docs/ARCHITECTURE.md, "Hardened against misreads".
+failed row; the stub reaches every category's screen. A second pass
+walked every scenario from the phone: camera photos now go in (HEIC
+no longer listed, so iOS converts; photos scaled to 2000px; cap 10MB,
+migration 0029); the same file twice is refused by hash; API errors
+read as what to do; a killed reading shows as stuck and can be
+cleared; a college transcript keeps its GPA and leaves its courses; a
+metric from the wrong sport is left out and named. See
+docs/ARCHITECTURE.md, "Hardened against misreads" and "The second
+pass".
 
 Every type applies now (2026-09-21), not only the transcript: test
 scores onto the athlete (best SAT and ACT), an offer letter onto the

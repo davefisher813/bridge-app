@@ -102,26 +102,59 @@ export interface AnthropicCallerOptions {
   onUsage?: (usage: ModelUsage) => Promise<void> | void;
 }
 
+// What the API's own errors mean to the person who uploaded the file.
+// The SDK's messages name status codes and request ids; the document
+// screen needs a sentence that says what to do. Anything unrecognised
+// keeps the SDK's message so it can still be diagnosed.
+export function explainApiError(e: unknown): string {
+  const err = e as { status?: number; message?: string; name?: string };
+  const msg = (err.message ?? String(e)).toLowerCase();
+  const status = err.status;
+  if (/password|encrypted/.test(msg)) return "This PDF is password protected. Save a copy without the password and upload that.";
+  if (/could not process (the )?(pdf|image)|invalid (pdf|image)|corrupt|unable to (read|open|decode)/.test(msg)) {
+    return "The file could not be opened by the model. Export it again, or take a photo of the page instead.";
+  }
+  if (/too many pages|page limit|maximum.*pages|exceeds the maximum number of pages/.test(msg)) return "This PDF has more pages than the model reads at once. Upload the transcript pages on their own.";
+  if (status === 413 || /request_too_large|too large|exceeds.*(size|bytes)/.test(msg)) return "The file is too large for the model. Scan it at a lower resolution, or upload the pages one at a time.";
+  if (status === 401 || status === 403 || /authentication|invalid x-api-key|api key/.test(msg)) return "The server's AI key is missing or not valid. An owner needs to check the ANTHROPIC_API_KEY setting.";
+  if (status === 429 || /rate limit|rate_limit/.test(msg)) return "The model is busy right now. Wait a minute and read it again.";
+  if (status === 529 || /overloaded/.test(msg)) return "The model is overloaded right now. Wait a minute and read it again.";
+  if (status === 400 && /credit|billing|balance/.test(msg)) return "The AI account is out of credit. An owner needs to top it up.";
+  if (err.name === "APIConnectionTimeoutError" || /timed? ?out/.test(msg)) return "The model took too long to answer. Try again, or upload fewer pages at once.";
+  if (err.name === "APIConnectionError" || /econnreset|enotfound|network|fetch failed/.test(msg)) return "The model could not be reached. Check the connection and try again.";
+  return err.message ?? "The model returned an error.";
+}
+
 export function createAnthropicCaller(opts: AnthropicCallerOptions = {}): ModelCaller {
-  const client: MessagesClient = opts.client ?? new Anthropic();
+  // A reading has to finish, or fail, inside the five minutes the
+  // hosting function allows, so the SDK's ten minute default would let
+  // the function be killed with the document left at "processing".
+  // Two retries cover a 429 or a 5xx blip; the timeout is per attempt,
+  // and the pipeline's two calls plus retries still fit.
+  const client: MessagesClient = opts.client ?? new Anthropic({ timeout: 100_000, maxRetries: 2 });
   return async (call) => {
     const content = contentFor(call);
     if (content.length === 1) throw new Error("None of the files can be read by the model.");
 
-    const response = await client.messages.create({
-      model: call.model,
-      // The pipeline asks for a few hundred to a few thousand tokens of
-      // JSON. Thinking on the current models counts against the same
-      // ceiling, so the floor is high enough that an answer is never
-      // cut off mid-brace.
-      max_tokens: Math.max(call.maxTokens, 16000),
-      // Transcription, not composition: the same page should read the
-      // same way twice, and a retry after a network blip should not
-      // produce a different GPA.
-      temperature: 0,
-      system: call.system,
-      messages: [{ role: "user", content }],
-    });
+    let response: Anthropic.Message;
+    try {
+      response = await client.messages.create({
+        model: call.model,
+        // The pipeline asks for a few hundred to a few thousand tokens of
+        // JSON. Thinking on the current models counts against the same
+        // ceiling, so the floor is high enough that an answer is never
+        // cut off mid-brace.
+        max_tokens: Math.max(call.maxTokens, 16000),
+        // Transcription, not composition: the same page should read the
+        // same way twice, and a retry after a network blip should not
+        // produce a different GPA.
+        temperature: 0,
+        system: call.system,
+        messages: [{ role: "user", content }],
+      });
+    } catch (e) {
+      throw new Error(explainApiError(e));
+    }
 
     const usage: ModelUsage = {
       requestId: call.requestId,

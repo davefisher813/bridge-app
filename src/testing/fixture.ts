@@ -386,6 +386,30 @@ export function buildFixture(): Dataset {
         undone_at: null,
         created_at: "2026-06-02",
       },
+      // A reading that never came back: the row was written, the
+      // function was killed. Old enough to count as stuck, so the
+      // screen's clear-it branch is rendered and audited.
+      {
+        id: "doc-stuck",
+        org_id: BRIDGE,
+        athlete_id: null,
+        file_name: "cut-off.pdf",
+        file_size: 3000,
+        media_type: "application/pdf",
+        source_role: "coordinator",
+        status: "processing",
+        route: null,
+        category: null,
+        provenance: null,
+        extracted: null,
+        confidence: null,
+        candidates: null,
+        failure_reason: null,
+        issues: null,
+        applied_at: null,
+        undone_at: null,
+        created_at: "2026-06-03T10:00:00.000Z",
+      },
     ],
     benchmark_sets: [],
     // The metrics log (migration 0021). Three fastball readings for the

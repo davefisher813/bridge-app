@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createHash } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -24,6 +25,7 @@ import {
 } from "@/lib/docai/acceptance";
 import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
 import { isRealDate } from "@/lib/docai/lenient";
+import { isStaleProcessing } from "@/lib/data/documentState";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
 import { applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, undoContact, undoMetrics, undoTarget, undoTestScores, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
@@ -291,6 +293,37 @@ export async function processDocument(
 
   const first = records[0]!;
 
+  // The same bytes twice is the same document twice: a parent
+  // re-sending the PDF, a coordinator tapping twice, the same photo
+  // picked from the roll again. It was read twice, charged twice and,
+  // for a metrics report, logged twice. Refused here with a pointer to
+  // the first copy; a discarded copy does not count, since discarding
+  // is how somebody says "read it again".
+  const contentHash = createHash("sha256");
+  for (const r of records) contentHash.update(Buffer.from(r.base64, "base64"));
+  const hash = contentHash.digest("hex");
+  const { data: twin } = await supabase
+    .from("documents")
+    .select("id, file_name, status, created_at")
+    .eq("org_id", org.id)
+    .eq("content_hash", hash)
+    .neq("status", "discarded")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const earlier = ((twin ?? []) as { id: string; file_name: string; status: string; created_at: string }[])[0];
+  if (earlier) {
+    await dropStored(
+      supabase,
+      input.records.map((r) => r.storagePath)
+    );
+    const when = new Date(earlier.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return {
+      ok: false,
+      error: `This exact file was already uploaded on ${when} as ${earlier.file_name} and is ${earlier.status === "processing" ? "still being read" : earlier.status}. Open it under Documents, or discard it there first to read it again.`,
+      documentId: earlier.id,
+    };
+  }
+
   // The row exists before the pipeline runs, so a crash mid-extraction
   // leaves a visible failed document rather than nothing at all.
   const { data: created, error: insertError } = await supabase
@@ -305,6 +338,7 @@ export async function processDocument(
       status: "processing",
       request_id: first.requestId,
       storage_paths: input.records.map((r) => r.storagePath),
+      content_hash: hash,
     })
     .select("id")
     .single();
@@ -502,7 +536,10 @@ async function readAndFile(
       candidates: result.candidates.map((c) => ({ athleteId: c.athlete.id, name: c.athlete.name, score: c.score, reasons: c.reasons })),
       athlete_id: canAutoApply ? topCandidate!.athlete.id : null,
       applied_at: canAutoApply ? new Date().toISOString() : null,
-      failure_reason: result.route === "reject" ? "Confidence was too low to use this without checking it." : null,
+      failure_reason:
+        result.route === "reject"
+          ? `Confidence was too low to use this without checking it.${Array.isArray(result.extracted.warnings) && result.extracted.warnings.length ? ` ${(result.extracted.warnings as string[]).join(" ")}` : ""}`
+          : null,
       failure_stage: result.route === "reject" ? "rejected" : null,
       updated_at: new Date().toISOString(),
     })
@@ -591,6 +628,17 @@ async function applyExtractionToAthlete(
     .single();
   const before = (currentAthlete ?? {}) as Record<string, unknown>;
 
+  // A college transcript (a transfer athlete's) carries a GPA worth
+  // keeping and a course list that is not the high school core list
+  // the eligibility screen computes from, so the courses and any
+  // grading table stay on the document. A middle school transcript
+  // carries nothing NCAA counts.
+  const level = typeof extracted.level === "string" ? extracted.level : "high_school";
+  if (categoryId === "transcript" && level === "middle_school") {
+    warnings.push("This is a middle school transcript, so nothing from it was put on the record.");
+    return { warnings, changes };
+  }
+
   if (categoryId === "transcript") {
     if (typeof extracted.gpa === "number") {
       // athletes.gpa is numeric(3,2), so it holds 0.00 to 9.99, and the
@@ -616,13 +664,17 @@ async function applyExtractionToAthlete(
       if (currentAthlete && !currentAthlete.date_of_birth) patch.date_of_birth = extracted.dateOfBirth;
     }
 
-    const courseOutcome = await replaceCoursesFromDocument(orgId, athleteId, documentId, extracted);
-    warnings.push(...courseOutcome.warnings);
-    changes.coursesSuperseded = courseOutcome.superseded;
+    if (level === "college") {
+      warnings.push("College courses were left on the document: they are not the high school core list the eligibility screen reads.");
+    } else {
+      const courseOutcome = await replaceCoursesFromDocument(orgId, athleteId, documentId, extracted);
+      warnings.push(...courseOutcome.warnings);
+      changes.coursesSuperseded = courseOutcome.superseded;
 
-    const scaleOutcome = await recordGradingScale(extracted, documentId);
-    warnings.push(...scaleOutcome.warnings);
-    changes.gradingScaleId = scaleOutcome.createdId;
+      const scaleOutcome = await recordGradingScale(extracted, documentId);
+      warnings.push(...scaleOutcome.warnings);
+      changes.gradingScaleId = scaleOutcome.createdId;
+    }
   }
 
   // The other four types, each in src/lib/data/applyExtraction.ts. A
@@ -971,15 +1023,18 @@ export async function discardDocument(
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select("id, status, applied_changes")
+    .select("id, status, applied_changes, created_at")
     .eq("id", documentId)
     .eq("org_id", org.id)
     .single();
 
-  const doc = data as { id: string; status: string; applied_changes: AppliedChanges | null } | null;
+  const doc = data as { id: string; status: string; applied_changes: AppliedChanges | null; created_at: string } | null;
   if (!doc) return { ok: false, error: "Document not found." };
   if (doc.status === "discarded") return { ok: false, error: "That document was already discarded." };
-  if (doc.status === "processing") return { ok: false, error: "That document is still being read." };
+  // A reading takes a couple of minutes at most. One still marked as
+  // being read after that was killed mid-way (the hosting function has
+  // a hard limit) and will never finish, so it can be cleared.
+  if (doc.status === "processing" && !isStaleProcessing(doc.created_at)) return { ok: false, error: "That document is still being read." };
 
   // Claimed first, from the status it was read at, so two discards of
   // the same applied document undo it once: the second finds it already

@@ -63,7 +63,7 @@ a business rule nobody has told this file about yet.
    schema law reads every `references` and every index out of the
    migrations and compares. `schemaLaws.test.ts`, planted and reverted.
 7. **A server action takes a storage path, never file bytes.** Next caps
-   an action's body at 1MB; a document is 4MB. Files go through the
+   an action's body at 1MB; a document can be 10MB. Files go through the
    `documents` bucket and the action reads them back. No exported action
    may accept an `IngestedRecord` or a `base64` field.
    `dataLaws.test.ts`, planted and reverted.

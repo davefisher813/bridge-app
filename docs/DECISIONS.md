@@ -2388,3 +2388,31 @@ walked-brace `parseModelJson`, `EXTRACTION_RULES` on every prompt,
 updates rows in place so a conditional claim can be tested. 52 new
 tests across the lenient layer, the pipeline guards, the stub and the
 document actions.
+
+## 2026-09-21: Doc AI, the second pass
+
+**Decision.** Walk every scenario from the phone to the row and close
+each gap: camera photos (HEIC not listed so iOS converts, photos scaled
+to 2000px, a 10MB cap on both sides), the same file twice (a content
+hash on the document, refused unless the first copy was discarded),
+what the API's errors mean (translated to what to do, with a per-call
+timeout inside the function's limit), a reading killed mid-way (shown
+as stuck after ten minutes, discardable), a college or middle school
+transcript (kept by its level), a metric from the wrong sport (left
+out and named), a wrapped model answer, per-year award amounts, one
+best value per metric, and instructions printed on a page treated as
+content.
+
+**Reason.** Dave: "think through every scenario and bulletproof it as
+best as you can." Two of these would have hit him on day one: every
+camera photo from an iPhone was refused because the uploader asked for
+HEIC, and a four page scanner PDF did not fit the old cap.
+
+**Alternatives.** Decoding HEIC on the server (rejected: iOS converts
+for free when not asked for HEIC, and no decoder is wired). Reading
+the whole multi-student sheet (deferred: it is a real Elite Squad
+scenario, but a feature, not a hardening).
+
+**Consequences.** Migration 0029, `MAX_IMAGE_EDGE`, `explainApiError`,
+`documentState.ts`, a `level` on the transcript schema, and 14 more
+tests. The ingest browser test still passes 18/18 in real Chromium.

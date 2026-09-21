@@ -171,8 +171,13 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
       <FileField
         name="files"
         label={files.length ? `${files.length} File${files.length === 1 ? "" : "s"} Chosen` : "Take a Photo or Choose a File"}
-        hint={files.length ? files.map((f) => f.name).join(", ") : "PDF, JPEG, PNG or HEIC"}
-        accept="application/pdf,image/jpeg,image/png,image/heic,image/heif"
+        hint={files.length ? files.map((f) => f.name).join(", ") : "A PDF, a JPEG or PNG, or a photo from the camera. Several pages can go in at once."}
+        // HEIC is deliberately NOT listed. An iPhone converts a HEIC
+        // photo to JPEG on the way into a file input only when HEIC is
+        // not among the accepted types; listing it handed the app a
+        // format nothing downstream can read and a refusal for every
+        // camera photo Dave took.
+        accept="application/pdf,image/jpeg,image/png,image/gif,image/webp"
         multiple
         onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
       />
