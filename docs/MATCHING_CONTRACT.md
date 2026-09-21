@@ -204,9 +204,10 @@ a coach relationship belongs to the org that has it.
 
 "Of course the students see this. They need the same access to their own
 personal data." Metrics entry stays staff-only for now (his pick), and
-every score, reason and warning is written so a family can read it. A
-student or family role with read access to their own athlete is the next
-phase after this contract ships.
+every score, reason and warning is written so a family can read it. The
+family role shipped 2026-09-21 (migrations 0022 to 0024, the screens
+under `/org/[slug]/family`); a family sees the same score, tag, four
+dimensions and every reason staff see, and changes nothing.
 
 ## Inputs that trigger a recompute
 

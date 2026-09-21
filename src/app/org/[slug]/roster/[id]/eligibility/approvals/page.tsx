@@ -7,7 +7,8 @@
 
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { athleteHome, requireRole } from "@/lib/auth/guard";
+import { assertMayViewAthlete } from "@/lib/data/family";
 import { loadEligibility } from "@/lib/data/loadEligibility";
 import { EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
@@ -27,7 +28,8 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, ["owner", "staff", "member", "family"]);
+  await assertMayViewAthlete(org.id, user, id);
 
   const bundle = await loadEligibility(org.id, id, new Date().toISOString().slice(0, 10));
   if (!bundle) notFound();
@@ -36,7 +38,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
   return (
     <Screen
       title="Approved Courses"
-      back={{ href: `/org/${slug}/roster/${id}/eligibility`, label: "NCAA Eligibility" }}
+      back={{ href: `${athleteHome(slug, id, user.role)}/eligibility`, label: "NCAA Eligibility" }}
       lede={`${athlete.name} · ${view.approvals.length} checked`}
     >
       {view.approvals.length === 0 ? (
@@ -79,7 +81,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
         </Section>
       )}
 
-      {view.schoolsMissingApprovedList.length > 0 && (
+      {view.schoolsMissingApprovedList.length > 0 && user.role !== "family" && (
         <LinkButton href={`/org/${slug}/approved-courses`} variant="secondary">
           Enter a List for {view.schoolsMissingApprovedList[0]}
         </LinkButton>

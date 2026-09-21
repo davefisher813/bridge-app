@@ -20,7 +20,7 @@ import { parseBranding } from "@/lib/org/branding";
 import { it, vi } from "vitest";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createElement, type ReactNode } from "react";
-import { buildFixture, ORG_WITH_MODULES, OWNER_ID } from "@/testing/fixture";
+import { buildFixture, FAMILY_ID, ORG_WITH_MODULES, OWNER_ID } from "@/testing/fixture";
 import { createFakeClient } from "@/testing/fakeSupabase";
 import { PAGES, p, routeFor } from "@/testing/pages";
 
@@ -42,8 +42,9 @@ vi.mock("next/navigation", () => ({
   usePathname: () => currentPath,
 }));
 
+let currentUser: string = OWNER_ID;
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => createFakeClient(buildFixture(), { userId: OWNER_ID }),
+  createClient: async () => createFakeClient(buildFixture(), { userId: currentUser }),
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -82,11 +83,12 @@ it("builds the app preview from the real pages", async () => {
   for (const page of PAGES) {
     const route = await routeFor(page);
     currentPath = route.split("?")[0];
+    currentUser = page.as ?? OWNER_ID;
     const tree = await renderPage(page.path, page.props);
     // Every org screen sits inside the org layout's chrome, so the
     // preview wraps it the same way rather than rendering the bare page.
     const inOrg = route.startsWith("/org/");
-    const html = renderToStaticMarkup(inOrg ? createElement(Chrome, { orgName: String(org.name), slug: ORG_WITH_MODULES, logo: parseBranding(org.branding).logo, lockup: parseBranding(org.branding).lockup, children: tree }) : tree);
+    const html = renderToStaticMarkup(inOrg ? createElement(Chrome, { orgName: String(org.name), slug: ORG_WITH_MODULES, logo: parseBranding(org.branding).logo, lockup: parseBranding(org.branding).lockup, tabs: page.as === FAMILY_ID ? "family" : "org", children: tree }) : tree);
     screens.push({ route, name: page.name, html });
   }
 

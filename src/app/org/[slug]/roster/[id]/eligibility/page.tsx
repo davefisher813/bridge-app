@@ -14,7 +14,8 @@
 
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
+import { athleteHome, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
+import { assertMayViewAthlete } from "@/lib/data/family";
 import { Body, Card, EmptyState, Label, LinkButton, Notice, Prose, Row, Screen, Section, Stack, TextLink } from "@/components/kit";
 import { GpaPair, Note, SubjectRow, VerdictCard } from "@/components/EligibilityVerdict";
 import { DocumentUploader } from "@/components/DocumentUploader";
@@ -46,7 +47,8 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   if (!org) notFound();
   // Uploading a document is a staff action, same as everywhere else.
   // A member can read the verdict and cannot change what it is built on.
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, ["owner", "staff", "member", "family"]);
+  await assertMayViewAthlete(org.id, user, id);
   const canUpload = (STAFF_ROLES as string[]).includes(user.role);
 
   // One loader, shared with the transcript and approvals screens. A
@@ -58,8 +60,8 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
 
   const { eligibility, ageClock } = view;
   const std = eligibility.division ? DIVISION_STANDARDS[eligibility.division] : null;
-  const back = { href: `/org/${slug}/roster/${id}`, label: athlete.name };
-  const here = `/org/${slug}/roster/${id}/eligibility`;
+  const back = { href: athleteHome(slug, id, user.role), label: athlete.name };
+  const here = `${athleteHome(slug, id, user.role)}/eligibility`;
   const transcriptGpa = athlete.gpa === null || athlete.gpa === undefined ? null : Number(athlete.gpa);
 
   const uploader = canUpload && (

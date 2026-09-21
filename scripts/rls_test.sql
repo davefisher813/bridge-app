@@ -1349,6 +1349,10 @@ insert into recruiting_targets (id, org_id, athlete_id, school_id, status) value
   ('00000000-0000-0000-0000-000000000211', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000130', 'In Contact');
 insert into target_visits (org_id, target_id, visit_type) values
   ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000211', 'unofficial');
+-- A document per athlete, so "their own files" is one row, not zero.
+insert into documents (org_id, athlete_id, file_name, file_size, media_type, source_role, status) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'athlete-a-transcript.pdf', 1000, 'application/pdf', 'parent', 'applied'),
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', 'athlete-b-transcript.pdf', 1000, 'application/pdf', 'parent', 'applied');
 
 -- The trigger: a guardian row cannot cross orgs or name a non-member.
 do $$
@@ -1401,19 +1405,24 @@ begin
   select count(*) into n from contacts;
   if n <> 0 then raise exception 'FAIL: family saw % contacts, expected 0', n; end if;
   select count(*) into n from documents;
-  if n <> 0 then raise exception 'FAIL: family saw % documents, expected 0', n; end if;
+  if n <> 1 then raise exception 'FAIL: family saw % documents, expected 1 (their own athlete''s)', n; end if;
+  select count(*) into n from documents where athlete_id = '00000000-0000-0000-0000-000000000111';
+  if n <> 0 then raise exception 'FAIL: family could read another athlete''s document'; end if;
   select count(*) into n from org_school_notes;
   if n <> 0 then raise exception 'FAIL: family saw % private school notes, expected 0', n; end if;
   select count(*) into n from donors;
   if n <> 0 then raise exception 'FAIL: family saw % donors, expected 0', n; end if;
   select count(*) into n from boards;
   if n <> 0 then raise exception 'FAIL: family saw % boards, expected 0', n; end if;
-  raise notice 'PASS: a family member sees no communications, contacts, documents, school notes, fundraising or governance';
+  raise notice 'PASS: a family member sees their own athlete''s documents and no communications, contacts, school notes, fundraising or governance';
 
   select count(*) into n from orgs;
   if n <> 1 then raise exception 'FAIL: family saw % orgs, expected 1 (Bridge)', n; end if;
+  -- Their own row and the owner's (user1). Not user3, a member.
   select count(*) into n from org_members;
-  if n <> 1 then raise exception 'FAIL: family saw % membership rows, expected 1 (their own)', n; end if;
+  if n <> 2 then raise exception 'FAIL: family saw % membership rows, expected 2 (their own and the owner''s)', n; end if;
+  select count(*) into n from org_members where user_id = '00000000-0000-0000-0000-000000000003';
+  if n <> 0 then raise exception 'FAIL: family could see a non-staff member''s membership row'; end if;
   select count(*) into n from athlete_guardians;
   if n <> 1 then raise exception 'FAIL: family saw % guardian rows, expected 1 (their own)', n; end if;
   -- Self plus Bridge's owner (user1). Not user3, a Bridge member, and

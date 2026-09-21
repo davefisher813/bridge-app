@@ -15,7 +15,10 @@ for (const width of WIDTHS) for (const theme of THEMES) {
   const ctx = await browser.newContext({ viewport: { width, height: 844 }, colorScheme: theme, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   const errs = []; page.on("pageerror", (e) => errs.push(String(e)));
-  for (const { name, route } of routes) {
+  for (const { name, route, as } of routes) {
+    // Who is looking: the fixture reads this cookie (src/testing/fixtureServer.ts).
+    await ctx.clearCookies();
+    if (as) await ctx.addCookies([{ name: "fixture_user", value: as, url: BASE }]);
     let res = null; for (let i = 0; i < 2 && !res; i++) { try { res = await page.goto(BASE + route, { waitUntil: "load", timeout: 60000 }); } catch (e) { if (i) throw e; } }
     if (!res || res.status() >= 400) { findings.push({ name, width, theme, kind: "status", detail: res?.status() }); continue; }
     await page.evaluate(() => document.fonts.ready);

@@ -15,10 +15,10 @@ const val = (tok) => {
   return consts[tok];
 };
 export const routes = [];
-for (const m of src.matchAll(/name: "([^"]+)", path: "@\/app([^"]+)\/page", props: \{ params: p\(\{([^}]*)\}\)(?:, searchParams: p\(\{([^}]*)\}\))?/g)) {
+for (const m of src.matchAll(/name: "([^"]+)", path: "@\/app([^"]+)\/page", props: \{ params: p\(\{([^}]*)\}\)(?:, searchParams: p\(\{([^}]*)\}\))? \}, expect: \/(?:[^\/\\]|\\.)*\/[a-z]*(?:, as: (\w+))?/g)) {
   let route = m[2];
   for (const kv of m[3].split(",")) { const [k, v] = kv.split(":"); if (k) route = route.replace(`[${k.trim()}]`, val(v)); }
   const qs = new URLSearchParams(); for (const kv of (m[4] || "").split(",")) { const [k, v] = kv.split(":"); if (k && k.trim()) qs.set(k.trim(), val(v)); }
-  routes.push({ name: m[1], route: qs.toString() ? `${route}?${qs}` : route });
+  routes.push({ name: m[1], route: qs.toString() ? `${route}?${qs}` : route, as: m[5] ? val(m[5]) : null });
 }
 routes.push({ name: "login", route: "/login" }, { name: "unauthorized", route: "/unauthorized" }, { name: "home", route: "/" });

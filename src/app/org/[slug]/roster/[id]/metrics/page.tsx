@@ -7,7 +7,8 @@
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
+import { athleteHome, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
+import { assertMayViewAthlete } from "@/lib/data/family";
 import { createClient } from "@/lib/supabase/server";
 import { createMetric, deleteMetric } from "@/lib/actions/metrics";
 import { MetricForm } from "@/components/MetricForm";
@@ -26,7 +27,8 @@ export default async function MetricsPage({ params }: { params: Promise<{ slug: 
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, ["owner", "staff", "member", "family"]);
+  await assertMayViewAthlete(org.id, user, id);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
@@ -71,7 +73,7 @@ export default async function MetricsPage({ params }: { params: Promise<{ slug: 
   return (
     <Screen
       title="Metrics"
-      back={{ href: `/org/${slug}/roster/${id}`, label: athlete.name }}
+      back={{ href: athleteHome(slug, id, user.role), label: athlete.name }}
       lede={`${athlete.sport}${athlete.position ? ` · ${athlete.position}` : ""} · ${rows.length} ${rows.length === 1 ? "entry" : "entries"} logged`}
     >
       {!group && (

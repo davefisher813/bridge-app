@@ -18,7 +18,7 @@ import type { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTML
 import Link from "next/link";
 import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 import { DOT, TEXT_ON, scoreRole, type Role } from "@/components/statusHue";
-import { TabBar } from "@/components/kit/TabBar";
+import { TabBar, type TabBarVariant } from "@/components/kit/TabBar";
 
 export type { Role, RowKind };
 
@@ -512,7 +512,7 @@ export function Form({ action, error, children, onPaper = false }: { action: (fo
 // What every org screen sits inside: the org's wordmark in the top
 // right corner, the fixed tab bar below. The screen itself pads for the
 // bar, and reserves the corner so a title never runs under the mark.
-export function Chrome({ orgName, slug, logo, lockup, children }: { orgName: string; slug: string; logo?: string | null; lockup?: string | null; children: ReactNode }) {
+export function Chrome({ orgName, slug, logo, lockup, tabs = "org", children }: { orgName: string; slug: string; logo?: string | null; lockup?: string | null; tabs?: TabBarVariant; children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg">
       {/* 672 wide on a laptop, the whole screen on a phone. Dave's
@@ -527,7 +527,7 @@ export function Chrome({ orgName, slug, logo, lockup, children }: { orgName: str
         </div>
         {children}
       </div>
-      <TabBar slug={slug} />
+      <TabBar slug={slug} variant={tabs} />
     </div>
   );
 }

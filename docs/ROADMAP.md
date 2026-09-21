@@ -367,11 +367,10 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
 
 ## Next up after matching
 
-1. **The family role's screens** (contract section 5). The membership
-   shape shipped 2026-09-21: the role, the guardian link, the row rules,
-   the invite. What a family member lands on, which tabs they get and
-   what they may change are the Family Access catalog's picks; the
-   screens follow those.
+1. **Invite Family from the athlete's page** (Dave's pick, 2026-09-21).
+   The family role and its screens shipped the same day; the invite is
+   under Members with an athlete picker until the button on the athlete
+   exists. Then the first real family: the athlete, then a parent.
 2. **Strike percentage and the grade weights** are interpretations
    marked in the contract. Revisit after Dave has scored a few real
    athletes and can say whether a 63% target and the 50/40/25 blends

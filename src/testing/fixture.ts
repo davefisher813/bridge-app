@@ -107,7 +107,12 @@ export function buildFixture(): Dataset {
       { id: "m5", user_id: LONG_INVITE, org_id: BRIDGE, role: "member" },
       { id: "m6", user_id: FAMILY, org_id: BRIDGE, role: "family" },
     ],
-    athlete_guardians: [{ org_id: BRIDGE, athlete_id: IDS.athlete, user_id: FAMILY, relationship: "parent", created_at: "2026-09-03T12:00:00.000Z" }],
+    // Two athletes, so the family home is the picker and Colleges groups
+    // by athlete: a parent with two kids is a real case (Dave, 2026-09-21).
+    athlete_guardians: [
+      { org_id: BRIDGE, athlete_id: IDS.athlete, user_id: FAMILY, relationship: "parent", created_at: "2026-09-03T12:00:00.000Z" },
+      { org_id: BRIDGE, athlete_id: IDS.athleteNoGpa, user_id: FAMILY, relationship: "parent", created_at: "2026-09-03T12:00:00.000Z" },
+    ],
     athletes: [
       {
         id: IDS.athlete,

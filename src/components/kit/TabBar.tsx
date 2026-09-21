@@ -9,23 +9,42 @@ import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 // the page and rode Safari's own bar up and down as it collapsed. Every Screen pads
 // its bottom by the bar's height plus the safe area, so nothing hides
 // behind it.
-const TABS: { href: string; label: string; kind: RowKind }[] = [
+//
+// A family login gets three tabs instead (Dave's pick in the Family
+// Access catalog, 2026-09-21): their athlete is home, Colleges is their
+// list, More has who to ask and the way out. Same bar, different tabs.
+export type TabBarVariant = "org" | "family";
+
+const ORG_TABS: { href: string; label: string; kind: RowKind }[] = [
   { href: "", label: "Today", kind: "org" },
   { href: "roster", label: "Athletes", kind: "athlete" },
   { href: "board", label: "Board", kind: "school" },
   { href: "more", label: "More", kind: "settings" },
 ];
 
-export function TabBar({ slug }: { slug: string }) {
+const FAMILY_TABS: { href: string; label: string; kind: RowKind }[] = [
+  { href: "family", label: "Athlete", kind: "athlete" },
+  { href: "family/colleges", label: "Colleges", kind: "school" },
+  { href: "family/more", label: "More", kind: "settings" },
+];
+
+export function TabBar({ slug, variant = "org" }: { slug: string; variant?: TabBarVariant }) {
   const pathname = usePathname();
   const base = `/org/${slug}`;
+  const tabs = variant === "family" ? FAMILY_TABS : ORG_TABS;
+
+  // The active tab is the one whose path is the longest prefix of where
+  // we are, so /family/colleges lights Colleges and not Athlete.
+  const hrefOf = (tab: { href: string }) => (tab.href ? `${base}/${tab.href}` : base);
+  const matches = (tab: { href: string }) => (tab.href ? pathname === hrefOf(tab) || pathname.startsWith(`${hrefOf(tab)}/`) : pathname === base);
+  const activeHref = tabs.filter(matches).sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (
     <nav className="pb-safe fixed inset-x-0 bottom-0 z-10 border-t border-line bg-paper" aria-label="Main">
       <div className="mx-auto flex h-14 max-w-2xl">
-        {TABS.map((tab) => {
-          const href = tab.href ? `${base}/${tab.href}` : base;
-          const active = tab.href ? pathname.startsWith(href) : pathname === base;
+        {tabs.map((tab) => {
+          const href = hrefOf(tab);
+          const active = activeHref === tab.href;
           return (
             <Link key={tab.label} href={href} aria-current={active ? "page" : undefined} className={`flex flex-1 flex-col items-center justify-center gap-1 text-label font-bold ${active ? "text-ink" : "text-muted"}`}>
               <span className={`flex h-6 w-8 items-center justify-center rounded ${active ? "bg-solid-accent text-solid-accent-on" : ""}`}>

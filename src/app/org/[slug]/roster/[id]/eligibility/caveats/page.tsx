@@ -13,7 +13,8 @@
 
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
+import { athleteHome, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
+import { assertMayViewAthlete } from "@/lib/data/family";
 import { EmptyState, Notice, Prose, Row, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { loadEligibility } from "@/lib/data/loadEligibility";
@@ -24,8 +25,13 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  const user = await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, ["owner", "staff", "member", "family"]);
+  await assertMayViewAthlete(org.id, user, id);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
+  // The org's reference screens are not a family's to open; the
+  // transcript is, and it is the answer on every one of these screens.
+  const orgSide = user.role !== "family";
+  const home = athleteHome(slug, id, user.role);
 
   const today = new Date().toISOString().slice(0, 10);
   const bundle = await loadEligibility(org.id, id, today);
@@ -45,7 +51,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
   return (
     <Screen
       title="Things to Know"
-      back={{ href: `/org/${slug}/roster/${id}/eligibility`, label: "NCAA Eligibility" }}
+      back={{ href: `${home}/eligibility`, label: "NCAA Eligibility" }}
       lede={`${athlete.name} · ${total} ${total === 1 ? "item" : "items"}`}
     >
       {total === 0 ? (
@@ -85,7 +91,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
           it when they apply: "enter a grading scale" is advice, "enter
           one for Cardinal Ridge" is a task. */}
       <Section label="What to Do" role="contact" kind="info">
-        {view.schoolsMissingScale.length > 0 && (
+        {view.schoolsMissingScale.length > 0 && orgSide && (
           <Row
             href={`/org/${slug}/grading-scales/new`}
             kind="scale"
@@ -95,7 +101,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
             wrap
           />
         )}
-        {view.schoolsMissingApprovedList.length > 0 && (
+        {view.schoolsMissingApprovedList.length > 0 && orgSide && (
           <Row
             href={`/org/${slug}/approved-courses/new`}
             kind="checklist"
@@ -106,7 +112,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
           />
         )}
         <Row
-          href={`/org/${slug}/roster/${id}/transcript`}
+          href={`${home}/transcript`}
           kind="course"
           role="contact"
           title="See the Transcript"
@@ -115,7 +121,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
         />
         {canEdit && (
           <Row
-            href={`/org/${slug}/roster/${id}/eligibility/approvals`}
+            href={`${home}/eligibility/approvals`}
             kind="checklist"
             role="contact"
             title="Check Course Approvals"

@@ -2136,3 +2136,36 @@ and 0023. A trigger keeps a guardian row inside one org. The RLS suite
 seeds a family member and asserts what they see and cannot see, and
 fails when the exclusion is removed. The screens wait on the Family
 Access catalog.
+
+## 2026-09-21: what a family sees, twelve picks
+
+**Decision.** From the Family Access catalog, tapped by Dave: the
+athlete and each parent get their own login (never a shared household
+login); one login can be linked to more than one athlete; the athlete's
+page is home, with a picker only when there is more than one; three
+tabs, Athlete, Colleges, More; every match shows score, tag, the four
+dimensions and every reason; Colleges shows each school's status and
+score plus visits, and never staff calls, notes or the coach's contact;
+their own documents are listed read only, no upload; a family edits
+nothing, not even the goal and budget; More lists the owner and staff
+with emails; the role is called Family; staff invite a family from the
+athlete's page. His answers to the two questions: nothing on the org
+side is ever visible to a family, and the athlete gets access first,
+then a parent or legal guardian.
+
+**Reason.** "Of course the students see this. They need the same access
+to their own personal data." Read only follows his earlier pick that
+metrics are logged by staff only; the same line holds for the rest of
+the record. Calls and notes stay with staff because they are written
+for staff; visits are shown because the family is usually the one
+driving.
+
+**Consequences.** The family screens live under `/org/[slug]/family`
+with their own tab bar; the athlete screens both roles share (the
+eligibility set, the transcript, the metrics log) are the roster's
+pages served under `/family`, building every link from
+`athleteHome()`. Migration 0024 opens the two reads the picks needed.
+The render law proves the boundary from the app side, the RLS suite
+from the database side. Invite Family on the athlete's page is the one
+pick not yet built; the invite is under Members with an athlete picker
+until it is.

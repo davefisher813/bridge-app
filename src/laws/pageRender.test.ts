@@ -20,7 +20,7 @@
 // counted as a pass.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { buildFixture, IDS, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID, MEMBER_ID } from "@/testing/fixture";
+import { buildFixture, IDS, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID, MEMBER_ID, FAMILY_ID } from "@/testing/fixture";
 import { PAGES, p } from "@/testing/pages";
 import { createFakeClient } from "@/testing/fakeSupabase";
 
@@ -76,11 +76,87 @@ beforeEach(() => {
 describe("LAW: every page renders", () => {
   for (const page of PAGES) {
     it(`${page.name} renders without throwing`, async () => {
+      currentUser = page.as ?? OWNER_ID;
       const html = await render(page.path, page.props);
       expect(html.length).toBeGreaterThan(200);
       expect(html).toMatch(page.expect);
     });
   }
+});
+
+// The family role reads one athlete and nothing else (migrations 0022
+// to 0024). The database enforces it; this proves the screens do too,
+// so a fixture render, which has no row level security, cannot show a
+// family something the real app would not.
+describe("LAW: a family login opens family screens and nothing else, and staff cannot open them", () => {
+  // The athlete screens served under both /roster and /family (see
+  // athleteHome in src/lib/auth/guard.ts). A family may open these; what
+  // the law checks is that every link on them stays on the family side.
+  const SHARED = /\/roster\/\[id\]\/(eligibility|eligibility\/approvals|eligibility\/caveats|transcript|metrics)\/page$/;
+  const family = PAGES.filter((x) => x.as === FAMILY_ID);
+  const shared = PAGES.filter((x) => !x.as && SHARED.test(x.path));
+  const orgWide = PAGES.filter((x) => !x.as && x.path.startsWith("@/app/org/") && !SHARED.test(x.path));
+  const familyShared = family.filter((x) => /\/family\/\[id\]\/(eligibility|eligibility\/approvals|eligibility\/caveats|transcript|metrics)\/page$/.test(x.path));
+
+  it("there are family screens and org screens to check", () => {
+    expect(family.length).toBeGreaterThan(5);
+    expect(orgWide.length).toBeGreaterThan(20);
+    expect(shared.length).toBeGreaterThanOrEqual(6);
+  });
+
+  for (const page of shared) {
+    it(`a family login opening ${page.name} sees only family links, or nothing if the athlete is not theirs`, async () => {
+      currentUser = FAMILY_ID;
+      const linked = ((await (page.props.params as Promise<{ id: string }>)).id) !== IDS.athleteTransfer;
+      if (!linked) {
+        await expect(render(page.path, page.props)).rejects.toThrow(NOT_FOUND);
+        return;
+      }
+      const html = await render(page.path, page.props);
+      const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+      expect(links.length).toBeGreaterThan(0);
+      expect(links.filter((l) => l.startsWith("/org/") && !l.includes("/family/"))).toEqual([]);
+      // Nothing to submit: a family changes nothing.
+      expect(html).not.toMatch(/<form/);
+    });
+  }
+
+  for (const page of familyShared) {
+    it(`an owner opening ${page.name} is on the roster side`, async () => {
+      currentUser = OWNER_ID;
+      const html = await render(page.path, page.props);
+      const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+      expect(links.filter((l) => l.includes("/family/"))).toEqual([]);
+    });
+  }
+
+  for (const page of orgWide) {
+    it(`a family login cannot open ${page.name}`, async () => {
+      currentUser = FAMILY_ID;
+      const outcome = await render(page.path, page.props).then(
+        () => "rendered",
+        (e: Error) => e.message,
+      );
+      // Not Authorized for the org-wide screens; Not Found for the
+      // records the org page shows (a second org's page, say). Never a
+      // render.
+      expect(outcome === "rendered" ? "rendered" : outcome.startsWith(REDIRECT) ? outcome : NOT_FOUND).not.toBe("rendered");
+      if (outcome.startsWith(REDIRECT)) expect(outcome).toMatch(/\/unauthorized$|\/family$/);
+    });
+  }
+
+  for (const page of family.filter((x) => !familyShared.includes(x))) {
+    it(`an owner cannot open ${page.name}`, async () => {
+      currentUser = OWNER_ID;
+      await expect(render(page.path, page.props)).rejects.toThrow(REDIRECT + "/unauthorized");
+    });
+  }
+
+  it("a family login cannot open an athlete it is not linked to", async () => {
+    currentUser = FAMILY_ID;
+    await expect(render("@/app/org/[slug]/family/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) })).rejects.toThrow(NOT_FOUND);
+    await expect(render("@/app/org/[slug]/family/[id]/eligibility/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) })).rejects.toThrow(NOT_FOUND);
+  });
 });
 
 describe("LAW: the list above covers every page in the app", () => {

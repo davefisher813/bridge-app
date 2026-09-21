@@ -16,7 +16,10 @@ export const p = (o: Record<string, string>) => Promise.resolve(o);
 // list is written out rather than globbed on purpose: a glob would let a
 // new page join the app without anybody deciding what its arguments are,
 // which is the same as not testing it.
-export const PAGES: Array<{ name: string; path: string; props: Record<string, unknown>; expect: RegExp }> = [
+// `as` is the fixture user the page renders for. Omitted means the
+// fixture owner. The family screens render as the family login, and
+// the render law also proves the two roles cannot open each other's.
+export const PAGES: Array<{ name: string; path: string; props: Record<string, unknown>; expect: RegExp; as?: string }> = [
   { name: "today", path: "@/app/org/[slug]/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture/ },
   { name: "members", path: "@/app/org/[slug]/members/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Example Owner[\s\S]*Invited[\s\S]*Example Member/ },
   { name: "invite", path: "@/app/org/[slug]/members/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Send Invite/ },
@@ -26,6 +29,20 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // A family login: the page names the one athlete they see instead of
   // offering a role switch.
   { name: "member-family", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: FAMILY_ID }), searchParams: p({}) }, expect: /Fixture Parent[\s\S]*Sees[\s\S]*Fixture Athlete/ },
+  // The family screens, as the family login. Two athletes are linked, so
+  // home is the picker and Colleges groups by athlete.
+  { name: "family", path: "@/app/org/[slug]/family/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Your Athletes[\s\S]*Fixture Athlete[\s\S]*Fixture Unknown/, as: FAMILY_ID },
+  { name: "family-athlete", path: "@/app/org/[slug]/family/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Matches[\s\S]*Documents/, as: FAMILY_ID },
+  { name: "family-eligibility", path: "@/app/org/[slug]/family/[id]/eligibility/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /core/i, as: FAMILY_ID },
+  { name: "family-approvals", path: "@/app/org/[slug]/family/[id]/eligibility/approvals/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /approv/i, as: FAMILY_ID },
+  { name: "family-caveats", path: "@/app/org/[slug]/family/[id]/eligibility/caveats/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Things to Know/i, as: FAMILY_ID },
+  { name: "family-transcript", path: "@/app/org/[slug]/family/[id]/transcript/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /English 11/, as: FAMILY_ID },
+  { name: "family-metrics", path: "@/app/org/[slug]/family/[id]/metrics/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Metrics/, as: FAMILY_ID },
+  { name: "family-matches", path: "@/app/org/[slug]/family/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Ranked[\s\S]*Fixture State University/, as: FAMILY_ID },
+  { name: "family-match", path: "@/app/org/[slug]/family/[id]/matches/[schoolId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, schoolId: IDS.school }) }, expect: /How the Score Is Built/, as: FAMILY_ID },
+  { name: "family-colleges", path: "@/app/org/[slug]/family/colleges/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture State University[\s\S]*Visits/, as: FAMILY_ID },
+  { name: "family-college", path: "@/app/org/[slug]/family/colleges/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) }, expect: /Fixture State University[\s\S]*Where Things Stand/, as: FAMILY_ID },
+  { name: "family-more", path: "@/app/org/[slug]/family/more/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Who to Ask[\s\S]*Example Owner[\s\S]*Sign Out/, as: FAMILY_ID },
   { name: "member-long-address", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: LONG_INVITE_ID }), searchParams: p({}) }, expect: /example-organization\.test/ },
   { name: "roster", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Athlete/ },
   { name: "athlete", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete/ },

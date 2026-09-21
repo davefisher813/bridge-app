@@ -1,17 +1,17 @@
 # Current state
 
-Last updated: 2026-09-21, after the family role's data model shipped.
+Last updated: 2026-09-21, after the family role shipped.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** The matching feature exists: a metrics log,
 staff grades, a goal and budget on the athlete, every athlete scored
 against every school and stored, a matches screen with filters and Add
 to Board, CSV import of schools, the org's scoring preset, Strong
-Matches on Today. The family role exists in the database (a fourth
-`org_role`, a guardian link per athlete, row rules proven by the RLS
-suite) and in the invite flow; its screens wait on Dave's catalog picks.
-Fifty-seven screens on one kit, the laws green, the app itself driven
-in a browser at 320, 375 and 390 in both themes with nothing past the
+Matches on Today. The family role: a student or parent signs in and
+sees their own athlete and nothing else, read only, with every match's
+reasons, their colleges and visits, their documents and who to ask.
+Sixty-nine screens on one kit, the laws green, the app itself driven in
+a browser at 320, 375 and 390 in both themes with nothing past the
 edge.
 
 ---
@@ -128,7 +128,7 @@ one-person screen to change a role or remove access. An org can never
 be left without an owner. "Invited" is read off a mirror of
 `auth.users.last_sign_in_at` kept by the profile trigger.
 
-### The family role, 2026-09-21, data model only
+### The family role, 2026-09-21
 
 A fourth `org_role`, `family` (migration 0022), linked to athletes
 through `athlete_guardians` (0023): one row per person per athlete, a
@@ -144,14 +144,40 @@ staff and never another family. All of it is asserted in
 `scripts/rls_test.sql` (118 PASS lines) and the suite fails when the
 exclusion is removed.
 
-In the app: the invite form offers Family with an athlete picker, the
-action writes the membership and the guardian link through the service
-role, a role can never be changed to or from family (remove and
-re-invite), and a family member's page names the athlete they see. A
-family member is refused by every existing org screen, since each one
-checks the three org-wide roles. What a family member sees is decided
-by the Family Access catalog (published 2026-09-21); no family screen is
-built until Dave picks.
+Migration 0024 adds the two reads Dave's picks needed: the org's owner
+and staff rows (who to ask) and documents bound to their athlete.
+
+The screens, from the Family Access catalog (Dave's twelve picks,
+2026-09-21): athlete and parents each get their own login; one login
+can be linked to more than one athlete; the athlete's page is home and
+lists the picker only when there is more than one; three tabs (Athlete,
+Colleges, More); every match shows its score, tag, four dimensions and
+every reason; Colleges shows status, score and visits and never staff
+calls, notes or the coach's contact; their own documents are listed
+read only; nothing is editable; More lists the owner and staff with
+emails. The role is called Family. Under `/org/[slug]/family`: home,
+the athlete, matches and one match, colleges and one college, More.
+The eligibility, transcript, approvals, caveats and metrics screens are
+the roster's own pages served under `/family`, building their links
+from `athleteHome()` so a family never lands on an org screen. The
+tab bar follows the role (`Chrome tabs`). Today sends a family login to
+`/family`.
+
+In the app besides the screens: the invite form offers Family with an
+athlete picker, the action writes the membership and the guardian link
+through the service role, a role can never be changed to or from family
+(remove and re-invite), and a family member's page under Members names
+the athletes they see. The render law renders every family screen as
+the fixture's family login (two athletes linked), proves an owner
+cannot open them, that a family login cannot open any org screen, that
+the shared athlete screens carry only family links and no form for a
+family, and that an unlinked athlete is not found. The live driver
+opens the family routes as the family login through a `fixture_user`
+cookie the fixture server reads.
+
+Not built, by Dave's picks: Invite Family on the athlete's page (he
+picked the athlete page as the place to invite from; the invite lives
+under Members until that button exists, see next steps).
 
 ---
 
@@ -232,8 +258,8 @@ built until Dave picks.
   Google Sheet exported to the template.
 - No search or filter on any list except the matches screen.
 - Region is not a filter yet, only state; a region needs a state table.
-- No family screens yet: a family login is refused by every org screen
-  until the catalog picks are in (contract section 5).
+- Invite Family is not yet a button on the athlete's page; a family is
+  invited from Members, with the athlete picked there.
 - The fake client does not implement `.or()` or `.ilike()`; one action
   uses each.
 - `@supabase/ssr` 0.5 and `zod` 3 are both a major behind.
@@ -256,7 +282,8 @@ built until Dave picks.
    numbers (strike target, grade weights, preset weights) get revisited
    on what he sees.
 2. Dave's page-by-page audit of the new screens on his phone.
-3. Dave's picks in the Family Access catalog, then the family screens.
+3. Invite Family on the athlete's page (Dave's pick), then the first
+   real family: the athlete first, then a parent or legal guardian.
 4. Cleanup pass: one page loader, `cache()` on the org and user lookups,
    split `documents.ts`, then the `@supabase/ssr` and `zod` bumps.
 

@@ -7,7 +7,8 @@
 
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { athleteHome, requireRole } from "@/lib/auth/guard";
+import { assertMayViewAthlete } from "@/lib/data/family";
 import { loadEligibility } from "@/lib/data/loadEligibility";
 import { Body, EmptyState, Label, LinkButton, Row, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
@@ -27,7 +28,9 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireRole(org.id, ["owner", "staff", "member"]);
+  const user = await requireRole(org.id, ["owner", "staff", "member", "family"]);
+  await assertMayViewAthlete(org.id, user, id);
+  const home = athleteHome(slug, id, user.role);
 
   const bundle = await loadEligibility(org.id, id, new Date().toISOString().slice(0, 10));
   if (!bundle) notFound();
@@ -50,12 +53,12 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
   return (
     <Screen
       title="Transcript"
-      back={{ href: `/org/${slug}/roster/${id}`, label: athlete.name }}
+      back={{ href: home, label: athlete.name }}
       lede={`${courses.length} courses · ${core?.counted.length ?? 0} counted by the NCAA`}
     >
       {courses.length === 0 ? (
         <EmptyState kind="course" title="No Courses on File">
-          Upload a transcript from the athlete&apos;s page and the courses land here.
+          {user.role === "family" ? "Once a transcript is on file, every course lands here." : "Upload a transcript from the athlete's page and the courses land here."}
         </EmptyState>
       ) : (
         terms.map((term) => (
@@ -102,7 +105,7 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
         </Section>
       )}
 
-      <LinkButton href={`/org/${slug}/roster/${id}/eligibility`} variant="secondary">
+      <LinkButton href={`${home}/eligibility`} variant="secondary">
         NCAA Eligibility
       </LinkButton>
     </Screen>

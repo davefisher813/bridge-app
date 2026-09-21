@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole } from "@/lib/auth/guard";
+import { getCurrentUser, requireRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
 import { Body, Card, EmptyState, Label, Meter, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
@@ -65,6 +65,10 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
+  // A family login has no Today: their athlete is home (Dave's pick,
+  // 2026-09-21). Sent there before the org-wide gate refuses them.
+  const who = await getCurrentUser(org.id);
+  if (who?.role === "family") redirect(`/org/${slug}/family`);
   const user = await requireRole(org.id, ["owner", "staff", "member"]);
 
   const supabase = await createClient();

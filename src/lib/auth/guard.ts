@@ -86,3 +86,12 @@ export async function requireRole(
 export async function requireOwner(activeOrgId: string): Promise<CurrentUser> {
   return requireRole(activeOrgId, OWNER_ROLES);
 }
+
+// Where one athlete's screens live for this role. Staff open an athlete
+// under the roster; a family opens the same screens under /family, with
+// the family tab bar and no way into the rest of the org. The
+// eligibility, transcript and metrics pages serve both and build their
+// links from this.
+export function athleteHome(slug: string, athleteId: string, role: OrgRole): string {
+  return `/org/${slug}/${role === "family" ? "family" : "roster"}/${athleteId}`;
+}
