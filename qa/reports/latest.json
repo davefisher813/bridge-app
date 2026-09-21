@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "5ecb839",
-  "commitFull": "5ecb8397cf33dda6333571af553f86b9a4d20c1f",
+  "commit": "349efd3",
+  "commitFull": "349efd31c996109a05c0052729e5d6f10adaaaea",
   "branch": "main",
   "remoteBranches": [],
   "shipped": false,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-09-21T01:47:27.373Z",
-  "durationMs": 15656,
+  "startedAt": "2026-09-21T02:25:55.632Z",
+  "durationMs": 28260,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,7 +18,7 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 737,
+        "pass": 829,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
@@ -39,7 +39,7 @@
         "src/laws/laws.test.ts": 13,
         "src/laws/matchingLaws.test.ts": 25,
         "src/laws/ncaaLaws.test.ts": 36,
-        "src/laws/pageRender.test.ts": 89,
+        "src/laws/pageRender.test.ts": 181,
         "src/laws/schemaLaws.test.ts": 5,
         "src/laws/stylingLaws.test.ts": 19,
         "src/lib/data/eligibilityLoop.test.ts": 10,
@@ -106,7 +106,7 @@
             "location": "/login"
           }
         },
-        "ms": 1328
+        "ms": 1400
       },
       "errors": [],
       "warnings": [],
@@ -122,8 +122,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 19,
-      "filesScanned": 319
+      "touchedFiles": 37,
+      "filesScanned": 334
     },
     {
       "name": "types",
