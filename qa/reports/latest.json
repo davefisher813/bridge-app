@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "6adc3d8",
-  "commitFull": "6adc3d82c52d6dfc9c74f6fe9358727ee18f7c4b",
-  "branch": "main",
+  "commit": "2cd2228",
+  "commitFull": "2cd2228bb75a82ac7938d4186dd0c38a48ea7c5f",
+  "branch": "claude/open-rows",
   "remoteBranches": [],
   "shipped": false,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-09-21T02:32:32.188Z",
-  "durationMs": 19674,
+  "startedAt": "2026-09-21T02:45:53.642Z",
+  "durationMs": 19643,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -106,7 +106,7 @@
             "location": "/login"
           }
         },
-        "ms": 1467
+        "ms": 1379
       },
       "errors": [],
       "warnings": [],
@@ -122,8 +122,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 2,
-      "filesScanned": 335
+      "touchedFiles": 1,
+      "filesScanned": 332
     },
     {
       "name": "types",
@@ -135,6 +135,12 @@
     "checklist": "qa/checklist.md",
     "checklistCommit": "4c13132",
     "checklistSays": "pass",
+    "openRows": [
+      {
+        "row": "4",
+        "pass": "not run"
+      }
+    ],
     "result": "provisional",
     "reason": "checklist.md is for commit 4c13132, not this one"
   },
