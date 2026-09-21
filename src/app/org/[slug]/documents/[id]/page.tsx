@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { applyDocument, discardDocument, isStubbedModel } from "@/lib/actions/documents";
-import { isStaleProcessing } from "@/lib/data/documentState";
+import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
 import { Avatar, Body, Button, Chip, ConfirmButton, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { Role } from "@/components/statusHue";
@@ -255,7 +255,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
           {isStuck ? (
             <>
               <Note title="It Was Cut Off">
-                The reading started {Math.round((Date.now() - new Date(doc.created_at).getTime()) / 60000)} minutes ago and never came back, so it is not going to. Nothing was changed on any athlete. Discard this and upload the file again.
+                The reading started {ageOf(doc.created_at)} ago and never came back, so it is not going to. Nothing was changed on any athlete. Discard this and upload the file again.
               </Note>
               <Form action={discardAction}>
                 <ConfirmButton title="Discard this document?" body="Nothing was applied, so nothing changes on any athlete. The file can be uploaded again." confirmLabel="Discard">

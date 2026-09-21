@@ -110,3 +110,15 @@ describe("readableColumn", () => {
     expect(readableColumn("some_other_column")).toBe("some other column");
   });
 });
+
+describe("how long ago a reading started", () => {
+  it("scales from minutes to hours to days", async () => {
+    const { ageOf, isStaleProcessing } = await import("./documentState");
+    const now = Date.parse("2026-09-21T12:00:00Z");
+    expect(ageOf("2026-09-21T11:57:00Z", now)).toBe("3 minutes");
+    expect(ageOf("2026-09-21T09:00:00Z", now)).toBe("3 hours");
+    expect(ageOf("2026-09-17T12:00:00Z", now)).toBe("4 days");
+    expect(isStaleProcessing("2026-09-21T11:55:00Z", now)).toBe(false);
+    expect(isStaleProcessing("2026-09-21T11:45:00Z", now)).toBe(true);
+  });
+});
