@@ -2416,3 +2416,19 @@ scenario, but a feature, not a hardening).
 **Consequences.** Migration 0029, `MAX_IMAGE_EDGE`, `explainApiError`,
 `documentState.ts`, a `level` on the transcript schema, and 14 more
 tests. The ingest browser test still passes 18/18 in real Chromium.
+
+## 2026-09-21: an Academics First preset
+
+**Decision.** A fourth scoring preset, Academics First, weighted 50 /
+30 / 20 (academic / athletic / financial), the mirror of Baseball
+First. Migration 0030 widens the check constraint. Money First stays
+the default.
+
+**Reason.** Dave, looking at the preset picker on More: "This should
+have academics first as well." The matching contract is locked to his
+picks, and this is one of his picks, added to the table there.
+
+**Consequences.** `PRESETS` in `src/lib/fit/contract.ts`, the table in
+docs/MATCHING_CONTRACT.md, and a law that each named preset leads with
+what it is named for and that the presets the app offers are the ones
+the database accepts.

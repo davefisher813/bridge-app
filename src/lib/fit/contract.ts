@@ -155,7 +155,7 @@ export const POP_TIME_FLOOR_GRACE = 0.1;
 export const BANDS = { safety: 80, fit: 55, reach: 35 } as const;
 
 // ── Blends ───────────────────────────────────────────────────────────
-export type ScoringPreset = "money_first" | "balanced" | "baseball_first";
+export type ScoringPreset = "money_first" | "academics_first" | "balanced" | "baseball_first";
 export type AthleteGoal = "education" | "balanced" | "development";
 
 export interface Weights {
@@ -168,6 +168,9 @@ export interface Weights {
 // factor." Bridge's default is first.
 export const PRESETS: Record<ScoringPreset, { label: string; weights: Weights }> = {
   money_first: { label: "Money First", weights: { academic: 0.3, athletic: 0.3, financial: 0.4 } },
+  // The mirror of Baseball First. Dave, 2026-09-21: "This should have
+  // academics first as well."
+  academics_first: { label: "Academics First", weights: { academic: 0.5, athletic: 0.3, financial: 0.2 } },
   balanced: { label: "Balanced", weights: { academic: 0.4, athletic: 0.4, financial: 0.2 } },
   baseball_first: { label: "Baseball First", weights: { academic: 0.3, athletic: 0.5, financial: 0.2 } },
 };

@@ -4,6 +4,8 @@
 // test together. See README.md in this folder.
 
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { scoreFit } from "../lib/fit/score";
 import { scoreAthletic } from "../lib/fit/athletic";
 import { scoreFinancial } from "../lib/fit/financial";
@@ -137,6 +139,14 @@ describe("LAW: the blend is the org's preset shifted by the athlete's goal, and 
     }
     expect(PRESETS.money_first.weights.financial).toBeGreaterThan(PRESETS.money_first.weights.academic);
     expect(PRESETS.money_first.weights.financial).toBeGreaterThan(PRESETS.money_first.weights.athletic);
+    // Each named preset leads with what it is named for.
+    expect(PRESETS.academics_first.weights.academic).toBeGreaterThan(PRESETS.academics_first.weights.athletic);
+    expect(PRESETS.academics_first.weights.academic).toBeGreaterThan(PRESETS.academics_first.weights.financial);
+    expect(PRESETS.baseball_first.weights.athletic).toBeGreaterThan(PRESETS.baseball_first.weights.academic);
+  });
+  it("the presets the app offers are the ones the database accepts", () => {
+    const sql = readFileSync(join(process.cwd(), "migrations", "0030_academics_first_preset.sql"), "utf8");
+    for (const key of Object.keys(PRESETS)) expect(sql).toContain(`'${key}'`);
   });
   it("Education First moves the shift from athletic to academic and leaves financial alone", () => {
     const b = blendWeights("balanced", "balanced", false);

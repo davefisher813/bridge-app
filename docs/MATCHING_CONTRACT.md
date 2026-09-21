@@ -141,6 +141,7 @@ numbers, not the order):
 | Preset | Academic | Athletic | Financial |
 |---|---|---|---|
 | Money First (Bridge default) | 30 | 30 | 40 |
+| Academics First (added 2026-09-21 at Dave's request) | 50 | 30 | 20 |
 | Balanced | 40 | 40 | 20 |
 | Baseball First | 30 | 50 | 20 |
 
