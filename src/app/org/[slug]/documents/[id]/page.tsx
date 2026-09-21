@@ -74,8 +74,53 @@ const FIELD_LABEL: Record<string, string> = {
   totalCostOfAttendance: "Cost of attendance",
   grantAid: "Grant aid",
   recommenderName: "Recommender",
-  recommenderRole: "Their role",
+  recommenderTitle: "Their role",
+  recommenderOrg: "Their organization",
+  recType: "Kind of letter",
+  tone: "Tone",
+  letterDate: "Letter date",
+  summary: "Summary",
+  college: "College",
+  offerDate: "Offer date",
+  decisionDeadline: "Decide by",
+  coachName: "Coach",
+  isOfficial: "Official",
+  documentType: "Document type",
+  academicYear: "Academic year",
+  netCost: "Net cost",
+  efc: "EFC",
+  sai: "SAI",
+  tests: "Tests",
+  awards: "Awards",
 };
+
+// What applying each type does, and what discarding puts back. The
+// transcript wording is the original; the rest arrived with the four
+// other applies (2026-09-21).
+const APPLY_COPY: Record<string, { applied: string; undo: string }> = {
+  transcript: {
+    applied: "Discarding this now removes the courses it added and puts back the athlete's previous GPA and date of birth. Anything corrected by hand since is left alone.",
+    undo: "The courses it added come off and the previous GPA and date of birth go back.",
+  },
+  test_scores: { applied: "Discarding this puts back the athlete's previous SAT and ACT. Anything corrected by hand since is left alone.", undo: "The previous SAT and ACT go back." },
+  offer_letter: { applied: "Discarding this puts the college back the way it was on the board, or takes it off if this letter added it.", undo: "The college goes back the way it was on the board." },
+  financial_aid: { applied: "Discarding this takes the award off the college on the board and rescores the match.", undo: "The award comes off the college and the match is rescored." },
+  recommendation: { applied: "Discarding this removes the contact it added.", undo: "The contact it added comes off." },
+};
+
+// A list read off the document, in one line a person can scan.
+function summarizeList(key: string, value: unknown): string | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  if (key === "tests") {
+    return (value as { type?: string; totalScore?: number | null; testDate?: string }[])
+      .map((t) => `${t.type ?? "Test"} ${t.totalScore ?? "?"}${t.testDate ? ` (${t.testDate})` : ""}`)
+      .join(", ");
+  }
+  if (key === "awards") {
+    return (value as { name?: string; amount?: number; type?: string }[]).map((a) => `${a.name || a.type || "Award"} $${Math.round(a.amount ?? 0).toLocaleString("en-US")}`).join(", ");
+  }
+  return value.map(String).join(", ");
+}
 
 function unwrap<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
@@ -91,7 +136,13 @@ function displayFields(extracted: Record<string, unknown> | null): { label: stri
   if (!extracted) return [];
   return Object.entries(FIELD_LABEL)
     .filter(([key]) => extracted[key] !== undefined && extracted[key] !== null && extracted[key] !== "")
-    .map(([key, label]) => ({ label, value: String(extracted[key]) }));
+    .map(([key, label]) => {
+      const v = extracted[key];
+      const list = summarizeList(key, v);
+      const value = list ?? (typeof v === "boolean" ? (v ? "Yes" : "No") : typeof v === "number" && /cost|efc|sai/i.test(key) ? `$${Math.round(v).toLocaleString("en-US")}` : String(v));
+      return { label, value };
+    })
+    .filter((f) => f.value !== "");
 }
 
 export default async function DocumentPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
@@ -265,12 +316,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
 
           {/* Discarding an APPLIED document is an undo, so the button
               says so. */}
-          {isApplied && (
-            <Note title="Applied to the wrong athlete, or read wrong?">
-              Discarding this now removes the courses it added and puts back the athlete&apos;s previous GPA and date of birth. Anything
-              corrected by hand since is left alone.
-            </Note>
-          )}
+          {isApplied && <Note title="Applied to the wrong athlete, or read wrong?">{(APPLY_COPY[doc.category ?? ""] ?? APPLY_COPY.transcript!).applied}</Note>}
 
           <Stack>
             <LinkButton href={`/org/${slug}/documents`}>Done</LinkButton>
@@ -278,7 +324,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
               <Form action={discardAction}>
                 <ConfirmButton
                   title={isApplied ? "Undo and discard this document?" : "Discard this document?"}
-                  body={isApplied ? "The courses it added come off and the previous GPA and date of birth go back." : "Nothing was applied, so nothing changes on any athlete."}
+                  body={isApplied ? (APPLY_COPY[doc.category ?? ""] ?? APPLY_COPY.transcript!).undo : "Nothing was applied, so nothing changes on any athlete."}
                   confirmLabel={isApplied ? "Undo and Discard" : "Discard"}
                 >
                   {isApplied ? "Undo and Discard" : "Discard"}

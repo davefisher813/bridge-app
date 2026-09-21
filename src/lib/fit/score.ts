@@ -13,7 +13,7 @@
 // signals (offers, visits, comms) are applied once, after the blend, as
 // bounded nudges rather than a chain of tag reassignments.
 
-import type { Athlete, DimensionResult, FitResult, PositionalNeed, RecruitingSignals, School, TransferWindow } from "./types";
+import type { Athlete, DimensionResult, FitResult, PositionalNeed, RecruitingSignals, School, TransferWindow, KnownAid } from "./types";
 import { scoreAcademic } from "./academic";
 import { scoreAthletic, baseballPositionGroup } from "./athletic";
 import { scoreFinancial } from "./financial";
@@ -37,6 +37,9 @@ export interface ScoreFitOptions {
   preset?: ScoringPreset;
   // The org's private positions of need at this school.
   positionalNeed?: PositionalNeed[];
+  // An applied award letter for this athlete at this school. Replaces
+  // the aid estimate in the financial dimension.
+  aid?: KnownAid;
 }
 
 // The blend is the org's preset shifted by the athlete's goal
@@ -81,7 +84,7 @@ export function scoreFit(athlete: Athlete, school: School, opts: ScoreFitOptions
 
   const academic = scoreAcademic(athlete, school);
   const athletic = scoreAthletic(athlete, school);
-  const financial = scoreFinancial(athlete, school);
+  const financial = scoreFinancial(athlete, school, opts.aid);
   const isTransfer = athlete.recruitType !== "hs";
   const eligibility = isTransfer ? scoreEligibility(athlete, school, opts.transferWindows, opts.today) : undefined;
 

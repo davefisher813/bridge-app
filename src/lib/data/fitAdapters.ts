@@ -5,7 +5,7 @@
 // is the one seam that knows about column names.
 
 import { z } from "zod";
-import type { Athlete, PositionalNeed, RecruitType, RecruitingSignals, School, TransferWindow } from "@/lib/fit/types";
+import type { Athlete, PositionalNeed, RecruitType, RecruitingSignals, School, TransferWindow, KnownAid } from "@/lib/fit/types";
 import { parseSchoolAcademics, parseSchoolAthletics, parseSchoolConflicts, parseSchoolFinancials, safeParseAthleteDetail } from "@/lib/fit/schema";
 import { GRADE_KEYS, GRADE_MAX, GRADE_MIN, type MetricSource } from "@/lib/fit/contract";
 import { selectScoringMetrics, type MetricEntry } from "@/lib/fit/metrics";
@@ -192,6 +192,20 @@ export function targetOfferToSignal(row: TargetOfferRow): RecruitingSignals["off
   return {
     offerType: row.offer_type,
     scholarshipPercent: row.offer_scholarship_percent ?? undefined,
+  };
+}
+
+// recruiting_targets.aid (migration 0027): what an applied award letter
+// said. Only a numeric net cost makes it an input; anything else on the
+// row is kept for the screens.
+export function targetAidToKnownAid(raw: unknown): KnownAid | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const a = raw as { netCost?: unknown; academicYear?: unknown; totalCostOfAttendance?: unknown };
+  if (typeof a.netCost !== "number" || !Number.isFinite(a.netCost)) return undefined;
+  return {
+    netCost: a.netCost,
+    academicYear: typeof a.academicYear === "string" ? a.academicYear : undefined,
+    totalCost: typeof a.totalCostOfAttendance === "number" ? a.totalCostOfAttendance : undefined,
   };
 }
 

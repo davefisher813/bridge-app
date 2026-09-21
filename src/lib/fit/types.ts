@@ -106,6 +106,15 @@ export interface TransferWindow {
   closesOn: string; // ISO date
 }
 
+// What an award letter said for this athlete at this school. The one
+// financial input that is about the pair rather than the school's
+// averages, so it replaces the estimate when it is present.
+export interface KnownAid {
+  netCost: number;
+  academicYear?: string;
+  totalCost?: number;
+}
+
 export interface RecruitingSignals {
   offer?: { offerType: "scholarship" | "written" | "verbal" | "preferred_walk_on" | "admission_only" | "walk_on"; scholarshipPercent?: number };
   visitCount?: number;

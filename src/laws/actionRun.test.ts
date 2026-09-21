@@ -916,3 +916,173 @@ describe("LAW: a real model call is charged to the org, and stops at the month's
     expect(writes).toEqual([]);
   });
 });
+
+describe("LAW: every document type applies to the record and every apply can be undone", () => {
+  const orgId = () => data.orgs[0]!.id as string;
+  const pendingDoc = (id: string, category: string, extracted: Record<string, unknown>) => ({
+    id,
+    org_id: orgId(),
+    athlete_id: null,
+    file_name: `${category}.pdf`,
+    file_size: 1000,
+    media_type: "application/pdf",
+    source_role: "coordinator",
+    status: "pending",
+    route: "review",
+    category,
+    provenance: null,
+    extracted,
+    candidates: [],
+    failure_reason: null,
+    applied_at: null,
+    applied_changes: null,
+    undo_note: null,
+    created_at: "2026-09-21",
+  });
+  const applied = () => writes.find((w) => w.table === "documents" && w.op === "update" && w.rows[0]?.status === "applied");
+  const changesOf = () => applied()!.rows[0]!.applied_changes as Record<string, unknown>;
+
+  it("test scores land on the athlete's detail as the best SAT and ACT, and come back off", async () => {
+    data.documents!.push(pendingDoc("doc-scores", "test_scores", { studentName: "Fixture Athlete", tests: [{ type: "SAT", testDate: "2026-03-01", totalScore: 1180 }, { type: "SAT", testDate: "2026-06-01", totalScore: 1250 }, { type: "ACT", testDate: "2026-04-01", totalScore: 27 }] }));
+    const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-scores", IDS.athlete);
+    expect(r.ok).toBe(true);
+    const detail = writes.find((w) => w.table === "athletes" && w.op === "update")!.rows[0]!.detail as Record<string, unknown>;
+    expect(detail).toMatchObject({ kind: "hs", satTotal: 1250, actComposite: 27 });
+    expect(changesOf().detail).toMatchObject({ satTotal: { before: null, after: 1250 }, actComposite: { before: null, after: 27 } });
+    expect(writes.find((w) => w.table === "athlete_school_fits")).toBeTruthy();
+
+    // The fixture is a snapshot: put the written detail where the undo will read it.
+    (data.athletes!.find((a) => a.id === IDS.athlete) as Record<string, unknown>).detail = detail;
+    (data.documents!.find((d) => d.id === "doc-scores") as Record<string, unknown>).status = "applied";
+    (data.documents!.find((d) => d.id === "doc-scores") as Record<string, unknown>).applied_changes = changesOf();
+    writes.length = 0;
+    const u = await discardDocument(ORG_WITH_MODULES, "doc-scores");
+    expect(u.ok).toBe(true);
+    expect(u.undone!.join(" ")).toMatch(/Put back the athlete's previous SAT and ACT/);
+    const restored = writes.find((w) => w.table === "athletes" && w.op === "update")!.rows[0]!.detail as Record<string, unknown>;
+    expect(restored.satTotal).toBeUndefined();
+    expect(restored.actComposite).toBeUndefined();
+  });
+
+  it("test scores for a transfer stay on the document", async () => {
+    data.documents!.push(pendingDoc("doc-scores-t", "test_scores", { studentName: "Fixture Transfer", tests: [{ type: "SAT", testDate: "2026-03-01", totalScore: 1250 }] }));
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-scores-t", IDS.athleteTransfer);
+    expect(r.ok).toBe(true);
+    expect(r.error).toMatch(/transfer/);
+    expect(writes.find((w) => w.table === "athletes" && w.op === "update")).toBeUndefined();
+  });
+
+  it("an offer letter adds the college to the board as an Offer, and the undo takes it off", async () => {
+    const schoolD3 = data.schools!.find((s) => s.id === IDS.schoolD3)!;
+    data.documents!.push(pendingDoc("doc-offer", "offer_letter", { studentName: "Fixture Athlete", college: String(schoolD3.name), offerType: "scholarship", scholarshipPercent: 40, offerDate: "2026-09-01", coachName: "Coach Fixture", isOfficial: true }));
+    const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-offer", IDS.athlete);
+    expect(r.ok).toBe(true);
+    const insert = writes.find((w) => w.table === "recruiting_targets" && w.op === "insert")!;
+    expect(insert.rows[0]).toMatchObject({ org_id: orgId(), athlete_id: IDS.athlete, school_id: IDS.schoolD3, status: "Offer", offer_type: "scholarship", offer_scholarship_percent: 40, coach_name: "Coach Fixture" });
+    const change = changesOf().target as { id: string; created: boolean };
+    expect(change.created).toBe(true);
+
+    // The fake persists the insert, so the row is already on the table.
+    (data.documents!.find((d) => d.id === "doc-offer") as Record<string, unknown>).status = "applied";
+    (data.documents!.find((d) => d.id === "doc-offer") as Record<string, unknown>).applied_changes = changesOf();
+    writes.length = 0;
+    const u = await discardDocument(ORG_WITH_MODULES, "doc-offer");
+    expect(u.undone!.join(" ")).toMatch(/Removed the college/);
+    expect(writes.find((w) => w.table === "recruiting_targets" && w.op === "delete")).toBeTruthy();
+  });
+
+  it("an offer letter for a college already on the board moves it to Offer and the undo puts the stage back", async () => {
+    const target = data.recruiting_targets!.find((t) => t.id === IDS.target)!;
+    const schoolName = data.schools!.find((s) => s.id === target.school_id)!.name;
+    (target as Record<string, unknown>).status = "In Contact";
+    (target as Record<string, unknown>).offer_type = null;
+    data.documents!.push(pendingDoc("doc-offer2", "offer_letter", { studentName: "Fixture Athlete", college: String(schoolName), offerType: "verbal", offerDate: "2026-09-01", isOfficial: false }));
+    const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-offer2", IDS.athlete);
+    expect(r.ok).toBe(true);
+    const update = writes.find((w) => w.table === "recruiting_targets" && w.op === "update")!;
+    expect(update.rows[0]).toMatchObject({ status: "Offer", offer_type: "verbal" });
+    const change = changesOf().target as { created: boolean; before: Record<string, unknown> };
+    expect(change.created).toBe(false);
+    expect(change.before).toMatchObject({ status: "In Contact", offer_type: null });
+
+    Object.assign(target, update.rows[0]);
+    (data.documents!.find((d) => d.id === "doc-offer2") as Record<string, unknown>).status = "applied";
+    (data.documents!.find((d) => d.id === "doc-offer2") as Record<string, unknown>).applied_changes = changesOf();
+    writes.length = 0;
+    const u = await discardDocument(ORG_WITH_MODULES, "doc-offer2");
+    expect(u.undone!.join(" ")).toMatch(/Put back the college's previous/);
+    const restore = writes.find((w) => w.table === "recruiting_targets" && w.op === "update")!;
+    expect(restore.rows[0]).toMatchObject({ status: "In Contact", offer_type: null });
+  });
+
+  it("an offer letter naming a school not on file applies nothing and says so", async () => {
+    data.documents!.push(pendingDoc("doc-offer3", "offer_letter", { studentName: "Fixture Athlete", college: "Nowhere Tech", offerType: "verbal", offerDate: "2026-09-01", isOfficial: false }));
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-offer3", IDS.athlete);
+    expect(r.ok).toBe(true);
+    expect(r.error).toMatch(/No school on file named "Nowhere Tech"/);
+    expect(writes.find((w) => w.table === "recruiting_targets")).toBeUndefined();
+  });
+
+  it("an award letter puts its numbers on the college and the match is rescored from them", async () => {
+    const target = data.recruiting_targets!.find((t) => t.id === IDS.target)!;
+    const schoolName = data.schools!.find((s) => s.id === target.school_id)!.name;
+    data.documents!.push(pendingDoc("doc-aid", "financial_aid", { documentType: "award_letter", college: String(schoolName), academicYear: "2027-28", totalCostOfAttendance: 52000, awards: [{ type: "grant", name: "Fixture Grant", amount: 30000 }, { type: "unsubsidized_loan", name: "Loan", amount: 5000 }] }));
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-aid", IDS.athlete);
+    expect(r.ok).toBe(true);
+    const update = writes.find((w) => w.table === "recruiting_targets" && w.op === "update")!;
+    const aid = update.rows[0]!.aid as { netCost: number; academicYear: string; documentId: string };
+    // Gift aid only: the loan is money the family still pays.
+    expect(aid).toMatchObject({ netCost: 22000, academicYear: "2027-28", documentId: "doc-aid" });
+    Object.assign(target, update.rows[0]);
+    writes.length = 0;
+    const { recomputeFitsForAthlete } = await import("@/lib/data/fits");
+    const fake = createFakeClient(data, { userId: currentUser, recorded: writes }) as unknown as Parameters<typeof recomputeFitsForAthlete>[0];
+    await recomputeFitsForAthlete(fake, orgId(), IDS.athlete);
+    const fits = writes.find((w) => w.table === "athlete_school_fits")!;
+    const row = fits.rows.find((x) => x.school_id === target.school_id)! as { reasons: string[]; dimensions: { financial: { reasons: string[]; confidence: string } } };
+    expect(row.dimensions.financial.reasons[0]).toMatch(/award letter for 2027-28/);
+    expect(row.dimensions.financial.confidence).toBe("high");
+  });
+
+  it("a FAFSA report is kept on file and changes nothing", async () => {
+    data.documents!.push(pendingDoc("doc-fafsa", "financial_aid", { documentType: "fafsa_sar", academicYear: "2027-28", sai: 4200, awards: [] }));
+    const { applyDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-fafsa", IDS.athlete);
+    expect(r.ok).toBe(true);
+    expect(r.error).toMatch(/FAFSA report is kept on file/);
+    expect(writes.find((w) => w.table === "recruiting_targets")).toBeUndefined();
+  });
+
+  it("a recommendation letter becomes a contact, once, and the undo removes it", async () => {
+    data.documents!.push(pendingDoc("doc-rec", "recommendation", { studentName: "Fixture Athlete", recommenderName: "Fixture Teacher", recommenderTitle: "Counselor", recommenderOrg: "Fixture High School", recType: "academic", letterDate: "2026-05-01", tone: "strong", themes: ["work ethic"], summary: "A strong student." }));
+    const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
+    const r = await applyDocument(ORG_WITH_MODULES, "doc-rec", IDS.athlete);
+    expect(r.ok).toBe(true);
+    const insert = writes.find((w) => w.table === "contacts" && w.op === "insert")!;
+    expect(insert.rows[0]).toMatchObject({ org_id: orgId(), athlete_id: IDS.athlete, name: "Fixture Teacher", role: "advisor" });
+    expect(String(insert.rows[0]!.notes)).toMatch(/Recommendation letter · academic, strong · 2026-05-01 at Fixture High School\. A strong student\./);
+    const contactId = changesOf().contactId as string;
+    expect(contactId).toBeTruthy();
+
+    // The fake persists the insert, so the row is already on the table.
+    // The same letter again: the person is already a contact.
+    data.documents!.push(pendingDoc("doc-rec2", "recommendation", { studentName: "Fixture Athlete", recommenderName: "fixture teacher", recommenderTitle: "Counselor", recType: "academic", letterDate: "2026-05-01", tone: "strong", themes: [], summary: "Again." }));
+    writes.length = 0;
+    const again = await applyDocument(ORG_WITH_MODULES, "doc-rec2", IDS.athlete);
+    expect(again.error).toMatch(/already one of the athlete's contacts/);
+    expect(writes.find((w) => w.table === "contacts")).toBeUndefined();
+
+    (data.documents!.find((d) => d.id === "doc-rec") as Record<string, unknown>).status = "applied";
+    (data.documents!.find((d) => d.id === "doc-rec") as Record<string, unknown>).applied_changes = { athleteId: IDS.athlete, athleteFields: {}, gradingScaleId: null, coursesSuperseded: 0, contactId };
+    writes.length = 0;
+    const u = await discardDocument(ORG_WITH_MODULES, "doc-rec");
+    expect(u.undone!.join(" ")).toMatch(/Removed Fixture Teacher/);
+    expect(writes.find((w) => w.table === "contacts" && w.op === "delete")).toBeTruthy();
+  });
+});

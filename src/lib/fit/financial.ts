@@ -13,7 +13,7 @@
 //   - D2 keeps its own separate, still-capped scholarship rules,
 //     untouched by the settlement.
 
-import type { Athlete, DimensionResult, School } from "./types";
+import type { Athlete, DimensionResult, KnownAid, School } from "./types";
 import { isD1, isD3 } from "./benchmarks";
 import { clampScore } from "./bands";
 import { MERIT_GPA_FACTORS, NEED_AID_FACTOR, NET_COST_BANDS } from "./contract";
@@ -72,25 +72,57 @@ function scoreAgainstBudget(athlete: Athlete, school: School, budget: number): D
   const net = Math.max(0, c.cost - aid);
   reasons.push(`Net cost about ${money(net)} a year (${money(c.cost)} ${c.basis}, less ${money(aid)} in likely aid) against a ${money(budget)} budget`);
 
-  let score: number;
-  if (net <= budget) {
-    const margin = budget > 0 ? (budget - net) / budget : 1;
-    score = NET_COST_BANDS.underBudget + Math.min(1, margin) * NET_COST_BANDS.underBudgetBonusMax;
-  } else if (net <= budget * 1.25) {
-    score = NET_COST_BANDS.within25Over;
-    warnings.push(`About ${money(net - budget)} a year over budget`);
-  } else if (net <= budget * 1.5) {
-    score = NET_COST_BANDS.within50Over;
-    warnings.push(`About ${money(net - budget)} a year over budget`);
-  } else {
-    score = NET_COST_BANDS.further;
-    warnings.push(`About ${money(net - budget)} a year over budget: this school does not make sense financially without more aid`);
-  }
+  const score = bandForNet(net, budget, warnings);
   const confidence: DimensionResult["confidence"] = f.avgMeritAid !== undefined || f.avgAthleticAid !== undefined || f.avgNeedAid !== undefined ? "high" : "medium";
   return { score: clampScore(score), confidence, veto: false, reasons, warnings };
 }
 
-export function scoreFinancial(athlete: Athlete, school: School): DimensionResult {
+// docs/MATCHING_CONTRACT.md: at or under budget scores 85 plus up to
+// 15 for the margin; within a quarter over, 60; within half over, 40;
+// further, 20. One place, used for an estimate and for an award letter
+// alike.
+function bandForNet(net: number, budget: number, warnings: string[]): number {
+  if (net <= budget) {
+    const margin = budget > 0 ? (budget - net) / budget : 1;
+    return NET_COST_BANDS.underBudget + Math.min(1, margin) * NET_COST_BANDS.underBudgetBonusMax;
+  }
+  if (net <= budget * 1.25) {
+    warnings.push(`About ${money(net - budget)} a year over budget`);
+    return NET_COST_BANDS.within25Over;
+  }
+  if (net <= budget * 1.5) {
+    warnings.push(`About ${money(net - budget)} a year over budget`);
+    return NET_COST_BANDS.within50Over;
+  }
+  warnings.push(`About ${money(net - budget)} a year over budget: this school does not make sense financially without more aid`);
+  return NET_COST_BANDS.further;
+}
+
+// An applied award letter: the actual net cost for this athlete at
+// this school. Replaces the estimate entirely, because a number the
+// school put in writing beats an average of what it gives other people.
+function scoreKnownAid(athlete: Athlete, aid: KnownAid): DimensionResult {
+  const label = `the award letter${aid.academicYear ? ` for ${aid.academicYear}` : ""}`;
+  const net = Math.max(0, aid.netCost);
+  const reasons: string[] = [];
+  const warnings: string[] = [];
+  if (athlete.familyBudgetCents !== undefined && athlete.familyBudgetCents > 0) {
+    const budget = athlete.familyBudgetCents / 100;
+    reasons.push(`Net cost ${money(net)} a year from ${label}${aid.totalCost ? ` (${money(aid.totalCost)} before aid)` : ""} against a ${money(budget)} budget`);
+    const score = bandForNet(net, budget, warnings);
+    return { score: clampScore(score), confidence: "high", veto: false, reasons, warnings };
+  }
+  reasons.push(`Net cost ${money(net)} a year from ${label}`);
+  warnings.push("No family budget on file: add one for a net-cost fit");
+  return { score: 55, confidence: "low", veto: false, reasons, warnings };
+}
+
+export function scoreFinancial(athlete: Athlete, school: School, aid?: KnownAid): DimensionResult {
+  if (aid && Number.isFinite(aid.netCost)) return scoreKnownAid(athlete, aid);
+  return scoreFinancialEstimate(athlete, school);
+}
+
+function scoreFinancialEstimate(athlete: Athlete, school: School): DimensionResult {
   const f = school.financials;
   const reasons: string[] = [];
   const warnings: string[] = [];

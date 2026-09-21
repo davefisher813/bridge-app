@@ -307,6 +307,27 @@ refuses before writing a row or reading a byte once the cap is reached.
 `isStubbedModel()` (no `ANTHROPIC_API_KEY`) still selects the stub, so
 the whole flow runs and is labelled simulated until a key exists.
 
+**Applying each type (2026-09-21):** a transcript writes GPA, date of
+birth, the course rows and a grading scale (in `documents.ts`, the
+original). The other four live in `src/lib/data/applyExtraction.ts`,
+plain functions over the caller's client: test scores put the best SAT
+total and ACT composite on a high school athlete's `detail` (a
+transfer's stay on the document); an offer letter finds the school by
+name on the shared table (exact, then a single containing match, never
+a guess), then creates the recruiting target as Offer or moves an
+existing one to Offer with the offer type, percentage and coach; an
+award letter puts its numbers on the same target's `aid` column
+(migration 0027), which the financial dimension reads as the known net
+cost; a recommendation letter becomes a contact with the letter's kind,
+tone, date and summary in its notes, once per name. Every apply records
+before and after in `documents.applied_changes`, discard restores a
+value only while it still holds what the document wrote, a created
+target or contact is removed, and a target or score change rescores the
+athlete's stored matches. A letter naming a school not on file applies
+nothing and says to add the school first; a FAFSA or EFC report is kept
+on file and changes nothing, since only an award letter carries a
+school's numbers.
+
 **Where the file goes (2026-09-19).** The browser uploads each
 ingested file to a private Supabase Storage bucket, `documents`, at
 `<org id>/<request id>/<n>-<name>`, and the server action receives a

@@ -219,6 +219,17 @@ function runSuite(): Check[] {
     return null;
   });
 
+  check("Matching", "an applied award letter replaces the aid estimate", () => {
+    const a = hsAthlete({ familyBudgetCents: 2_000_000 });
+    const s = school({ financials: { outstateTotal: 50_000, athleticScholarship: "partial", avgAthleticAid: 5_000 } });
+    const estimate = scoreFinancial(a, s);
+    const letter = scoreFinancial(a, s, { netCost: 12_000, academicYear: "2027-28" });
+    if (letter.confidence !== "high") return `confidence ${letter.confidence}, expected high`;
+    if (!/award letter for 2027-28/.test(letter.reasons[0] ?? "")) return `first reason was "${letter.reasons[0]}"`;
+    if (letter.score <= estimate.score) return `letter ${letter.score} did not beat the estimate ${estimate.score}`;
+    return null;
+  });
+
   check("Matching", "the goal shifts academic and athletic and never money", () => {
     const base = blendWeights("balanced", "balanced", false);
     const edu = blendWeights("balanced", "education", false);

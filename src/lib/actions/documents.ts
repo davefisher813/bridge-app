@@ -24,6 +24,8 @@ import {
 } from "@/lib/docai/acceptance";
 import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
+import { applyFinancialAid, applyOfferLetter, applyRecommendation, applyTestScores, undoContact, undoTarget, undoTestScores, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
+import { recomputeFitsForAthlete } from "@/lib/data/fits";
 import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole, StoredRecord } from "@/lib/docai/types";
 
 // The caller side of src/lib/docai. The pipeline deliberately returns a
@@ -91,6 +93,12 @@ interface AppliedChanges {
   // Never set when it found one already there, because first writer wins
   // and undoing this document must not delete somebody else's table.
   gradingScaleId: string | null;
+  // athletes.detail keys a test score document wrote.
+  detail?: Record<string, FieldChange>;
+  // The recruiting target an offer letter or an award letter touched.
+  target?: TargetChange;
+  // The contact a recommendation letter added.
+  contactId?: string | null;
   // Course rows from OTHER documents that this apply superseded. They
   // are gone and an undo cannot bring them back, so it says so rather
   // than implying a clean reversal.
@@ -517,6 +525,30 @@ async function applyExtractionToAthlete(
     changes.gradingScaleId = scaleOutcome.createdId;
   }
 
+  // The other four types, each in src/lib/data/applyExtraction.ts. A
+  // change to the target or the scores is a change to a matching input,
+  // so the athlete's stored matches are rescored right after.
+  if (categoryId !== "transcript") {
+    const part =
+      categoryId === "test_scores"
+        ? await applyTestScores(supabase, orgId, athleteId, extracted)
+        : categoryId === "offer_letter"
+          ? await applyOfferLetter(supabase, orgId, athleteId, extracted)
+          : categoryId === "financial_aid"
+            ? await applyFinancialAid(supabase, orgId, athleteId, extracted, documentId)
+            : categoryId === "recommendation"
+              ? await applyRecommendation(supabase, orgId, athleteId, extracted)
+              : { warnings: [`${categoryId} documents are kept on file and not applied to the record.`] };
+    warnings.push(...part.warnings);
+    if (part.detail) changes.detail = part.detail;
+    if (part.target) changes.target = part.target;
+    if (part.contactId) changes.contactId = part.contactId;
+    if (part.recompute) {
+      const { error } = await recomputeFitsForAthlete(supabase, orgId, athleteId);
+      if (error) warnings.push(`Applied, but the matches could not be rescored: ${error}`);
+    }
+  }
+
   if (Object.keys(patch).length === 0) return { warnings, changes };
 
   for (const [column, after] of Object.entries(patch)) {
@@ -877,6 +909,14 @@ async function undoApply(orgId: string, documentId: string, changes: AppliedChan
     // and there is no way to know what they replaced.
     done.push("This was applied before undo was available, so any GPA or date of birth it wrote is still on the record.");
     return done;
+  }
+
+  if (changes.detail && changes.athleteId) done.push(...(await undoTestScores(supabase, orgId, changes.athleteId, changes.detail)));
+  if (changes.target) done.push(...(await undoTarget(supabase, orgId, changes.target)));
+  if (changes.contactId) done.push(...(await undoContact(supabase, orgId, changes.contactId)));
+  if ((changes.target || changes.detail) && changes.athleteId) {
+    const { error } = await recomputeFitsForAthlete(supabase, orgId, changes.athleteId);
+    if (error) done.push(`The matches could not be rescored afterwards: ${error}`);
   }
 
   if (changes.coursesSuperseded > 0) {

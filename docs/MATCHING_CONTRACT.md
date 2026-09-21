@@ -168,6 +168,14 @@ sees what they would most qualify for. With no budget on file the
 dimension keeps today's school-only model and reports low confidence.
 Financial never vetoes.
 
+Added 2026-09-21, consistent with the above: an applied award letter
+for this athlete at this school replaces the estimate entirely. Its net
+cost (as read, or cost of attendance less gift aid, never less a loan)
+is scored against the budget on the same bands at high confidence, and
+the first reason says "from the award letter". With no budget on file
+it is shown at low confidence and not judged. The letter lives on the
+recruiting target (`recruiting_targets.aid`, migration 0027).
+
 **Floors.** The athletic dimension vetoes when the primary number is
 under the tier's floor:
 

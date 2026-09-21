@@ -10,7 +10,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { scoreFit } from "@/lib/fit/score";
-import type { Athlete, FitResult, School, TransferWindow } from "@/lib/fit/types";
+import type { Athlete, FitResult, KnownAid, School, TransferWindow } from "@/lib/fit/types";
 import { DEFAULT_PRESET, type ScoringPreset } from "@/lib/fit/contract";
 import {
   ATHLETE_FIT_COLUMNS,
@@ -18,6 +18,7 @@ import {
   athleteRowToFitAthlete,
   noteRowToPositionalNeed,
   schoolRowToFitSchool,
+  targetAidToKnownAid,
   transferWindowRowToFit,
   type AthleteRow,
   type MetricRow,
@@ -107,6 +108,8 @@ interface OrgContext {
   windows: TransferWindow[];
   needBySchool: Map<string, ReturnType<typeof noteRowToPositionalNeed>>;
   targetStatusByPair: Map<string, string>;
+  // An applied award letter per athlete and school pair.
+  aidByPair: Map<string, KnownAid>;
 }
 
 async function loadOrgContext(client: Client, orgId: string): Promise<OrgContext> {
@@ -114,14 +117,19 @@ async function loadOrgContext(client: Client, orgId: string): Promise<OrgContext
     client.from("orgs").select("scoring_preset").eq("id", orgId).maybeSingle(),
     client.from("transfer_windows").select("sport, division, season_year, window_label, opens_on, closes_on"),
     client.from("org_school_notes").select("school_id, coach_name, coach_email, positions_of_need, notes").eq("org_id", orgId),
-    client.from("recruiting_targets").select("athlete_id, school_id, status").eq("org_id", orgId),
+    client.from("recruiting_targets").select("athlete_id, school_id, status, aid").eq("org_id", orgId),
   ]);
   const needBySchool = new Map<string, ReturnType<typeof noteRowToPositionalNeed>>();
   for (const n of (noteRows ?? []) as OrgSchoolNoteRow[]) needBySchool.set(n.school_id, noteRowToPositionalNeed(n));
   const targetStatusByPair = new Map<string, string>();
-  for (const t of (targetRows ?? []) as { athlete_id: string; school_id: string; status: string }[]) targetStatusByPair.set(`${t.athlete_id}:${t.school_id}`, t.status);
+  const aidByPair = new Map<string, KnownAid>();
+  for (const t of (targetRows ?? []) as { athlete_id: string; school_id: string; status: string; aid?: unknown }[]) {
+    targetStatusByPair.set(`${t.athlete_id}:${t.school_id}`, t.status);
+    const aid = targetAidToKnownAid(t.aid);
+    if (aid) aidByPair.set(`${t.athlete_id}:${t.school_id}`, aid);
+  }
   const preset = ((org as { scoring_preset?: string } | null)?.scoring_preset ?? DEFAULT_PRESET) as ScoringPreset;
-  return { orgId, preset, windows: ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit), needBySchool, targetStatusByPair };
+  return { orgId, preset, windows: ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit), needBySchool, targetStatusByPair, aidByPair };
 }
 
 async function loadAthletes(client: Client, orgId: string, athleteId?: string): Promise<Athlete[]> {
@@ -153,8 +161,9 @@ function computeRows(ctx: OrgContext, athletes: Athlete[], schools: School[], no
     for (const school of schools) {
       const positionalNeed = ctx.needBySchool.get(school.id) ?? [];
       const status = ctx.targetStatusByPair.get(`${athlete.id}:${school.id}`);
-      const inputs = { athlete, school, positionalNeed, preset: ctx.preset, windows: ctx.windows, isPlaced: status === "Committed" };
-      const fit = scoreFit(athlete, school, { preset: ctx.preset, positionalNeed, transferWindows: ctx.windows, isPlaced: status === "Committed", today: now });
+      const aid = ctx.aidByPair.get(`${athlete.id}:${school.id}`);
+      const inputs = { athlete, school, positionalNeed, preset: ctx.preset, windows: ctx.windows, isPlaced: status === "Committed", aid };
+      const fit = scoreFit(athlete, school, { preset: ctx.preset, positionalNeed, transferWindows: ctx.windows, isPlaced: status === "Committed", today: now, aid });
       out.push(fitToRow(ctx.orgId, athlete, school, fit, inputsHash(inputs), now));
     }
   }

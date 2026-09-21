@@ -126,6 +126,14 @@ ledger reaches it, and the More screen shows the month against the cap.
 The action picks the real caller the moment `ANTHROPIC_API_KEY` is set
 on the server; nothing else changes. No key is set on Vercel yet.
 
+Every type applies now (2026-09-21), not only the transcript: test
+scores onto the athlete (best SAT and ACT), an offer letter onto the
+board (the college as Offer, with type, percentage and coach), an award
+letter onto the same college as the net cost the financial score uses
+(migration 0027), a recommendation letter as a contact. Each is undone
+by discard, each is proven by an action law, and the document screen
+says what applying and discarding do for each type.
+
 ### Around the pages
 
 Error, not-found and loading screens at the root and inside the org

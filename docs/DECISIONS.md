@@ -2277,3 +2277,29 @@ reader who did not write the code is the cheapest proof there is.
 
 **Consequences.** Migration 0026 applied to the live project. The RLS
 suite is at 125 assertions.
+
+## 2026-09-21: every document type applies, and an award letter is the financial truth
+
+**Decision.** Test scores, offer letters, award letters and
+recommendation letters apply to the record, not only transcripts. An
+award letter's net cost replaces the financial estimate for that
+athlete at that school; a loan never reduces net cost. A letter naming
+a school not on file applies nothing rather than guessing a school. A
+FAFSA or EFC report is kept on file and changes nothing.
+
+**Reason.** Four of the five document types extracted and stopped: the
+reading was done and nothing on the record moved, which is the half of
+Doc AI that Dave would actually notice. Money is "arguably the biggest
+driving factor" (Dave, matching catalog), and a school's own award
+letter is the best number there is for it.
+
+**Alternatives.** Storing the award on the athlete (rejected: it is
+about one school). Matching schools loosely by first word (rejected:
+"State" would land on the wrong campus). Applying offers without a
+matching school row by creating one (rejected: schools are shared
+reference data, entered on purpose).
+
+**Consequences.** `src/lib/data/applyExtraction.ts`, migration 0027,
+`KnownAid` on `scoreFit`, the contract's financial section extended,
+the bench checks it, and `applied_changes` carries the target, the
+detail fields and the contact so discard can put each back.
