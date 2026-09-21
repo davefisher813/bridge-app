@@ -1,4 +1,4 @@
-// What an org calls each of its three roles.
+// What an org calls each of its four roles.
 //
 // `org_role` is deliberately generic (owner | staff | member) so the
 // permission model stays one thing across every organization. What a
@@ -20,6 +20,7 @@ const roleLabelsSchema = z
     owner: z.string().trim().min(1).catch(""),
     staff: z.string().trim().min(1).catch(""),
     member: z.string().trim().min(1).catch(""),
+    family: z.string().trim().min(1).catch(""),
   })
   .partial()
   .catch({});
@@ -33,6 +34,7 @@ export const DEFAULT_ROLE_LABEL: Record<OrgRole, string> = {
   owner: "Owner",
   staff: "Staff",
   member: "Member",
+  family: "Family",
 };
 
 export function parseRoleLabels(raw: unknown): RoleLabels {
@@ -40,7 +42,7 @@ export function parseRoleLabels(raw: unknown): RoleLabels {
   // An empty string means the org supplied a blank, which is not a
   // label. Dropped here so callers only ever see a real one or nothing.
   const out: RoleLabels = {};
-  for (const key of ["owner", "staff", "member"] as const) {
+  for (const key of ["owner", "staff", "member", "family"] as const) {
     const value = parsed[key];
     if (typeof value === "string" && value.trim() !== "") out[key] = value.trim();
   }

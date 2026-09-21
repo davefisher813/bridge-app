@@ -1324,3 +1324,154 @@ begin
   raise notice 'PASS: reading a colleague''s profile does not mean writing it';
 end $$;
 reset role;
+
+-- ── Migrations 0022 and 0023: the family role reads one athlete and
+-- nothing else. user5 is a family member of Bridge, linked to Bridge
+-- Athlete A (110) and not to Bridge Athlete B (111). Every count below
+-- is against a seed that has rows for both athletes. ──
+reset role;
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-000000000005', 'user5@bridge.example');
+insert into users (id, email, full_name) values
+  ('00000000-0000-0000-0000-000000000005', 'user5@bridge.example', 'User Five')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000010', 'family');
+insert into athlete_guardians (org_id, athlete_id, user_id, relationship) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000005', 'parent');
+-- Athlete B gets a metric, a match and a target of its own so "sees only
+-- A's rows" is a real assertion rather than an empty table.
+insert into athlete_metrics (org_id, athlete_id, metric, value, measured_on) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', 'sixty', 7.1, '2026-09-01');
+insert into athlete_school_fits (org_id, athlete_id, school_id, score, tag, inputs_hash) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000130', 60, 'Fit', 'seed-b');
+insert into recruiting_targets (id, org_id, athlete_id, school_id, status) values
+  ('00000000-0000-0000-0000-000000000211', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000130', 'In Contact');
+insert into target_visits (org_id, target_id, visit_type) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000211', 'unofficial');
+
+-- The trigger: a guardian row cannot cross orgs or name a non-member.
+do $$
+begin
+  begin
+    insert into athlete_guardians (org_id, athlete_id, user_id) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000005');
+    raise exception 'FAIL: a guardian row pointed Elite Squad''s org at a Bridge athlete';
+  exception when check_violation then
+    raise notice 'PASS: a guardian row must name the athlete''s own org';
+  end;
+  begin
+    insert into athlete_guardians (org_id, athlete_id, user_id) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000002');
+    raise exception 'FAIL: a guardian row named a person who is not a member of the org';
+  exception when check_violation then
+    raise notice 'PASS: a guardian must already be a member of the org';
+  end;
+end $$;
+
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000005'); -- Bridge FAMILY, athlete A only
+do $$
+declare n int; nm text;
+begin
+  select count(*) into n from athletes;
+  if n <> 1 then raise exception 'FAIL: family saw % athletes, expected 1 (their own)', n; end if;
+  select name into nm from athletes;
+  if nm <> 'Bridge Athlete A' then raise exception 'FAIL: family saw "%", not their own athlete', nm; end if;
+  select count(*) into n from athletes where id = '00000000-0000-0000-0000-000000000111';
+  if n <> 0 then raise exception 'FAIL: family could read another Bridge athlete by id'; end if;
+  raise notice 'PASS: a family member sees exactly their own athlete';
+
+  select count(*) into n from athlete_metrics;
+  if n <> 1 then raise exception 'FAIL: family saw % metric rows, expected 1 (athlete A''s)', n; end if;
+  select count(*) into n from athlete_metrics where athlete_id = '00000000-0000-0000-0000-000000000111';
+  if n <> 0 then raise exception 'FAIL: family could read athlete B''s metrics by filtering on athlete_id'; end if;
+  select count(*) into n from athlete_school_fits;
+  if n <> 1 then raise exception 'FAIL: family saw % stored matches, expected 1 (athlete A''s)', n; end if;
+  select count(*) into n from athlete_courses;
+  if n <> 1 then raise exception 'FAIL: family saw % courses, expected 1 (athlete A''s)', n; end if;
+  select count(*) into n from recruiting_targets;
+  if n <> 1 then raise exception 'FAIL: family saw % targets, expected 1 (athlete A''s)', n; end if;
+  select count(*) into n from target_visits;
+  if n <> 1 then raise exception 'FAIL: family saw % visits, expected 1 (on athlete A''s target)', n; end if;
+  raise notice 'PASS: a family member reads their athlete''s metrics, matches, courses, targets and visits and nobody else''s';
+
+  select count(*) into n from target_communications;
+  if n <> 0 then raise exception 'FAIL: family saw % staff communications, expected 0', n; end if;
+  select count(*) into n from contacts;
+  if n <> 0 then raise exception 'FAIL: family saw % contacts, expected 0', n; end if;
+  select count(*) into n from documents;
+  if n <> 0 then raise exception 'FAIL: family saw % documents, expected 0', n; end if;
+  select count(*) into n from org_school_notes;
+  if n <> 0 then raise exception 'FAIL: family saw % private school notes, expected 0', n; end if;
+  select count(*) into n from donors;
+  if n <> 0 then raise exception 'FAIL: family saw % donors, expected 0', n; end if;
+  select count(*) into n from boards;
+  if n <> 0 then raise exception 'FAIL: family saw % boards, expected 0', n; end if;
+  raise notice 'PASS: a family member sees no communications, contacts, documents, school notes, fundraising or governance';
+
+  select count(*) into n from orgs;
+  if n <> 1 then raise exception 'FAIL: family saw % orgs, expected 1 (Bridge)', n; end if;
+  select count(*) into n from org_members;
+  if n <> 1 then raise exception 'FAIL: family saw % membership rows, expected 1 (their own)', n; end if;
+  select count(*) into n from athlete_guardians;
+  if n <> 1 then raise exception 'FAIL: family saw % guardian rows, expected 1 (their own)', n; end if;
+  -- Self plus Bridge's owner (user1). Not user3, a Bridge member, and
+  -- not user4, who is in no org.
+  select count(*) into n from users;
+  if n <> 2 then raise exception 'FAIL: family saw % profiles, expected 2 (self and the org''s owner)', n; end if;
+  select count(*) into n from users where id = '00000000-0000-0000-0000-000000000003';
+  if n <> 0 then raise exception 'FAIL: family could read a non-staff member''s profile'; end if;
+  select count(*) into n from org_grading_scales;
+  if n < 1 then raise exception 'FAIL: family cannot read the org''s grading scales, so the eligibility screen cannot explain itself'; end if;
+  raise notice 'PASS: a family member sees their org, their own membership, and the staff to ask';
+end $$;
+
+do $$
+declare affected int;
+begin
+  begin
+    insert into athlete_metrics (org_id, athlete_id, metric, value, measured_on) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'sixty', 6.5, '2026-09-02');
+    raise exception 'FAIL: a family member logged a metric';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a family member cannot log a metric, even for their own athlete';
+  end;
+  update athletes set gpa = 4.0 where id = '00000000-0000-0000-0000-000000000110';
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'FAIL: a family member rewrote their own athlete''s record'; end if;
+  begin
+    insert into athlete_guardians (org_id, athlete_id, user_id) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000005');
+    raise exception 'FAIL: a family member granted themselves another athlete';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a family member cannot link themselves to another athlete';
+  end;
+  delete from recruiting_targets where id = '00000000-0000-0000-0000-000000000210';
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'FAIL: a family member deleted a target'; end if;
+  raise notice 'PASS: a family member writes nothing';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge owner
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_guardians;
+  if n <> 1 then raise exception 'FAIL: Bridge''s owner saw % guardian rows, expected 1', n; end if;
+  select count(*) into n from athletes;
+  if n <> 2 then raise exception 'FAIL: Bridge''s owner saw % athletes after the family migration, expected 2', n; end if;
+  raise notice 'PASS: staff still read the whole org, guardian rows included';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000002'); -- Elite owner
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_guardians;
+  if n <> 0 then raise exception 'FAIL: Elite Squad''s owner saw % of Bridge''s guardian rows', n; end if;
+  select count(*) into n from users where id = '00000000-0000-0000-0000-000000000005';
+  if n <> 0 then raise exception 'FAIL: Elite Squad''s owner can read a Bridge family member''s profile'; end if;
+  raise notice 'PASS: another org sees nothing of a family''s membership';
+end $$;
+reset role;

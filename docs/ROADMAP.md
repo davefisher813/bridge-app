@@ -367,10 +367,11 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
 
 ## Next up after matching
 
-1. **A student or family role** with read access to their own athlete
-   (contract section 5). Every score, reason and warning is already
-   written for a family to read; the missing piece is the membership
-   shape that lets one sign in and see only their own record.
+1. **The family role's screens** (contract section 5). The membership
+   shape shipped 2026-09-21: the role, the guardian link, the row rules,
+   the invite. What a family member lands on, which tabs they get and
+   what they may change are the Family Access catalog's picks; the
+   screens follow those.
 2. **Strike percentage and the grade weights** are interpretations
    marked in the contract. Revisit after Dave has scored a few real
    athletes and can say whether a 63% target and the 50/40/25 blends

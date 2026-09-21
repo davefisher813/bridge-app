@@ -3,13 +3,24 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 // Role names are generic on purpose: the label shown to a person (Coordinator,
-// Coach, Board) is org-level config (see org_settings.role_labels), not a
-// second role system. Underneath there are always exactly three tiers.
-// Mirrors user_role enum in migrations/0001_core_schema.sql.
-export type OrgRole = "owner" | "staff" | "member";
+// Coach, Board) is org-level config (see orgs.role_labels), not a second
+// role system. Underneath there are exactly four tiers. Mirrors the
+// org_role enum in migrations/0001_core_schema.sql plus 0022.
+//
+// The first three read the whole org. `family` reads one athlete: the
+// ones linked to them in athlete_guardians (migration 0023), and nothing
+// else. The database enforces that; these lists are what the screens
+// check before they even ask.
+export type OrgRole = "owner" | "staff" | "member" | "family";
 
 export const STAFF_ROLES: OrgRole[] = ["owner", "staff"];
 export const OWNER_ROLES: OrgRole[] = ["owner"];
+// Everyone who sees the org as a whole. Every org screen that is not
+// written for a family checks this list, so a family member who types
+// the URL of the roster lands on Not Authorized rather than on an empty
+// roster.
+export const ORG_WIDE_ROLES: OrgRole[] = ["owner", "staff", "member"];
+export const FAMILY_ROLES: OrgRole[] = ["family"];
 
 export interface CurrentUser {
   id: string;

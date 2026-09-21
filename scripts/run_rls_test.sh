@@ -38,6 +38,8 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0018_members_see_ea
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0019_bridge_branding_logo.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0020_bridge_branding_lockup.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0021_matching_and_metrics.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0022_family_role.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0023_athlete_guardians.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

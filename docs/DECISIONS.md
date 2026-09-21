@@ -2106,3 +2106,33 @@ in contact yet".
 literal grey roles that remain, each with its reason, and fails on any
 new one. docs/STYLING_CATALOG.md carries the rule.
 
+
+## 2026-09-21: the family role is a fourth tier, not a narrower member
+
+**Decision.** A student or parent signs in as `family`, a new value of
+`org_role`, and is linked to the athletes they may see through
+`athlete_guardians` (one row per person per athlete). The RLS helper
+every read policy hangs on, `private._member_org_ids()`, excludes the
+family role from here on; athlete-keyed tables get an `or athlete_id in
+family athletes` clause instead. A family member writes nothing. A role
+is never changed to or from family through the members screen: it is a
+remove and a fresh invite, which carries the athlete.
+
+**Reason.** Dave, in the matching catalog: "Of course the students see
+this. They need the same access to their own personal data." A member
+reads the whole org, so narrowing that role would have meant a
+per-table exception list that grows with every new table and fails
+open when someone forgets one. Excluding the role from the shared
+helper fails closed: a table added tomorrow with the standard
+`_read` policy shows a family nothing until somebody decides it should.
+
+**Alternatives.** An `athlete_id` column on `org_members` (one athlete
+per login, no siblings, no second parent). A separate `families` table
+with its own sign-in (a second auth model to secure). Both rejected.
+
+**Consequences.** Migrations 0022 (the enum value alone, because
+Postgres cannot use a new enum value in the transaction that added it)
+and 0023. A trigger keeps a guardian row inside one org. The RLS suite
+seeds a family member and asserts what they see and cannot see, and
+fails when the exclusion is removed. The screens wait on the Family
+Access catalog.

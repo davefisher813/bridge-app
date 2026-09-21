@@ -44,7 +44,19 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   if (!parsed.ok || !parsed.values) {
     return { errors: parsed.errors, values: Object.fromEntries(formData.entries()) };
   }
-  const { email, role, fullName } = parsed.values;
+  const { email, role, fullName, athleteId } = parsed.values;
+
+  // The athlete a family invite is for must be this org's. Read through
+  // the caller's own client so RLS answers, not the admin client.
+  let athleteName: string | null = null;
+  if (role === "family" && athleteId) {
+    const supabase = await createClient();
+    const { data: athlete } = await supabase.from("athletes").select("id, name").eq("org_id", org.id).eq("id", athleteId).is("deleted_at", null).maybeSingle();
+    if (!athlete) {
+      return { errors: { athleteId: "That athlete is not on this organization's roster." }, values: Object.fromEntries(formData.entries()) };
+    }
+    athleteName = (athlete as { name: string }).name;
+  }
 
   if (!serviceRoleConfigured()) {
     return {
@@ -87,6 +99,17 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
     return { errors: { form: `The account exists but could not be added to ${org.name}: ${memberError.message}` }, values: Object.fromEntries(formData.entries()) };
   }
 
+  // The link that makes a family login show something. Written after the
+  // membership because the database checks, in that order, that the
+  // person is a member and the athlete is the org's.
+  if (role === "family" && athleteId) {
+    const { error: guardianError } = await admin.from("athlete_guardians").insert({ org_id: org.id, athlete_id: athleteId, user_id: userId });
+    if (guardianError) {
+      return { errors: { form: `${email} was added but could not be linked to ${athleteName ?? "the athlete"}: ${guardianError.message}` }, values: Object.fromEntries(formData.entries()) };
+    }
+    notice = `${notice} They will see ${athleteName ?? "their athlete"} and nothing else.`;
+  }
+
   revalidatePath(`/org/${slug}/members`);
   redirect(`/org/${slug}/members?notice=${encodeURIComponent(notice)}`);
 }
@@ -98,6 +121,17 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
 
   const nextRole = parseRole(role);
   if (!nextRole) return { ok: false, error: "That is not a role." };
+
+  // A family login is tied to an athlete and an org-wide login is not.
+  // Moving between the two is a remove and a fresh invite, so the
+  // guardian link is never left dangling on a staff account or missing
+  // on a family one.
+  const supabase = await createClient();
+  const { data: current } = await supabase.from("org_members").select("role").eq("user_id", userId).eq("org_id", org.id).maybeSingle();
+  const currentRole = (current as { role: string } | null)?.role;
+  if (currentRole === "family" || nextRole === "family") {
+    return { ok: false, error: "Family access is tied to an athlete. Remove them and invite them again instead." };
+  }
 
   // An org always keeps at least one owner, or nobody can fix anything.
   if (nextRole !== "owner") {

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { labelForRole } from "@/lib/org/roleLabels";
 import { ORG_ROLES } from "@/lib/validation/member";
 import { changeMemberRoleForm, removeMemberForm } from "@/lib/actions/members";
-import { Avatar, Card, ConfirmButton, Form, Notice, Option, Prose, Row, Screen, Section, Stack } from "@/components/kit";
+import { Avatar, Card, Chevron, ConfirmButton, Form, Notice, Option, Prose, Row, Screen, Section, Stack } from "@/components/kit";
 
 interface MemberRow {
   user_id: string;
@@ -23,7 +23,14 @@ const ROLE_BLURB: Record<OrgRole, string> = {
   owner: "Everything, plus members and schools",
   staff: "Adds and edits records",
   member: "Read only",
+  family: "One athlete, read only",
 };
+
+interface GuardianRow {
+  athlete_id: string;
+  relationship: string | null;
+  athletes: { name: string } | { name: string }[] | null;
+}
 
 export default async function MemberPage({
   params,
@@ -39,7 +46,7 @@ export default async function MemberPage({
   const me = await requireOwner(org.id);
 
   const supabase = await createClient();
-  const [{ data: row }, { data: ownerRows }] = await Promise.all([
+  const [{ data: row }, { data: ownerRows }, { data: guardianRows }] = await Promise.all([
     supabase
       .from("org_members")
       .select("user_id, role, created_at, users(email, full_name, last_sign_in_at)")
@@ -47,8 +54,10 @@ export default async function MemberPage({
       .eq("user_id", userId)
       .maybeSingle(),
     supabase.from("org_members").select("user_id").eq("org_id", org.id).eq("role", "owner"),
+    supabase.from("athlete_guardians").select("athlete_id, relationship, athletes(name)").eq("org_id", org.id).eq("user_id", userId),
   ]);
   if (!row) notFound();
+  const linked = ((guardianRows ?? []) as GuardianRow[]).map((g) => ({ id: g.athlete_id, relationship: g.relationship, name: unwrap(g.athletes)?.name ?? "Unknown athlete" }));
 
   const member = row as MemberRow;
   const person = unwrap(member.users);
@@ -66,16 +75,30 @@ export default async function MemberPage({
 
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
 
-      <Section label="Role" role="people" kind="people">
-        <Form action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
-          <Stack gap={3}>
-            {ORG_ROLES.map((role) => (
-              <Option key={role} name="role" value={role} selected={role === member.role} title={labelForRole(org.roleLabels, role)} meta={ROLE_BLURB[role]} />
-            ))}
-          </Stack>
-        </Form>
-        {onlyOwner && <Prose>The organization&apos;s only {ownerLabel}. Make someone else one before changing this.</Prose>}
-      </Section>
+      {member.role === "family" ? (
+        <Section label="Sees" count={linked.length} role="people" kind="athlete">
+          {linked.map((a) => (
+            <Row key={a.id} href={`/org/${slug}/roster/${a.id}`} kind="athlete" role="people" title={a.name} meta={a.relationship ? `${labelForRole(org.roleLabels, "family")} · ${a.relationship}` : labelForRole(org.roleLabels, "family")} trailing={<Chevron />} />
+          ))}
+          {linked.length === 0 && (
+            <Card>
+              <Prose>Linked to no athlete, so they see nothing. Remove them and invite them again from the athlete.</Prose>
+            </Card>
+          )}
+          <Prose>{ROLE_BLURB.family}. To change what they see, remove them and invite them again.</Prose>
+        </Section>
+      ) : (
+        <Section label="Role" role="people" kind="people">
+          <Form action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
+            <Stack gap={3}>
+              {ORG_ROLES.filter((role) => role !== "family").map((role) => (
+                <Option key={role} name="role" value={role} selected={role === member.role} title={labelForRole(org.roleLabels, role)} meta={ROLE_BLURB[role]} />
+              ))}
+            </Stack>
+          </Form>
+          {onlyOwner && <Prose>The organization&apos;s only {ownerLabel}. Make someone else one before changing this.</Prose>}
+        </Section>
+      )}
 
       <Section label="Access" role="danger" kind="blocked">
         {onlyOwner ? (

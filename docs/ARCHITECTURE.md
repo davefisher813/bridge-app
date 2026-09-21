@@ -164,12 +164,27 @@ column so rows written before the log still score.
 
 ## Roles
 
-`org_role` is a 3-value enum: `owner | staff | member`. Generalized from
-tucci-admin's real `owner | admin | coach | reception | family` +
-`requireRole()` pattern. The *label* a person sees (Bridge: "Executive
-Director" / "Coordinator"; Elite Squad: "Owner" / "Coach") is org-level
-config in `orgs.role_labels`, never a second permission system - see
-`src/lib/auth/guard.ts`.
+`org_role` is a 4-value enum: `owner | staff | member | family`.
+Generalized from tucci-admin's real `owner | admin | coach | reception |
+family` + `requireRole()` pattern. The *label* a person sees (Bridge:
+"Executive Director" / "Coordinator"; Elite Squad: "Owner" / "Coach") is
+org-level config in `orgs.role_labels`, never a second permission
+system - see `src/lib/auth/guard.ts`.
+
+The first three read the whole org and differ only in what they write.
+`family` (migrations 0022 and 0023) reads one athlete: the rows in
+`athlete_guardians` for their user id say which. The RLS helpers in the
+`private` schema carry the split: `_member_org_ids()` returns the orgs
+the caller reads in full and excludes the family role; `_any_org_ids()`
+is every membership and is used only to resolve the org row;
+`_family_athlete_ids()` is the athletes a family member may see, and
+`_family_staff_ids()` the people they may ask. Every read policy on
+athlete data is `org_id in member orgs OR athlete_id in family
+athletes`; every write policy is `org_id in staff orgs`, which never
+included family. A trigger on `athlete_guardians` refuses a row whose
+athlete or person is not in the row's org, so the org id on it cannot be
+used to cross tenants. `scripts/rls_test.sql` seeds a family member and
+asserts each of these.
 
 ## Testing a Supabase-flavored migration without Docker or a live project
 
@@ -337,5 +352,5 @@ never be left without an owner.
 
 Doc AI's actual Anthropic API wiring (a `ModelCaller` implementation
 plus a per-org budget table, held pending an API key), transfer window
-entry, and a student or family role. See docs/ROADMAP.md and
-docs/CURRENT_STATE.md.
+entry, and the family role's screens (its data model and invite flow
+exist). See docs/ROADMAP.md and docs/CURRENT_STATE.md.

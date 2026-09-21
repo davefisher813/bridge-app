@@ -1,15 +1,18 @@
 # Current state
 
-Last updated: 2026-09-20, after matching and metrics shipped.
+Last updated: 2026-09-21, after the family role's data model shipped.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** The matching feature exists: a metrics log,
 staff grades, a goal and budget on the athlete, every athlete scored
 against every school and stored, a matches screen with filters and Add
 to Board, CSV import of schools, the org's scoring preset, Strong
-Matches on Today. Fifty-seven screens on one kit, the laws green, the
-app itself driven in a browser at 320, 375 and 390 in both themes with
-nothing past the edge.
+Matches on Today. The family role exists in the database (a fourth
+`org_role`, a guardian link per athlete, row rules proven by the RLS
+suite) and in the invite flow; its screens wait on Dave's catalog picks.
+Fifty-seven screens on one kit, the laws green, the app itself driven
+in a browser at 320, 375 and 390 in both themes with nothing past the
+edge.
 
 ---
 
@@ -125,6 +128,31 @@ one-person screen to change a role or remove access. An org can never
 be left without an owner. "Invited" is read off a mirror of
 `auth.users.last_sign_in_at` kept by the profile trigger.
 
+### The family role, 2026-09-21, data model only
+
+A fourth `org_role`, `family` (migration 0022), linked to athletes
+through `athlete_guardians` (0023): one row per person per athlete, a
+trigger that refuses a row whose athlete or person is not the org's.
+Every `_read` policy on athlete data (athletes, metrics, stored
+matches, courses, targets, visits) admits the family's own athlete; the
+org's grading scales and approved lists are readable so the eligibility
+screen can explain itself; `private._member_org_ids()` now excludes the
+family role, so communications, contacts, documents, private school
+notes, fundraising and governance stay closed. A family member writes
+nothing. The users policy shows a family member the org's owner and
+staff and never another family. All of it is asserted in
+`scripts/rls_test.sql` (118 PASS lines) and the suite fails when the
+exclusion is removed.
+
+In the app: the invite form offers Family with an athlete picker, the
+action writes the membership and the guardian link through the service
+role, a role can never be changed to or from family (remove and
+re-invite), and a family member's page names the athlete they see. A
+family member is refused by every existing org screen, since each one
+checks the three org-wide roles. What a family member sees is decided
+by the Family Access catalog (published 2026-09-21); no family screen is
+built until Dave picks.
+
 ---
 
 ## How it is verified
@@ -204,7 +232,8 @@ be left without an owner. "Invited" is read off a mirror of
   Google Sheet exported to the template.
 - No search or filter on any list except the matches screen.
 - Region is not a filter yet, only state; a region needs a state table.
-- No student or family role yet (contract section 5).
+- No family screens yet: a family login is refused by every org screen
+  until the catalog picks are in (contract section 5).
 - The fake client does not implement `.or()` or `.ilike()`; one action
   uses each.
 - `@supabase/ssr` 0.5 and `zod` 3 are both a major behind.
@@ -227,7 +256,7 @@ be left without an owner. "Invited" is read off a mirror of
    numbers (strike target, grade weights, preset weights) get revisited
    on what he sees.
 2. Dave's page-by-page audit of the new screens on his phone.
-3. A student or family role with read access to their own athlete.
+3. Dave's picks in the Family Access catalog, then the family screens.
 4. Cleanup pass: one page loader, `cache()` on the org and user lookups,
    split `documents.ts`, then the `@supabase/ssr` and `zod` bumps.
 

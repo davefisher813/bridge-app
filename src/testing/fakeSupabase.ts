@@ -104,6 +104,10 @@ const EMBEDS: Record<string, Record<string, EmbedSpec>> = {
   org_school_notes: {
     schools: { table: "schools", foreignKey: "school_id", many: false },
   },
+  athlete_guardians: {
+    athletes: { table: "athletes", foreignKey: "athlete_id", many: false },
+    users: { table: "users", foreignKey: "user_id", many: false },
+  },
 };
 
 interface Filter {

@@ -22,6 +22,9 @@ const OWNER = "00000000-0000-0000-0000-0000000000b1";
 const MEMBER = "00000000-0000-0000-0000-0000000000b2";
 const OUTSIDER = "00000000-0000-0000-0000-0000000000b3";
 const LONG_INVITE = "00000000-0000-0000-0000-0000000000b4";
+// A parent of the fixture athlete: a family login, linked to one
+// athlete and nobody else.
+const FAMILY = "00000000-0000-0000-0000-0000000000b5";
 
 export const ORG_WITH_MODULES = "bridge-fixture";
 export const ORG_WITHOUT_MODULES = "elite-fixture";
@@ -29,6 +32,7 @@ export const OWNER_ID = OWNER;
 export const MEMBER_ID = MEMBER;
 export const OUTSIDER_ID = OUTSIDER;
 export const LONG_INVITE_ID = LONG_INVITE;
+export const FAMILY_ID = FAMILY;
 
 export const IDS = {
   athlete: "00000000-0000-0000-0000-0000000000c1",
@@ -71,6 +75,7 @@ export function buildFixture(): Dataset {
       // of their row and their page, and it is longer than a phone is
       // wide. That is what the edge-spill audit exists to catch.
       { id: LONG_INVITE, email: "an.unusually.long.invited.address@example-organization.test", full_name: null, last_sign_in_at: null },
+      { id: FAMILY, email: "parent@example.test", full_name: "Fixture Parent", last_sign_in_at: "2026-09-03T12:00:00.000Z" },
     ],
     orgs: [
       {
@@ -100,7 +105,9 @@ export function buildFixture(): Dataset {
       { id: "m3", user_id: OWNER, org_id: ELITE, role: "owner" },
       { id: "m4", user_id: OUTSIDER, org_id: ELITE, role: "staff" },
       { id: "m5", user_id: LONG_INVITE, org_id: BRIDGE, role: "member" },
+      { id: "m6", user_id: FAMILY, org_id: BRIDGE, role: "family" },
     ],
+    athlete_guardians: [{ org_id: BRIDGE, athlete_id: IDS.athlete, user_id: FAMILY, relationship: "parent", created_at: "2026-09-03T12:00:00.000Z" }],
     athletes: [
       {
         id: IDS.athlete,

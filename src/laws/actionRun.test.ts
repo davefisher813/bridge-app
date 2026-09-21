@@ -20,7 +20,7 @@
 // action is asserted by its redirect target and by what it wrote.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { buildFixture, IDS, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID, MEMBER_ID, OUTSIDER_ID } from "@/testing/fixture";
+import { buildFixture, IDS, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID, MEMBER_ID, OUTSIDER_ID, FAMILY_ID } from "@/testing/fixture";
 import { createFakeClient, type Dataset, type RecordedWrite } from "@/testing/fakeSupabase";
 
 const NOT_FOUND = "NEXT_NOT_FOUND";
@@ -535,6 +535,58 @@ describe("LAW: membership is written by the service role, only by an owner, and 
   it("a member cannot invite", async () => {
     withKey();
     currentUser = MEMBER_ID;
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "x@example.test", role: "member" })));
+    expect(r.redirect).toBe("/unauthorized");
+    expect(writes).toEqual([]);
+  });
+
+  it("a family invite writes the membership and the link to the athlete", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "outsider@example.test", role: "family", athleteId: IDS.athlete })));
+    expect(r.redirect).toContain("/members");
+    expect(r.redirect).toContain("nothing%20else");
+    const membership = writes.find((w) => w.table === "org_members" && w.op === "insert");
+    expect(membership?.rows[0]).toMatchObject({ user_id: OUTSIDER_ID, org_id: data.orgs[0]!.id, role: "family" });
+    const guardian = writes.find((w) => w.table === "athlete_guardians" && w.op === "insert");
+    expect(guardian?.rows[0]).toMatchObject({ user_id: OUTSIDER_ID, org_id: data.orgs[0]!.id, athlete_id: IDS.athlete });
+  });
+
+  it("a family invite without an athlete is refused before anything is written", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "outsider@example.test", role: "family" })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.athleteId).toMatch(/athlete/i);
+    expect(writes).toEqual([]);
+  });
+
+  it("a family invite for an athlete outside the org is refused", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const FOREIGN = "00000000-0000-0000-0000-0000000000c9";
+    data.athletes.push({ ...data.athletes[0], id: FOREIGN, org_id: data.orgs[1]!.id });
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "outsider@example.test", role: "family", athleteId: FOREIGN })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.athleteId).toMatch(/roster/);
+    expect(writes).toEqual([]);
+  });
+
+  it("a role cannot be changed to or from family", async () => {
+    withKey();
+    const { changeMemberRole } = await import("@/lib/actions/members");
+    const toFamily = await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "family");
+    expect(toFamily.ok).toBe(false);
+    expect(toFamily.error).toMatch(/tied to an athlete/);
+    const fromFamily = await changeMemberRole(ORG_WITH_MODULES, FAMILY_ID, "staff");
+    expect(fromFamily.ok).toBe(false);
+    expect(writes).toEqual([]);
+  });
+
+  it("a family member cannot invite", async () => {
+    withKey();
+    currentUser = FAMILY_ID;
     const { inviteMember } = await import("@/lib/actions/members");
     const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "x@example.test", role: "member" })));
     expect(r.redirect).toBe("/unauthorized");

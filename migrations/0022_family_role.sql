@@ -1,0 +1,12 @@
+-- A fourth role: family.
+--
+-- "Of course the students see this. They need the same access to their
+-- own personal data." (Dave, docs/MATCHING_CONTRACT.md section 5.) The
+-- three roles so far (owner, staff, member) all read the whole org; a
+-- family member reads one athlete and nothing else. That is a new tier,
+-- not a narrower member, so it is a new enum value.
+--
+-- On its own in this file because Postgres refuses to USE a new enum
+-- value inside the transaction that added it. Migration 0023 builds the
+-- membership shape on top of it.
+alter type org_role add value if not exists 'family';
