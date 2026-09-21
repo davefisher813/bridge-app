@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "1baa65e",
-  "commitFull": "1baa65e0aa413b68bf90951c13951206266ce3f4",
+  "commit": "4462afe",
+  "commitFull": "4462afe29cf0e21c43107eb4a2d04b1b0c4b973a",
   "branch": "main",
   "remoteBranches": [],
   "shipped": false,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-09-21T21:21:12.448Z",
-  "durationMs": 16120,
+  "startedAt": "2026-09-21T22:02:05.764Z",
+  "durationMs": 23336,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,7 +18,7 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 942,
+        "pass": 1038,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
@@ -39,7 +39,7 @@
         "src/laws/laws.test.ts": 13,
         "src/laws/matchingLaws.test.ts": 26,
         "src/laws/ncaaLaws.test.ts": 36,
-        "src/laws/pageRender.test.ts": 183,
+        "src/laws/pageRender.test.ts": 279,
         "src/laws/schemaLaws.test.ts": 5,
         "src/laws/stylingLaws.test.ts": 19,
         "src/lib/ai/anthropicCaller.test.ts": 11,
@@ -110,7 +110,7 @@
             "location": "/login"
           }
         },
-        "ms": 1260
+        "ms": 1276
       },
       "errors": [],
       "warnings": [],
@@ -126,8 +126,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 3,
-      "filesScanned": 366
+      "touchedFiles": 55,
+      "filesScanned": 376
     },
     {
       "name": "types",
