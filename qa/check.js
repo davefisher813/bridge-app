@@ -529,9 +529,21 @@ function manualVerdict(head, parent) {
   const says = (body.match(/^Result:\s*(pass|fail)/mi) || [])[1] || null;
   const short = (s) => (s ? s.slice(0, 7) : null);
   const covers = commit && (head.startsWith(commit) || parent.startsWith(commit) || commit.startsWith(short(head)) || commit.startsWith(short(parent)));
-  if (!says) return { checklist: 'qa/checklist.md', checklistCommit: short(commit), checklistSays: null, result: 'provisional', reason: 'the checklist has no Result line' };
-  if (!covers) return { checklist: 'qa/checklist.md', checklistCommit: short(commit), checklistSays: says.toLowerCase(), result: 'provisional', reason: `checklist.md is for commit ${short(commit)}, not this one` };
-  return { checklist: 'qa/checklist.md', checklistCommit: short(commit), checklistSays: says.toLowerCase(), result: says.toLowerCase(), reason: `checklist.md covers this commit and says ${says.toLowerCase()}` };
+  // Rows of the Steps table whose Pass cell is not a yes: "device", "pending",
+  // "no", empty. A checklist that says pass at the bottom while a row is
+  // still owed to a phone is OPEN, not passed (Clemenza, 2026-09-21).
+  const open = [];
+  for (const line of body.split('\n')) {
+    const m = /^\|\s*(\d+[a-z]?)\s*\|(.*)\|\s*$/.exec(line.trim());
+    if (!m) continue;
+    const cells = m[2].split('|').map((c) => c.trim());
+    const pass = (cells[cells.length - 1] || '').toLowerCase();
+    if (!/^(yes\b|pass\b|n\/a\b|not applicable\b)/.test(pass)) open.push({ row: m[1], pass: pass || '(empty)' });
+  }
+  if (!says) return { checklist: 'qa/checklist.md', checklistCommit: short(commit), checklistSays: null, openRows: open, result: 'provisional', reason: 'the checklist has no Result line' };
+  if (!covers) return { checklist: 'qa/checklist.md', checklistCommit: short(commit), checklistSays: says.toLowerCase(), openRows: open, result: 'provisional', reason: `checklist.md is for commit ${short(commit)}, not this one` };
+  if (says.toLowerCase() === 'pass' && open.length) return { checklist: 'qa/checklist.md', checklistCommit: short(commit), checklistSays: 'pass', openRows: open, result: 'open', reason: `checklist.md covers this commit but row${open.length > 1 ? 's' : ''} ${open.map((r) => r.row).join(', ')} ${open.length > 1 ? 'are' : 'is'} still open (${open.map((r) => r.pass).join('; ')})` };
+  return { checklist: 'qa/checklist.md', checklistCommit: short(commit), checklistSays: says.toLowerCase(), openRows: open, result: says.toLowerCase(), reason: `checklist.md covers this commit and says ${says.toLowerCase()}` };
 }
 
 // ── run ──────────────────────────────────────────────────────────────────────
