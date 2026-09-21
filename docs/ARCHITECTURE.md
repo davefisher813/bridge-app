@@ -290,13 +290,22 @@ by magic bytes but not decoded (neither this browser nor Anthropic's
 API can read HEIC directly) - surfaced to the caller as an honest
 `fallbackReason` rather than silently mis-processed.
 
-**Not yet built, and why:** the actual Anthropic API call (auth,
-retry/backoff, per-org budget tracking - Bridge's `Engine.api`, ~lines
-1651-1855) needs a real API key and a persistent budget store (a DB
-table, since this is now multi-tenant and server-side, not
-localStorage), neither of which exist yet - Dave held this off pending
-a key. `pipeline.ts` is designed so that wiring is a matter of
-implementing one `ModelCaller` function, not a pipeline redesign.
+**The real caller (2026-09-21):** `src/lib/ai/anthropicCaller.ts`
+implements `ModelCaller` on the official SDK, outside the walled module
+so `src/lib/docai` stays free of the SDK, the environment and the
+network. Each ingested file goes over as a document (PDF) or image
+block; a file the model cannot take (HEIC) is named in the prompt
+rather than dropped. The SDK's own retries cover 429 and 5xx. A
+refusal, an empty answer or an answer cut off at `max_tokens` throws,
+which `pipeline.ts` already files as a failed extraction. Every call
+reports its tokens and cost (list price, cache reads and writes
+included) to the caller-supplied `onUsage`, and the document action
+writes that to `docai_usage` (migration 0025) with the org and the
+document. The cap is `orgs.docai_budget_cents`, per calendar month,
+owner-set under More; `processDocument` reads the month's ledger and
+refuses before writing a row or reading a byte once the cap is reached.
+`isStubbedModel()` (no `ANTHROPIC_API_KEY`) still selects the stub, so
+the whole flow runs and is labelled simulated until a key exists.
 
 **Where the file goes (2026-09-19).** The browser uploads each
 ingested file to a private Supabase Storage bucket, `documents`, at
@@ -350,7 +359,6 @@ never be left without an owner.
 
 ## What isn't built yet
 
-Doc AI's actual Anthropic API wiring (a `ModelCaller` implementation
-plus a per-org budget table, held pending an API key), transfer window
-entry, and the family role's screens (its data model and invite flow
-exist). See docs/ROADMAP.md and docs/CURRENT_STATE.md.
+Transfer window entry, and Invite Family on the athlete's page. Doc
+AI's real caller exists and waits only on `ANTHROPIC_API_KEY` being set
+on the server. See docs/ROADMAP.md and docs/CURRENT_STATE.md.

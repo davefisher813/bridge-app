@@ -275,11 +275,11 @@ was a `/schools/new` and no list to see what you had added).
    assumption labelled everywhere, rather than producing nothing. See
    docs/DECISIONS.md.
 
-3. **Wire a real `ModelCaller`** (the last piece of Doc AI) against the Anthropic API: needs an API
-   key (Dave doesn't have one to provide yet) and a persistent per-org
-   budget table, since Bridge's localStorage-based daily budget tracking
-   has no multi-tenant, server-side equivalent yet. On hold until a key
-   exists.
+3. ~~**Wire a real `ModelCaller`**~~ - done 2026-09-21:
+   `src/lib/ai/anthropicCaller.ts` on the official SDK, the `docai_usage`
+   ledger and a per-org monthly cap (migration 0025), the cap enforced
+   in `processDocument` and shown under More. Goes live the moment
+   `ANTHROPIC_API_KEY` is set on Vercel, which is Dave's to do.
 
 ## After that
 - ~~A real fundraising/donation data model~~ Done 2026-09-16, migration

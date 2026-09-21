@@ -88,6 +88,7 @@ export function buildFixture(): Dataset {
         role_labels: { owner: "Executive Director", staff: "Coordinator", member: "Board" },
         branding: { logo: "/logos/bridge-mark.png", lockup: "/logos/bridge-lockup.png" },
         scoring_preset: "money_first",
+        docai_budget_cents: 2000,
       },
       {
         id: ELITE,
@@ -97,6 +98,7 @@ export function buildFixture(): Dataset {
         role_labels: null,
         branding: {},
         scoring_preset: "balanced",
+        docai_budget_cents: 0,
       },
     ],
     org_members: [
@@ -109,6 +111,10 @@ export function buildFixture(): Dataset {
     ],
     // Two athletes, so the family home is the picker and Colleges groups
     // by athlete: a parent with two kids is a real case (Dave, 2026-09-21).
+    // One model call logged this month, so the More screen has a number.
+    docai_usage: [
+      { id: "du1", org_id: BRIDGE, document_id: IDS.document, request_id: "req_fixture_extract", model: "claude-opus-5", input_tokens: 1200, output_tokens: 300, cache_read_tokens: 0, cache_write_tokens: 0, cost_cents: 1.35, created_at: new Date().toISOString() },
+    ],
     athlete_guardians: [
       { org_id: BRIDGE, athlete_id: IDS.athlete, user_id: FAMILY, relationship: "parent", created_at: "2026-09-03T12:00:00.000Z" },
       { org_id: BRIDGE, athlete_id: IDS.athleteNoGpa, user_id: FAMILY, relationship: "parent", created_at: "2026-09-03T12:00:00.000Z" },

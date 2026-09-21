@@ -5,6 +5,11 @@ import { signout } from "@/lib/auth/actions";
 import { labelForRole } from "@/lib/org/roleLabels";
 import { Button, ConfirmButton, Form, Label, Row, Screen, Section, Stack } from "@/components/kit";
 import { PresetForm } from "@/components/PresetForm";
+import { DocaiBudgetForm } from "@/components/DocaiBudgetForm";
+import { setDocaiBudget } from "@/lib/actions/docaiBudget";
+import { isStubbedModel } from "@/lib/actions/documents";
+import { createClient } from "@/lib/supabase/server";
+import { dollars, loadMonthSpend } from "@/lib/data/docaiUsage";
 import { recalculateAllMatches, setScoringPreset } from "@/lib/actions/matching";
 import { DEFAULT_PRESET, PRESETS, type ScoringPreset } from "@/lib/fit/contract";
 
@@ -18,6 +23,11 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
   const preset = (org.scoringPreset ?? DEFAULT_PRESET) as ScoringPreset;
   const presetLabel = PRESETS[preset]?.label ?? PRESETS[DEFAULT_PRESET].label;
+
+  // What reading documents has cost this month, against the cap. Staff
+  // see the numbers; an owner sets the cap.
+  const supabase = await createClient();
+  const [spend, stubbed] = await Promise.all([loadMonthSpend(supabase, org.id), isStubbedModel()]);
 
   return (
     <Screen title="More">
@@ -54,6 +64,27 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
           <Row kind="target" role="place" title="Scoring Preset" meta={`${presetLabel} · set by an owner`} wrap />
         )}
       </Section>
+
+      {canEdit && (
+        <Section label="Document Reading" role="contact" kind="document">
+          <Row
+            kind="money"
+            role={spend.exhausted ? "danger" : "contact"}
+            title="This Month"
+            meta={
+              stubbed
+                ? "No AI model is connected yet, so reading is simulated and free."
+                : `${dollars(spend.spentCents)} of ${dollars(spend.capCents)} · ${spend.calls} ${spend.calls === 1 ? "call" : "calls"}${spend.exhausted ? " · budget used up" : ""}`
+            }
+            wrap
+          />
+          {user.role === "owner" ? (
+            <DocaiBudgetForm action={setDocaiBudget.bind(null, slug)} currentCents={org.docaiBudgetCents} />
+          ) : (
+            <Label>{`Budget ${dollars(org.docaiBudgetCents)} a month · set by an owner`}</Label>
+          )}
+        </Section>
+      )}
 
       <Section label="Organization" role="people" kind="people">
         {user.role === "owner" && <Row href={`/org/${slug}/members`} kind="people" role="people" title="Members" meta="Who can sign in, and what each person can do" wrap />}

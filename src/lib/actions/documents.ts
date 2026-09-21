@@ -7,6 +7,9 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { detectCategory, runExtractionPipeline } from "@/lib/docai/pipeline";
 import { createStubCaller } from "@/lib/docai/stubCaller";
+import { createAnthropicCaller } from "@/lib/ai/anthropicCaller";
+import { dollars, loadMonthSpend } from "@/lib/data/docaiUsage";
+import type { ModelCaller } from "@/lib/docai/pipeline";
 import { getCategory } from "@/lib/docai/categories";
 import { normalizeGpa } from "@/lib/docai/gpa";
 // Shared with the grading-scale entry screen on purpose. A table typed
@@ -39,6 +42,30 @@ import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole, Stored
 // environment and framework specifics per CLAUDE.md.
 export async function isStubbedModel(): Promise<boolean> {
   return !process.env.ANTHROPIC_API_KEY;
+}
+
+// The model that reads a document. With no API key on the server, the
+// stub, which every screen labels as simulated. With one, the real
+// caller, which writes every call's tokens and cost to the org's ledger
+// (docai_usage) so the month's cap in processDocument means something.
+async function modelCallerFor(orgId: string, documentId: string, stub: { category: DocCategoryId; seedText: string }): Promise<ModelCaller> {
+  if (await isStubbedModel()) return createStubCaller(stub);
+  const supabase = await createClient();
+  return createAnthropicCaller({
+    onUsage: async (u) => {
+      await supabase.from("docai_usage").insert({
+        org_id: orgId,
+        document_id: documentId,
+        request_id: u.requestId,
+        model: u.model,
+        input_tokens: u.inputTokens,
+        output_tokens: u.outputTokens,
+        cache_read_tokens: u.cacheReadTokens,
+        cache_write_tokens: u.cacheWriteTokens,
+        cost_cents: u.costCents,
+      });
+    },
+  });
 }
 
 export interface ProcessResult {
@@ -195,6 +222,21 @@ export async function processDocument(
 
   const supabase = await createClient();
 
+  // The month's cap, before a row is written or a byte is read. Only
+  // the real model spends money; the stub is free and never capped.
+  if (!(await isStubbedModel())) {
+    const spend = await loadMonthSpend(supabase, org.id);
+    if (spend.exhausted) {
+      return {
+        ok: false,
+        error:
+          spend.capCents === 0
+            ? "Document reading is turned off for this organization. An owner can set a monthly budget under More."
+            : `This month's document reading budget (${dollars(spend.capCents)}) is used up. An owner can raise it under More.`,
+      };
+    }
+  }
+
   // The bytes, read back from the bucket with the caller's own client,
   // so Storage's policies decide whether they may see the file at all.
   // The org prefix is checked here too, so a path into another org's
@@ -234,7 +276,7 @@ export async function processDocument(
   const documentId = (created as { id: string }).id;
 
   const seedText = `${first.originalName}:${first.originalSize}`;
-  const callModel = createStubCaller({
+  const callModel = await modelCallerFor(org.id, documentId, {
     category: input.requestedCategory ?? "transcript",
     seedText,
   });

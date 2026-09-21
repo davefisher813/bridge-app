@@ -69,8 +69,10 @@ export type PipelineResult =
       versionClassification: VersionClassification;
     };
 
-const DEFAULT_TRIAGE_MODEL = "claude-haiku-4-5-20251001";
-const DEFAULT_EXTRACTION_MODEL = "claude-opus-4-7";
+// Triage is a cheap classification, so the small model; extraction is
+// where the reading happens, so the most capable one.
+const DEFAULT_TRIAGE_MODEL = "claude-haiku-4-5";
+const DEFAULT_EXTRACTION_MODEL = "claude-opus-5";
 
 async function runTriage(input: PipelineInput, requestId: string): Promise<TriageResult | null> {
   const cat = getCategory(input.categoryId);

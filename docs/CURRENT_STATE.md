@@ -1,6 +1,6 @@
 # Current state
 
-Last updated: 2026-09-21, after the family role shipped.
+Last updated: 2026-09-21, after the family role and the real Doc AI caller shipped.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** The matching feature exists: a metrics log,
@@ -111,8 +111,20 @@ give/get. Bridge has both on, Elite Squad neither.
 
 Ingest in the browser, upload to a private Storage bucket under the
 org's folder, then triage, extraction, Zod validation, roster matching,
-confidence, routing, versioning, undo on the server. Runs end to end on
-a scripted stand-in model, and every screen showing a result says so.
+confidence, routing, versioning, undo on the server. With no API key on
+the server it runs on a scripted stand-in model, and every screen
+showing a result says so.
+
+The real caller exists since 2026-09-21 (`src/lib/ai/anthropicCaller.ts`,
+outside the walled module): the official SDK, each file as a document or
+image block, a refusal or a cut-off answer filed as a failed extraction,
+and every call's tokens and cost written to `docai_usage` (migration
+0025). Triage runs on Haiku 4.5, extraction on Opus 5. An org has a
+monthly cap in cents on its row, $20 by default, set by an owner under
+More; the upload action refuses to start once the calendar month's
+ledger reaches it, and the More screen shows the month against the cap.
+The action picks the real caller the moment `ANTHROPIC_API_KEY` is set
+on the server; nothing else changes. No key is set on Vercel yet.
 
 ### Around the pages
 
@@ -225,6 +237,10 @@ under Members until that button exists, see next steps).
 ## What does not exist
 
 ### Owed by Dave (dashboard settings no tool here can reach)
+
+- `ANTHROPIC_API_KEY` on the Vercel project (Settings, Environment
+  Variables, production). Until it is there, document reading stays
+  simulated and the More screen says so.
 
 - **Supabase Auth URL configuration** for magic links and invitations,
   and the email templates on `token_hash`. Steps in

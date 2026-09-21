@@ -2206,3 +2206,37 @@ generated pairs in globals.css and the two `--danger` aliases follow;
 the status glyph and dot for danger are systemRed. Nothing else names
 pink. A destructive button stays outlined, not filled, which is the
 remaining difference from Add.
+
+## 2026-09-21: Doc AI reads for real, with a ledger and a cap
+
+**Decision.** The real `ModelCaller` lives at
+`src/lib/ai/anthropicCaller.ts`, on the official Anthropic SDK, outside
+`src/lib/docai`. Triage runs on Haiku 4.5 and extraction on Opus 5.
+Every call's tokens and list-price cost land in `docai_usage`; each org
+carries a monthly cap in cents (`orgs.docai_budget_cents`, $20 by
+default), set by an owner under More, and an upload is refused before
+it starts once the calendar month's ledger reaches the cap. The action
+chooses the real caller when `ANTHROPIC_API_KEY` is set and the stub
+otherwise.
+
+**Reason.** Bridge's original Doc AI "drained API usage like crazy" and
+kept its budget in one browser's localStorage. A server-side ledger per
+org is the multi-tenant answer, and a cap that stops the upload before
+the model is called is the only cap that actually bounds the bill.
+Keeping the SDK out of `src/lib/docai` preserves the walled module: the
+pipeline still runs in the test bench and under vitest with a scripted
+model.
+
+**Alternatives.** An SDK call inside the pipeline (rejected: breaks the
+wall). A daily cap like the original (rejected: a month is what the
+bill is). Streaming responses (unneeded: a few thousand tokens of JSON).
+The `fallbacks` beta for refusals (left off: a refused transcript should
+surface as a failed document for a person to look at, not be retried on
+another model unseen).
+
+**Consequences.** Migration 0025. `max_tokens` is floored at 16,000 so
+thinking on the current models never truncates the JSON. The caller's
+unit tests run on a fake client; the action laws prove the ledger row,
+the cap, the month boundary and the zero-means-off rule on the fixture.
+Dave owes the key on Vercel; until then reading stays simulated and
+labelled.

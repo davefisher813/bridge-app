@@ -57,6 +57,22 @@ vi.mock("@/lib/supabase/server", () => ({
 // and Doc AI writing shared reference data), and every other action
 // reaching for it would be a finding, so it is a separate fake whose
 // writes land in the same list under their own flag.
+// The real model caller, stood in for by the stub with a usage report
+// attached: the laws below are about the ledger and the cap, not about
+// the API. Only reached when ANTHROPIC_API_KEY is set for a test.
+vi.mock("@/lib/ai/anthropicCaller", async () => {
+  const { createStubCaller } = await import("@/lib/docai/stubCaller");
+  return {
+    createAnthropicCaller: (opts: { onUsage?: (u: unknown) => Promise<void> | void } = {}) => {
+      const stub = createStubCaller({ category: "transcript", seedText: "ledger" });
+      return async (call: { requestId: string; model: string }) => {
+        if (opts.onUsage) await opts.onUsage({ requestId: call.requestId, model: call.model, inputTokens: 1200, outputTokens: 300, cacheReadTokens: 0, cacheWriteTokens: 0, costCents: 1.35 });
+        return stub(call as never);
+      };
+    },
+  };
+});
+
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => createFakeClient(data, { userId: currentUser, recorded: writes, failOn }),
 }));
@@ -730,5 +746,116 @@ describe("LAW: a resend is the ordinary magic link, sent for a colleague", () =>
     expect(refused.redirect).toMatch(new RegExp(`^/org/${ORG_WITH_MODULES}/members/${OWNER_ID}\\?error=`));
     const removed = await run(() => removeMemberForm(ORG_WITH_MODULES, MEMBER_ID));
     expect(removed.redirect).toBe(`/org/${ORG_WITH_MODULES}/members?notice=Removed.`);
+  });
+});
+
+describe("LAW: a real model call is charged to the org, and stops at the month's cap", () => {
+  const withModel = () => {
+    process.env.ANTHROPIC_API_KEY = "test-only";
+  };
+  const withoutModel = () => {
+    delete process.env.ANTHROPIC_API_KEY;
+  };
+  const stored = (path: string) => ({
+    originalName: "transcript.pdf",
+    originalSize: 1000,
+    originalMime: "application/pdf",
+    kind: "pdf" as const,
+    sourceRole: "parent" as const,
+    ingestedAt: "2026-09-16T12:00:00.000Z",
+    requestId: "req_ledger",
+    mediaType: "application/pdf",
+    blockType: "document" as const,
+    storagePath: path,
+  });
+  const bridgePath = () => `${data.orgs[0]!.id as string}/req_fixture/1-transcript.pdf`;
+
+  it("every call the real model makes lands in docai_usage with the org and the document", async () => {
+    withModel();
+    try {
+      const { processDocument } = await import("@/lib/actions/documents");
+      const r = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "parent", requestedCategory: "transcript" });
+      expect(r.ok).toBe(true);
+      const ledger = writes.filter((w) => w.table === "docai_usage" && w.op === "insert");
+      expect(ledger.length).toBeGreaterThanOrEqual(1);
+      const doc = writes.find((w) => w.table === "documents" && w.op === "insert");
+      for (const row of ledger) {
+        expect(row.rows[0]).toMatchObject({ org_id: data.orgs[0]!.id, cost_cents: 1.35, model: expect.any(String) });
+        expect(row.rows[0]!.document_id).toBeTruthy();
+        expect(doc).toBeTruthy();
+      }
+    } finally {
+      withoutModel();
+    }
+  });
+
+  it("the stub is free: no ledger row without a key", async () => {
+    withoutModel();
+    const { processDocument } = await import("@/lib/actions/documents");
+    const r = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "parent", requestedCategory: "transcript" });
+    expect(r.ok).toBe(true);
+    expect(writes.filter((w) => w.table === "docai_usage")).toEqual([]);
+  });
+
+  it("at the cap the upload is refused before a row or a byte", async () => {
+    withModel();
+    try {
+      data.docai_usage!.push({ id: "du_big", org_id: data.orgs[0]!.id, document_id: null, request_id: "req_big", model: "claude-opus-5", input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, cost_cents: 1999, created_at: new Date().toISOString() });
+      const { processDocument } = await import("@/lib/actions/documents");
+      const r = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "parent", requestedCategory: "transcript" });
+      expect(r.ok).toBe(false);
+      expect((r as { error?: string }).error).toMatch(/\$20\.00.*used up/);
+      expect(writes).toEqual([]);
+    } finally {
+      withoutModel();
+    }
+  });
+
+  it("last month's spend does not count against this month", async () => {
+    withModel();
+    try {
+      const lastMonth = new Date();
+      lastMonth.setUTCMonth(lastMonth.getUTCMonth() - 1);
+      data.docai_usage!.push({ id: "du_old", org_id: data.orgs[0]!.id, document_id: null, request_id: "req_old", model: "claude-opus-5", input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, cost_cents: 5000, created_at: lastMonth.toISOString() });
+      const { processDocument } = await import("@/lib/actions/documents");
+      const r = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "parent", requestedCategory: "transcript" });
+      expect(r.ok).toBe(true);
+    } finally {
+      withoutModel();
+    }
+  });
+
+  it("a cap of zero means reading is off", async () => {
+    withModel();
+    try {
+      const { processDocument } = await import("@/lib/actions/documents");
+      const elite = data.orgs[1]!.id as string;
+      const r = await processDocument(ORG_WITHOUT_MODULES, { records: [stored(`${elite}/req_fixture/1-transcript.pdf`)], sourceRole: "parent", requestedCategory: "transcript" });
+      expect(r.ok).toBe(false);
+      expect((r as { error?: string }).error).toMatch(/turned off/);
+      expect(writes).toEqual([]);
+    } finally {
+      withoutModel();
+    }
+  });
+
+  it("an owner sets the cap in dollars and it lands in cents through the service role", async () => {
+    const { setDocaiBudget } = await import("@/lib/actions/docaiBudget");
+    const r = await run(() => setDocaiBudget(ORG_WITH_MODULES, { errors: {} }, form({ budget: "35" })));
+    expect(r.redirect).toContain("/more");
+    const update = writes.find((w) => w.table === "orgs" && w.op === "update");
+    expect(update?.rows[0]).toMatchObject({ docai_budget_cents: 3500 });
+  });
+
+  it("a bad amount is refused and a member cannot set it", async () => {
+    const { setDocaiBudget } = await import("@/lib/actions/docaiBudget");
+    const bad = await run(() => setDocaiBudget(ORG_WITH_MODULES, { errors: {} }, form({ budget: "-4" })));
+    expect(bad.redirect).toBeNull();
+    expect((bad.state as { errors: Record<string, string> }).errors.budget).toBeTruthy();
+    expect(writes).toEqual([]);
+    currentUser = MEMBER_ID;
+    const r = await run(() => setDocaiBudget(ORG_WITH_MODULES, { errors: {} }, form({ budget: "35" })));
+    expect(r.redirect).toBe("/unauthorized");
+    expect(writes).toEqual([]);
   });
 });

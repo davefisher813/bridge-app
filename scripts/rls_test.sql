@@ -1484,3 +1484,61 @@ begin
   raise notice 'PASS: another org sees nothing of a family''s membership';
 end $$;
 reset role;
+
+-- ── Migration 0025: the Doc AI spend log. Staff write their org's rows,
+-- members read them, nobody sees another org's, and a cap is a number
+-- on the org. ──
+reset role;
+insert into docai_usage (org_id, request_id, model, input_tokens, output_tokens, cost_cents) values
+  ('00000000-0000-0000-0000-000000000010', 'req_bridge', 'claude-opus-5', 1200, 300, 1.35),
+  ('00000000-0000-0000-0000-000000000020', 'req_elite', 'claude-opus-5', 1200, 300, 1.35);
+
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge owner
+do $$
+declare n int; cap int;
+begin
+  select count(*) into n from docai_usage;
+  if n <> 1 then raise exception 'FAIL: user1 saw % docai_usage rows, expected 1 (Bridge''s only)', n; end if;
+  select docai_budget_cents into cap from orgs where id = '00000000-0000-0000-0000-000000000010';
+  if cap <> 2000 then raise exception 'FAIL: the default Doc AI budget is % cents, expected 2000', cap; end if;
+  raise notice 'PASS: an org reads its own Doc AI spend and its own cap';
+  begin
+    insert into docai_usage (org_id, request_id, model, cost_cents) values
+      ('00000000-0000-0000-0000-000000000020', 'req_x', 'claude-opus-5', 0.5);
+    raise exception 'FAIL: user1 logged Doc AI spend into Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: spend cannot be logged into another org';
+  end;
+  insert into docai_usage (org_id, request_id, model, cost_cents) values
+    ('00000000-0000-0000-0000-000000000010', 'req_y', 'claude-haiku-4-5', 0.1);
+  raise notice 'PASS: staff log their own org''s spend';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000003'); -- Bridge MEMBER
+do $$
+declare n int;
+begin
+  -- Bridge's two rows, plus Elite Squad's one: user3 is staff there.
+  select count(*) into n from docai_usage;
+  if n <> 3 then raise exception 'FAIL: a Bridge member who is Elite staff saw % spend rows, expected 3', n; end if;
+  select count(*) into n from docai_usage where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 2 then raise exception 'FAIL: a Bridge member saw % of Bridge''s spend rows, expected 2', n; end if;
+  begin
+    insert into docai_usage (org_id, request_id, model, cost_cents) values
+      ('00000000-0000-0000-0000-000000000010', 'req_z', 'claude-opus-5', 0.5);
+    raise exception 'FAIL: a member logged Doc AI spend';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a member reads the spend and cannot write it';
+  end;
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000005'); -- Bridge FAMILY
+do $$
+declare n int;
+begin
+  select count(*) into n from docai_usage;
+  if n <> 0 then raise exception 'FAIL: a family member saw % spend rows, expected 0', n; end if;
+  raise notice 'PASS: a family member sees no spend';
+end $$;
+reset role;
