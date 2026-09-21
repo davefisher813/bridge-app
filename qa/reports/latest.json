@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "61854d5",
-  "commitFull": "61854d5f3ccf8e9b7ae3cc9a717d45607975f970",
+  "commit": "0b189d3",
+  "commitFull": "0b189d30b240e950b037b9f33e9c65a986dd1922",
   "branch": "main",
   "remoteBranches": [],
   "shipped": false,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-09-21T15:39:26.087Z",
-  "durationMs": 21276,
+  "startedAt": "2026-09-21T15:45:34.538Z",
+  "durationMs": 19837,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,13 +18,13 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 862,
+        "pass": 866,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
         "suitesFailed": 0,
-        "filesOnDisk": 48,
-        "filesLoaded": 48
+        "filesOnDisk": 49,
+        "filesLoaded": 49
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
@@ -62,6 +62,7 @@
         "src/lib/fit/ncaa/auditRegressions.test.ts": 22,
         "src/lib/fit/ncaa/ncaa.test.ts": 38,
         "src/lib/fit/score.smoke.test.ts": 6,
+        "src/lib/fit/sports.test.ts": 4,
         "src/lib/fundraising/rollup.test.ts": 30,
         "src/lib/governance/giveGet.test.ts": 24,
         "src/lib/journey.test.ts": 7,
@@ -108,7 +109,7 @@
             "location": "/login"
           }
         },
-        "ms": 1416
+        "ms": 1436
       },
       "errors": [],
       "warnings": [],
@@ -124,8 +125,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 17,
-      "filesScanned": 351
+      "touchedFiles": 6,
+      "filesScanned": 353
     },
     {
       "name": "types",
