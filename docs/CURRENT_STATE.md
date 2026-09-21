@@ -18,12 +18,9 @@ nothing past the edge.
 - **Code:** `github.com/davefisher813/bridge-app`, branch `main`. The
   repo name is a stand-in like the product name.
 - **Production:** Vercel project `commit-app`, URL
-  `https://commit-app-nu.vercel.app`. Deployments are created through
-  the Vercel API from a commit on `main`; the project is not yet git
-  connected (needs a Vercel token for the team, open with Dave or a
-  delegate; Clemenza has no access to that scope), so
-  a push to `main` deploys nothing on its own. Vercel Authentication is
-  off; the app's own sign-in is the gate.
+  `https://commit-app-nu.vercel.app`, git connected to this repo since
+  2026-09-21 (Alfred): every push to `main` builds and deploys on its
+  own. Vercel Authentication is off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
   us-west-2). 21 migrations applied, 0021 (matching and metrics) on
   2026-09-20. 30 tables, RLS on every one.

@@ -29,16 +29,11 @@ beside a college are the product, not a finding.
 
 ## Job 1, the git link
 
-**High. The Vercel project is not connected to the repository.**
-`get_project` on `prj_Nqm2BxgyLmwYvHAA4Rkdl4COLHx7` returns no `link`
-block. Every production deployment so far was created through the API
-from a commit on `main`, which is not the same as a git integration: a
-push to `main` deploys nothing on its own. `vercel link` and `vercel git
-connect` were not run: no Vercel CLI token exists on this machine, and the
-API scope this session holds returns 403 when the team is named
-explicitly. Dave connects it on his side.
-`docs/CURRENT_STATE.md:20` says "deployed from `main`", which reads as a
-git integration and is not one yet.
+**Closed 2026-09-21.** The Vercel project is git connected. Proven by a
+push, not a dashboard: commit `e61b84a` to `main` built and deployed on
+its own with `meta.githubCommitSha` equal to the pushed commit. Pushes
+before the link (`953f44e`, `fd7a11f`, `b0d88ed`) never deployed, which
+is expected; `main` and production are level from `e61b84a` on.
 
 ## Not covered by the gate
 
