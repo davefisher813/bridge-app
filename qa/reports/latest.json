@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "d6f5607",
-  "commitFull": "d6f56070884092b44c551c805af3ec988d072da5",
+  "commit": "61854d5",
+  "commitFull": "61854d5f3ccf8e9b7ae3cc9a717d45607975f970",
   "branch": "main",
   "remoteBranches": [],
   "shipped": false,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-09-21T03:44:01.813Z",
-  "durationMs": 20810,
+  "startedAt": "2026-09-21T15:39:26.087Z",
+  "durationMs": 21276,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,18 +18,18 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 849,
+        "pass": 862,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
         "suitesFailed": 0,
-        "filesOnDisk": 47,
-        "filesLoaded": 47
+        "filesOnDisk": 48,
+        "filesLoaded": 48
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
       "testsPerFile": {
-        "src/laws/actionRun.test.ts": 71,
+        "src/laws/actionRun.test.ts": 79,
         "src/laws/copyLaws.test.ts": 2,
         "src/laws/dataLaws.test.ts": 6,
         "src/laws/fitLaws.test.ts": 7,
@@ -56,6 +56,7 @@
         "src/lib/docai/resolver.test.ts": 9,
         "src/lib/docai/stubCaller.test.ts": 4,
         "src/lib/docai/versioning.test.ts": 4,
+        "src/lib/fit/aid.test.ts": 5,
         "src/lib/fit/ncaa/approvedCourses.test.ts": 26,
         "src/lib/fit/ncaa/approvedListPaste.test.ts": 17,
         "src/lib/fit/ncaa/auditRegressions.test.ts": 22,
@@ -107,7 +108,7 @@
             "location": "/login"
           }
         },
-        "ms": 1386
+        "ms": 1416
       },
       "errors": [],
       "warnings": [],
@@ -123,8 +124,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 18,
-      "filesScanned": 347
+      "touchedFiles": 17,
+      "filesScanned": 351
     },
     {
       "name": "types",
