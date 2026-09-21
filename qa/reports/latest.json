@@ -1,17 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "fd7a11f",
-  "commitFull": "fd7a11fbda97b34ed09afff6eb764c1487d771e4",
+  "commit": "5ecb839",
+  "commitFull": "5ecb8397cf33dda6333571af553f86b9a4d20c1f",
   "branch": "main",
-  "remoteBranches": [
-    "origin/main"
-  ],
-  "shipped": true,
+  "remoteBranches": [],
+  "shipped": false,
   "dirty": false,
-  "onMain": true,
-  "startedAt": "2026-09-20T22:27:18.838Z",
-  "durationMs": 53287,
+  "onMain": false,
+  "startedAt": "2026-09-21T01:47:27.373Z",
+  "durationMs": 15656,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -20,7 +18,7 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 731,
+        "pass": 737,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
@@ -31,7 +29,7 @@
       "filesNotLoaded": [],
       "filesWithNoTests": [],
       "testsPerFile": {
-        "src/laws/actionRun.test.ts": 54,
+        "src/laws/actionRun.test.ts": 59,
         "src/laws/copyLaws.test.ts": 2,
         "src/laws/dataLaws.test.ts": 6,
         "src/laws/fitLaws.test.ts": 7,
@@ -41,7 +39,7 @@
         "src/laws/laws.test.ts": 13,
         "src/laws/matchingLaws.test.ts": 25,
         "src/laws/ncaaLaws.test.ts": 36,
-        "src/laws/pageRender.test.ts": 88,
+        "src/laws/pageRender.test.ts": 89,
         "src/laws/schemaLaws.test.ts": 5,
         "src/laws/stylingLaws.test.ts": 19,
         "src/lib/data/eligibilityLoop.test.ts": 10,
@@ -108,7 +106,7 @@
             "location": "/login"
           }
         },
-        "ms": 1169
+        "ms": 1328
       },
       "errors": [],
       "warnings": [],
@@ -124,8 +122,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 0,
-      "filesScanned": 315
+      "touchedFiles": 19,
+      "filesScanned": 319
     },
     {
       "name": "types",
@@ -141,21 +139,7 @@
     "reason": "checklist.md is for commit 4c13132, not this one"
   },
   "preview": {
-    "applicable": true,
-    "change": "qa-layer",
-    "width": 390,
-    "height": 844,
-    "scale": 2,
-    "files": [
-      "qa/previews/qa-layer/login-light.png",
-      "qa/previews/qa-layer/login-email-light.png",
-      "qa/previews/qa-layer/choose-org-light.png",
-      "qa/previews/qa-layer/today-light.png",
-      "qa/previews/qa-layer/login-dark.png",
-      "qa/previews/qa-layer/login-email-dark.png",
-      "qa/previews/qa-layer/choose-org-dark.png",
-      "qa/previews/qa-layer/today-dark.png"
-    ],
-    "failed": []
+    "applicable": null,
+    "files": []
   }
 }
