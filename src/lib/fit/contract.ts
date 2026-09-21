@@ -168,11 +168,15 @@ export interface Weights {
 // factor." Bridge's default is first.
 export const PRESETS: Record<ScoringPreset, { label: string; weights: Weights }> = {
   money_first: { label: "Money First", weights: { academic: 0.3, athletic: 0.3, financial: 0.4 } },
-  // The mirror of Baseball First. Dave, 2026-09-21: "This should have
+  // The mirror of Sport First. Dave, 2026-09-21: "This should have
   // academics first as well."
   academics_first: { label: "Academics First", weights: { academic: 0.5, athletic: 0.3, financial: 0.2 } },
   balanced: { label: "Balanced", weights: { academic: 0.4, athletic: 0.4, financial: 0.2 } },
-  baseball_first: { label: "Baseball First", weights: { academic: 0.3, athletic: 0.5, financial: 0.2 } },
+  // The key keeps its original name (it is stored on the org row); the
+  // label is Sport First since 2026-09-21, because a soccer or
+  // basketball org's preset cannot be called Baseball First. Dave's
+  // pick.
+  baseball_first: { label: "Sport First", weights: { academic: 0.3, athletic: 0.5, financial: 0.2 } },
 };
 export const DEFAULT_PRESET: ScoringPreset = "money_first";
 

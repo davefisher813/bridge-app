@@ -143,7 +143,7 @@ numbers, not the order):
 | Money First (Bridge default) | 30 | 30 | 40 |
 | Academics First (added 2026-09-21 at Dave's request) | 50 | 30 | 20 |
 | Balanced | 40 | 40 | 20 |
-| Baseball First | 30 | 50 | 20 |
+| Sport First (labelled Baseball First until 2026-09-21; the stored key is still baseball_first) | 30 | 50 | 20 |
 
 For a transfer the eligibility weight is 25 and the three above are
 scaled to fill 75.

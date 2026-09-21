@@ -2432,3 +2432,16 @@ picks, and this is one of his picks, added to the table there.
 docs/MATCHING_CONTRACT.md, and a law that each named preset leads with
 what it is named for and that the presets the app offers are the ones
 the database accepts.
+
+## 2026-09-21: the third preset is labelled Sport First
+
+**Decision.** The preset stored as `baseball_first` is labelled Sport
+First everywhere a person sees it. The key does not change.
+
+**Reason.** Bridge is baseball; the platform is not. A soccer org's
+More screen offering "Baseball First" is wrong on its face. Dave's pick
+from three (Sport First, follow the org's sport, keep it).
+
+**Alternatives.** Following the org's sport (rejected for now: an org
+does not carry one sport, its athletes do). Renaming the key
+(rejected: a data migration for a label).
