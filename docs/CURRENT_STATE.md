@@ -27,17 +27,16 @@ both themes with nothing past the edge.
   2026-09-21 (Alfred): every push to `main` builds and deploys on its
   own. Vercel Authentication is off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
-  us-west-2). 32 migrations applied, 0032 (one transfer window per
-  sport, division, season and label) on 2026-09-22. RLS on every
-  table.
+  us-west-2). 33 migrations applied, 0033 (the member summary functions
+  are for signed-in callers only) on 2026-09-22. RLS on every table.
 - **Accounts:** dave@bffsa.org and davefisher813@gmail.com, both owners
   of both orgs, both with the same password. Password is the first
   screen; the magic link sits behind "Email me a link instead".
 
 ## What exists
 
-**77 pages**, 32 migrations, 1,110 tests in 51 files, 13 law files,
-128 PASS lines in the row-level-security suite.
+**77 pages**, 33 migrations, 1,110 tests in 51 files, 13 law files,
+129 PASS lines in the row-level-security suite.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
@@ -362,6 +361,13 @@ that made a long list unusable.
 - **The name.** "BFFSA" is what the app calls itself for now.
 
 ### Known and deliberate
+
+- **The three member summary functions are callable by any signed-in
+  person**, which Supabase's linter reports and which is the point: a
+  board member's own client calls them, and each one checks that the
+  caller belongs to the org it was handed before it returns anything.
+  What is not intentional, and was fixed on 2026-09-22 (migration
+  0033), is that they were callable without signing in at all.
 
 - **`org_members` has no write policy.** Every membership write goes
   through the service role behind `requireOwner()`.

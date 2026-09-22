@@ -20,6 +20,11 @@ grant select, insert, update, delete on all tables in schema public to app_user;
 grant usage on schema storage to app_user;
 grant select, insert, update, delete on storage.objects to app_user;
 grant select on storage.buckets to app_user;
+-- Migration 0033 hands the member summary functions to `authenticated`
+-- rather than to everyone, which is the role a signed-in caller carries
+-- in a real Supabase project. app_user stands in for that caller here,
+-- so it joins the role rather than being granted each function by name.
+grant authenticated to app_user;
 
 -- ── Seed: two orgs, two users, one membership each, athletes in both,
 -- one shared school, one global benchmark set, one org1-owned set. ──
@@ -1674,4 +1679,28 @@ begin
   values ('baseball', 'D1', '2099-00', 'rls probe, second', '2099-12-20', '2099-12-28', 'https://example.test/probe-3');
   delete from transfer_windows where season_year = '2099-00';
   raise notice 'PASS: one transfer window per sport, division, season and label';
+end $$;
+
+-- ── The member summary functions are for signed-in callers only ──────
+-- Migration 0033. PostgREST exposes everything in the public schema, so
+-- a function granted to everyone is callable without signing in. The
+-- answer was always empty (auth.uid() is null for anon), but the call
+-- should not be reachable at all.
+do $$
+declare anon_can boolean;
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon; end if;
+  for anon_can in
+    select has_function_privilege('anon', f, 'execute')
+    from unnest(array['public.member_program(uuid)', 'public.member_program_schools(uuid, uuid)', 'public.member_giving(uuid)']) as f
+  loop
+    if anon_can then raise exception 'FAIL: an unauthenticated caller can execute a member summary function'; end if;
+  end loop;
+  for anon_can in
+    select not has_function_privilege('authenticated', f, 'execute')
+    from unnest(array['public.member_program(uuid)', 'public.member_program_schools(uuid, uuid)', 'public.member_giving(uuid)']) as f
+  loop
+    if anon_can then raise exception 'FAIL: a signed-in caller cannot execute a member summary function'; end if;
+  end loop;
+  raise notice 'PASS: the member summary functions are granted to signed-in callers and to nobody else';
 end $$;

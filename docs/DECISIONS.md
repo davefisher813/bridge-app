@@ -2651,3 +2651,36 @@ plugin in the config, and the wrap needs no breakpoint).
 the row stacks at any width, which is the same intent as the existing
 `max-w-half` cap. A kit law pins all three classes on both components,
 planted and watched to fail before it counted.
+
+## 2026-09-22: the member summary functions are for signed-in callers only
+
+**Decision.** `member_program`, `member_program_schools` and
+`member_giving` are granted to `authenticated` and revoked from both
+`public` and `anon` (migration 0033). The private helpers keep their
+public grant.
+
+**Reason.** Migration 0031 granted them `to public` because the local
+test harness has no `authenticated` role, and PostgREST exposes
+everything in the public schema, so `/rest/v1/rpc/member_program` was
+reachable without signing in. Nothing leaked: each function checks
+membership through `auth.uid()`, which is null for an anonymous caller,
+and a probe as `anon` on the live database returned zero rows. But the
+call should not be reachable, and Supabase's own linter said so.
+
+Two revokes were needed, not one: `from public` drops the grant 0031
+wrote, and `from anon` drops the one Supabase's default privileges
+write for every new function in the schema. The first migration only
+did the former, and the probe still came back true, which is why the
+live database carries a follow-up named `member_rpc_revoke_anon`.
+
+**Alternatives.** Moving the functions into the private schema
+(rejected: PostgREST cannot call them there, and calling them is the
+whole point). `SECURITY INVOKER` (rejected: the functions exist
+precisely to read rows the caller's own policies hide).
+
+**Consequences.** The local harness creates the two Supabase roles when
+they are missing and gives `app_user` the `authenticated` role, so the
+suite exercises the same grants production has. An assertion in
+`scripts/rls_test.sql` fails if an anonymous caller can execute any of
+the three, or if a signed-in caller cannot. The remaining linter
+warning, that a signed-in person can call them, is the design.

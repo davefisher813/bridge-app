@@ -49,6 +49,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0029_document_hash_
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0030_academics_first_preset.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0031_member_reads_summaries.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0032_transfer_window_unique.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0033_member_rpc_signed_in_only.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
