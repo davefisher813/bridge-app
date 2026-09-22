@@ -12,6 +12,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { AddButton, Body, EmptyState, Label, LinkButton, Row, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
+import { SearchField } from "@/components/SearchField";
 import { donorTotals, formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 
@@ -31,8 +32,9 @@ function shortDate(iso: string | null): string {
   return d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
 }
 
-export default async function DonorsPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function DonorsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string }> }) {
   const { slug } = await params;
+  const q = (searchParams ? (await searchParams).q : "")?.trim().toLowerCase() ?? "";
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
@@ -57,9 +59,13 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
   const gifts = toGifts(giftRows as GiftRow[] | null);
   const pledges = toPledges(pledgeRows as PledgeRow[] | null);
 
-  const rows = donors
+  const all = donors
     .map((d) => ({ donor: d, totals: donorTotals(d.id, gifts, pledges, fiscalYear) }))
     .sort((a, b) => b.totals.lifetimeCashCents - a.totals.lifetimeCashCents);
+
+  // Name, type or email. Filtered here so the list, the count and the
+  // empty state agree with each other.
+  const rows = q ? all.filter(({ donor }) => `${donor.name} ${TYPE_LABEL[donor.donor_type] ?? donor.donor_type} ${donor.email ?? ""}`.toLowerCase().includes(q)) : all;
 
   const owing = rows.filter((r) => r.totals.outstandingPledgeCents > 0);
 
@@ -90,10 +96,12 @@ export default async function DonorsPage({ params }: { params: Promise<{ slug: s
         </Section>
       )}
 
-      <Section label="All Donors" count={donors.length} role="contact" kind="donor">
-        {donors.length === 0 ? (
-          <EmptyState kind="donor" title="No Donors Yet">
-            Add the people and organizations who give, and every gift recorded against them builds their history automatically.
+      {(all.length > 5 || q) && <SearchField initial={q} placeholder="A name, a type or an address" />}
+
+      <Section label="All Donors" count={rows.length} role="contact" kind="donor">
+        {rows.length === 0 ? (
+          <EmptyState kind="donor" title={q ? "Nobody Matches" : "No Donors Yet"}>
+            {q ? "Try a shorter name, or clear the search." : "Add the people and organizations who give, and every gift recorded against them builds their history automatically."}
           </EmptyState>
         ) : (
           rows.map(({ donor, totals }) => (

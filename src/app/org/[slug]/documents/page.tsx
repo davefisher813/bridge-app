@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AddButton, Body, EmptyState, LinkButton, Notice, Row, Screen, Section } from "@/components/kit";
 import type { Role } from "@/components/statusHue";
 import { isStubbedModel } from "@/lib/actions/documents";
+import { SearchField } from "@/components/SearchField";
 
 // The review queue. A document routed to "review" has to live somewhere or
 // that route is a dead end, which is what this screen is for. Applied and
@@ -74,8 +75,9 @@ function DocumentRow({ slug, doc, role }: { slug: string; doc: DocRow; role: Rol
   );
 }
 
-export default async function DocumentsPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function DocumentsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string }> }) {
   const { slug } = await params;
+  const q = (searchParams ? (await searchParams).q : "")?.trim().toLowerCase() ?? "";
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   await requireRole(org.id, STAFF_ROLES);
@@ -88,7 +90,15 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
     .order("created_at", { ascending: false })
     .limit(60);
 
-  const rows = (data ?? []) as DocRow[];
+  const all = (data ?? []) as DocRow[];
+  // File name, category or the athlete it was matched to. Filtered here
+  // so the sections, the counts and the empty state agree.
+  const rows = q
+    ? all.filter((r) => {
+        const athlete = unwrap(r.athletes)?.name ?? r.extracted?.studentName ?? null;
+        return `${r.file_name} ${r.category ?? ""} ${athlete ?? ""}`.toLowerCase().includes(q);
+      })
+    : all;
   const reading = rows.filter((r) => r.status === "processing");
   const pending = rows.filter((r) => r.status === "pending");
   const applied = rows.filter((r) => r.status === "applied");
@@ -103,10 +113,12 @@ export default async function DocumentsPage({ params }: { params: Promise<{ slug
         </Notice>
       )}
 
+      {(all.length > 5 || q) && <SearchField initial={q} placeholder="A file name, a type or an athlete" />}
+
       {rows.length === 0 ? (
         <>
-          <EmptyState kind="document" title="No Documents Yet" action={<LinkButton href={`/org/${slug}/documents/new`}>Add the First One</LinkButton>}>
-            A transcript, test scores, an offer letter. It gets read, matched to an athlete, and applied or sent to review.
+          <EmptyState kind="document" title={q ? "Nothing Matches" : "No Documents Yet"} action={q ? undefined : <LinkButton href={`/org/${slug}/documents/new`}>Add the First One</LinkButton>}>
+            {q ? "Try a shorter name, or clear the search." : "A transcript, test scores, an offer letter. It gets read, matched to an athlete, and applied or sent to review."}
           </EmptyState>
         </>
       ) : (

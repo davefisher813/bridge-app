@@ -17,6 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 import { toGifts, type GiftRow } from "@/lib/data/fundraisingAdapters";
 import { formatMoney, formatMoneyShort, CATEGORY_LABEL, METHOD_LABEL, type GiftCategory } from "@/lib/fundraising/rollup";
 import { Body, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
+import { SearchField } from "@/components/SearchField";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +26,11 @@ export default async function GiftsPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ category?: string; method?: string }>;
+  searchParams: Promise<{ category?: string; method?: string; q?: string }>;
 }) {
   const { slug } = await params;
-  const { category, method } = await searchParams;
+  const { category, method, q: rawQuery } = await searchParams;
+  const q = rawQuery?.trim().toLowerCase() ?? "";
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
@@ -49,7 +51,14 @@ export default async function GiftsPage({
   const donorName = new Map((donorRows ?? []).map((d) => [(d as { id: string }).id, (d as { name: string }).name]));
   const campaignName = new Map((campaignRows ?? []).map((c) => [(c as { id: string }).id, (c as { name: string }).name]));
 
-  const gifts = all.filter((g) => (!category || g.category === category) && (!method || g.method === method));
+  // A donor's name or a campaign's, on top of whatever filter is on.
+  const matchesQuery = (g: (typeof all)[number]) => {
+    if (!q) return true;
+    const donor = g.donorId ? (donorName.get(g.donorId) ?? "") : "Anonymous";
+    const campaign = g.campaignId ? (campaignName.get(g.campaignId) ?? "") : "";
+    return `${donor} ${campaign}`.toLowerCase().includes(q);
+  };
+  const gifts = all.filter((g) => (!category || g.category === category) && (!method || g.method === method) && matchesQuery(g));
   const cashCents = gifts.filter((g) => g.method !== "in_kind").reduce((s, g) => s + g.amountCents, 0);
   const inKindCents = gifts.filter((g) => g.method === "in_kind").reduce((s, g) => s + g.amountCents, 0);
 
@@ -61,9 +70,11 @@ export default async function GiftsPage({
       back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
       lede={`${gifts.length} ${gifts.length === 1 ? "gift" : "gifts"} · ${formatMoneyShort(cashCents)} cash${inKindCents > 0 ? ` · ${formatMoneyShort(inKindCents)} in kind` : ""}`}
     >
+      {(all.length > 5 || q) && <SearchField initial={q} placeholder="A donor or a campaign" />}
+
       {gifts.length === 0 ? (
         <EmptyState kind="money" title="Nothing Here">
-          {category || method ? "No gift matches this filter." : "No gifts recorded yet."}
+          {q ? "No gift matches this search." : category || method ? "No gift matches this filter." : "No gifts recorded yet."}
         </EmptyState>
       ) : (
         <Section label="Gifts" count={gifts.length} role="committed" kind="money">

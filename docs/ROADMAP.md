@@ -385,8 +385,9 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
 1. **The first real data.** Dave's school sheet through the CSV
    import, the current transfer windows from an NCAA page, a first
    metric, a first real family login and a first real board login.
-2. **Search on the rest.** Targets, Documents, Gifts and Donors, on the
-   same pattern as the roster, when a list there passes five rows.
+2. ~~Search on the rest~~ Done 2026-09-22: Targets, Documents, Gifts
+   and Donors, on the roster's pattern, with the field staying put
+   while a term is in the address.
 3. **Cleanup pass, no behaviour change** (unchanged from above): one
    page loader, `cache()` on the org and user lookups, one icons file,
    split `documents.ts`.

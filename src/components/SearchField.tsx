@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button, Field } from "@/components/kit";
 
@@ -11,11 +11,18 @@ import { Button, Field } from "@/components/kit";
 export function SearchField({ initial = "", label = "Search", placeholder }: { initial?: string; label?: string; placeholder?: string }) {
   const router = useRouter();
   const pathname = usePathname();
+  const params = useSearchParams();
   const [value, setValue] = useState(initial);
 
+  // Whatever else is in the address stays there: a screen can carry a
+  // filter and a search at once, and neither clears the other.
   const apply = (term: string) => {
     const q = term.trim();
-    router.replace(q ? `${pathname}?q=${encodeURIComponent(q)}` : pathname);
+    const next = new URLSearchParams(params?.toString() ?? "");
+    if (q) next.set("q", q);
+    else next.delete("q");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
   };
 
   return (

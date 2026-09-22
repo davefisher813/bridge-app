@@ -12,7 +12,7 @@ and their own seat. The matching engine scores every athlete against
 every school and stores it; Doc AI reads a document into the right
 place and is hardened against misreads; every list over five rows has a
 search; matches filter by region as well as state; an owner enters the
-NCAA transfer windows as data. Seventy-seven screens on one kit, 1,079
+NCAA transfer windows as data. Seventy-seven screens on one kit, 1,108
 tests green, the app itself driven in a browser at 320, 375 and 390 in
 both themes with nothing past the edge.
 
@@ -35,7 +35,7 @@ both themes with nothing past the edge.
 
 ## What exists
 
-**77 pages**, 31 migrations, 1,079 tests in 51 files, 13 law files,
+**77 pages**, 31 migrations, 1,108 tests in 51 files, 13 law files,
 127 PASS lines in the row-level-security suite.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
@@ -274,10 +274,15 @@ that made a long list unusable.
   URL, which is required. The same window twice is refused. Windows are
   shared reference data, so the write goes through the service role
   behind `requireOwner()`, like schools.
-- **Search on the roster and on Schools.** A field appears once a list
-  passes five rows; it filters name, sport and position on the roster
-  and name, division and conference on Schools, in the URL so a
-  filtered list can be shared, with its own empty state.
+- **Search on every long list.** A field appears once a list passes
+  five rows, and stays while a term is in the address so the way back
+  is never the browser's own bar. The roster searches name, sport and
+  position; Schools name, division and conference; Targets the athlete,
+  school, sport and coach; Documents the file name, type and athlete;
+  Donors name, type and address; Gifts the donor and campaign, on top
+  of whatever category or method filter is already on. The term lives
+  in the URL, so a filtered list can be shared, and each screen has its
+  own empty state for a term nothing matches.
 - **Region on the matches screen.** Seven regions derived from the
   school's state in `src/lib/fit/regions.ts` (data, never stored), next
   to the state filter rather than replacing it.
@@ -369,8 +374,6 @@ that made a long list unusable.
   schools are Dave's Google Sheet exported to the template, and the
   window dates have to be read off an NCAA-published page rather than
   recalled, which is why none are seeded.
-- The roster, Schools and the matches screen have a search or filter;
-  Targets, Documents, Gifts and Donors do not yet.
 - `@supabase/ssr` 0.5 and `zod` 3 are both a major behind.
 - A stat tile has no sub-line and a row has two lines; the few captions
   that lost a home moved into a meta line or a note beside them. Worth a

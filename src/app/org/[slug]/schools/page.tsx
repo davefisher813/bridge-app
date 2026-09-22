@@ -69,7 +69,7 @@ export default async function SchoolsPage({ params, searchParams }: { params: Pr
           Every athlete on the roster has been scored against them. Open one to check the numbers landed.
         </Notice>
       )}
-      {allSchools.length > 5 && <SearchField initial={q} placeholder="A school, a division or a conference" />}
+      {(allSchools.length > 5 || q) && <SearchField initial={q} placeholder="A school, a division or a conference" />}
       {schools.length === 0 ? (
         <EmptyState kind="school" title={q ? "No School Matches" : "No Schools Yet"}>
           {q ? "Try part of the name, or clear the search." : isOwner ? "Add the first one below." : "An owner adds schools, because the list is shared across every organization."}

@@ -48,7 +48,7 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
 
   return (
     <Screen title="Athletes" action={canEdit ? <AddButton href={`/org/${slug}/roster/new`} label="Add" /> : undefined}>
-      {all.length > 5 && <SearchField initial={q} placeholder="A name, a sport or a position" />}
+      {(all.length > 5 || q) && <SearchField initial={q} placeholder="A name, a sport or a position" />}
       <Section label="Roster" count={rows.length} role="people" kind="athlete">
         {rows.length === 0 ? (
           <EmptyState kind="athlete" title={q ? "Nobody Matches" : "No Athletes Yet"}>

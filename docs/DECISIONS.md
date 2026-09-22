@@ -2603,3 +2603,24 @@ Connecticut and Maryland together and split nothing usefully).
 **Consequences.** Plain data in the walled-off engine directory, a
 Region select before State, and the region options built from the
 schools actually in the list.
+
+## 2026-09-22: a search box stays while its term does
+
+**Decision.** Every long list's search field renders when the list
+passes five rows OR when a term is in the address, and the term is kept
+alongside any filter already in the URL rather than replacing it.
+
+**Reason.** A term that narrows a list to one row, or to none, used to
+take the field off the screen with it, because the threshold read the
+filtered list. The only way back was the browser's address bar, which
+on a phone is the way nobody takes. The same applies to the gift
+ledger, where a category filter and a search have to coexist.
+
+**Alternatives.** Always rendering the field (rejected: clutter on a
+new org's four-row screens). Clearing the filter when a search starts
+(rejected: silently throwing away what somebody chose).
+
+**Consequences.** `SearchField` reads `useSearchParams()` and rewrites
+only `q`. Six screens carry it. Seven page entries render the searched
+state, including a term nothing matches, and a law asserts the field
+survives on each of them.

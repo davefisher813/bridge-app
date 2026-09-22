@@ -16,6 +16,7 @@ import {
 import { loadFitsForPairs, rowToFit } from "@/lib/data/fits";
 import type { FitTag } from "@/lib/fit/types";
 import { AddButton, EmptyState, Label, LinkButton, Row, Score, Screen, Section } from "@/components/kit";
+import { SearchField } from "@/components/SearchField";
 import { stageKind, statusRole } from "@/components/statusHue";
 
 interface TargetRow {
@@ -54,8 +55,9 @@ function unwrap<T>(value: T | T[] | null): T | null {
 // src/lib/fit/ rather than stored - a school's profile or an athlete's
 // GPA can change after the target was created, and the tag should never
 // go stale the way Bridge's original stored-tag approach could.
-export default async function BoardPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function BoardPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string }> }) {
   const { slug } = await params;
+  const q = (searchParams ? (await searchParams).q : "")?.trim().toLowerCase() ?? "";
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
@@ -122,19 +124,24 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
 
-  const grouped: { status: string; rows: typeof rows }[] = STATUS_ORDER.map((status) => ({ status, rows: rows.filter((r) => r.status === status) })).filter(
+  // Athlete, school, sport or coach. Filtered here rather than in the
+  // query so the groups, the counts and the empty state agree.
+  const shown = q ? rows.filter((r) => `${r.athleteName} ${r.schoolName} ${r.athleteSport} ${r.coachName ?? ""}`.toLowerCase().includes(q)) : rows;
+
+  const grouped: { status: string; rows: typeof rows }[] = STATUS_ORDER.map((status) => ({ status, rows: shown.filter((r) => r.status === status) })).filter(
     (g) => g.rows.length > 0
   );
 
-  const unknownStatusRows = rows.filter((r) => !(STATUS_ORDER as readonly string[]).includes(r.status));
+  const unknownStatusRows = shown.filter((r) => !(STATUS_ORDER as readonly string[]).includes(r.status));
   if (unknownStatusRows.length > 0) grouped.push({ status: "Other", rows: unknownStatusRows });
 
   return (
     <Screen title="Targets" action={canEdit ? <AddButton href={`/org/${slug}/board/new`} label="Add" /> : undefined}>
-      {rows.length === 0 ? (
+      {(rows.length > 5 || q) && <SearchField initial={q} placeholder="An athlete, a school, a sport or a coach" />}
+      {shown.length === 0 ? (
         <>
-          <EmptyState kind="target" title="No Recruiting Targets Yet" action={canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>}>
-            {canEdit ? "A target is one athlete pointed at one school." : "Ask an owner or coordinator to add one."}
+          <EmptyState kind="target" title={q ? "Nothing Matches" : "No Recruiting Targets Yet"} action={!q && canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>}>
+            {q ? "Try a shorter name, or clear the search." : canEdit ? "A target is one athlete pointed at one school." : "Ask an owner or coordinator to add one."}
           </EmptyState>
         </>
       ) : (

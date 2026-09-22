@@ -323,6 +323,26 @@ describe("LAW: an org without the fundraising module has no money on the member 
   });
 });
 
+describe("LAW: a searched list keeps the box that searched it", () => {
+  // A term that narrows a list to one row, or to none, must leave the
+  // field on screen: otherwise the only way back is the browser's own
+  // address bar, which on a phone is the way nobody takes.
+  const searched = PAGES.filter((x) => x.name.endsWith("-search") || x.name.endsWith("-search-empty"));
+
+  it("there are searched screens to check", () => {
+    expect(searched.length).toBeGreaterThanOrEqual(6);
+  });
+
+  for (const page of searched) {
+    it(`${page.name} still shows the search field`, async () => {
+      currentUser = page.as ?? OWNER_ID;
+      const html = await render(page.path, page.props);
+      expect(html).toMatch(/name="q"/);
+      expect(html).toMatch(/Search/);
+    });
+  }
+});
+
 describe("LAW: the screens around the pages render too", () => {
   // error.tsx, not-found.tsx and loading.tsx are not pages, so the
   // coverage law above never sees them, and until 2026-09-19 none
