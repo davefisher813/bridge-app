@@ -145,6 +145,22 @@ describe("LAW: the screen holds still", () => {
     expect(kit).toMatch(/<textarea[^>]*min-h-24/);
   });
 
+  // A row and an option both carry a body and a trailing on one line.
+  // Below about 300px of layout width (Safari at 150% page zoom) the
+  // trailing used to shave the body until ordinary words broke in half.
+  // The body now asks for a width of its own and the line wraps instead,
+  // which the live driver measures at 260 and 300.
+  it("a row and an option let their trailing wrap rather than squeeze the title", () => {
+    const kit = read(join(SRC, "components/kit/index.tsx"));
+    const row = kit.slice(kit.indexOf("export function Row("), kit.indexOf("export function Stat("));
+    expect(row).toMatch(/flex-wrap/);
+    expect(row).toMatch(/min-w-0 shrink-0 grow basis-24/);
+    expect(row).toMatch(/ml-auto/);
+    const option = kit.slice(kit.indexOf("export function Option("), kit.indexOf("export function CheckField("));
+    expect(option).toMatch(/flex-wrap/);
+    expect(option).toMatch(/min-w-0 shrink-0 grow basis-24/);
+  });
+
   it("the theme follows the phone, nobody forces one", () => {
     const offenders: string[] = [];
     for (const f of UI) {

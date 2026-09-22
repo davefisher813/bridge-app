@@ -204,9 +204,14 @@ export function Row({
   wrap?: boolean;
 }) {
   const body = (
-    <div className="flex min-h-14 items-center gap-3 rounded border border-line bg-paper px-4 py-3">
+    <div className="flex min-h-14 flex-wrap items-center gap-3 rounded border border-line bg-paper px-4 py-3">
       {leading ?? (kind ? <RowGlyph kind={kind} role={role} /> : null)}
-      <div className="min-w-0 flex-1">
+      {/* The body asks for 96px before the trailing may squeeze it. At a
+          phone's width nothing changes; below about 300px of layout
+          (Safari at 150% page zoom) the trailing wraps under the body
+          instead of shaving the title until ordinary words break in
+          half. */}
+      <div className="min-w-0 shrink-0 grow basis-24">
         {/* Two lines before an ellipsis. One line cut half the school
             names on the board; two keeps a row a row. */}
         <div className={`line-clamp-2 text-body ${emphasis === "bold" ? "font-bold" : "font-semibold"} text-ink`}>{title}</div>
@@ -218,7 +223,7 @@ export function Row({
           decision" on a grant) took the whole row on a narrow layout and
           squeezed the title to a one-pixel column: text that was there
           and could not be seen. */}
-      {trailing && <div className="flex max-w-half flex-shrink-0 flex-col items-end gap-1 text-right">{trailing}</div>}
+      {trailing && <div className="ml-auto flex max-w-half flex-shrink-0 flex-col items-end gap-1 text-right">{trailing}</div>}
     </div>
   );
   return href ? (
@@ -447,9 +452,12 @@ export function Hidden({ name, value }: { name: string; value: string }) {
 // selected one carries a ring. `name`/`value` make the tap the submit.
 export function Option({ name, value, selected, title, meta }: { name: string; value: string; selected: boolean; title: ReactNode; meta?: ReactNode }) {
   return (
-    <button type="submit" name={name} value={value} disabled={selected} aria-pressed={selected} className={`flex min-h-14 w-full items-center justify-between gap-3 rounded border border-line bg-paper px-4 py-3 text-left ${selected ? "ring-2 ring-accent" : ""}`}>
-      <span className="text-body font-semibold text-ink">{title}</span>
-      {meta && <span className="text-label text-muted">{meta}</span>}
+    <button type="submit" name={name} value={value} disabled={selected} aria-pressed={selected} className={`flex min-h-14 w-full flex-wrap items-center justify-between gap-3 rounded border border-line bg-paper px-4 py-3 text-left ${selected ? "ring-2 ring-accent" : ""}`}>
+      {/* Same rule as a row: the title keeps 96px before the meta may
+          squeeze it, and the meta drops under it rather than breaking a
+          word in half on a very narrow layout. */}
+      <span className="min-w-0 shrink-0 grow basis-24 text-body font-semibold text-ink">{title}</span>
+      {meta && <span className="ml-auto text-label text-muted">{meta}</span>}
     </button>
   );
 }

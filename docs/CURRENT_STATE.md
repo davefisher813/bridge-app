@@ -378,9 +378,12 @@ that made a long list unusable.
 - A stat tile has no sub-line and a row has two lines; the few captions
   that lost a home moved into a meta line or a note beside them. Worth a
   look during the audit.
-- Below about 300px of layout width (Safari's page zoom at 150%) row
-  titles start breaking mid-word; the live driver reports it at 260 and
-  the kit does not yet stack a row's trailing under its body.
+- Below about 300px of layout width (Safari's page zoom at 150%) three
+  things still break a word in half: the journey stepper's Committed
+  label, the eligibility section heading at 260, and one donor row title
+  that misses fitting by a pixel. A row's and an option's trailing now
+  wrap under the body instead, which took the live driver's count at 260
+  and 300 from 72 to 14. Nothing breaks at 320 and above.
 - No WebKit here. The live check runs in Chromium; iOS-only rendering
   (native date and select controls) is unverified until a screenshot
   says otherwise.

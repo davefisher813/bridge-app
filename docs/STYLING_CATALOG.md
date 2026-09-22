@@ -257,3 +257,18 @@ against the dark background, systemGray included, which retired an earlier
 hairline-border rule that existed only because the old neutral fill sat at
 1.87:1.
 
+
+## Addendum, 2026-09-22: a row's trailing wraps before its title breaks
+
+A row and an option both carry a body and a trailing on one line. The
+body now asks for 96px of its own before the trailing may squeeze it,
+and the line wraps rather than shaving the title: below about 300px of
+layout width, which is Safari at 150% page zoom, the trailing drops
+under the body instead of breaking ordinary words in half. At 320 and
+above nothing moves. Enforced by `src/laws/kitLaws.test.ts` and
+measured by `scripts/live/drive.mjs` at 260 and 300.
+
+The section heading keeps its old behaviour on purpose: making the
+label hold its width pushed the widest section heading past the right
+edge at 260, and a page that scrolls sideways is worse than a heading
+that wraps.

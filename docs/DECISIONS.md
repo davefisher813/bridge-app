@@ -2624,3 +2624,30 @@ new org's four-row screens). Clearing the filter when a search starts
 only `q`. Six screens carry it. Seven page entries render the searched
 state, including a term nothing matches, and a law asserts the field
 survives on each of them.
+
+## 2026-09-22: a row wraps its trailing rather than squeeze its title
+
+**Decision.** The kit's Row and Option lay their children out with
+`flex-wrap`, the body asks for a 96px basis and does not shrink below
+it, and the trailing is pushed right with `ml-auto`. The section
+heading is left alone.
+
+**Reason.** Below about 300px of layout width, which is Safari at 150%
+page zoom on the phone Dave uses, the trailing kept its width and the
+title's box shrank until ordinary words broke in half. The live driver
+counted 72 broken words at 260 and 300 across both themes; it counts 14
+now, and none at 320 and above.
+
+**Alternatives.** `overflow-wrap: break-word` in place of `anywhere`
+(tried and measured: no change, because every text box in the kit
+already carries `min-w-0`, which zeroes its minimum width whatever the
+wrapping rule says). Making the section label hold its width the same
+way (tried and measured: it pushed the widest heading past the right
+edge at 260, so it was reverted; a page that scrolls sideways is worse
+than a heading that wraps). A container query (no container query
+plugin in the config, and the wrap needs no breakpoint).
+
+**Consequences.** A row whose trailing is wider than about a third of
+the row stacks at any width, which is the same intent as the existing
+`max-w-half` cap. A kit law pins all three classes on both components,
+planted and watched to fail before it counted.

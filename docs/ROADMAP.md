@@ -392,7 +392,9 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
    page loader, `cache()` on the org and user lookups, one icons file,
    split `documents.ts`.
 4. **Dependency bumps.** `@supabase/ssr` 0.5 to 0.12, `zod` 3 to 4.
-5. **A row that stacks its trailing under its body** below about 300px
-   of layout width, which is Safari at 150% page zoom.
+5. ~~A row that stacks its trailing under its body~~ Done 2026-09-22,
+   for a row and an option. What still breaks a word below 300px is the
+   journey stepper's label, a section heading at 260, and one donor row
+   a pixel short.
 6. **A unique constraint on a transfer window**, replacing the
    duplicate check in the action.
