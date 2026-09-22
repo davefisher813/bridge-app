@@ -29,9 +29,9 @@ export async function createTransferWindow(slug: string, _prev: TransferWindowAc
   const v = parsed.values;
 
   // The same window entered twice would double every timing answer the
-  // fit engine gives for that sport and division, so the pair is
-  // checked before the insert. The table has no unique constraint to
-  // lean on: it is shared reference data with no org to scope it.
+  // fit engine gives for that sport and division. Migration 0032's
+  // unique index is the rule; this read is what turns it into a
+  // sentence on the field rather than a database error.
   const supabase = await createClient();
   const { data: existing } = await supabase
     .from("transfer_windows")
@@ -55,7 +55,15 @@ export async function createTransferWindow(slug: string, _prev: TransferWindowAc
     closes_on: v.closesOn,
     source_url: v.sourceUrl,
   });
-  if (error) return { errors: { form: error.message }, values: Object.fromEntries(formData.entries()) };
+  if (error) {
+    // Two owners entering the same window at the same moment both read
+    // nothing above and both write; migration 0032's unique index is
+    // what actually holds, and the loser reads the same sentence as if
+    // the check had caught it.
+    const duplicate = /duplicate key|unique constraint|transfer_windows_unique_idx/i.test(error.message);
+    if (duplicate) return { errors: { windowLabel: "That window is already on file for this sport, division and season." }, values: Object.fromEntries(formData.entries()) };
+    return { errors: { form: error.message }, values: Object.fromEntries(formData.entries()) };
+  }
 
   revalidatePath(`/org/${slug}/transfer-windows`);
   revalidatePath(`/org/${slug}`);

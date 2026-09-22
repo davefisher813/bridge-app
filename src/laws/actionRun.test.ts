@@ -1526,6 +1526,23 @@ describe("LAW: transfer window dates are data an owner enters, never code", () =
     expect(writes).toEqual([]);
   });
 
+  it("a duplicate that slips past the check still reads as one", async () => {
+    // The unique index (migration 0032) is what holds when two owners
+    // write at the same moment. The fake client cannot race, so the
+    // insert is made to fail the way Postgres would.
+    failOn = (table, op) => (table === "transfer_windows" && op === "insert" ? 'duplicate key value violates unique constraint "transfer_windows_unique_idx"' : null);
+    const { createTransferWindow } = await import("@/lib/actions/transferWindows");
+    const r = await run(() =>
+      createTransferWindow(
+        ORG_WITH_MODULES,
+        { errors: {} },
+        form({ sport: "Soccer", division: "D1", seasonYear: "2026", windowLabel: "Winter", opensOn: "2026-12-01", closesOn: "2026-12-15", sourceUrl: "https://ncaa.org/windows" }),
+      ),
+    );
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.windowLabel).toMatch(/already on file/);
+  });
+
   it("staff cannot add or remove a window", async () => {
     currentUser = MEMBER_ID;
     const { createTransferWindow, deleteTransferWindow } = await import("@/lib/actions/transferWindows");

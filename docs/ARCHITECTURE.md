@@ -507,7 +507,6 @@ never be left without an owner.
 
 ## What isn't built yet
 
-A unique constraint on a transfer window (the duplicate check is in the
-action today). Doc
+Doc
 AI's real caller exists and waits only on `ANTHROPIC_API_KEY` being set
 on the server. See docs/ROADMAP.md and docs/CURRENT_STATE.md.

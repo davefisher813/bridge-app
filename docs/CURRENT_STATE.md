@@ -27,16 +27,17 @@ both themes with nothing past the edge.
   2026-09-21 (Alfred): every push to `main` builds and deploys on its
   own. Vercel Authentication is off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
-  us-west-2). 31 migrations applied, 0031 (the member role reads
-  summaries) on 2026-09-21. RLS on every table.
+  us-west-2). 32 migrations applied, 0032 (one transfer window per
+  sport, division, season and label) on 2026-09-22. RLS on every
+  table.
 - **Accounts:** dave@bffsa.org and davefisher813@gmail.com, both owners
   of both orgs, both with the same password. Password is the first
   screen; the magic link sits behind "Email me a link instead".
 
 ## What exists
 
-**77 pages**, 31 migrations, 1,108 tests in 51 files, 13 law files,
-127 PASS lines in the row-level-security suite.
+**77 pages**, 32 migrations, 1,110 tests in 51 files, 13 law files,
+128 PASS lines in the row-level-security suite.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
@@ -271,7 +272,9 @@ that made a long list unusable.
   code (CLAUDE.md), and `src/lib/fit/transfer.ts` reports timing as
   unverified when no window matches. An owner now adds one under More,
   Reference: sport, division, season, label, the two dates and a source
-  URL, which is required. The same window twice is refused. Windows are
+  URL, which is required. The same window twice is refused, by a unique
+  index (migration 0032) as well as by a check in the form, so two
+  owners writing at the same moment cannot both get through. Windows are
   shared reference data, so the write goes through the service role
   behind `requireOwner()`, like schools.
 - **Search on every long list.** A field appears once a list passes

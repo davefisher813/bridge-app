@@ -1654,3 +1654,24 @@ begin
   raise notice 'PASS: a family link dies with the membership, org by org';
 end $$;
 reset role;
+
+-- ── Transfer windows: one row per sport, division, season and label ──
+-- Migration 0032. The entry form checks for a duplicate before it
+-- writes, which is a race; this is the rule that actually holds.
+do $$
+declare failed boolean := false;
+begin
+  insert into transfer_windows (sport, division, season_year, window_label, opens_on, closes_on, source_url)
+  values ('baseball', 'D1', '2099-00', 'rls probe', '2099-12-01', '2099-12-15', 'https://example.test/probe');
+  begin
+    insert into transfer_windows (sport, division, season_year, window_label, opens_on, closes_on, source_url)
+    values ('BASEBALL', 'D1', '2099-00', 'rls probe', '2099-12-02', '2099-12-16', 'https://example.test/probe-2');
+  exception when unique_violation then failed := true;
+  end;
+  if not failed then raise exception 'FAIL: the same transfer window was accepted twice'; end if;
+  -- A different label for the same season is a different window.
+  insert into transfer_windows (sport, division, season_year, window_label, opens_on, closes_on, source_url)
+  values ('baseball', 'D1', '2099-00', 'rls probe, second', '2099-12-20', '2099-12-28', 'https://example.test/probe-3');
+  delete from transfer_windows where season_year = '2099-00';
+  raise notice 'PASS: one transfer window per sport, division, season and label';
+end $$;

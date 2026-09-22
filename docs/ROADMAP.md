@@ -396,5 +396,6 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
    for a row and an option. What still breaks a word below 300px is the
    journey stepper's label, a section heading at 260, and one donor row
    a pixel short.
-6. **A unique constraint on a transfer window**, replacing the
-   duplicate check in the action.
+6. ~~A unique constraint on a transfer window~~ Done 2026-09-22,
+   migration 0032, applied live. The check in the action stays, so the
+   loser of a race reads a sentence rather than a database error.
