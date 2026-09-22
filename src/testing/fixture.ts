@@ -138,7 +138,7 @@ export function buildFixture(): Dataset {
         gpa: 3.1,
         gpa_verified: false,
         grad_year: 2028,
-        date_of_birth: "2010-06-11",
+        date_of_birth: null,
         first_full_time_enrollment: null,
         intended_enrollment: null,
         detail: { kind: "hs" },

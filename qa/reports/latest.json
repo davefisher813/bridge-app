@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "4462afe",
-  "commitFull": "4462afe29cf0e21c43107eb4a2d04b1b0c4b973a",
+  "commit": "acae3c7",
+  "commitFull": "acae3c76ce44489455fa637a28db3dc0dec55fa6",
   "branch": "main",
   "remoteBranches": [],
   "shipped": false,
-  "dirty": false,
+  "dirty": true,
   "onMain": false,
-  "startedAt": "2026-09-21T22:02:05.764Z",
-  "durationMs": 23336,
+  "startedAt": "2026-09-22T00:49:22.230Z",
+  "durationMs": 16292,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,20 +18,20 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 1038,
+        "pass": 1079,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
         "suitesFailed": 0,
-        "filesOnDisk": 50,
-        "filesLoaded": 50
+        "filesOnDisk": 51,
+        "filesLoaded": 51
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
       "testsPerFile": {
-        "src/laws/actionRun.test.ts": 98,
+        "src/laws/actionRun.test.ts": 113,
         "src/laws/copyLaws.test.ts": 2,
-        "src/laws/dataLaws.test.ts": 6,
+        "src/laws/dataLaws.test.ts": 10,
         "src/laws/fitLaws.test.ts": 7,
         "src/laws/fundraisingLaws.test.ts": 13,
         "src/laws/governanceLaws.test.ts": 9,
@@ -39,7 +39,7 @@
         "src/laws/laws.test.ts": 13,
         "src/laws/matchingLaws.test.ts": 26,
         "src/laws/ncaaLaws.test.ts": 36,
-        "src/laws/pageRender.test.ts": 279,
+        "src/laws/pageRender.test.ts": 297,
         "src/laws/schemaLaws.test.ts": 5,
         "src/laws/stylingLaws.test.ts": 19,
         "src/lib/ai/anthropicCaller.test.ts": 11,
@@ -78,6 +78,7 @@
         "src/lib/validation/member.test.ts": 4,
         "src/lib/validation/school.test.ts": 6,
         "src/lib/validation/target.test.ts": 7,
+        "src/lib/validation/transferWindow.test.ts": 4,
         "src/lib/validation/visit.test.ts": 3
       },
       "failing": [],
@@ -110,7 +111,7 @@
             "location": "/login"
           }
         },
-        "ms": 1276
+        "ms": 1258
       },
       "errors": [],
       "warnings": [],
@@ -126,8 +127,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 55,
-      "filesScanned": 376
+      "touchedFiles": 35,
+      "filesScanned": 387
     },
     {
       "name": "types",
