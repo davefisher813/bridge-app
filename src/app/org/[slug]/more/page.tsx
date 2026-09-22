@@ -41,6 +41,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
         <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" meta="The shared database, and who you are recruiting" wrap />
         <Row href={`/org/${slug}/grading-scales`} kind="scale" role="contact" title="Grading Scales" meta="How each school's numbers become letters" wrap />
         <Row href={`/org/${slug}/approved-courses`} kind="checklist" role="visit" title="Approved Lists" meta="Which courses the NCAA counts at each school" wrap />
+        <Row href={`/org/${slug}/transfer-windows`} kind="clock" role="time" title="Transfer Windows" meta="When the portal opens and closes, by sport and division" wrap />
       </Section>
 
       {/* docs/MATCHING_CONTRACT.md section 3: the blend is a per-org

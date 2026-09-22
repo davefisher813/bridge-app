@@ -43,7 +43,7 @@ export async function loadGovernance(orgId: string, fiscalYear: number): Promise
     supabase.from("boards").select("id, name, kind, sport, give_get_amount, min_seats, max_seats").eq("org_id", orgId).order("sort_order"),
     supabase
       .from("board_members")
-      .select("id, board_id, name, donor_id, role_title, status, term_start, term_end, commitment_amount")
+      .select("id, board_id, name, donor_id, role_title, status, term_start, term_end, commitment_amount, user_id")
       .eq("org_id", orgId)
       .order("name"),
     supabase

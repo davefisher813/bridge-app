@@ -27,6 +27,9 @@ export interface BoardMemberRow {
   term_start: string | null;
   term_end: string | null;
   commitment_amount: number | string;
+  // The sign-in this seat belongs to, when one is linked: what makes
+  // the member's own Board version find their seat.
+  user_id?: string | null;
 }
 
 const KINDS = new Set(["executive", "general", "sport", "development", "junior"]);
@@ -58,6 +61,7 @@ export function toBoardMember(row: BoardMemberRow): BoardMember {
     termStart: row.term_start,
     termEnd: row.term_end,
     commitmentCents: toCents(row.commitment_amount),
+    userId: row.user_id ?? null,
   };
 }
 

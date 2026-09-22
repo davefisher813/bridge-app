@@ -72,6 +72,9 @@ export interface BoardMember {
   // member: a founding member on a reduced commitment is a real thing
   // and pretending otherwise means somebody keeps a spreadsheet.
   commitmentCents: number;
+  // The org member whose sign-in this seat is, or null when nobody's
+  // login has been linked to it yet.
+  userId?: string | null;
 }
 
 export interface Board {

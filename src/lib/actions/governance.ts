@@ -149,3 +149,38 @@ export async function addBoardSeat(
   revalidatePath(`/org/${slug}/board-governance`);
   redirect(`/org/${slug}/board-governance/${boardId}`);
 }
+
+
+// Which sign-in a seat belongs to. A member's own Board version finds
+// their seat by board_members.user_id, and until this existed nothing in
+// the app could set it. Staff pick the person from the org's members
+// (owner, staff or member; never a family login) or clear the link.
+export async function linkSeatSignIn(slug: string, boardId: string, memberId: string, formData: FormData): Promise<void> {
+  const { org } = await requireGovernance(slug);
+  const back = `/org/${slug}/board-governance/${boardId}/seats/${memberId}`;
+  const userId = String(formData.get("userId") ?? "").trim() || null;
+
+  const supabase = await createClient();
+  const { data: seat } = await supabase.from("board_members").select("id, name").eq("id", memberId).eq("board_id", boardId).eq("org_id", org.id).maybeSingle();
+  if (!seat) redirect(`${back}?error=${encodeURIComponent("That seat is not in this organization.")}`);
+
+  let personName: string | null = null;
+  if (userId) {
+    const { data: membership } = await supabase.from("org_members").select("user_id, role, users(email, full_name)").eq("org_id", org.id).eq("user_id", userId).maybeSingle();
+    const m = membership as { role: string; users: { email: string; full_name: string | null } | { email: string; full_name: string | null }[] | null } | null;
+    if (!m || m.role === "family") redirect(`${back}?error=${encodeURIComponent("Pick someone who is a member of this organization. A family login cannot hold a seat.")}`);
+    const person = Array.isArray(m.users) ? m.users[0] : m.users;
+    personName = person?.full_name || person?.email || null;
+    // One seat per sign-in, in this org: a person with two seats would
+    // see one of them and wonder about the other.
+    const { data: taken } = await supabase.from("board_members").select("id").eq("org_id", org.id).eq("user_id", userId).neq("id", memberId).maybeSingle();
+    if (taken) redirect(`${back}?error=${encodeURIComponent(`${personName ?? "That person"} is already linked to another seat.`)}`);
+  }
+
+  const { error } = await supabase.from("board_members").update({ user_id: userId }).eq("id", memberId).eq("org_id", org.id);
+  if (error) redirect(`${back}?error=${encodeURIComponent(`Could not change the sign-in: ${error.message}`)}`);
+
+  revalidatePath(back);
+  revalidatePath(`/org/${slug}/member`);
+  redirect(`${back}?notice=${encodeURIComponent(userId ? `${personName ?? "They"} will see this seat as theirs when they sign in.` : "This seat is no longer linked to a sign-in.")}`);
+}

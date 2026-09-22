@@ -219,3 +219,47 @@ describe("LAW: a server action takes a storage path, never file bytes", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+// The fake Supabase client stands in for PostgREST in every action and
+// page test, so a filter it understands has to mean what the real one
+// means. These check the two that were added last: a case-insensitive
+// pattern, and a set of alternatives.
+describe("LAW: the fake client's filters match PostgREST's meaning", () => {
+  const dataset = () => ({
+    schools: [
+      { id: "s1", name: "State University", state: "CT", conference: null },
+      { id: "s2", name: "upstate college", state: "NY", conference: "Liberty" },
+      { id: "s3", name: "Coastal Tech", state: null, conference: "Liberty" },
+    ],
+  });
+
+  it("ilike ignores case and treats percent as any run of characters", async () => {
+    const { createFakeClient } = await import("@/testing/fakeSupabase");
+    const client = createFakeClient(dataset() as never, { userId: null });
+    const { data } = await client.from("schools").select("id").ilike("name", "%state%");
+    expect((data as { id: string }[]).map((r) => r.id)).toEqual(["s1", "s2"]);
+  });
+
+  it("ilike anchors the pattern, so a bare word is not a substring match", async () => {
+    const { createFakeClient } = await import("@/testing/fakeSupabase");
+    const client = createFakeClient(dataset() as never, { userId: null });
+    const { data } = await client.from("schools").select("id").ilike("name", "state");
+    expect(data).toEqual([]);
+  });
+
+  it("or matches a row that satisfies any branch, including is.null", async () => {
+    const { createFakeClient } = await import("@/testing/fakeSupabase");
+    const client = createFakeClient(dataset() as never, { userId: null });
+    const { data } = await client.from("schools").select("id").or("state.eq.CT,conference.is.null");
+    expect((data as { id: string }[]).map((r) => r.id)).toEqual(["s1"]);
+    const second = await client.from("schools").select("id").or("state.eq.NY,name.ilike.%tech%");
+    expect((second.data as { id: string }[]).map((r) => r.id)).toEqual(["s2", "s3"]);
+  });
+
+  it("or still narrows alongside the other filters, never widens them", async () => {
+    const { createFakeClient } = await import("@/testing/fakeSupabase");
+    const client = createFakeClient(dataset() as never, { userId: null });
+    const { data } = await client.from("schools").select("id").eq("conference", "Liberty").or("state.eq.CT,state.eq.NY");
+    expect((data as { id: string }[]).map((r) => r.id)).toEqual(["s2"]);
+  });
+});

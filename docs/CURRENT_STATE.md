@@ -1,18 +1,20 @@
 # Current state
 
-Last updated: 2026-09-21, after the family role and the real Doc AI caller shipped.
+Last updated: 2026-09-22, after the board member's own version, the
+staff-side gaps (invite family, seat sign-in, transfer windows, search)
+and the region filter.
 Replaced wholesale when this changes meaningfully, never appended to.
 
-**One-line summary.** The matching feature exists: a metrics log,
-staff grades, a goal and budget on the athlete, every athlete scored
-against every school and stored, a matches screen with filters and Add
-to Board, CSV import of schools, the org's scoring preset, Strong
-Matches on Today. The family role: a student or parent signs in and
-sees their own athlete and nothing else, read only, with every match's
-reasons, their colleges and visits, their documents and who to ask.
-Sixty-nine screens on one kit, the laws green, the app itself driven in
-a browser at 320, 375 and 390 in both themes with nothing past the
-edge.
+**One-line summary.** Three logins, each with their own app on the same
+database: staff run recruiting, fundraising and governance; a family
+sees one athlete read only; a board member sees the program as stages
+and their own seat. The matching engine scores every athlete against
+every school and stores it; Doc AI reads a document into the right
+place and is hardened against misreads; every list over five rows has a
+search; matches filter by region as well as state; an owner enters the
+NCAA transfer windows as data. Seventy-seven screens on one kit, 1,079
+tests green, the app itself driven in a browser at 320, 375 and 390 in
+both themes with nothing past the edge.
 
 ---
 
@@ -25,15 +27,16 @@ edge.
   2026-09-21 (Alfred): every push to `main` builds and deploys on its
   own. Vercel Authentication is off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
-  us-west-2). 21 migrations applied, 0021 (matching and metrics) on
-  2026-09-20. 30 tables, RLS on every one.
+  us-west-2). 31 migrations applied, 0031 (the member role reads
+  summaries) on 2026-09-21. RLS on every table.
 - **Accounts:** dave@bffsa.org and davefisher813@gmail.com, both owners
   of both orgs, both with the same password. Password is the first
   screen; the magic link sits behind "Email me a link instead".
 
 ## What exists
 
-**57 pages**, 21 migrations, 729 tests in 46 files, 13 law files.
+**77 pages**, 31 migrations, 1,079 tests in 51 files, 13 law files,
+127 PASS lines in the row-level-security suite.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
@@ -222,9 +225,15 @@ family, and that an unlinked athlete is not found. The live driver
 opens the family routes as the family login through a `fixture_user`
 cookie the fixture server reads.
 
-Not built, by Dave's picks: Invite Family on the athlete's page (he
-picked the athlete page as the place to invite from; the invite lives
-under Members until that button exists, see next steps).
+Invite Family now sits on the athlete's page, which is where Dave
+picked it (2026-09-22): a staff member opens Invite Family, the athlete
+is pinned rather than chosen from a list, the form asks who the person
+is (parent, guardian, the athlete themselves, other), and the invite
+comes back to that athlete's page with a line saying what was sent. The
+relationship is written on the guardian link. Staff may invite a family
+and nothing else; every other role is still an owner's to hand out. The
+athlete's page lists the family it already has, and an owner can open
+each one.
 
 ### The member role's own version, 2026-09-21
 
@@ -245,6 +254,37 @@ law proves a member opens member screens and nothing else, that staff
 cannot open them, and that no GPA, score, metric, call note or donor
 name appears on them. The recruiting board is now called Targets in
 the tab bar and on its screen (Dave: "most won't get what that means").
+
+### The staff-side gaps, 2026-09-22
+
+The four things staff could not do from inside the app, and the two
+that made a long list unusable.
+
+- **Invite Family from the athlete** (above).
+- **A board seat points at a sign-in.** `board_members.user_id` is what
+  `member_giving()` reads to decide whose seat is whose, and nothing
+  ever set it. A seat's page now links or unlinks a sign-in: the person
+  must be an owner, staff or member of this org (a family login cannot
+  hold a seat), and one sign-in holds one seat, so a board member's own
+  Giving screen can never show somebody else's give/get.
+- **Transfer windows are enterable.** NCAA portal dates are data, never
+  code (CLAUDE.md), and `src/lib/fit/transfer.ts` reports timing as
+  unverified when no window matches. An owner now adds one under More,
+  Reference: sport, division, season, label, the two dates and a source
+  URL, which is required. The same window twice is refused. Windows are
+  shared reference data, so the write goes through the service role
+  behind `requireOwner()`, like schools.
+- **Search on the roster and on Schools.** A field appears once a list
+  passes five rows; it filters name, sport and position on the roster
+  and name, division and conference on Schools, in the URL so a
+  filtered list can be shared, with its own empty state.
+- **Region on the matches screen.** Seven regions derived from the
+  school's state in `src/lib/fit/regions.ts` (data, never stored), next
+  to the state filter rather than replacing it.
+- **The fake Supabase client understands `.ilike()` and `.or()`**, with
+  PostgREST's meaning (case-insensitive, `%` as any run of characters,
+  an anchored pattern, alternatives that narrow alongside the other
+  filters), so an action that uses either can be tested.
 
 ---
 
@@ -325,14 +365,12 @@ the tab bar and on its screen (Dave: "most won't get what that means").
 ### Not yet done, not blocked
 
 - The database has no schools, no transfer windows and no benchmark
-  sets. The CSV import exists now; the schools themselves are Dave's
-  Google Sheet exported to the template.
-- No search or filter on any list except the matches screen.
-- Region is not a filter yet, only state; a region needs a state table.
-- Invite Family is not yet a button on the athlete's page; a family is
-  invited from Members, with the athlete picked there.
-- The fake client does not implement `.or()` or `.ilike()`; one action
-  uses each.
+  sets. The CSV import exists and the transfer-window form exists; the
+  schools are Dave's Google Sheet exported to the template, and the
+  window dates have to be read off an NCAA-published page rather than
+  recalled, which is why none are seeded.
+- The roster, Schools and the matches screen have a search or filter;
+  Targets, Documents, Gifts and Donors do not yet.
 - `@supabase/ssr` 0.5 and `zod` 3 are both a major behind.
 - A stat tile has no sub-line and a row has two lines; the few captions
   that lost a home moved into a meta line or a note beside them. Worth a
@@ -353,9 +391,12 @@ the tab bar and on its screen (Dave: "most won't get what that means").
    numbers (strike target, grade weights, preset weights) get revisited
    on what he sees.
 2. Dave's page-by-page audit of the new screens on his phone.
-3. Invite Family on the athlete's page (Dave's pick), then the first
-   real family: the athlete first, then a parent or legal guardian.
-4. Cleanup pass: one page loader, `cache()` on the org and user lookups,
+3. The first real family (the athlete first, then a parent or legal
+   guardian) and the first real board login, each from the athlete's
+   page and the seat's page respectively.
+4. The current NCAA transfer windows, entered from an NCAA-published
+   page, so transfer timing stops reading as unverified.
+5. Cleanup pass: one page loader, `cache()` on the org and user lookups,
    split `documents.ts`, then the `@supabase/ssr` and `zod` bumps.
 
 See docs/ROADMAP.md for the rest.

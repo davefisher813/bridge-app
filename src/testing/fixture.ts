@@ -50,6 +50,7 @@ export const IDS = {
   orgScale: "00000000-0000-0000-0000-000000000121",
   orgList: "00000000-0000-0000-0000-000000000131",
   athleteTransfer: "00000000-0000-0000-0000-0000000000c3",
+  athleteElite: "00000000-0000-0000-0000-0000000000c4",
 } as const;
 
 export function buildFixture(): Dataset {
@@ -108,6 +109,9 @@ export function buildFixture(): Dataset {
       { id: "m4", user_id: OUTSIDER, org_id: ELITE, role: "staff" },
       { id: "m5", user_id: LONG_INVITE, org_id: BRIDGE, role: "member" },
       { id: "m6", user_id: FAMILY, org_id: BRIDGE, role: "family" },
+      // The same member login in the org with no modules, so the lite
+      // member screens (no Giving, no seat) have somewhere to render.
+      { id: "m7", user_id: MEMBER, org_id: ELITE, role: "member" },
     ],
     // Two athletes, so the family home is the picker and Colleges groups
     // by athlete: a parent with two kids is a real case (Dave, 2026-09-21).
@@ -120,6 +124,36 @@ export function buildFixture(): Dataset {
       { org_id: BRIDGE, athlete_id: IDS.athleteNoGpa, user_id: FAMILY, relationship: "parent", created_at: "2026-09-03T12:00:00.000Z" },
     ],
     athletes: [
+      // The one athlete in the org with no modules. Elite Squad is every
+      // org that is not Bridge, so its screens need rows of their own:
+      // without one, a cross-org leak would read as an empty screen.
+      {
+        id: IDS.athleteElite,
+        org_id: ELITE,
+        recruit_type: "hs",
+        name: "Squad Athlete",
+        sport: "baseball",
+        position: "SS",
+        status: "Active",
+        gpa: 3.1,
+        gpa_verified: false,
+        grad_year: 2028,
+        date_of_birth: "2010-06-11",
+        first_full_time_enrollment: null,
+        intended_enrollment: null,
+        detail: { kind: "hs" },
+        measurables: {},
+        is_international: false,
+        toefl_score: null,
+        ielts_score: null,
+        f1_visa_status: null,
+        ncaa_eligibility_status: "Not Started",
+        deleted_at: null,
+        goal: "balanced",
+        family_budget_cents: null,
+        home_state: "NY",
+        grades: {},
+      },
       {
         id: IDS.athlete,
         org_id: BRIDGE,
@@ -279,7 +313,7 @@ export function buildFixture(): Dataset {
     ],
     contacts: [{ id: "ct1", org_id: BRIDGE, athlete_id: IDS.athlete, name: "Fixture Parent", role: "parent_guardian", email: null, phone: null, school_id: null, notes: null }],
     transfer_windows: [
-      { id: "tw1", sport: "baseball", division: "D2", season_year: "2026", window_label: "Fixture window", opens_on: "2026-12-01", closes_on: "2026-12-15" },
+      { id: "tw1", sport: "baseball", division: "D2", season_year: "2026", window_label: "Fixture window", opens_on: "2026-12-01", closes_on: "2026-12-15", source_url: "https://example.test/fixture-window" },
     ],
     athlete_courses: [
       { id: "ac1", org_id: BRIDGE, athlete_id: IDS.athlete, title: "English 11", subject: "english", credit: 1, grade: "B", term: "25-26 S1", school_name: "Fixture High School", weighted: false, ncaa_approved: null, duplicate_of: null, approval_source: null },

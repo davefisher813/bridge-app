@@ -8,7 +8,7 @@
 // without anybody deciding what its arguments are, which is the same as
 // not testing it. The render law checks the list against the filesystem.
 
-import { FAMILY_ID, IDS, LONG_INVITE_ID, MEMBER_ID, ORG_WITH_MODULES } from "@/testing/fixture";
+import { FAMILY_ID, IDS, LONG_INVITE_ID, MEMBER_ID, ORG_WITH_MODULES, ORG_WITHOUT_MODULES } from "@/testing/fixture";
 
 export const p = (o: Record<string, string>) => Promise.resolve(o);
 
@@ -39,6 +39,11 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "member-athlete", path: "@/app/org/[slug]/member/program/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Fixture State University/, as: MEMBER_ID },
   { name: "member-giving", path: "@/app/org/[slug]/member/giving/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Campaign[\s\S]*Your Seat[\s\S]*Credited to You[\s\S]*The Board/, as: MEMBER_ID },
   { name: "member-more", path: "@/app/org/[slug]/member/more/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Who to Ask[\s\S]*Example Owner[\s\S]*Sign Out/, as: MEMBER_ID },
+  // The same screens for an org with no modules: no Giving tab, no
+  // seat, nothing about money. Elite Squad is every org that is not
+  // Bridge, so this is the common case, not the edge one.
+  { name: "member-home-lite", path: "@/app/org/[slug]/member/page", props: { params: p({ slug: ORG_WITHOUT_MODULES }) }, expect: /Athletes[\s\S]*The Program/, as: MEMBER_ID },
+  { name: "member-more-lite", path: "@/app/org/[slug]/member/more/page", props: { params: p({ slug: ORG_WITHOUT_MODULES }), searchParams: p({}) }, expect: /Who to Ask[\s\S]*Sign Out/, as: MEMBER_ID },
   { name: "family-athlete", path: "@/app/org/[slug]/family/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Matches[\s\S]*Documents/, as: FAMILY_ID },
   { name: "family-eligibility", path: "@/app/org/[slug]/family/[id]/eligibility/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /core/i, as: FAMILY_ID },
   { name: "family-approvals", path: "@/app/org/[slug]/family/[id]/eligibility/approvals/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /approv/i, as: FAMILY_ID },
@@ -107,6 +112,9 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "edit-athlete", path: "@/app/org/[slug]/roster/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete/ },
   { name: "new-target", path: "@/app/org/[slug]/board/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture Athlete/ },
   { name: "edit-target", path: "@/app/org/[slug]/board/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) }, expect: /Fixture/ },
+  { name: "transfer-windows", path: "@/app/org/[slug]/transfer-windows/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture window[\s\S]*Remove/ },
+  { name: "new-transfer-window", path: "@/app/org/[slug]/transfer-windows/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Source/ },
+  { name: "invite-family", path: "@/app/org/[slug]/roster/[id]/family/new/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Who They Are/ },
   { name: "new-school", path: "@/app/org/[slug]/schools/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /form|input/i },
   { name: "new-gift", path: "@/app/org/[slug]/fundraising/gifts/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Donor/ },
   { name: "new-pledge", path: "@/app/org/[slug]/fundraising/pledges/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Donor/ },

@@ -15,6 +15,8 @@ const inviteSchema = z
     role: z.enum(ORG_ROLES, { message: "Pick a role" }),
     fullName: z.string().trim().max(120).optional(),
     athleteId: z.string().uuid().optional(),
+    // Parent, guardian, self. Display only, on the family's rows.
+    relationship: z.string().trim().max(60).optional(),
   })
   .superRefine((v, ctx) => {
     if (v.role === "family" && !v.athleteId) {
@@ -36,6 +38,7 @@ export function parseInviteForm(formData: FormData): InviteFormResult {
     role: String(formData.get("role") ?? ""),
     fullName: String(formData.get("fullName") ?? "").trim() || undefined,
     athleteId: String(formData.get("athleteId") ?? "").trim() || undefined,
+    relationship: String(formData.get("relationship") ?? "").trim() || undefined,
   };
   const result = inviteSchema.safeParse(raw);
   if (!result.success) {

@@ -2486,3 +2486,120 @@ five page entries and a render law for the boundary. The recruiting
 board is labelled Targets everywhere a person sees it (Dave: "board
 isn't a great name. Most won't get what that means"); the route stays
 /board.
+
+## 2026-09-22: staff may invite a family, and only a family
+
+**Decision.** `inviteMember` is behind `requireRole(STAFF_ROLES)`
+rather than `requireOwner()`, and refuses any role but `family` unless
+the caller is an owner. Invite Family lives on the athlete's page with
+the athlete pinned, asks the relationship (parent, guardian, the
+athlete themselves, other), and returns to the athlete rather than to
+Members.
+
+**Reason.** Dave picked the athlete's page as the place to invite a
+family from, and a coordinator adding a parent is the everyday case;
+routing it through an owner makes the owner a bottleneck on the one
+invite that happens most. Who somebody is to the athlete is worth
+recording at the moment it is known.
+
+**Alternatives.** Keeping the owner gate and putting a link on the
+athlete's page that lands on the Members form (rejected: the athlete
+would have to be picked again, and the owner is still the bottleneck).
+A separate action for family invites (rejected: two implementations of
+one flow; the role check is one line).
+
+**Consequences.** `relationship` on `athlete_guardians` is written
+where it was always null. `returnTo` is read from the form and refused
+unless it starts with this org's path, so the redirect cannot be
+pointed off the app. Three action laws: staff may invite a family and
+the relationship lands, staff may not invite staff, a foreign return
+path is ignored.
+
+## 2026-09-22: a board seat points at one sign-in, linked by staff
+
+**Decision.** A seat's page links or unlinks a sign-in.
+`board_members.user_id` may only name an owner, staff or member of the
+same org (never a family login), and one sign-in holds at most one seat
+in an org.
+
+**Reason.** Migration 0031 gave a member their own Giving screen, and
+`member_giving()` decides whose seat is whose by
+`board_members.user_id = auth.uid()`. Nothing in the app ever set that
+column, so the feature shipped with no way to turn it on. A second seat
+for the same person would show them one and hide the other.
+
+**Alternatives.** Matching a seat to a login by email (rejected: a
+board member's org email and their sign-in address are often different,
+and a silent match on a typo is a privacy failure). A unique constraint
+in the database (worth doing later; the check is in the action today
+because the column is nullable and shared with seats that have no
+login).
+
+**Consequences.** `linkSeatSignIn` in `src/lib/actions/governance.ts`,
+a Sign-In section on the seat page, `userId` carried through
+`BoardMember`, and six action laws covering every branch.
+
+## 2026-09-22: transfer windows are entered, not seeded
+
+**Decision.** An owner enters NCAA transfer-portal windows under More,
+Reference. The source URL is required. No window dates ship in the
+repo or in a migration.
+
+**Reason.** The rule in CLAUDE.md is that window dates are data, never
+code, because the NCAA changes them by vote most years. The same logic
+forbids seeding them from memory: a date nobody can trace is worse than
+no date, because `src/lib/fit/transfer.ts` reports timing as unverified
+when no window matches and that is an honest answer. Requiring the
+source makes every row checkable later.
+
+**Alternatives.** Seeding the current windows (rejected: they would
+have to come from recall rather than from an NCAA-published page).
+Scraping the NCAA site (rejected: a scraper is a second thing to
+maintain for a handful of rows a year).
+
+**Consequences.** `transfer_windows` gets its first writer, through
+the service role behind `requireOwner()`, like schools. A duplicate of
+the same sport, division, season and label is refused in the action,
+since the table is shared reference data with no org to scope a
+constraint to.
+
+## 2026-09-22: search appears when a list outgrows the screen
+
+**Decision.** A search field renders on the roster and on Schools once
+the list passes five rows, filters in the URL, and filtering happens
+in memory over the rows already loaded rather than in the query.
+
+**Reason.** A field above a four-row list is clutter; a hundred-row
+list without one is unusable. Filtering in memory keeps the list, the
+count and the empty state reading from one array, which is where they
+disagreed in every version that filtered in the query.
+
+**Alternatives.** Always showing the field (rejected: clutter on a new
+org's screens). Filtering with `.ilike()` in the query (kept in
+reserve: the fake client now understands it, so the switch is testable
+the day a roster is big enough to need it).
+
+**Consequences.** `SearchField`, a `q` search param on both screens,
+and their own empty states. `.ilike()` and `.or()` implemented in the
+fake Supabase client with PostgREST's meaning, with laws for the
+pattern anchoring and for an `.or()` narrowing alongside other filters.
+
+## 2026-09-22: region is derived from the state, never stored
+
+**Decision.** `src/lib/fit/regions.ts` maps a state to one of seven
+regions and the matches screen filters on it alongside the state
+filter.
+
+**Reason.** "The Northeast" and "the Carolinas" are how a family talks
+about distance; the state list is fifty long on a phone. A derived
+region cannot drift from the school's state, which a stored column
+would the first time a school moved conference and somebody edited one
+field.
+
+**Alternatives.** A region column on `schools` (rejected: two sources
+of truth). Census regions unchanged (rejected: four buckets put
+Connecticut and Maryland together and split nothing usefully).
+
+**Consequences.** Plain data in the walled-off engine directory, a
+Region select before State, and the region options built from the
+schools actually in the list.

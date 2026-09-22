@@ -1370,3 +1370,183 @@ describe("LAW: the same file is read once, a stuck reading can be cleared, and a
     expect(logged.rows.map((x) => x.metric)).toEqual(["fbVelo"]);
   });
 });
+
+describe("LAW: a family invite from an athlete's page is a staff job, and comes back to that athlete", () => {
+  // Dave's pick, 2026-09-21: staff invite a family from the athlete's
+  // page. That widens who may call inviteMember, so what a staff member
+  // may NOT do is asserted next to what they may.
+  const withKey = () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-only";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://app.example.test";
+  };
+  const asStaff = () => {
+    data.org_members.push({ id: "m9", user_id: OUTSIDER_ID, org_id: data.orgs[0]!.id, role: "staff" });
+    currentUser = OUTSIDER_ID;
+  };
+
+  it("a staff member may invite a family and the relationship is written", async () => {
+    withKey();
+    asStaff();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() =>
+      inviteMember(
+        ORG_WITH_MODULES,
+        { errors: {} },
+        form({ email: "grandma@example.test", role: "family", athleteId: IDS.athlete, relationship: "guardian", returnTo: `/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}` }),
+      ),
+    );
+    expect(r.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}?notice=${encodeURIComponent("Invitation sent to grandma@example.test. They will see Fixture Athlete and nothing else.")}`);
+    const guardian = writes.find((w) => w.table === "athlete_guardians" && w.op === "insert");
+    expect(guardian?.rows[0]).toMatchObject({ athlete_id: IDS.athlete, org_id: data.orgs[0]!.id, relationship: "guardian" });
+    expect(revalidated).toContain(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}`);
+  });
+
+  it("a staff member cannot invite staff", async () => {
+    withKey();
+    asStaff();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "new-coach@example.test", role: "staff" })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.role).toMatch(/Only an owner/);
+    expect(writes).toEqual([]);
+  });
+
+  it("a return path outside this org is ignored", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "outsider@example.test", role: "family", athleteId: IDS.athlete, returnTo: "https://evil.test/steal" })));
+    expect(r.redirect).toMatch(new RegExp(`^/org/${ORG_WITH_MODULES}/members\\?notice=`));
+  });
+});
+
+describe("LAW: a board seat points at one sign-in, in this org", () => {
+  // The seat is what a member's own Giving screen reads, through
+  // member_giving()'s my_seat_id. A seat pointed at the wrong person
+  // shows them someone else's give/get, so every branch is asserted.
+  it("linking writes the sign-in on the seat, scoped to the org", async () => {
+    const { linkSeatSignIn } = await import("@/lib/actions/governance");
+    const r = await run(() => linkSeatSignIn(ORG_WITH_MODULES, IDS.board, "bm2", form({ userId: OWNER_ID })));
+    expect(r.redirect).toContain("notice=");
+    const update = writes.find((w) => w.table === "board_members" && w.op === "update");
+    expect(update?.rows[0]).toMatchObject({ user_id: OWNER_ID });
+    expect(update?.filters).toEqual(expect.arrayContaining([expect.objectContaining({ column: "id", value: "bm2" }), expect.objectContaining({ column: "org_id", value: data.orgs[0]!.id })]));
+  });
+
+  it("a family login cannot hold a seat", async () => {
+    const { linkSeatSignIn } = await import("@/lib/actions/governance");
+    const r = await run(() => linkSeatSignIn(ORG_WITH_MODULES, IDS.board, "bm2", form({ userId: FAMILY_ID })));
+    expect(r.redirect).toContain("error=");
+    expect(decodeURIComponent(r.redirect!)).toMatch(/family login cannot hold a seat/);
+    expect(writes.filter((w) => w.table === "board_members")).toEqual([]);
+  });
+
+  it("someone outside the org cannot hold a seat", async () => {
+    const { linkSeatSignIn } = await import("@/lib/actions/governance");
+    const r = await run(() => linkSeatSignIn(ORG_WITH_MODULES, IDS.board, "bm2", form({ userId: OUTSIDER_ID })));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/member of this organization/);
+    expect(writes.filter((w) => w.table === "board_members")).toEqual([]);
+  });
+
+  it("a second seat for the same sign-in is refused", async () => {
+    const { linkSeatSignIn } = await import("@/lib/actions/governance");
+    // The fixture chair is already linked to the member login.
+    const r = await run(() => linkSeatSignIn(ORG_WITH_MODULES, IDS.board, "bm2", form({ userId: MEMBER_ID })));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/already linked to another seat/);
+    expect(writes.filter((w) => w.table === "board_members")).toEqual([]);
+  });
+
+  it("unlinking clears the sign-in", async () => {
+    const { linkSeatSignIn } = await import("@/lib/actions/governance");
+    const r = await run(() => linkSeatSignIn(ORG_WITH_MODULES, IDS.board, IDS.boardMember, form({ userId: "" })));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/no longer linked/);
+    expect(writes.find((w) => w.table === "board_members" && w.op === "update")?.rows[0]).toMatchObject({ user_id: null });
+  });
+
+  it("a seat in another org is refused", async () => {
+    const { linkSeatSignIn } = await import("@/lib/actions/governance");
+    const r = await run(() => linkSeatSignIn(ORG_WITH_MODULES, IDS.board, "no-such-seat", form({ userId: OWNER_ID })));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/not in this organization/);
+    expect(writes).toEqual([]);
+  });
+});
+
+describe("LAW: transfer window dates are data an owner enters, never code", () => {
+  // src/lib/fit/transfer.ts reports timing as unverified when no window
+  // row matches. This is the only way a row gets there, so the gate and
+  // the shape of the row are both asserted.
+  it("an owner adds a window through the service role", async () => {
+    const { createTransferWindow } = await import("@/lib/actions/transferWindows");
+    const r = await run(() =>
+      createTransferWindow(
+        ORG_WITH_MODULES,
+        { errors: {} },
+        form({ sport: "Baseball", division: "D1", seasonYear: "2026-27", windowLabel: "Winter", opensOn: "2026-12-01", closesOn: "2026-12-15", sourceUrl: "https://ncaa.org/windows" }),
+      ),
+    );
+    expect(r.redirect).toContain("/transfer-windows?notice=");
+    const row = writes.find((w) => w.table === "transfer_windows" && w.op === "insert")?.rows[0];
+    expect(row).toMatchObject({ sport: "baseball", division: "D1", season_year: "2026-27", window_label: "Winter", opens_on: "2026-12-01", closes_on: "2026-12-15", source_url: "https://ncaa.org/windows" });
+  });
+
+  it("a window that closes before it opens is refused", async () => {
+    const { createTransferWindow } = await import("@/lib/actions/transferWindows");
+    const r = await run(() =>
+      createTransferWindow(
+        ORG_WITH_MODULES,
+        { errors: {} },
+        form({ sport: "Baseball", division: "D1", seasonYear: "2026", windowLabel: "Winter", opensOn: "2026-12-15", closesOn: "2026-12-01", sourceUrl: "https://ncaa.org/windows" }),
+      ),
+    );
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.closesOn).toBeTruthy();
+    expect(writes).toEqual([]);
+  });
+
+  it("a window with no source is refused", async () => {
+    const { createTransferWindow } = await import("@/lib/actions/transferWindows");
+    const r = await run(() =>
+      createTransferWindow(ORG_WITH_MODULES, { errors: {} }, form({ sport: "Baseball", division: "D1", seasonYear: "2026", windowLabel: "Winter", opensOn: "2026-12-01", closesOn: "2026-12-15" })),
+    );
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.sourceUrl).toBeTruthy();
+    expect(writes).toEqual([]);
+  });
+
+  it("the same window twice is refused", async () => {
+    const { createTransferWindow } = await import("@/lib/actions/transferWindows");
+    const r = await run(() =>
+      createTransferWindow(
+        ORG_WITH_MODULES,
+        { errors: {} },
+        form({ sport: "Baseball", division: "D2", seasonYear: "2026", windowLabel: "Fixture window", opensOn: "2026-12-01", closesOn: "2026-12-15", sourceUrl: "https://ncaa.org/windows" }),
+      ),
+    );
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.windowLabel).toMatch(/already on file/);
+    expect(writes).toEqual([]);
+  });
+
+  it("staff cannot add or remove a window", async () => {
+    currentUser = MEMBER_ID;
+    const { createTransferWindow, deleteTransferWindow } = await import("@/lib/actions/transferWindows");
+    const add = await run(() =>
+      createTransferWindow(
+        ORG_WITH_MODULES,
+        { errors: {} },
+        form({ sport: "Baseball", division: "D1", seasonYear: "2026", windowLabel: "Winter", opensOn: "2026-12-01", closesOn: "2026-12-15", sourceUrl: "https://ncaa.org/windows" }),
+      ),
+    );
+    expect(add.redirect).toBe("/unauthorized");
+    const remove = await run(() => deleteTransferWindow(ORG_WITH_MODULES, "tw1"));
+    expect(remove.redirect).toBe("/unauthorized");
+    expect(writes).toEqual([]);
+  });
+
+  it("an owner removes a window", async () => {
+    const { deleteTransferWindow } = await import("@/lib/actions/transferWindows");
+    const r = await run(() => deleteTransferWindow(ORG_WITH_MODULES, "tw1"));
+    expect(decodeURIComponent(r.redirect!)).toContain("Window removed");
+    const del = writes.find((w) => w.table === "transfer_windows" && w.op === "delete");
+    expect(del?.filters).toEqual(expect.arrayContaining([expect.objectContaining({ column: "id", value: "tw1" })]));
+  });
+});

@@ -294,6 +294,35 @@ describe("LAW: a member reads the program as stages, never the roster", () => {
   });
 });
 
+describe("LAW: an org without the fundraising module has no money on the member screens", () => {
+  // orgs.modules gates board_governance and donor_fundraising off by
+  // default, so Elite Squad's board sees the program and nothing else.
+  // The tab bar drops Giving (src/components/kit/TabBar.tsx); these are
+  // the screens themselves.
+  it("the member home shows the program and no seat, budget or giving link", async () => {
+    currentUser = MEMBER_ID;
+    const html = await render("@/app/org/[slug]/member/page", { params: p({ slug: ORG_WITHOUT_MODULES }) });
+    expect(html).toMatch(/The Program/);
+    expect(html).not.toMatch(/Your Seat|Of Budget|Give\/Get|raised/i);
+    expect([...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!).filter((l) => l.includes("/giving"))).toEqual([]);
+  });
+
+  it("the Giving screen itself is a 404 for that org", async () => {
+    currentUser = MEMBER_ID;
+    await expect(render("@/app/org/[slug]/member/giving/page", { params: p({ slug: ORG_WITHOUT_MODULES }) })).rejects.toThrow(NOT_FOUND);
+  });
+
+  it("the member tab bar drops Giving without the module", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { createElement } = await import("react");
+    const { TabBar } = await import("@/components/kit/TabBar");
+    const lite = renderToStaticMarkup(createElement(TabBar, { slug: ORG_WITHOUT_MODULES, variant: "member-lite" }));
+    expect(lite).not.toMatch(/Giving/);
+    const full = renderToStaticMarkup(createElement(TabBar, { slug: ORG_WITH_MODULES, variant: "member" }));
+    expect(full).toMatch(/Giving/);
+  });
+});
+
 describe("LAW: the screens around the pages render too", () => {
   // error.tsx, not-found.tsx and loading.tsx are not pages, so the
   // coverage law above never sees them, and until 2026-09-19 none
@@ -380,7 +409,7 @@ describe("LAW: a member login opens member screens and nothing else, and staff c
       const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
       expect(links.filter((l) => l.startsWith("/org/") && !l.includes("/member"))).toEqual([]);
       const forms = (html.match(/<form/g) ?? []).length;
-      expect(forms).toBe(page.name === "member-more" ? 1 : 0);
+      expect(forms).toBe(page.name.startsWith("member-more") ? 1 : 0);
       // Nothing a board member must not see: a GPA, a test score, a
       // metric, a call note, a donor's name.
       expect(html).not.toMatch(/GPA|SAT|ACT|FB Velo|Fixture Donor|coach@/);

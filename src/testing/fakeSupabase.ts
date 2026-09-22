@@ -113,9 +113,35 @@ const EMBEDS: Record<string, Record<string, EmbedSpec>> = {
 };
 
 interface Filter {
-  kind: "eq" | "is" | "in" | "neq" | "not" | "gte";
+  kind: "eq" | "is" | "in" | "neq" | "not" | "gte" | "ilike" | "or";
   column: string;
   value: unknown;
+}
+
+// PostgREST's ilike: % is any run of characters, _ is one, and the
+// comparison ignores case. Anything else in the pattern is literal.
+function ilikeMatches(value: unknown, pattern: string): boolean {
+  if (value === null || value === undefined) return false;
+  const rx = new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, "[\\s\\S]*").replace(/_/g, "[\\s\\S]")}$`, "i");
+  return rx.test(String(value));
+}
+
+// One branch of an .or() expression, in PostgREST's own spelling:
+// "column.op.value". Only the operators the app actually uses are
+// understood; anything else is a gap the fake should report rather
+// than quietly match.
+function parseOrBranch(expr: string, onUnsupported: (what: string) => never): Filter {
+  const m = expr.match(/^([\w.]+)\.(\w+)\.([\s\S]*)$/);
+  if (!m) onUnsupported(`.or() branch "${expr}" is not "column.op.value"`);
+  const [, column, op, raw] = m!;
+  const value = raw === "null" ? null : raw === "true" ? true : raw === "false" ? false : raw.replace(/^"([\s\S]*)"$/, "$1");
+  if (op === "eq") return { kind: "eq", column, value };
+  if (op === "neq") return { kind: "neq", column, value };
+  if (op === "is") return { kind: "is", column, value };
+  if (op === "gte") return { kind: "gte", column, value };
+  if (op === "ilike") return { kind: "ilike", column, value };
+  if (op === "in") return { kind: "in", column, value: String(value).replace(/^\(|\)$/g, "").split(",").filter(Boolean) };
+  return onUnsupported(`.or() operator "${op}" on column "${column}"`);
 }
 
 function splitTop(s: string): string[] {
@@ -210,24 +236,31 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
     this.writes = { op: "delete" };
     return this;
   }
-  or(): never {
-    return this.onUnsupported(`.or() on ${this.table}`);
+  or(expression: string) {
+    const branches = splitTop(expression).map((b) => parseOrBranch(b, this.onUnsupported));
+    this.filters.push({ kind: "or", column: "", value: branches });
+    return this;
   }
-  ilike(): never {
-    return this.onUnsupported(`.ilike() on ${this.table}`);
+  ilike(column: string, pattern: string) {
+    this.filters.push({ kind: "ilike", column, value: pattern });
+    return this;
   }
 
   private matches(row: Row): boolean {
-    return this.filters.every((f) => {
-      const v = row[f.column];
-      if (f.kind === "eq") return v === f.value;
-      if (f.kind === "neq") return v !== f.value;
-      if (f.kind === "is") return f.value === null ? v === null || v === undefined : v === f.value;
-      if (f.kind === "in") return (f.value as unknown[]).includes(v);
-      if (f.kind === "not") return v !== f.value;
-      if (f.kind === "gte") return v !== null && v !== undefined && (v as string | number) >= (f.value as string | number);
-      return true;
-    });
+    return this.filters.every((f) => this.matchesFilter(row, f));
+  }
+
+  private matchesFilter(row: Row, f: Filter): boolean {
+    if (f.kind === "or") return (f.value as Filter[]).some((sub) => this.matchesFilter(row, sub));
+    const v = row[f.column];
+    if (f.kind === "ilike") return ilikeMatches(v, String(f.value));
+    if (f.kind === "eq") return v === f.value;
+    if (f.kind === "neq") return v !== f.value;
+    if (f.kind === "is") return f.value === null ? v === null || v === undefined : v === f.value;
+    if (f.kind === "in") return (f.value as unknown[]).includes(v);
+    if (f.kind === "not") return v !== f.value;
+    if (f.kind === "gte") return v !== null && v !== undefined && (v as string | number) >= (f.value as string | number);
+    return true;
   }
 
   private project(row: Row): Row {

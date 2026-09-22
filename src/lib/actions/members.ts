@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireOwner, type OrgRole } from "@/lib/auth/guard";
+import { requireOwner, requireRole, STAFF_ROLES, type OrgRole } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { siteOrigin } from "@/lib/auth/origin";
 import { parseInviteForm, parseRole } from "@/lib/validation/member";
@@ -38,13 +38,29 @@ async function ownersOf(orgId: string): Promise<string[]> {
 export async function inviteMember(slug: string, _prev: MemberActionState, formData: FormData): Promise<MemberActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireOwner(org.id);
+  // Staff may invite a FAMILY from an athlete's page (Dave's pick,
+  // 2026-09-21: "staff invite a family from the athlete's page"). Every
+  // other role is an owner's to hand out, as before.
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const parsed = parseInviteForm(formData);
   if (!parsed.ok || !parsed.values) {
     return { errors: parsed.errors, values: Object.fromEntries(formData.entries()) };
   }
-  const { email, role, fullName, athleteId } = parsed.values;
+  const { email, role, fullName, athleteId, relationship } = parsed.values;
+  if (role !== "family" && user.role !== "owner") {
+    return { errors: { role: "Only an owner can invite staff, members or owners. You can invite a family from an athlete's page." }, values: Object.fromEntries(formData.entries()) };
+  }
+
+  // Where to go afterwards: the athlete's page when the invite started
+  // there, the members list otherwise. Only a path inside this org.
+  const rawReturn = String(formData.get("returnTo") ?? "");
+  const returnTo = rawReturn.startsWith(`/org/${slug}/`) && !rawReturn.includes("//") ? rawReturn : `/org/${slug}/members`;
+  const done = (notice: string): never => {
+    revalidatePath(`/org/${slug}/members`);
+    if (athleteId) revalidatePath(`/org/${slug}/roster/${athleteId}`);
+    redirect(`${returnTo}?notice=${encodeURIComponent(notice)}`);
+  };
 
   // The athlete a family invite is for must be this org's. Read through
   // the caller's own client so RLS answers, not the admin client.
@@ -86,12 +102,11 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
         if (linked) {
           return { errors: { athleteId: `${email} is already linked to ${athleteName ?? "this athlete"}.` }, values: Object.fromEntries(formData.entries()) };
         }
-        const { error: guardianError } = await admin.from("athlete_guardians").insert({ org_id: org.id, athlete_id: athleteId, user_id: userId });
+        const { error: guardianError } = await admin.from("athlete_guardians").insert({ org_id: org.id, athlete_id: athleteId, user_id: userId, relationship: relationship ?? null });
         if (guardianError) {
           return { errors: { form: `Could not link ${email} to ${athleteName ?? "the athlete"}: ${guardianError.message}` }, values: Object.fromEntries(formData.entries()) };
         }
-        revalidatePath(`/org/${slug}/members`);
-        redirect(`/org/${slug}/members?notice=${encodeURIComponent(`${email} now sees ${athleteName ?? "that athlete"} as well.`)}`);
+        return done(`${email} now sees ${athleteName ?? "that athlete"} as well.`);
       }
       return { errors: { email: "Already a member of this organization." }, values: Object.fromEntries(formData.entries()) };
     }
@@ -118,15 +133,14 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   // membership because the database checks, in that order, that the
   // person is a member and the athlete is the org's.
   if (role === "family" && athleteId) {
-    const { error: guardianError } = await admin.from("athlete_guardians").insert({ org_id: org.id, athlete_id: athleteId, user_id: userId });
+    const { error: guardianError } = await admin.from("athlete_guardians").insert({ org_id: org.id, athlete_id: athleteId, user_id: userId, relationship: relationship ?? null });
     if (guardianError) {
       return { errors: { form: `${email} was added but could not be linked to ${athleteName ?? "the athlete"}: ${guardianError.message}` }, values: Object.fromEntries(formData.entries()) };
     }
     notice = `${notice} They will see ${athleteName ?? "their athlete"} and nothing else.`;
   }
 
-  revalidatePath(`/org/${slug}/members`);
-  redirect(`/org/${slug}/members?notice=${encodeURIComponent(notice)}`);
+  return done(notice);
 }
 
 export async function changeMemberRole(slug: string, userId: string, role: unknown): Promise<{ ok: boolean; error?: string }> {

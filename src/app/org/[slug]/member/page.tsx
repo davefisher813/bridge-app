@@ -28,8 +28,12 @@ export default async function MemberHomePage({ params }: { params: Promise<{ slu
   const budgetPercent = giving && giving.summary.totalBudgetCents > 0 ? Math.round((giving.summary.totalCashCents / giving.summary.totalBudgetCents) * 100) : null;
   const seat = org.modules.board_governance ? giving?.seat ?? null : null;
 
+  // An org without the board module has no seat to speak of, so the
+  // lede does not promise one.
+  const lede = org.modules.board_governance ? `The program, and your seat, for ${fiscalYear}` : "Where every athlete stands";
+
   return (
-    <Screen title={org.name} lede={`The program, and your seat, for ${fiscalYear}`}>
+    <Screen title={org.name} lede={lede}>
       <StatRow>
         <Stat value={program.length} label="Athletes" role="people" kind="athlete" />
         <Stat value={committed.length} label="Committed" role="committed" kind="stage_committed" />

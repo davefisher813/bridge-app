@@ -10,6 +10,7 @@ import { Grid2, SelectField, Stack, TextLink } from "@/components/kit";
 
 export interface MatchFilterValues {
   division?: string;
+  region?: string;
   state?: string;
   conference?: string;
   major?: string;
@@ -20,6 +21,7 @@ export interface MatchFilterValues {
 
 export interface MatchFilterOptions {
   divisions: string[];
+  regions: string[];
   states: string[];
   conferences: string[];
   majors: string[];
@@ -60,6 +62,14 @@ export function MatchFilters({ values, options }: { values: MatchFilterValues; o
           {options.divisions.map((d) => (
             <option key={d} value={d}>
               {d}
+            </option>
+          ))}
+        </SelectField>
+        <SelectField name="region" label="Region" value={values.region ?? ""} onChange={(e) => set("region", e.target.value)}>
+          <option value="">Any Region</option>
+          {options.regions.map((r) => (
+            <option key={r} value={r}>
+              {r}
             </option>
           ))}
         </SelectField>

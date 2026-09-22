@@ -8,7 +8,8 @@ import { ContactForm } from "@/components/ContactForm";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
-import { Body, Card, Chevron, ConfirmButton, EmptyState, Form, Label, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { RELATIONSHIPS } from "@/components/InviteForm";
 import { statusRole } from "@/components/statusHue";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
 import { loadFitsForAthlete } from "@/lib/data/fits";
@@ -54,6 +55,12 @@ interface SchoolRow {
   division: string;
 }
 
+interface GuardianRow {
+  user_id: string;
+  relationship: string | null;
+  users: { email: string; full_name: string | null } | { email: string; full_name: string | null }[] | null;
+}
+
 interface TargetRow {
   id: string;
   status: string;
@@ -71,8 +78,9 @@ function unwrap<T>(value: T | T[] | null): T | null {
 // it), Contacts (athlete-scoped), and Visits (aggregated from
 // target_visits across every target this athlete has), as sections on
 // one scrollable page.
-export default async function AthleteDetailPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
+export default async function AthletePage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ notice?: string }> }) {
   const { slug, id } = await params;
+  const { notice } = searchParams ? await searchParams : {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
@@ -101,6 +109,15 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
   ]);
 
   if (!athlete) notFound();
+
+  // The family logins linked to this athlete (migration 0023), with
+  // the person behind each. Staff invite one from here (Dave's pick,
+  // 2026-09-21); an owner can open the person under Members.
+  const { data: guardianRows } = await supabase.from("athlete_guardians").select("user_id, relationship, users(email, full_name)").eq("athlete_id", id).eq("org_id", org.id);
+  const family = ((guardianRows ?? []) as GuardianRow[])
+    .map((g) => ({ userId: g.user_id, relationship: g.relationship, person: unwrap(g.users) }))
+    .filter((g) => g.person?.email);
+  const relationshipLabel = (r: string | null) => RELATIONSHIPS.find((x) => x.value === r)?.label ?? (r ? r.charAt(0).toUpperCase() + r.slice(1) : "Family");
 
   // The current number for each metric the engine scores for the
   // position, from the same selection the score uses. A tile with no
@@ -147,6 +164,12 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
       lede={`${athlete.sport}${athlete.position ? ` · ${athlete.position}` : ""} · ${RECRUIT_TYPE_LABEL[athlete.recruit_type] ?? athlete.recruit_type}${athlete.gpa != null ? ` · ${Number(athlete.gpa).toFixed(2)} school GPA` : ""}`}
       action={canEdit ? <TextLink href={`/org/${slug}/roster/${id}/edit`}>Edit</TextLink> : undefined}
     >
+      {notice && (
+        <Notice tone="success" title="Done">
+          {notice}
+        </Notice>
+      )}
+
       <Card>
         <JourneyStepper result={journey} />
       </Card>
@@ -277,6 +300,31 @@ export default async function AthleteDetailPage({ params }: { params: Promise<{ 
           <div>
             <ContactForm action={contactAction} schools={schools} />
           </div>
+        )}
+      </Section>
+
+      <Section label="Family" count={family.length} role="people" kind="people">
+        {family.length === 0 ? (
+          <EmptyState kind="people" title="No Family Login Yet">
+            {canEdit ? "Invite the athlete first, then a parent or guardian. Each gets their own sign-in and sees this record, read only." : "Nobody in the family has a sign-in yet."}
+          </EmptyState>
+        ) : (
+          family.map((g) => (
+            <Row
+              key={g.userId}
+              href={user.role === "owner" ? `/org/${slug}/members/${g.userId}` : undefined}
+              leading={<Avatar name={g.person!.full_name || g.person!.email} />}
+              title={g.person!.full_name || g.person!.email}
+              meta={`${relationshipLabel(g.relationship)} · ${g.person!.email}`}
+              trailing={user.role === "owner" ? <Chevron /> : undefined}
+              wrap
+            />
+          ))
+        )}
+        {canEdit && (
+          <LinkButton href={`/org/${slug}/roster/${id}/family/new`} variant="secondary">
+            Invite Family
+          </LinkButton>
         )}
       </Section>
 

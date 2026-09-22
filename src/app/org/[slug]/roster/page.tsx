@@ -4,6 +4,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
 import { AddButton, Avatar, Body, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
+import { SearchField } from "@/components/SearchField";
 
 interface AthleteRow {
   id: string;
@@ -23,8 +24,9 @@ const RECRUIT_TYPE_LABEL: Record<string, string> = {
 };
 
 // The roster. Staff and owners add and edit; members read.
-export default async function RosterPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function RosterPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string }> }) {
   const { slug } = await params;
+  const q = (searchParams ? (await searchParams).q : "")?.trim().toLowerCase() ?? "";
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
@@ -39,14 +41,18 @@ export default async function RosterPage({ params }: { params: Promise<{ slug: s
     .is("deleted_at", null)
     .order("name");
 
-  const rows = (athletes ?? []) as AthleteRow[];
+  const all = (athletes ?? []) as AthleteRow[];
+  // Name, sport or position. Filtered here rather than in the query so
+  // the list, the count and the empty state agree with each other.
+  const rows = q ? all.filter((a) => `${a.name} ${a.sport} ${a.position ?? ""}`.toLowerCase().includes(q)) : all;
 
   return (
     <Screen title="Athletes" action={canEdit ? <AddButton href={`/org/${slug}/roster/new`} label="Add" /> : undefined}>
+      {all.length > 5 && <SearchField initial={q} placeholder="A name, a sport or a position" />}
       <Section label="Roster" count={rows.length} role="people" kind="athlete">
         {rows.length === 0 ? (
-          <EmptyState kind="athlete" title="No Athletes Yet">
-            {canEdit ? "Add the first one below." : "Ask an owner or coordinator to add one."}
+          <EmptyState kind="athlete" title={q ? "Nobody Matches" : "No Athletes Yet"}>
+            {q ? "Try a shorter name, or clear the search." : canEdit ? "Add the first one below." : "Ask an owner or coordinator to add one."}
           </EmptyState>
         ) : (
           rows.map((a) => (

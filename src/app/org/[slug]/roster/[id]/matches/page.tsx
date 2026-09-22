@@ -17,6 +17,7 @@ import { loadFitsForAthlete } from "@/lib/data/fits";
 import { MatchFilters, type MatchFilterValues } from "@/components/MatchFilters";
 import { StatusPill } from "@/components/StatusPill";
 import { PROGRAM_TIERS } from "@/lib/fit/contract";
+import { regionOf } from "@/lib/fit/regions";
 import type { FitTag } from "@/lib/fit/types";
 import { Body, Button, EmptyState, Form, Label, Notice, Row, Score, Screen, Section, Stack, TextLink } from "@/components/kit";
 
@@ -75,6 +76,7 @@ export default async function MatchesPage({
 
   const filters: MatchFilterValues = {
     division: pick(sp.division),
+    region: pick(sp.region),
     state: pick(sp.state),
     conference: pick(sp.conference),
     major: pick(sp.major),
@@ -102,6 +104,7 @@ export default async function MatchesPage({
   const shown = all.filter((f) => {
     const s = facts.get(f.school_id);
     if (filters.division && s?.division !== filters.division) return false;
+    if (filters.region && regionOf(s?.state) !== filters.region) return false;
     if (filters.state && s?.state !== filters.state) return false;
     if (filters.conference && s?.conference !== filters.conference) return false;
     if (filters.major && !(s?.majors ?? []).some((m) => m.toLowerCase() === filters.major!.toLowerCase())) return false;
@@ -120,6 +123,7 @@ export default async function MatchesPage({
   const uniq = (xs: (string | null | undefined)[]) => [...new Set(xs.filter((x): x is string => !!x))].sort();
   const options = {
     divisions: uniq(all.map((f) => facts.get(f.school_id)?.division)),
+    regions: uniq(all.map((f) => regionOf(facts.get(f.school_id)?.state))),
     states: uniq(all.map((f) => facts.get(f.school_id)?.state)),
     conferences: uniq(all.map((f) => facts.get(f.school_id)?.conference)),
     majors: uniq(all.flatMap((f) => facts.get(f.school_id)?.majors ?? [])),

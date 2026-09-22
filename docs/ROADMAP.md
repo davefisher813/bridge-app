@@ -367,16 +367,31 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
 
 ## Next up after matching
 
-1. **Invite Family from the athlete's page** (Dave's pick, 2026-09-21).
-   The family role and its screens shipped the same day; the invite is
-   under Members with an athlete picker until the button on the athlete
-   exists. Then the first real family: the athlete, then a parent.
+1. ~~Invite Family from the athlete's page~~ Done 2026-09-22: staff
+   invite, the athlete is pinned, the relationship is recorded, the
+   invite returns to the athlete.
 2. **Strike percentage and the grade weights** are interpretations
    marked in the contract. Revisit after Dave has scored a few real
    athletes and can say whether a 63% target and the 50/40/25 blends
    read right.
-3. **Transfer windows entry**, owner-only, so a transfer's timing stops
-   reading "unverified".
-4. **Region as a filter.** The matches screen filters by state today;
-   "state or region" was the pick, and a region needs a state-to-region
-   table.
+3. ~~Transfer windows entry~~ Done 2026-09-22, owner-only under More,
+   Reference, with a required source URL. The rows themselves still
+   have to be entered from an NCAA-published page.
+4. ~~Region as a filter~~ Done 2026-09-22: seven regions derived from
+   the school's state, next to the state filter.
+
+## Next up, 2026-09-22
+
+1. **The first real data.** Dave's school sheet through the CSV
+   import, the current transfer windows from an NCAA page, a first
+   metric, a first real family login and a first real board login.
+2. **Search on the rest.** Targets, Documents, Gifts and Donors, on the
+   same pattern as the roster, when a list there passes five rows.
+3. **Cleanup pass, no behaviour change** (unchanged from above): one
+   page loader, `cache()` on the org and user lookups, one icons file,
+   split `documents.ts`.
+4. **Dependency bumps.** `@supabase/ssr` 0.5 to 0.12, `zod` 3 to 4.
+5. **A row that stacks its trailing under its body** below about 300px
+   of layout width, which is Safari at 150% page zoom.
+6. **A unique constraint on a transfer window**, replacing the
+   duplicate check in the action.

@@ -10,12 +10,14 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { AddButton, Body, EmptyState, LinkButton, Notice, Row, Screen, Section, Stack } from "@/components/kit";
+import { SearchField } from "@/components/SearchField";
 
 export const dynamic = "force-dynamic";
 
-export default async function SchoolsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ imported?: string }> }) {
+export default async function SchoolsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ imported?: string; q?: string }> }) {
   const { slug } = await params;
-  const { imported } = await searchParams;
+  const { imported, q: rawQ } = await searchParams;
+  const q = (rawQ ?? "").trim().toLowerCase();
   const importedCount = imported ? Number(imported) : 0;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
@@ -28,7 +30,10 @@ export default async function SchoolsPage({ params, searchParams }: { params: Pr
     supabase.from("recruiting_targets").select("school_id, status").eq("org_id", org.id),
   ]);
 
-  const schools = (schoolRows ?? []) as Array<{ id: string; name: string; division: string | null; conference: string | null }>;
+  const allSchools = (schoolRows ?? []) as Array<{ id: string; name: string; division: string | null; conference: string | null }>;
+  // Name, division or conference. The hundreds of schools a real import
+  // brings in need a way to find one.
+  const schools = q ? allSchools.filter((s) => `${s.name} ${s.division ?? ""} ${s.conference ?? ""}`.toLowerCase().includes(q)) : allSchools;
   const targets = (targetRows ?? []) as Array<{ school_id: string; status: string }>;
 
   const countBySchool = new Map<string, number>();
@@ -64,9 +69,10 @@ export default async function SchoolsPage({ params, searchParams }: { params: Pr
           Every athlete on the roster has been scored against them. Open one to check the numbers landed.
         </Notice>
       )}
+      {allSchools.length > 5 && <SearchField initial={q} placeholder="A school, a division or a conference" />}
       {schools.length === 0 ? (
-        <EmptyState kind="school" title="No Schools Yet">
-          {isOwner ? "Add the first one below." : "An owner adds schools, because the list is shared across every organization."}
+        <EmptyState kind="school" title={q ? "No School Matches" : "No Schools Yet"}>
+          {q ? "Try part of the name, or clear the search." : isOwner ? "Add the first one below." : "An owner adds schools, because the list is shared across every organization."}
         </EmptyState>
       ) : (
         <>
