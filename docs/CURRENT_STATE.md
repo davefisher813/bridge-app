@@ -404,7 +404,8 @@ that made a long list unusable.
 1. Dave exports his school sheet to the template and imports it, then
    logs a first metric and reads a real match. The three interpreted
    numbers (strike target, grade weights, preset weights) get revisited
-   on what he sees.
+   on what he sees. Nothing else in the app is waiting on code: every
+   screen it needs exists and is verified against the fixture.
 2. Dave's page-by-page audit of the new screens on his phone.
 3. The first real family (the athlete first, then a parent or legal
    guardian) and the first real board login, each from the athlete's
