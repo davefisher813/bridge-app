@@ -1,17 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "e4083bf",
-  "commitFull": "e4083bfc340de07df2c901a92721f2cbfd909e25",
+  "commit": "0abc76d",
+  "commitFull": "0abc76df930f63a2c2a577261f1926b2f0f6d59e",
   "branch": "main",
-  "remoteBranches": [
-    "origin/main"
-  ],
-  "shipped": true,
-  "dirty": true,
-  "onMain": true,
-  "startedAt": "2026-09-25T19:58:30.064Z",
-  "durationMs": 15431,
+  "remoteBranches": [],
+  "shipped": false,
+  "dirty": false,
+  "onMain": false,
+  "startedAt": "2026-09-25T19:58:55.236Z",
+  "durationMs": 14264,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -113,7 +111,7 @@
             "location": "/login"
           }
         },
-        "ms": 1171
+        "ms": 1249
       },
       "errors": [],
       "warnings": [],
@@ -129,8 +127,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 52,
-      "filesScanned": 399
+      "touchedFiles": 53,
+      "filesScanned": 400
     },
     {
       "name": "types",
