@@ -263,3 +263,58 @@ describe("LAW: the fake client's filters match PostgREST's meaning", () => {
     expect((data as { id: string }[]).map((r) => r.id)).toEqual(["s2"]);
   });
 });
+
+// A value exported from a "use client" module is a client reference when
+// a server component imports it, not the value. On 2026-09-22 the
+// athlete page imported a plain array of relationship labels from the
+// invite form and called .find() on it: every test passed, the preview
+// rendered, and the real screen threw "RELATIONSHIPS.find is not a
+// function" for anyone who opened an athlete. The render harness cannot
+// see this, because vitest resolves the module the ordinary way and
+// there is no client boundary in it. Only a static check can.
+describe("LAW: a server file never imports a plain value from a client module", () => {
+  const CLIENT = new Set(
+    walk(SRC)
+      .filter((f) => /\.tsx?$/.test(f))
+      .filter((f) => /^\s*(?:"use client"|'use client')/.test(readFileSync(f, "utf8"))),
+  );
+
+  // A component is fine: React ships it across the boundary. Anything
+  // else (an array, a map, a function, a constant) is not. A component
+  // is CamelCase, so a SHOUTING_CONSTANT is caught even though it also
+  // starts with a capital, which is exactly the shape that broke the
+  // athlete page. A constant named like a component would slip through;
+  // nothing better than a naming rule exists without type information.
+  const looksLikeComponent = (name: string) => /^[A-Z]/.test(name) && /[a-z]/.test(name);
+
+  it("found the client modules", () => {
+    expect(CLIENT.size).toBeGreaterThan(3);
+  });
+
+  it("no server file imports a non-component export from one", () => {
+    const offenders: string[] = [];
+    for (const f of walk(SRC).filter((x) => /\.tsx?$/.test(x))) {
+      if (CLIENT.has(f)) continue;
+      if (/\.test\.tsx?$/.test(f)) continue;
+      const src = readFileSync(f, "utf8");
+      for (const m of src.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+"([^"]+)"/g)) {
+        const spec = m[2]!;
+        if (!spec.startsWith("@/")) continue;
+        const rel = spec.slice(2);
+        const target = [join(SRC, `${rel}.tsx`), join(SRC, `${rel}.ts`), join(SRC, rel, "index.tsx"), join(SRC, rel, "index.ts")].find((p) => CLIENT.has(p));
+        if (!target) continue;
+        // `import type` is erased at build time, so it never reaches the
+        // boundary. Anything else in the braces has to be a component.
+        if (/^import\s+type\s/.test(m[0])) continue;
+        for (const namedRaw of m[1]!.split(",")) {
+          const named = namedRaw.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0]!.trim();
+          if (!named) continue;
+          if (namedRaw.trim().startsWith("type ")) continue;
+          if (looksLikeComponent(named)) continue;
+          offenders.push(`${f.slice(ROOT.length + 1)} imports ${named} from the client module ${spec}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});

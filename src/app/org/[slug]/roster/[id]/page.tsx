@@ -9,7 +9,7 @@ import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
 import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
-import { RELATIONSHIPS } from "@/components/InviteForm";
+import { relationshipLabel } from "@/lib/copy/relationships";
 import { statusRole } from "@/components/statusHue";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
 import { loadFitsForAthlete } from "@/lib/data/fits";
@@ -117,7 +117,6 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const family = ((guardianRows ?? []) as GuardianRow[])
     .map((g) => ({ userId: g.user_id, relationship: g.relationship, person: unwrap(g.users) }))
     .filter((g) => g.person?.email);
-  const relationshipLabel = (r: string | null) => RELATIONSHIPS.find((x) => x.value === r)?.label ?? (r ? r.charAt(0).toUpperCase() + r.slice(1) : "Family");
 
   // The current number for each metric the engine scores for the
   // position, from the same selection the score uses. A tile with no

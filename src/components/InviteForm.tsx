@@ -6,6 +6,7 @@ import type { RoleLabels } from "@/lib/org/roleLabels";
 import { labelForRole } from "@/lib/org/roleLabels";
 import { ORG_ROLES } from "@/lib/validation/member";
 import { Button, Field, Form, Hidden, SelectField } from "@/components/kit";
+import { RELATIONSHIPS } from "@/lib/copy/relationships";
 
 type ServerAction = (prevState: MemberActionState, formData: FormData) => Promise<MemberActionState>;
 
@@ -19,14 +20,6 @@ export interface InviteAthleteOption {
 // The roles an owner can hand out here. Family is offered only when the
 // org has athletes to link a family to: a family login without an
 // athlete is a login to an empty screen, and the action refuses it.
-// Parent, guardian, self: what a family login is to the athlete. Display
-// only, shown on their rows.
-export const RELATIONSHIPS: { value: string; label: string }[] = [
-  { value: "parent", label: "Parent" },
-  { value: "guardian", label: "Guardian" },
-  { value: "self", label: "The Athlete" },
-  { value: "other", label: "Other" },
-];
 
 // `pinned` is the Invite Family screen on an athlete's page (Dave's
 // pick, 2026-09-21): the role is family and the athlete is this one, so
