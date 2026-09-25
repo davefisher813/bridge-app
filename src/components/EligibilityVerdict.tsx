@@ -61,15 +61,18 @@ export function VerdictCard({ status, headline, children }: { status: Eligibilit
 // next to an NCAA heading is how a family gets told their kid is fine
 // when he is not, so the core figure never appears without its
 // counterpart and the sentence explaining why they differ.
-export function GpaPair({ coreGpa, transcriptGpa, needed }: { coreGpa: number | null; transcriptGpa: number | null; needed: number | null }) {
+// Both numbers are read off the courses, so both cards open the
+// transcript they are read from (Dave, 2026-09-25: everything that
+// should be tappable is).
+export function GpaPair({ coreGpa, transcriptGpa, needed, transcriptHref }: { coreGpa: number | null; transcriptGpa: number | null; needed: number | null; transcriptHref?: string }) {
   return (
     <Grid2>
-      <Card>
+      <Card href={transcriptHref}>
         <Label caps>NCAA core</Label>
         <Figure>{coreGpa === null ? "?" : coreGpa.toFixed(2)}</Figure>
         <Label>{needed === null ? "no NCAA standard" : `needs ${needed} to compete`}</Label>
       </Card>
-      <Card>
+      <Card href={transcriptHref}>
         <Label caps>Transcript</Label>
         <Figure>{transcriptGpa === null ? "None" : transcriptGpa.toFixed(2)}</Figure>
         <Label>what the school reports</Label>
@@ -78,15 +81,15 @@ export function GpaPair({ coreGpa, transcriptGpa, needed }: { coreGpa: number | 
   );
 }
 
-export function SubjectRow({ label, credits, gpa, role }: { label: string; credits: string; gpa: string; role: "committed" | "offer" | "target" }) {
+export function SubjectRow({ label, credits, gpa, role, href }: { label: string; credits: string; gpa: string; role: "committed" | "offer" | "target"; href?: string }) {
   const kind: RowKind = role === "committed" ? "check" : role === "offer" ? "warning" : "stage_none";
-  return <Row kind={kind} role={role} title={label} meta={credits} trailing={<Body weight="bold" numeric>{gpa}</Body>} />;
+  return <Row href={href} kind={kind} role={role} title={label} meta={credits} trailing={<Body weight="bold" numeric>{gpa}</Body>} />;
 }
 
 // A sentence or two on paper: a caveat, a reason, an explanation.
 export function Note({ title, children }: { title?: ReactNode; children?: ReactNode }) {
   return (
-    <Card>
+    <Card isStatic>
       {title && <Body weight="bold">{title}</Body>}
       {children && <Label>{children}</Label>}
     </Card>

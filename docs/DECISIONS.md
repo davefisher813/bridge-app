@@ -2684,3 +2684,31 @@ suite exercises the same grants production has. An assertion in
 `scripts/rls_test.sql` fails if an anonymous caller can execute any of
 the three, or if a signed-in caller cannot. The remaining linter
 warning, that a signed-in person can call them, is the design.
+
+## 2026-09-25: a record opens, a sentence does not
+
+**Decision.** Every kit row, card and stat tile that stands for a
+record links to that record's screen. A tile counts something and opens
+the list it counts. An empty state carries the button that fills it. A
+sentence on paper (a caveat, a reason, an explanation) stays still, and
+says so in code: `Card` takes `isStatic`, and the kit tags the other
+three with `data-kit` so a browser can tell them apart.
+
+**Reason.** Dave, from his phone: "I can't click on anything pretty
+much ... virtually anything should be clickable." Driving the app found
+234 rows, cards and tiles that went nowhere. It also found the athlete
+screen throwing outright, and a link inside a link.
+
+**Alternatives.** Linking literally everything (rejected: a caveat that
+navigates is a trap, and a tile that opens the screen it is already on
+is noise). A hand-written list of what may stay static (rejected for
+the general case: 50 entries nobody would maintain; a per-screen count
+in `qa/clickable-baseline.json` that may only go down does the same job
+and needs no upkeep).
+
+**Consequences.** `Stat` takes an href. Targets filters by `?status=`
+and `?athlete=`, so a tile and a stage line have somewhere to land.
+Three browser checks run from `scripts/live/check.sh`: the edge driver,
+the clickability baseline, and a link follower that opens every link as
+the login that saw it. The driver also fails on a tap target inside
+another, which is what the Edit link inside a row had become.

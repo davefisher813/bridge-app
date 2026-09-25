@@ -67,7 +67,7 @@ export default async function BoardPage({
       back={{ href: `/org/${slug}/board-governance`, label: "Boards" }} lede={`${formatMoneyShort(board.giveGetCents)} give/get per seat`}
       action={canEdit && !summary.atCapacity ? <AddButton href={`/org/${slug}/board-governance/${board.id}/seats/new`} label="Add" /> : undefined}
     >
-      <Card>
+      <Card href={`/org/${slug}/board-governance/members`}>
         <Stack gap={2}>
           <div className="flex items-start justify-between gap-3">
             <Body weight="bold">
@@ -88,7 +88,15 @@ export default async function BoardPage({
       {summary.belowMinimum && <Notice tone="warning" title={`Below the Floor of ${board.minSeats} ${board.minSeats === 1 ? "Seat" : "Seats"}`} />}
 
       <Section label="Seats" count={ordered.length} role="contact" kind="people">
-        {ordered.length === 0 && <EmptyState kind="people" title="No Seats on This Board Yet" />}
+        {ordered.length === 0 && (
+          <EmptyState
+            kind="people"
+            title="No Seats on This Board Yet"
+            action={canEdit ? <LinkButton href={`/org/${slug}/board-governance/${board.id}/seats/new`}>Add the First Seat</LinkButton> : undefined}
+          >
+            A seat is one person and what they committed for the year.
+          </EmptyState>
+        )}
         {ordered.map((m) => {
           const p = view.progressByMember.get(m.id);
           // The percentage is only worth printing if it can be opened.

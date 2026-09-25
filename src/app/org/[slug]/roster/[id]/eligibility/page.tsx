@@ -65,6 +65,9 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   const std = eligibility.division ? DIVISION_STANDARDS[eligibility.division] : null;
   const back = { href: athleteHome(slug, id, user.role), label: athlete.name };
   const here = `${athleteHome(slug, id, user.role)}/eligibility`;
+  // Every GPA and every subject total is read off the courses, so each
+  // of them opens the transcript it was read from.
+  const transcriptHref = `${athleteHome(slug, id, user.role)}/transcript`;
   const transcriptGpa = athlete.gpa === null || athlete.gpa === undefined ? null : Number(athlete.gpa);
 
   const uploader = canUpload && (
@@ -83,7 +86,11 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   if (!division) {
     return (
       <Screen title="NCAA Eligibility" back={back}>
-        <EmptyState kind="school" title="No Target Schools Yet">
+        <EmptyState
+          kind="school"
+          title="No Target Schools Yet"
+          action={user.role === "family" ? undefined : <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton>}
+        >
           Initial eligibility depends on where an athlete is going, not on the athlete. Add a target school and this starts calculating
           against that division.
         </EmptyState>
@@ -126,6 +133,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
             <Note key={i}>{r}</Note>
           ))}
           <Row
+            href={transcriptHref}
             kind="scale"
             role="contact"
             title="Transcript GPA"
@@ -140,7 +148,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
       ) : (
         <>
           <Stack>
-            <GpaPair coreGpa={eligibility.coreGpa?.gpa ?? null} transcriptGpa={transcriptGpa} needed={std?.qualifierGpa ?? null} />
+            <GpaPair coreGpa={eligibility.coreGpa?.gpa ?? null} transcriptGpa={transcriptGpa} needed={std?.qualifierGpa ?? null} transcriptHref={transcriptHref} />
             {eligibility.coreGpa?.gpa != null && (
               <Note>
                 These are meant to be different. The core GPA counts only NCAA-approved core courses and uses A=4, B=3, with no plus or
@@ -270,6 +278,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
                     credits={`${credits.toFixed(2)} of ${min} credits`}
                     gpa={subjectGpa.toFixed(2)}
                     role={credits >= min ? "committed" : "offer"}
+                    href={transcriptHref}
                   />
                 );
               })}

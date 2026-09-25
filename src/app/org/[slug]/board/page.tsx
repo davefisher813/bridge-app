@@ -15,7 +15,7 @@ import {
 } from "@/lib/data/fitAdapters";
 import { loadFitsForPairs, rowToFit } from "@/lib/data/fits";
 import type { FitTag } from "@/lib/fit/types";
-import { AddButton, EmptyState, Label, LinkButton, Row, Score, Screen, Section } from "@/components/kit";
+import { AddButton, EmptyState, Label, LinkButton, Row, Score, Screen, Section, TextLink } from "@/components/kit";
 import { SearchField } from "@/components/SearchField";
 import { stageKind, statusRole } from "@/components/statusHue";
 
@@ -55,9 +55,14 @@ function unwrap<T>(value: T | T[] | null): T | null {
 // src/lib/fit/ rather than stored - a school's profile or an athlete's
 // GPA can change after the target was created, and the tag should never
 // go stale the way Bridge's original stored-tag approach could.
-export default async function BoardPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string }> }) {
+export default async function BoardPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string; status?: string; athlete?: string }> }) {
   const { slug } = await params;
-  const q = (searchParams ? (await searchParams).q : "")?.trim().toLowerCase() ?? "";
+  const sp = searchParams ? await searchParams : {};
+  const q = sp.q?.trim().toLowerCase() ?? "";
+  // A stage from Today's tiles, or one athlete from their page. Both
+  // land here rather than on a list that ignores what was tapped.
+  const status = (STATUS_ORDER as readonly string[]).includes(sp.status ?? "") ? sp.status! : "";
+  const athleteId = sp.athlete?.trim() ?? "";
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
@@ -120,13 +125,15 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
       const stored = fits.get(`${athlete.id}:${school.id}`);
       const fit = stored ? { ...rowToFit(stored), signals } : null;
 
-      return { id: t.id, status: t.status, coachName: t.coach_name, athleteName: athlete.name, athleteSport: athlete.sport, schoolName: school.name, schoolDivision: school.division, fit };
+      return { id: t.id, athleteId: athlete.id, status: t.status, coachName: t.coach_name, athleteName: athlete.name, athleteSport: athlete.sport, schoolName: school.name, schoolDivision: school.division, fit };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
 
   // Athlete, school, sport or coach. Filtered here rather than in the
   // query so the groups, the counts and the empty state agree.
-  const shown = q ? rows.filter((r) => `${r.athleteName} ${r.schoolName} ${r.athleteSport} ${r.coachName ?? ""}`.toLowerCase().includes(q)) : rows;
+  const searched = q ? rows.filter((r) => `${r.athleteName} ${r.schoolName} ${r.athleteSport} ${r.coachName ?? ""}`.toLowerCase().includes(q)) : rows;
+  const shown = searched.filter((r) => (!status || r.status === status) && (!athleteId || r.athleteId === athleteId));
+  const narrowedBy = [status ? status : null, athleteId ? (rows.find((r) => r.athleteId === athleteId)?.athleteName ?? "one athlete") : null].filter(Boolean).join(" · ");
 
   const grouped: { status: string; rows: typeof rows }[] = STATUS_ORDER.map((status) => ({ status, rows: shown.filter((r) => r.status === status) })).filter(
     (g) => g.rows.length > 0
@@ -136,12 +143,17 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
   if (unknownStatusRows.length > 0) grouped.push({ status: "Other", rows: unknownStatusRows });
 
   return (
-    <Screen title="Targets" action={canEdit ? <AddButton href={`/org/${slug}/board/new`} label="Add" /> : undefined}>
+    <Screen
+      title="Targets"
+      lede={narrowedBy ? `${shown.length} of ${rows.length}, ${narrowedBy}` : undefined}
+      action={canEdit ? <AddButton href={`/org/${slug}/board/new`} label="Add" /> : undefined}
+    >
+      {narrowedBy && <TextLink href={`/org/${slug}/board`}>Show Every Target</TextLink>}
       {(rows.length > 5 || q) && <SearchField initial={q} placeholder="An athlete, a school, a sport or a coach" />}
       {shown.length === 0 ? (
         <>
-          <EmptyState kind="target" title={q ? "Nothing Matches" : "No Recruiting Targets Yet"} action={!q && canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>}>
-            {q ? "Try a shorter name, or clear the search." : canEdit ? "A target is one athlete pointed at one school." : "Ask an owner or coordinator to add one."}
+          <EmptyState kind="target" title={q || narrowedBy ? "Nothing Matches" : "No Recruiting Targets Yet"} action={!q && canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>}>
+            {q ? "Try a shorter name, or clear the search." : narrowedBy ? "Nothing here at this stage. Show every target to see the rest." : canEdit ? "A target is one athlete pointed at one school." : "Ask an owner or coordinator to add one."}
           </EmptyState>
         </>
       ) : (

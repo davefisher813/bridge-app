@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { getCurrentUser, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
-import { Body, Card, EmptyState, Label, Meter, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { Body, Card, EmptyState, Label, LinkButton, Meter, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { statusRole } from "@/components/statusHue";
 import { formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
@@ -174,9 +174,10 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
     <Screen title={`Good morning, ${firstName}.`}>
       <Stack gap={3}>
         <StatRow>
-          <Stat value={athleteCount ?? 0} label="Athletes" kind="athlete" />
-          <Stat value={inContactCount} label="In Contact" role="contact" kind="stage_contact" />
-          <Stat value={committedCount} label="Committed" role="committed" kind="stage_committed" />
+          {/* Each tile opens what it counts. Dave, 2026-09-25. */}
+          <Stat value={athleteCount ?? 0} label="Athletes" kind="athlete" href={`/org/${slug}/roster`} />
+          <Stat value={inContactCount} label="In Contact" role="contact" kind="stage_contact" href={`/org/${slug}/board?status=${encodeURIComponent("In Contact")}`} />
+          <Stat value={committedCount} label="Committed" role="committed" kind="stage_committed" href={`/org/${slug}/board?status=Committed`} />
         </StatRow>
         {totalTargets > 0 && (
           <Meter
@@ -206,7 +207,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
       <Section label="Needs Follow-Up" count={needsFollowUp.length} action={needsFollowUp.length > 0 ? <TextLink href={`/org/${slug}/board`}>View Board</TextLink> : undefined}>
         {needsFollowUp.length === 0 ? (
-          <EmptyState kind="check" role="committed" title="Nothing Needs a Follow-Up">
+          <EmptyState kind="check" role="committed" title="Nothing Needs a Follow-Up" action={<LinkButton href={`/org/${slug}/board`}>Open Targets</LinkButton>}>
             Every open target has been touched recently.
           </EmptyState>
         ) : (
@@ -227,8 +228,8 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
       <Section label="Upcoming" count={upcomingVisits.length + upcomingWindows.length} role="visit" kind="clock">
         {upcomingVisits.length === 0 && upcomingWindows.length === 0 ? (
-          <EmptyState kind="clock" title="Nothing Scheduled">
-            No visits or portal windows in the next 60 days.
+          <EmptyState kind="clock" title="Nothing Scheduled" action={<LinkButton href={`/org/${slug}/board`}>Open Targets</LinkButton>}>
+            No visits or portal windows in the next 60 days. A visit is logged on a target.
           </EmptyState>
         ) : (
           <>
@@ -245,6 +246,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
             {upcomingWindows.map((w) => (
               <Row
                 key={`${w.sport}-${w.division}-${w.window_label}`}
+                href={`/org/${slug}/transfer-windows`}
                 kind="clock"
                 role="time"
                 title="Transfer Portal Opens"
@@ -258,7 +260,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       {org.modules.donor_fundraising && (
         <Section label="Program Overview" role="committed" kind="money">
           {fundraising === null ? (
-            <EmptyState kind="money" title="Nothing Recorded Yet">
+            <EmptyState kind="money" title="Nothing Recorded Yet" action={<LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Record the First Gift</LinkButton>}>
               Record the first gift and this starts reporting against your categories.
             </EmptyState>
           ) : (

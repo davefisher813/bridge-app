@@ -35,10 +35,10 @@ export default async function MemberHomePage({ params }: { params: Promise<{ slu
   return (
     <Screen title={org.name} lede={lede}>
       <StatRow>
-        <Stat value={program.length} label="Athletes" role="people" kind="athlete" />
-        <Stat value={committed.length} label="Committed" role="committed" kind="stage_committed" />
-        <Stat value={offers} label="Offers" role="offer" kind="stage_offer" />
-        {budgetPercent !== null && <Stat value={`${budgetPercent}%`} label="Of Budget" role="high" kind="money" />}
+        <Stat value={program.length} label="Athletes" role="people" kind="athlete" href={`${base}/program`} />
+        <Stat value={committed.length} label="Committed" role="committed" kind="stage_committed" href={`${base}/program`} />
+        <Stat value={offers} label="Offers" role="offer" kind="stage_offer" href={`${base}/program`} />
+        {budgetPercent !== null && <Stat value={`${budgetPercent}%`} label="Of Budget" role="high" kind="money" href={`${base}/giving`} />}
       </StatRow>
 
       <Section label="The Program" count={program.length} role="people" kind="athlete">

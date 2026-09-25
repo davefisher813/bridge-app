@@ -69,6 +69,7 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
       {canEdit && (
         <Section label="Document Reading" role="contact" kind="document">
           <Row
+            href={`/org/${slug}/documents`}
             kind="money"
             role={spend.exhausted ? "danger" : "contact"}
             title="This Month"

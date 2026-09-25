@@ -169,7 +169,9 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         </Notice>
       )}
 
-      <Card>
+      {/* The stage line opens this athlete's targets, which is what it
+          is a summary of. Dave, 2026-09-25. */}
+      <Card href={`/org/${slug}/board?athlete=${id}`}>
         <JourneyStepper result={journey} />
       </Card>
 
@@ -181,7 +183,13 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
       {tiles.length > 0 && (
         <StatRow>
           {tiles.map((m) => (
-            <Stat key={m.key} value={scoring.measurables[m.key] !== undefined ? formatMetricValue(m.key, scoring.measurables[m.key]) : "None"} label={m.label} role="contact" />
+            <Stat
+              key={m.key}
+              value={scoring.measurables[m.key] !== undefined ? formatMetricValue(m.key, scoring.measurables[m.key]) : "None"}
+              label={m.label}
+              role="contact"
+              href={`/org/${slug}/roster/${id}/metrics`}
+            />
           ))}
         </StatRow>
       )}
@@ -195,12 +203,17 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           meta={metrics.length === 0 ? "Nothing logged yet" : `${metrics.length} logged · last on ${longDate(lastLogged)}`}
           trailing={<Chevron />}
         />
+        {/* The whole row opens the edit screen, so there is no second
+            link inside it: an anchor inside an anchor is invalid HTML,
+            React refuses to hydrate it, and the tap lands on whichever
+            of the two the finger happened to cover. */}
         <Row
+          href={canEdit ? `/org/${slug}/roster/${id}/edit` : undefined}
           kind="flag"
           role="committed"
           title="Goal and Budget"
           meta={`${goal} · ${budgetCents ? `${money(budgetCents / 100)} a year` : "No family budget"}${athlete.home_state ? ` · ${athlete.home_state}` : ""}`}
-          trailing={canEdit ? <TextLink href={`/org/${slug}/roster/${id}/edit`}>Edit</TextLink> : undefined}
+          trailing={canEdit ? <Chevron /> : undefined}
         />
       </Stack>
 
@@ -212,8 +225,8 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         action={fits.length > 5 ? <TextLink href={`/org/${slug}/roster/${id}/matches`}>See All</TextLink> : undefined}
       >
         {fits.length === 0 ? (
-          <EmptyState kind="target" title="No Matches Yet">
-            {canEdit ? "Save the athlete once and every school on file is scored." : "Every school on file is scored once the record is saved."}
+          <EmptyState kind="target" title="No Matches Yet" action={canEdit ? <LinkButton href={`/org/${slug}/schools`}>Open Schools</LinkButton> : undefined}>
+            {canEdit ? "Save the athlete once and every school on file is scored. With no schools on file there is nothing to score against." : "Every school on file is scored once the record is saved."}
           </EmptyState>
         ) : (
           <>
@@ -245,8 +258,8 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
       <Section label="Colleges" count={targets.length} role="place" kind="school">
         {targets.length === 0 ? (
-          <EmptyState kind="school" title="No Colleges Yet">
-            Add a target from the board to start tracking one.
+          <EmptyState kind="school" title="No Colleges Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton> : undefined}>
+            A college becomes a target from this athlete's matches.
           </EmptyState>
         ) : (
           targets.map((t) => (
@@ -266,7 +279,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
       <Section label="Contacts" count={contacts.length} role="people" kind="people">
         {contacts.length === 0 ? (
           <EmptyState kind="people" title="No Contacts Yet">
-            Coaches, parents and advisors for this athlete live here.
+            Coaches, parents and advisors for this athlete live here. {canEdit ? "Add the first one below." : ""}
           </EmptyState>
         ) : (
           contacts.map((c) => (
@@ -277,9 +290,9 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
                   <Label>{CONTACT_ROLE_LABEL[c.role] ?? c.role}</Label>
                   {(c.email || c.phone) && (
                     <Label>
-                      {c.email}
+                      {c.email && <TextLink href={`mailto:${c.email}`}>{c.email}</TextLink>}
                       {c.email && c.phone ? " · " : ""}
-                      {c.phone}
+                      {c.phone && <TextLink href={`tel:${c.phone.replace(/[^0-9+]/g, "")}`}>{c.phone}</TextLink>}
                     </Label>
                   )}
                   {c.notes && <Label>{c.notes}</Label>}
@@ -304,7 +317,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
       <Section label="Family" count={family.length} role="people" kind="people">
         {family.length === 0 ? (
-          <EmptyState kind="people" title="No Family Login Yet">
+          <EmptyState kind="people" title="No Family Login Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/family/new`}>Invite Family</LinkButton> : undefined}>
             {canEdit ? "Invite the athlete first, then a parent or guardian. Each gets their own sign-in and sees this record, read only." : "Nobody in the family has a sign-in yet."}
           </EmptyState>
         ) : (
@@ -329,12 +342,12 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
       <Section label="Visits" count={visits.length} role="place" kind="visit">
         {visits.length === 0 ? (
-          <EmptyState kind="visit" title="No Visits Logged Yet">
-            Log one from one of their targets.
+          <EmptyState kind="visit" title="No Visits Logged Yet" action={targets.length > 0 ? <LinkButton href={`/org/${slug}/board?athlete=${id}`}>Open Their Targets</LinkButton> : undefined}>
+            A visit is logged on the target it was for.
           </EmptyState>
         ) : (
           visits.map((v) => (
-            <Card key={v.id}>
+            <Card key={v.id} href={`/org/${slug}/board/${v.target_id}`}>
               <div className="flex items-start justify-between gap-3">
                 <Body weight="bold">
                   {schoolNameByTargetId.get(v.target_id) ?? "Unknown school"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}

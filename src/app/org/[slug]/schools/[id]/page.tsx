@@ -15,7 +15,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { Body, EmptyState, Label, Notice, Row, Score, Screen, Section, Stat, StatRow, TextLink } from "@/components/kit";
+import { Body, EmptyState, Label, LinkButton, Notice, Row, Score, Screen, Section, Stat, StatRow, TextLink } from "@/components/kit";
 import { OrgSchoolNoteForm } from "@/components/OrgSchoolNoteForm";
 import { saveOrgSchoolNote } from "@/lib/actions/schools";
 import { formatPositionsOfNeed, type PositionOfNeed } from "@/lib/validation/orgSchoolNote";
@@ -51,6 +51,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
   const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
   const isOwner = user.role === "owner";
+  // Only an owner may change a school, so only an owner gets a tile
+  // that opens the form. For everybody else the number is just a number.
+  const editHref = isOwner ? `/org/${slug}/schools/${id}/edit` : undefined;
 
   const supabase = await createClient();
   const [{ data: schoolRow }, { data: targetRows }, { data: noteRow }] = await Promise.all([
@@ -127,10 +130,11 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
         </Notice>
       )}
 
+      {/* The numbers the score is built on, and the way to correct one. */}
       <StatRow>
-        <Stat value={ac.gpaAvg != null ? ac.gpaAvg.toFixed(2) : "None"} label="Avg GPA" />
-        <Stat value={ac.gpaMin != null ? ac.gpaMin.toFixed(2) : "None"} label="Min GPA" />
-        <Stat value={fin.rosterSpotsOpen != null ? String(fin.rosterSpotsOpen) : "None"} label="Spots" />
+        <Stat value={ac.gpaAvg != null ? ac.gpaAvg.toFixed(2) : "None"} label="Avg GPA" href={editHref} />
+        <Stat value={ac.gpaMin != null ? ac.gpaMin.toFixed(2) : "None"} label="Min GPA" href={editHref} />
+        <Stat value={fin.rosterSpotsOpen != null ? String(fin.rosterSpotsOpen) : "None"} label="Spots" href={editHref} />
       </StatRow>
 
       {(ac.satRange || ac.actRange) && (
@@ -146,7 +150,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
           for an athlete whose position and grad year fit. */}
       <Section label="Your Notes" role="contact" kind="note">
         {note && (note.coach_name || note.coach_email) && (
-          <Row kind="people" role="people" title={note.coach_name ?? "Head Coach"} meta={note.coach_email ?? undefined} wrap />
+          <Row href={note.coach_email ? `mailto:${note.coach_email}` : undefined} kind="people" role="people" title={note.coach_name ?? "Head Coach"} meta={note.coach_email ?? undefined} wrap />
         )}
         {needs && <Row kind="target" role="contact" title="Positions of Need" meta={needs} wrap />}
         {note?.notes && <Note>{note.notes}</Note>}
@@ -176,6 +180,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
         </Note>
         {aid > 0 && (
           <Row
+            href={editHref}
             kind="grant"
             role="committed"
             title={d3 ? "Average academic and need aid" : "Average athletic award"}
@@ -184,8 +189,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
             wrap
           />
         )}
-        {fin.instateTotal != null && <Row kind="school" role="contact" title="In State" meta="Cost of attendance" trailing={amount(fin.instateTotal)} />}
-        {fin.outstateTotal != null && <Row kind="school" role="contact" title="Out of State" meta="Cost of attendance" trailing={amount(fin.outstateTotal)} />}
+        {fin.instateTotal != null && <Row href={editHref} kind="school" role="contact" title="In State" meta="Cost of attendance" trailing={amount(fin.instateTotal)} />}
+        {fin.outstateTotal != null && <Row href={editHref} kind="school" role="contact" title="Out of State" meta="Cost of attendance" trailing={amount(fin.outstateTotal)} />}
         {fin.instateTotal == null && fin.outstateTotal == null && (
           <Note>No cost of attendance on file, so the financial dimension of every fit score here is running on defaults.</Note>
         )}
@@ -211,8 +216,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
 
       <Section label="Your Athletes Here" count={scored.length} role="contact" kind="athlete">
         {scored.length === 0 ? (
-          <EmptyState kind="athlete" title="Nobody Here Yet">
-            No athlete on your roster is targeting this school. Adding one from their profile makes it a target with a fit score.
+          <EmptyState kind="athlete" title="Nobody Here Yet" action={<LinkButton href={`/org/${slug}/roster`}>Open Athletes</LinkButton>}>
+            No athlete on your roster is targeting this school. Adding one from their matches makes it a target with a fit score.
           </EmptyState>
         ) : (
           scored.map((t) => (

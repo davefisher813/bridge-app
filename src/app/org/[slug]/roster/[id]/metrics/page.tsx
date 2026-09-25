@@ -117,7 +117,7 @@ export default async function MetricsPage({ params }: { params: Promise<{ slug: 
       <Section label="Log" count={rows.length} role="time" kind="clock">
         {rows.length === 0 ? (
           <EmptyState kind="clock" title="No Entries Yet">
-            Every number logged shows here, newest first.
+            Every number logged shows here, newest first.{canEdit ? " Log one above." : ""}
           </EmptyState>
         ) : (
           rows.map((r) => {

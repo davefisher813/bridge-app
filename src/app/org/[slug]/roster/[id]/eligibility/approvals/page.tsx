@@ -42,7 +42,11 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
       lede={`${athlete.name} · ${view.approvals.length} checked`}
     >
       {view.approvals.length === 0 ? (
-        <EmptyState kind="checklist" title="Nothing to Check">
+        <EmptyState
+          kind="checklist"
+          title="Nothing to Check"
+          action={user.role === "family" ? undefined : <LinkButton href={`${athleteHome(slug, id, user.role)}/transcript`}>Open the Transcript</LinkButton>}
+        >
           No courses on file yet.
         </EmptyState>
       ) : (
@@ -54,6 +58,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
               {rows.map((a, i) => (
                 <Row
                   key={a.title + i}
+                  href={user.role === "family" ? undefined : `/org/${slug}/approved-courses`}
                   kind={kind}
                   role={role}
                   title={a.title}

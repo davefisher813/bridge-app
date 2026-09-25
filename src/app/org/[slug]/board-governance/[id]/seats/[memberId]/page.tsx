@@ -116,8 +116,8 @@ export default async function SeatPage({
       action={<Chip label={STATUS_LABEL[member.status]} kind={SEAT_KIND[member.status]} role={member.status === "active" ? "committed" : "neutral"} />}
     >
       <StatRow>
-        <Stat value={formatMoneyShort(p.givenCents)} label="Given" role="committed" kind="money" />
-        <Stat value={formatMoneyShort(p.raisedCents)} label="Brought In" role="visit" kind="people" />
+        <Stat value={formatMoneyShort(p.givenCents)} label="Given" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts`} />
+        <Stat value={formatMoneyShort(p.raisedCents)} label="Brought In" role="visit" kind="people" href={`/org/${slug}/fundraising/gifts`} />
       </StatRow>
 
       {/* Only an active seat carries a live commitment, so only an
@@ -179,7 +179,13 @@ export default async function SeatPage({
         <Section label="Sign-In" role="people" kind="people">
           {linked ? (
             <>
-              <Row leading={<Avatar name={linked.person!.full_name || linked.person!.email} />} title={linked.person!.full_name || linked.person!.email} meta={`${labelForRole(org.roleLabels, linked.role)} · ${linked.person!.email} · sees this seat as theirs`} wrap />
+              <Row
+                href={user.role === "owner" ? `/org/${slug}/members/${linked.id}` : `mailto:${linked.person!.email}`}
+                leading={<Avatar name={linked.person!.full_name || linked.person!.email} />}
+                title={linked.person!.full_name || linked.person!.email}
+                meta={`${labelForRole(org.roleLabels, linked.role)} · ${linked.person!.email} · sees this seat as theirs`}
+                wrap
+              />
               <Form action={linkAction}>
                 <ConfirmButton title="Unlink this sign-in?" body="They keep their sign-in and lose the seat on their Home and Giving screens. Nothing else changes." confirmLabel="Unlink">
                   Unlink Sign-In
@@ -216,7 +222,7 @@ export default async function SeatPage({
 
       <Section label="Gifts on This Seat" count={credited.length} role="committed" kind="money">
         {credited.length === 0 ? (
-          <EmptyState kind="money" title="Nothing Credited Yet">
+          <EmptyState kind="money" title="Nothing Credited Yet" action={<LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Record a Gift</LinkButton>}>
             No gift is recorded against this seat. A gift counts here when this member is the donor, or when they are credited with bringing it in
             on the gift itself.
           </EmptyState>

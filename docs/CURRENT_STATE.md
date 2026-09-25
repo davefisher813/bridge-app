@@ -35,7 +35,7 @@ both themes with nothing past the edge.
 
 ## What exists
 
-**77 pages**, 33 migrations, 1,110 tests in 51 files, 13 law files,
+**77 pages**, 33 migrations, 1,112 tests in 51 files, 13 law files,
 129 PASS lines in the row-level-security suite.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
@@ -292,6 +292,40 @@ that made a long list unusable.
   PostgREST's meaning (case-insensitive, `%` as any run of characters,
   an anchored pattern, alternatives that narrow alongside the other
   filters), so an action that uses either can be tested.
+
+### Everything that should open, opens, 2026-09-25
+
+Dave, from his phone: "I can't click on anything pretty much ...
+virtually anything should be clickable." Three things were wrong, and
+all three are now measured rather than eyeballed.
+
+- **The athlete screen was throwing.** It imported a plain array from
+  the invite form, which is a client component, and a value exported
+  from a client module reaches a server component as a reference rather
+  than the value. Every test passed and the preview rendered, because
+  neither has a client boundary in it. A law now fails the build on
+  that import shape.
+- **A row, a card and a stat tile now open what they are about.** A
+  stat tile takes an href (the kit), so Today's three tiles open the
+  roster and the targets at that stage; the athlete's metric tiles open
+  the metrics log; the fundraising and governance tiles open the ledger
+  and the seats. The stage line on an athlete opens that athlete's
+  targets, which is what Targets learned to filter by (`?status=` and
+  `?athlete=`). A course opens the approvals screen, a GPA card opens
+  the transcript it is read from, a coach's address opens mail, a
+  phone number dials, a logged call opens the log, a school's cost
+  opens the form that corrects it, and an empty state carries the
+  button that fills it.
+- **A link inside a link** on the athlete screen (Edit inside a row
+  that had just become a link) is invalid HTML: React refuses to
+  hydrate the page and the tap lands on whichever of the two the finger
+  covers. The live driver now fails on any tap target inside another.
+
+`scripts/live/check.sh` runs the three browser checks in one command:
+nothing past the edge, no row or tile that goes nowhere
+(`qa/clickable-baseline.json`, 234 down to 55, and the 55 are records
+with no deeper screen to open), and every link followed to a real
+screen the signed-in person may open (116 links, none broken).
 
 ---
 

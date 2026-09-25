@@ -13,7 +13,7 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
-import { Avatar, Body, Chip, EmptyState, Row, Screen, Section } from "@/components/kit";
+import { Avatar, Body, Chip, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
 import { formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
@@ -84,7 +84,7 @@ export default async function AllSeatsPage({
       back={{ href: `/org/${slug}/board-governance`, label: "Boards" }} lede={`${fiscalYear}, across all ${view.boards.length} ${view.boards.length === 1 ? "board" : "boards"}`}
     >
       {seats.length === 0 ? (
-        <EmptyState kind="people" title="No Seats Yet">
+        <EmptyState kind="people" title="No Seats Yet" action={<LinkButton href={`/org/${slug}/board-governance`}>Open Boards</LinkButton>}>
           Add a board and its seats, and every one of them shows up here with its give/get progress.
         </EmptyState>
       ) : (

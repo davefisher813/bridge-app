@@ -96,8 +96,8 @@ export default async function FundraisingPage({
     <Screen title="Fundraising" lede={`${fiscalYear}, against the board budget`}>
       <Stack gap={2}>
         <StatRow>
-          <Stat value={formatMoneyShort(s.totalCashCents)} label="Raised" role="committed" kind="money" />
-          <Stat value={formatMoneyShort(s.totalBudgetCents)} label="Budget" role="contact" kind="scale" />
+          <Stat value={formatMoneyShort(s.totalCashCents)} label="Raised" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts`} />
+          <Stat value={formatMoneyShort(s.totalBudgetCents)} label="Budget" role="contact" kind="scale" href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`} />
         </StatRow>
         <Label>{budgetPercent === null ? "Cash in the door. No budget set for the year." : `Cash in the door, ${budgetPercent}% of the year's budget.`}</Label>
       </Stack>
@@ -107,6 +107,7 @@ export default async function FundraisingPage({
           this whole feature to make. */}
       {s.outstandingPledgeCents > 0 && (
         <Row
+          href={`/org/${slug}/fundraising/pledges`}
           kind="pledge"
           role="offer"
           emphasis="bold"
@@ -155,6 +156,7 @@ export default async function FundraisingPage({
       {s.totalInKindCents > 0 && (
         <Section label="In Kind" role="place" kind="grant">
           <Row
+            href={`/org/${slug}/fundraising/gifts?method=in_kind`}
             kind="grant"
             role="place"
             emphasis="bold"

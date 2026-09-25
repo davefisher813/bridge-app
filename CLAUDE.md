@@ -41,7 +41,7 @@ Two different things, and both are required:
 
 - **The audit** (`scripts/audit_preview.mjs`) shows every preview screen in both themes and inspects what the browser COMPUTED, not what the markup says: a class the stylesheet does not carry, an empty glyph, AA contrast against the surface the text actually sits on, 44px links and buttons, sideways scroll, screens that render empty. It runs last in `build_previews.sh` and fails the build on any finding. It exists because a class assertion cannot catch a utility Tailwind never generated; a computed-style assertion can.
 
-- **The app itself** (`scripts/live/drive.mjs`, after `FIXTURE_MODE=1 npx next build`) is the check that counts when Dave reports what he sees on his phone. The preview is a static render without hydration; the live driver opens the shipped app in a browser at 320, 375 and 390 in both themes and measures the same things, and it is what found the overflows the preview missed (2026-09-20). Run it before telling Dave a screen is clean.
+- **The app itself** (`scripts/live/check.sh`, which builds with `FIXTURE_MODE=1`, starts the app and runs three checks: `drive.mjs` for the edges, `clickable.mjs` for rows and tiles that go nowhere, `links.mjs` for links that do not land) is the check that counts when Dave reports what he sees on his phone. The preview is a static render without hydration; the live driver opens the shipped app in a browser at 320, 375 and 390 in both themes and measures the same things, and it is what found the overflows the preview missed (2026-09-20). Run it before telling Dave a screen is clean.
 
 Anything new that is pure logic belongs in the bench too, with real assertions, not a screenshot of it working.
 

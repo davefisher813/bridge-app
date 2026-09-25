@@ -1,0 +1,32 @@
+{
+  "note": "Per screen, how many kit rows, cards and stat tiles go nowhere. A screen may only ever go down. Rebuild with UPDATE_BASELINE=1.",
+  "counts": {
+    "members": 2,
+    "member": 1,
+    "member-family": 1,
+    "member-program": 3,
+    "member-athlete": 1,
+    "member-giving": 8,
+    "member-more": 1,
+    "member-more-lite": 1,
+    "family-athlete": 2,
+    "family-eligibility": 2,
+    "family-approvals": 2,
+    "family-metrics": 6,
+    "family-match": 3,
+    "family-college": 5,
+    "family-more": 1,
+    "member-long-address": 1,
+    "eligibility": 1,
+    "communications": 3,
+    "metrics": 2,
+    "school": 1,
+    "gifts": 1,
+    "campaign": 1,
+    "grants": 1,
+    "seat": 2,
+    "more": 1,
+    "approved-list": 1,
+    "document": 1
+  }
+}

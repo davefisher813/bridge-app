@@ -50,6 +50,14 @@ for (const width of WIDTHS) for (const theme of THEMES) {
       }
       return out;
     }, width);
+    // A link inside a link, or a button inside a link, is invalid HTML:
+    // React refuses to hydrate the page (error 418) and the tap lands on
+    // whichever of the two the finger covered. Found on the athlete
+    // screen the day every row was made tappable, 2026-09-25.
+    const nested = await page.evaluate(() =>
+      [...document.querySelectorAll("a a, a button, button a, button button, label a, label button")].map((el) => `${el.tagName.toLowerCase()}: ${(el.innerText || "").trim().slice(0, 40)}`),
+    );
+    for (const n of nested) findings.push({ name, width, theme, kind: "a tap target inside another", detail: n });
     if (r.docW > width || r.bodyW > width) findings.push({ name, width, theme, kind: "page scrolls sideways", detail: `${r.docW}/${r.bodyW}` });
     for (const s of r.spills.slice(0, 8)) findings.push({ name, width, theme, kind: s.why, detail: s });
     if (!/Inter/i.test(r.font)) findings.push({ name, width, theme, kind: "font", detail: r.font });

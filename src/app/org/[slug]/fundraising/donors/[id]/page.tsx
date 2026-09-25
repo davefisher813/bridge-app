@@ -11,7 +11,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { donorTotals, formatMoney, formatMoneyShort, outstandingOn, CATEGORY_LABEL, type GiftCategory } from "@/lib/fundraising/rollup";
-import { Body, Chevron, EmptyState, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
+import { Body, Chevron, EmptyState, LinkButton, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,8 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
+  const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const fiscalYear = Number(new Date().toISOString().slice(0, 4));
   const supabase = await createClient();
@@ -54,13 +55,13 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
       lede={`${TYPE_LABEL[d.donor_type] ?? d.donor_type.replace(/_/g, " ")}${d.email ? ` · ${d.email}` : ""}`}
     >
       <StatRow>
-        <Stat value={formatMoneyShort(totals.lifetimeCashCents)} label="Lifetime" role="committed" />
-        <Stat value={formatMoneyShort(totals.thisYearCashCents)} label="This Year" role="contact" />
-        <Stat value={String(totals.giftCount)} label="Gifts" />
+        <Stat value={formatMoneyShort(totals.lifetimeCashCents)} label="Lifetime" role="committed" href={`/org/${slug}/fundraising/gifts`} />
+        <Stat value={formatMoneyShort(totals.thisYearCashCents)} label="This Year" role="contact" href={`/org/${slug}/fundraising/gifts`} />
+        <Stat value={String(totals.giftCount)} label="Gifts" href={`/org/${slug}/fundraising/gifts`} />
       </StatRow>
 
       {totals.lifetimeInKindCents > 0 && (
-        <Row kind="grant" role="place" emphasis="bold" title={`${formatMoney(totals.lifetimeInKindCents)} in Kind`} meta="Counted as support, never as cash." />
+        <Row href={`/org/${slug}/fundraising/gifts?method=in_kind`} kind="grant" role="place" emphasis="bold" title={`${formatMoney(totals.lifetimeInKindCents)} in Kind`} meta="Counted as support, never as cash." />
       )}
 
       {/* A board member who gives is one person, not two records. This
@@ -85,6 +86,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
             return (
               <Row
                 key={p.id}
+                href={`/org/${slug}/fundraising/pledges`}
                 kind="pledge"
                 role={out > 0 ? "offer" : "committed"}
                 title={`${formatMoney(p.amountCents)} Promised`}
@@ -102,13 +104,14 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
 
       <Section label="Gifts" count={gifts.length} role="committed" kind="money">
         {gifts.length === 0 ? (
-          <EmptyState kind="money" title="No Gifts Yet">
+          <EmptyState kind="money" title="No Gifts Yet" action={canEdit ? <LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Record a Gift</LinkButton> : undefined}>
             This supporter has not given.
           </EmptyState>
         ) : (
           gifts.map((g) => (
             <Row
               key={g.id}
+              href={`/org/${slug}/fundraising/gifts?category=${g.category}`}
               kind={g.method === "in_kind" ? "grant" : "money"}
               role={g.method === "in_kind" ? "place" : "committed"}
               title={CATEGORY_LABEL[g.category as GiftCategory] ?? g.category}

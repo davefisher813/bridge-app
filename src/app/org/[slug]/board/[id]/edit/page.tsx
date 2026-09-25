@@ -86,6 +86,7 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
           comms.map((c) => (
             <Row
               key={c.id}
+              href={`/org/${slug}/board/${id}/communications`}
               kind="message"
               role="contact"
               title={KIND_LABEL[c.kind] ?? c.kind}
@@ -105,6 +106,7 @@ export default async function EditTargetPage({ params }: { params: Promise<{ slu
           visits.map((v) => (
             <Row
               key={v.id}
+              href={`/org/${slug}/board/${id}/communications`}
               kind="visit"
               role="visit"
               title={VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}

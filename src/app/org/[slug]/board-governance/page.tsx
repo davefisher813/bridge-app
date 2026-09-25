@@ -74,8 +74,8 @@ export default async function BoardGovernancePage({
       ) : (
         <>
           <StatRow>
-            <Stat value={formatMoneyShort(totals.committed)} label="Committed" role="contact" kind="money" />
-            <Stat value={formatMoneyShort(totals.raised)} label="Delivered" role={roleFor(overallPercent)} kind="check" />
+            <Stat value={formatMoneyShort(totals.committed)} label="Committed" role="contact" kind="money" href={`/org/${slug}/board-governance/members`} />
+            <Stat value={formatMoneyShort(totals.raised)} label="Delivered" role={roleFor(overallPercent)} kind="check" href={`/org/${slug}/board-governance/members`} />
           </StatRow>
 
           <Note title={overallPercent === null ? "No commitments set" : `${overallPercent}% delivered`}>

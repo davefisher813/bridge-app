@@ -57,8 +57,12 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
       lede={`${courses.length} courses · ${core?.counted.length ?? 0} counted by the NCAA`}
     >
       {courses.length === 0 ? (
-        <EmptyState kind="course" title="No Courses on File">
-          {user.role === "family" ? "Once a transcript is on file, every course lands here." : "Upload a transcript from the athlete's page and the courses land here."}
+        <EmptyState
+          kind="course"
+          title="No Courses on File"
+          action={user.role === "family" ? undefined : <LinkButton href={`/org/${slug}/documents/new`}>Upload a Transcript</LinkButton>}
+        >
+          {user.role === "family" ? "Once a transcript is on file, every course lands here." : "Upload a transcript and the courses land here."}
         </EmptyState>
       ) : (
         terms.map((term) => (
@@ -75,6 +79,7 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
               return (
                 <Row
                   key={c.id}
+                  href={`${home}/eligibility/approvals`}
                   kind={miss ? "blocked" : "course"}
                   role={role}
                   title={c.title}

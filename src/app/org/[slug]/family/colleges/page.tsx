@@ -126,7 +126,7 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
           visits.map((v) => {
             const t = targetById.get(v.target_id);
             return (
-              <Card key={v.id}>
+              <Card key={v.id} href={t ? `${base}/colleges/${t.id}` : undefined}>
                 <div className="flex items-start justify-between gap-3">
                   <Body weight="bold">
                     {t?.school?.name ?? "Unknown school"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}

@@ -113,7 +113,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
       back={all.length > 1 ? { href: base, label: "Your Athletes" } : undefined}
       lede={`${athlete.sport}${athlete.position ? ` · ${athlete.position}` : ""} · ${RECRUIT_TYPE_LABEL[athlete.recruit_type] ?? athlete.recruit_type}${athlete.gpa != null ? ` · ${Number(athlete.gpa).toFixed(2)} school GPA` : ""}`}
     >
-      <Card>
+      <Card href={`${base}/colleges`}>
         <JourneyStepper result={journey} />
       </Card>
 
@@ -125,7 +125,13 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
       {tiles.length > 0 && (
         <StatRow>
           {tiles.map((m) => (
-            <Stat key={m.key} value={scoring.measurables[m.key] !== undefined ? formatMetricValue(m.key, scoring.measurables[m.key]) : "None"} label={m.label} role="contact" />
+            <Stat
+              key={m.key}
+              value={scoring.measurables[m.key] !== undefined ? formatMetricValue(m.key, scoring.measurables[m.key]) : "None"}
+              label={m.label}
+              role="contact"
+              href={`${here}/metrics`}
+            />
           ))}
         </StatRow>
       )}

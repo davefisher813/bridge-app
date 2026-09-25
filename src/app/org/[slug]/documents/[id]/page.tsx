@@ -291,7 +291,12 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
         <>
           <Section label={matched ? "Matched to" : "Pick the athlete"} count={matched ? undefined : candidates.length} role={matched ? "people" : "offer"} kind="athlete">
             {matched ? (
-              <Row leading={<Avatar name={matched} />} title={matched} meta={candidates[0]?.reasons.join(" · ") || "Matched on the name"} />
+              <Row
+                href={doc.athlete_id ? `/org/${slug}/roster/${doc.athlete_id}` : undefined}
+                leading={<Avatar name={matched} />}
+                title={matched}
+                meta={candidates[0]?.reasons.join(" · ") || "Matched on the name"}
+              />
             ) : candidates.length ? (
               <>
                 {candidates.map((c) => (

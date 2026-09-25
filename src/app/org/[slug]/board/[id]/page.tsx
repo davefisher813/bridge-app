@@ -152,6 +152,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
 
       <Section label="Contact" count={comms.length + visits.length} role="people" kind="message">
         <Row
+          href={`/org/${slug}/board/${id}/communications`}
           kind="people"
           role="people"
           title={coachName || "No coach on file"}
@@ -160,6 +161,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
         {comms.slice(0, 5).map((c, i) => (
           <Row
             key={i}
+            href={`/org/${slug}/board/${id}/communications`}
             kind="message"
             role="contact"
             title={KIND_LABEL[c.kind] ?? c.kind}

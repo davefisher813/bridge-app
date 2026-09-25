@@ -150,8 +150,17 @@ export function Section({ label, count, role = "accent", kind, action, children 
 }
 
 // ── Surfaces ─────────────────────────────────────────────────────────
-export function Card({ children, href }: { children: ReactNode; href?: string }) {
-  const inner = <div className="rounded border border-line bg-paper p-4">{children}</div>;
+// `static` marks a card that is a sentence rather than a record: a
+// caveat, an explanation, a reason. The clickability audit
+// (scripts/live/clickable.mjs) counts records that go nowhere and
+// leaves these alone, so the two are told apart here rather than by
+// guessing at the text.
+export function Card({ children, href, isStatic = false }: { children: ReactNode; href?: string; isStatic?: boolean }) {
+  const inner = (
+    <div data-kit={isStatic ? undefined : "card"} className="rounded border border-line bg-paper p-4">
+      {children}
+    </div>
+  );
   return href ? (
     <Link href={href} className="block">
       {inner}
@@ -204,7 +213,7 @@ export function Row({
   wrap?: boolean;
 }) {
   const body = (
-    <div className="flex min-h-14 flex-wrap items-center gap-3 rounded border border-line bg-paper px-4 py-3">
+    <div data-kit="row" className="flex min-h-14 flex-wrap items-center gap-3 rounded border border-line bg-paper px-4 py-3">
       {leading ?? (kind ? <RowGlyph kind={kind} role={role} /> : null)}
       {/* The body asks for 96px before the trailing may squeeze it. At a
           phone's width nothing changes; below about 300px of layout
@@ -235,10 +244,14 @@ export function Row({
   );
 }
 
-// A stat: the number in the role's colour, the label under it.
-export function Stat({ value, label, role = "neutral", kind }: { value: ReactNode; label: string; role?: Role; kind?: RowKind }) {
-  return (
-    <div className="grow basis-24 rounded border border-line bg-paper px-3 py-3">
+// A stat: the number in the role's colour, the label under it. With an
+// href it is the way into whatever it counts, which is what a person
+// tries first (Dave, 2026-09-25: "virtually anything should be
+// clickable"). The whole tile is the tap target, so it keeps the same
+// size either way.
+export function Stat({ value, label, role = "neutral", kind, href }: { value: ReactNode; label: string; role?: Role; kind?: RowKind; href?: string }) {
+  const tile = (
+    <div data-kit="stat" className="h-full grow basis-24 rounded border border-line bg-paper px-3 py-3">
       <div className="flex items-center gap-2">
         {kind && <RowGlyph kind={kind} role={role} className="h-4 w-4" />}
         {/* A figure never splits: "$40,000" broke after the comma on a
@@ -250,6 +263,13 @@ export function Stat({ value, label, role = "neutral", kind }: { value: ReactNod
           caps on one of them is 15px over the screen at 16. */}
       <div className="text-label font-bold text-muted">{label}</div>
     </div>
+  );
+  return href ? (
+    <Link href={href} className="grow basis-24">
+      {tile}
+    </Link>
+  ) : (
+    tile
   );
 }
 
