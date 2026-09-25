@@ -19,7 +19,7 @@ export default async function FamilyHomePage({ params }: { params: Promise<{ slu
     <Screen title="Your Athletes">
       {athletes.length === 0 ? (
         <EmptyState kind="athlete" title="Nothing Linked Yet">
-          Your sign-in works, but it is not linked to an athlete. Ask {org.name} to send the invitation again from the athlete&apos;s page.
+          Ask {org.name} to send the invitation again.
         </EmptyState>
       ) : (
         athletes.map((a) => (

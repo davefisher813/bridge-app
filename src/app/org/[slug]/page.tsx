@@ -207,9 +207,8 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
       <Section label="Needs Follow-Up" count={needsFollowUp.length} action={needsFollowUp.length > 0 ? <TextLink href={`/org/${slug}/board`}>View Board</TextLink> : undefined}>
         {needsFollowUp.length === 0 ? (
-          <EmptyState kind="check" role="committed" title="Nothing Needs a Follow-Up" action={<LinkButton href={`/org/${slug}/board`}>Open Targets</LinkButton>}>
-            Every open target has been touched recently.
-          </EmptyState>
+          <EmptyState kind="check" role="committed" title="Nothing Needs a Follow-Up" action={<LinkButton href={`/org/${slug}/board`}>Open Targets</LinkButton>}
+          />
         ) : (
           needsFollowUp.map((t) => (
             <Row
@@ -228,9 +227,8 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
       <Section label="Upcoming" count={upcomingVisits.length + upcomingWindows.length} role="visit" kind="clock">
         {upcomingVisits.length === 0 && upcomingWindows.length === 0 ? (
-          <EmptyState kind="clock" title="Nothing Scheduled" action={<LinkButton href={`/org/${slug}/board`}>Open Targets</LinkButton>}>
-            No visits or portal windows in the next 60 days. A visit is logged on a target.
-          </EmptyState>
+          <EmptyState kind="clock" title="Nothing Scheduled" action={<LinkButton href={`/org/${slug}/board`}>Open Targets</LinkButton>}
+          />
         ) : (
           <>
             {upcomingVisits.map((v) => (
@@ -260,9 +258,8 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       {org.modules.donor_fundraising && (
         <Section label="Program Overview" role="committed" kind="money">
           {fundraising === null ? (
-            <EmptyState kind="money" title="Nothing Recorded Yet" action={<LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Record the First Gift</LinkButton>}>
-              Record the first gift and this starts reporting against your categories.
-            </EmptyState>
+            <EmptyState kind="money" title="Nothing Recorded Yet" action={<LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Record the First Gift</LinkButton>}
+            />
           ) : (
             <Card href={`/org/${slug}/fundraising`}>
               <Body weight="semibold">{formatMoneyShort(fundraising.totalCashCents)} raised this year</Body>

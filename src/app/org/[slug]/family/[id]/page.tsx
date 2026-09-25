@@ -178,7 +178,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
       <Section label="Colleges" count={targets.length} role="place" kind="school">
         {targets.length === 0 ? (
           <EmptyState kind="school" title="No Colleges Yet">
-            Schools being pursued show up here, with where things stand.
+            Schools being pursued show up here.
           </EmptyState>
         ) : (
           <Row href={`${base}/colleges`} kind="school" role="place" title="Where Things Stand" meta={`${targets.length} ${targets.length === 1 ? "school" : "schools"} on the list, and every visit`} trailing={<Chevron />} />
@@ -188,7 +188,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
       <Section label="Documents" count={docs.length} role="contact" kind="document">
         {docs.length === 0 ? (
           <EmptyState kind="document" title="Nothing on File">
-            A transcript or a test score handed to {org.name} is listed here once it is read.
+            A transcript or a test score is listed here once it is read.
           </EmptyState>
         ) : (
           docs.map((d) => (

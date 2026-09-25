@@ -104,7 +104,7 @@ export default async function ApprovedListPage({
           Replace This List
         </LinkButton>
       )}
-      {fromPortal && <Prose>Transcribed from the Eligibility Center and shared across every organization, so it is not editable here.</Prose>}
+      {fromPortal && <Prose>From the Eligibility Center, shared across every organization, so it is not editable here.</Prose>}
     </Screen>
   );
 }

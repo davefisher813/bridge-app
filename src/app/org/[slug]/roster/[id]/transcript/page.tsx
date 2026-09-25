@@ -61,9 +61,7 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
           kind="course"
           title="No Courses on File"
           action={user.role === "family" ? undefined : <LinkButton href={`/org/${slug}/documents/new`}>Upload a Transcript</LinkButton>}
-        >
-          {user.role === "family" ? "Once a transcript is on file, every course lands here." : "Upload a transcript and the courses land here."}
-        </EmptyState>
+        />
       ) : (
         terms.map((term) => (
           <Section key={term} label={term} count={byTerm.get(term)!.length} role="contact" kind="course">

@@ -49,7 +49,7 @@ export function InviteForm({
         <Hidden name="athleteId" value={pinned.athleteId} />
         <Hidden name="returnTo" value={pinned.returnTo} />
         <Field name="email" label="Email" type="email" autoComplete="off" inputMode="email" required defaultValue={value("email")} error={err("email")} />
-        <SelectField name="relationship" label="Who They Are" defaultValue={value("relationship") || "parent"} error={err("relationship")} hint={`To ${pinned.athleteName}. Shown on their row, nothing more.`}>
+        <SelectField name="relationship" label="Who They Are" defaultValue={value("relationship") || "parent"} error={err("relationship")}>
           {RELATIONSHIPS.map((r) => (
             <option key={r.value} value={r.value}>
               {r.label}
@@ -85,7 +85,7 @@ export function InviteForm({
       </SelectField>
       {role === "family" && (
         <>
-          <SelectField name="athleteId" label="Athlete" defaultValue={value("athleteId")} error={err("athleteId")} hint="The one athlete this person will see.">
+          <SelectField name="athleteId" label="Athlete" defaultValue={value("athleteId")} error={err("athleteId")}>
             <option value="">Pick an athlete</option>
             {athletes.map((a) => (
               <option key={a.id} value={a.id}>

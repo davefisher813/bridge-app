@@ -91,8 +91,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           title="No Target Schools Yet"
           action={user.role === "family" ? undefined : <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton>}
         >
-          Initial eligibility depends on where an athlete is going, not on the athlete. Add a target school and this starts calculating
-          against that division.
+          Eligibility is judged against a division, so a target school comes first.
         </EmptyState>
         {uploader}
       </Screen>
@@ -150,10 +149,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           <Stack>
             <GpaPair coreGpa={eligibility.coreGpa?.gpa ?? null} transcriptGpa={transcriptGpa} needed={std?.qualifierGpa ?? null} transcriptHref={transcriptHref} />
             {eligibility.coreGpa?.gpa != null && (
-              <Note>
-                These are meant to be different. The core GPA counts only NCAA-approved core courses and uses A=4, B=3, with no plus or
-                minus. Electives and PE lift a transcript average and are left out of this one.
-              </Note>
+              <Note>The core GPA counts only NCAA-approved core courses, A=4 and B=3, no plus or minus. Electives and PE are left out.</Note>
             )}
             {view.schoolsMissingScale.length > 0 && (
               <Card>

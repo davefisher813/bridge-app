@@ -58,7 +58,7 @@ export function SchoolForm({ action, initialValues = {}, submitLabel }: { action
             </option>
           ))}
         </SelectField>
-        <SelectField name="programTier" label="Program Tier" hint="Sets the athletic benchmarks. Blank follows the division." defaultValue={v("programTier")} error={err("programTier")}>
+        <SelectField name="programTier" label="Program Tier" hint="Blank follows the division." defaultValue={v("programTier")} error={err("programTier")}>
           <option value="">From Division</option>
           {PROGRAM_TIERS.map((t) => (
             <option key={t.key} value={t.key}>
@@ -72,7 +72,7 @@ export function SchoolForm({ action, initialValues = {}, submitLabel }: { action
         <Field name="state" label="State" hint="Two letters, like CT." maxLength={2} autoCapitalize="characters" defaultValue={v("state")} error={err("state")} />
       </Grid2>
       <Field name="sportsSponsored" label="Sports Sponsored" hint="Comma separated." defaultValue={v("sportsSponsored")} />
-      <Field name="majors" label="Majors Offered" hint="Comma separated. Filters the matches screen." defaultValue={v("majors")} />
+      <Field name="majors" label="Majors Offered" hint="Comma separated." defaultValue={v("majors")} />
 
       <Stack gap={3}>
         <Label caps>Academics</Label>
@@ -120,7 +120,7 @@ export function SchoolForm({ action, initialValues = {}, submitLabel }: { action
             ))}
           </SelectField>
         </Grid2>
-        <TextAreaField name="positionDepth" label="Depth Chart Notes" hint="What the depth looks like at each position." rows={3} defaultValue={v("positionDepth")} />
+        <TextAreaField name="positionDepth" label="Depth Chart Notes" rows={3} defaultValue={v("positionDepth")} />
       </Stack>
 
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>

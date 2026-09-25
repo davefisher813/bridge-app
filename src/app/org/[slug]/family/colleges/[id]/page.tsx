@@ -122,7 +122,7 @@ export default async function FamilyCollegePage({ params }: { params: Promise<{ 
       ) : (
         <Section label="Match Score" role="contact" kind="target">
           <EmptyState kind="target" title="Not Scored Yet">
-            This school is scored once its profile and the athlete&apos;s numbers are on file.
+            Scored once the school's profile and the athlete's numbers are on file.
           </EmptyState>
         </Section>
       )}
@@ -130,7 +130,7 @@ export default async function FamilyCollegePage({ params }: { params: Promise<{ 
       <Section label="Visits" count={visits.length} role="place" kind="visit">
         {visits.length === 0 ? (
           <EmptyState kind="visit" title="No Visits Yet">
-            Visits to this school are listed here once staff log them.
+            Listed here once staff log them.
           </EmptyState>
         ) : (
           visits.map((v) => (

@@ -132,10 +132,6 @@ export default async function DonorsPage({ params, searchParams }: { params: Pro
         )}
       </Section>
 
-      <Note>
-        A donor who has only given in kind shows nothing in cash and their goods beside it. Rolling the two together would tell a treasurer
-        there is money that is not there.
-      </Note>
 
       {canEdit && <LinkButton href={`/org/${slug}/fundraising/donors/new`}>Add Donor</LinkButton>}
     </Screen>

@@ -16,7 +16,7 @@ export function SchoolImportForm({ action }: { action: ServerAction }) {
 
   return (
     <Form action={formAction} error={state.errors.form}>
-      <FileField name="file" label="Choose a CSV" hint={state.errors.file ?? "Exported from the template. Nothing imports until every row is clean."} accept=".csv,text/csv" required />
+      <FileField name="file" label="Choose a CSV" hint={state.errors.file ?? "Nothing imports until every row is clean."} accept=".csv,text/csv" required />
       {state.problems.length > 0 && (
         <Stack gap={2}>
           <Notice tone="danger" title={`${state.problems.length} ${state.problems.length === 1 ? "Problem" : "Problems"} in the File`}>

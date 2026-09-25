@@ -41,7 +41,7 @@ export function TransferWindowForm({ action }: { action: ServerAction }) {
         <Field name="opensOn" label="Opens" type="date" defaultValue={value("opensOn")} error={err("opensOn")} />
         <Field name="closesOn" label="Closes" type="date" defaultValue={value("closesOn")} error={err("closesOn")} />
       </Grid2>
-      <Field name="sourceUrl" label="Source" type="url" inputMode="url" hint="The NCAA or conference page these dates are printed on. The dates change by vote most years; the page is how the next person checks." defaultValue={value("sourceUrl")} error={err("sourceUrl")} />
+      <Field name="sourceUrl" label="Source" type="url" inputMode="url" hint="The NCAA or conference page these dates are printed on." defaultValue={value("sourceUrl")} error={err("sourceUrl")} />
       <Button disabled={pending}>{pending ? "Saving..." : "Add Window"}</Button>
     </Form>
   );

@@ -159,7 +159,7 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
         label="Where It Came From"
         value={sourceRole}
         onChange={(e) => setSourceRole(e.target.value as SourceRole)}
-        hint="Changes how far the result is trusted. Something a parent sent is weighted lower than something you uploaded."
+        hint="Something a parent sent is trusted less than something you uploaded."
       >
         {SOURCE_ROLES.map((r) => (
           <option key={r.id} value={r.id}>

@@ -74,8 +74,7 @@ export default async function FundraisingPage({
     return (
       <Screen title="Fundraising">
         <EmptyState kind="money" title="Nothing Recorded Yet">
-          Record the first gift and this starts reporting against your categories. Totals are calculated from the gifts themselves, so
-          nothing here can go stale.
+          Every total here is calculated from the gifts themselves.
         </EmptyState>
         {canEdit && (
           <Stack>
@@ -161,7 +160,7 @@ export default async function FundraisingPage({
             role="place"
             emphasis="bold"
             title={`${formatMoney(s.totalInKindCents)} Donated in Goods and Services`}
-            meta={`Counted as support, never as cash. Total support for the year is ${formatMoneyShort(s.totalSupportCents)}.`}
+            meta={`Not cash. Total support for the year is ${formatMoneyShort(s.totalSupportCents)}.`}
             wrap
           />
         </Section>
@@ -196,10 +195,6 @@ export default async function FundraisingPage({
               </Card>
             );
           })}
-          <Note>
-            A campaign&apos;s percentage is cash raised against goal. Pledges are shown beside it and never inside it: a campaign with
-            promises covering its goal has not met its goal.
-          </Note>
         </Section>
       )}
 

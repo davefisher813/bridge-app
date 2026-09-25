@@ -101,7 +101,7 @@ export function CampaignForm({ action }: { action: ServerAction }) {
         label="Goal"
         error={err("goalAmount")}
         inputMode="decimal"
-        hint="Measured against cash raised. Pledges show beside the bar, never inside it, so promises cannot complete a campaign."
+        hint="Measured against cash raised, not pledges."
       />
 
       <TextAreaField name="notes" label="Notes" rows={2} />
@@ -134,7 +134,7 @@ export function PledgeForm({
         error={err("donorId")}
         defaultValue=""
         required
-        hint="Required, unlike a gift. An anonymous promise is not one anybody can follow up on."
+        hint="Required, unlike a gift."
       >
         <option value="" disabled>
           Pick a donor
@@ -213,7 +213,7 @@ export function GrantForm({ action }: { action: ServerAction }) {
           label="Amount Awarded"
           error={err("amountAwarded")}
           inputMode="decimal"
-          hint="The money itself is recorded separately as a gift in the Foundation Grants category, so an award is never counted both as a win here and as revenue there."
+          hint="The money itself is recorded separately, as a gift in Foundation Grants."
         />
       )}
 

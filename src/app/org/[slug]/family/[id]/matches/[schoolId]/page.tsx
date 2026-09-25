@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireFamily, requireFamilyAthlete } from "@/lib/data/family";
 import { loadFitsForAthlete, rowToFit } from "@/lib/data/fits";
 import { StatusPill } from "@/components/StatusPill";
-import { Body, Figure, Label, Prose, Row, Screen, Section, Stack, TextLink } from "@/components/kit";
+import { Body, Figure, Label, Row, Screen, Section, Stack, TextLink } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
 import { scoreRole } from "@/components/statusHue";
@@ -109,7 +109,6 @@ export default async function FamilyMatchPage({ params }: { params: Promise<{ sl
       )}
 
       <TextLink href={`${base}/${id}`}>Back to {athlete.name}</TextLink>
-      <Prose>Scored by {org.name}&apos;s matching from the numbers on file. Ask your coordinator about anything here.</Prose>
     </Screen>
   );
 }

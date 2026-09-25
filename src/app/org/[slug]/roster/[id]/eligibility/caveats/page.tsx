@@ -56,8 +56,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
     >
       {total === 0 ? (
         <EmptyState kind="check" role="committed" title="Nothing Outstanding">
-          Every core course is matched to an approved list and every school has a grading scale on file. The verdict is built on real data
-          rather than defaults.
+          The verdict is built on real data, not defaults.
         </EmptyState>
       ) : (
         <>

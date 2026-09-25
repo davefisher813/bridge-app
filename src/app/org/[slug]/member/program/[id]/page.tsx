@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireMember } from "@/lib/auth/guard";
 import { classOf, loadProgram, loadProgramSchools } from "@/lib/data/member";
 import { StatusPill } from "@/components/StatusPill";
-import { EmptyState, Prose, Row, Screen, Section } from "@/components/kit";
+import { EmptyState, Row, Screen, Section } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,6 @@ export default async function MemberAthletePage({ params }: { params: Promise<{ 
         ) : (
           schools.map((s) => <Row key={s.targetId} kind="school" role="place" title={s.schoolName} meta={s.division} trailing={<StatusPill status={s.status} />} wrap />)
         )}
-        <Prose>The stage is all a board member sees. Calls, notes and the coach&apos;s contact stay with {org.name}.</Prose>
       </Section>
     </Screen>
   );

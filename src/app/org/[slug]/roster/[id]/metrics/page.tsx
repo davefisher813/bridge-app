@@ -85,7 +85,7 @@ export default async function MetricsPage({ params }: { params: Promise<{ slug: 
       <Section label="Current" count={current.length} role="contact" kind="check">
         {current.length === 0 ? (
           <EmptyState kind="check" title="Nothing Logged Yet">
-            {canEdit ? "Log the first number below. The best verified one scores." : "Staff log numbers here. The best verified one scores."}
+            {canEdit ? "Log the first number below. The best verified one scores." : "The best verified number scores."}
           </EmptyState>
         ) : (
           current.map((c) => (
@@ -116,9 +116,8 @@ export default async function MetricsPage({ params }: { params: Promise<{ slug: 
 
       <Section label="Log" count={rows.length} role="time" kind="clock">
         {rows.length === 0 ? (
-          <EmptyState kind="clock" title="No Entries Yet">
-            Every number logged shows here, newest first.{canEdit ? " Log one above." : ""}
-          </EmptyState>
+          <EmptyState kind="clock" title="No Entries Yet"
+          />
         ) : (
           rows.map((r) => {
             const scores = scoring.scoredEntryId[r.metric] === r.id;

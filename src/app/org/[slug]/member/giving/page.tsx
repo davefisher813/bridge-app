@@ -5,7 +5,7 @@ import { requireMember } from "@/lib/auth/guard";
 import { loadGiving } from "@/lib/data/member";
 import { formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
 import { SeatCard, roleForPercent } from "@/components/SeatCard";
-import { Body, Card, EmptyState, Label, Meter, Prose, Row, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
+import { Body, Card, EmptyState, Label, Meter, Row, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +114,6 @@ export default async function MemberGivingPage({ params }: { params: Promise<{ s
               </Card>
             );
           })}
-          <Prose>The board as a whole. Who gave what stays between each member and {org.name}.</Prose>
         </Section>
       )}
     </Screen>

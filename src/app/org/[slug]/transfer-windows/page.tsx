@@ -5,7 +5,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { deleteTransferWindow } from "@/lib/actions/transferWindows";
 import { sportSpec } from "@/lib/fit/contract";
-import { AddButton, ConfirmButton, EmptyState, Form, Notice, Prose, Row, Screen, Section } from "@/components/kit";
+import { AddButton, ConfirmButton, EmptyState, Form, Notice, Row, Screen, Section } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +87,6 @@ export default async function TransferWindowsPage({ params, searchParams }: { pa
           </Section>
         ))
       )}
-      <Prose>A transfer athlete&apos;s timing is checked against the window for their sport, the school&apos;s division and the season. The source is the page the dates were read from.</Prose>
     </Screen>
   );
 }

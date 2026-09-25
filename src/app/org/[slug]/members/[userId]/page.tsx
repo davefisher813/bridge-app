@@ -85,7 +85,7 @@ export default async function MemberPage({
               <Prose>Linked to no athlete, so they see nothing. Remove them and invite them again from the athlete.</Prose>
             </Card>
           )}
-          <Prose>{ROLE_BLURB.family}. To change what they see, remove them and invite them again.</Prose>
+          <Prose>To change what they see, remove them and invite them again.</Prose>
         </Section>
       ) : (
         <Section label="Role" role="people" kind="people">
@@ -112,7 +112,7 @@ export default async function MemberPage({
             </ConfirmButton>
           </Form>
         )}
-        <Prose>Their account stays. They lose access to {org.name} only, and keep any other organization they belong to.</Prose>
+        <Prose>They lose access to {org.name} only. Their account stays.</Prose>
       </Section>
     </Screen>
   );

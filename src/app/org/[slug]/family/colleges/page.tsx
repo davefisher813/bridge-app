@@ -99,7 +99,7 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
     <Screen title="Colleges" lede={athletes.length === 1 ? athletes[0]!.name : `${athletes.length} athletes`}>
       {targets.length === 0 ? (
         <EmptyState kind="school" title="No Colleges Yet">
-          Schools being pursued show up here, with where things stand and every visit.
+          Schools being pursued show up here, with every visit.
         </EmptyState>
       ) : athletes.length > 1 ? (
         athletes.map((a) => {
@@ -120,7 +120,7 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
       <Section label="Visits" count={visits.length} role="place" kind="visit">
         {visits.length === 0 ? (
           <EmptyState kind="visit" title="No Visits Yet">
-            Campus visits, junior days and camps are listed here once staff log them.
+            Listed here once staff log them.
           </EmptyState>
         ) : (
           visits.map((v) => {

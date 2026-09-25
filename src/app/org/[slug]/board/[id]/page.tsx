@@ -28,7 +28,7 @@ import {
 } from "@/lib/data/fitAdapters";
 import { scoreFit } from "@/lib/fit/score";
 import type { DimensionResult } from "@/lib/fit/types";
-import { Body, Figure, Label, LinkButton, Prose, Row, Screen, Section, Stack } from "@/components/kit";
+import { Body, Figure, Label, LinkButton, Row, Screen, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
 import { scoreRole } from "@/components/statusHue";
@@ -190,7 +190,6 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
         )}
       </Stack>
 
-      <Prose>Status: {status}. The score is calculated every time this page loads, never stored, so it cannot disagree with the record it came from.</Prose>
     </Screen>
   );
 }

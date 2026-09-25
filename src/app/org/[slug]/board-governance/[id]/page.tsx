@@ -132,10 +132,6 @@ export default async function BoardPage({
         })}
       </Section>
 
-      <Note>
-        Only an active seat counts toward the board&apos;s total. A prospect has not joined and an emeritus member is not on the hook, so counting
-        either would make the board look further behind than it is.
-      </Note>
 
       {canEdit && !summary.atCapacity && <LinkButton href={`/org/${slug}/board-governance/${board.id}/seats/new`}>Add a Seat</LinkButton>}
 

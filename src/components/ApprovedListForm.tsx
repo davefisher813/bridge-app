@@ -92,7 +92,7 @@ export function ApprovedListForm({
         value={paste}
         onChange={(e) => setPaste(e.target.value)}
         rows={5}
-        hint="Select the table at web3.ncaa.org/hsportal and paste it here. One course per line."
+        hint="From web3.ncaa.org/hsportal. One course per line."
       />
       {parsed && (
         <Inline>

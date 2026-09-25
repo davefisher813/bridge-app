@@ -222,10 +222,8 @@ export default async function SeatPage({
 
       <Section label="Gifts on This Seat" count={credited.length} role="committed" kind="money">
         {credited.length === 0 ? (
-          <EmptyState kind="money" title="Nothing Credited Yet" action={<LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Record a Gift</LinkButton>}>
-            No gift is recorded against this seat. A gift counts here when this member is the donor, or when they are credited with bringing it in
-            on the gift itself.
-          </EmptyState>
+          <EmptyState kind="money" title="Nothing Credited Yet" action={<LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Record a Gift</LinkButton>}
+          />
         ) : (
           credited.map((c) => {
             const donorName = c.gift.donorId ? (view.donorNames.get(c.gift.donorId) ?? "Unknown donor") : "Anonymous";
@@ -256,10 +254,7 @@ export default async function SeatPage({
           })
         )}
         {credited.length > countedCount && (
-          <Note>
-            {countedCount} of {credited.length} of these count toward {fiscalYear}. The rest are shown so nothing looks lost, and are marked with the
-            reason.
-          </Note>
+          <Note>{`${countedCount} of ${credited.length} count toward ${fiscalYear}. The rest are marked with the reason.`}</Note>
         )}
       </Section>
 

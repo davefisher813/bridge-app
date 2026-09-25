@@ -120,8 +120,7 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
       <Section label="On File" count={own.length} role="committed" kind="scale">
         {own.length === 0 ? (
           <EmptyState kind="scale" title="No Grading Scales Yet">
-            Enter one for any school whose transcripts print numbers instead of letters. Only this org uses what you enter here, so a
-            mistake cannot change another organization&apos;s eligibility verdicts.
+            For a school whose transcripts print numbers instead of letters.
           </EmptyState>
         ) : (
           own.map((s) => {
@@ -140,15 +139,11 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
             );
           })
         )}
-        <Note>
-          Only this org uses these. Another organization with an athlete at the same school keeps its own, so a mistake here cannot change
-          anyone else&apos;s eligibility verdict. A table confirmed with the school and shared across the platform still wins where one
-          exists.
-        </Note>
+        <Note>Only this org uses these. A table confirmed with the school and shared across the platform still wins where one exists.</Note>
       </Section>
 
       {canEdit && <LinkButton href={`/org/${slug}/grading-scales/new`}>Add a School&apos;s Scale</LinkButton>}
-      <Prose>Tap a scale to edit it. Changing one recalculates every athlete at that school.</Prose>
+      <Prose>Changing a scale recalculates every athlete at that school.</Prose>
     </Screen>
   );
 }

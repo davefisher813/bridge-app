@@ -61,7 +61,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
       </StatRow>
 
       {totals.lifetimeInKindCents > 0 && (
-        <Row href={`/org/${slug}/fundraising/gifts?method=in_kind`} kind="grant" role="place" emphasis="bold" title={`${formatMoney(totals.lifetimeInKindCents)} in Kind`} meta="Counted as support, never as cash." />
+        <Row href={`/org/${slug}/fundraising/gifts?method=in_kind`} kind="grant" role="place" emphasis="bold" title={`${formatMoney(totals.lifetimeInKindCents)} in Kind`} meta="Support, not cash." />
       )}
 
       {/* A board member who gives is one person, not two records. This
@@ -104,9 +104,8 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
 
       <Section label="Gifts" count={gifts.length} role="committed" kind="money">
         {gifts.length === 0 ? (
-          <EmptyState kind="money" title="No Gifts Yet" action={canEdit ? <LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Record a Gift</LinkButton> : undefined}>
-            This supporter has not given.
-          </EmptyState>
+          <EmptyState kind="money" title="No Gifts Yet" action={canEdit ? <LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Record a Gift</LinkButton> : undefined}
+          />
         ) : (
           gifts.map((g) => (
             <Row

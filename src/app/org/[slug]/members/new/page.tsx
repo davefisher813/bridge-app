@@ -24,7 +24,7 @@ export default async function InviteMemberPage({ params }: { params: Promise<{ s
   return (
     <Screen title="Invite Someone" back={{ href: `/org/${slug}/members`, label: "Members" }}>
       <InviteForm action={action} roleLabels={org.roleLabels} athletes={athletes} />
-      <Prose>The link works for 24 hours. If it lapses, Resend from the Invited list.</Prose>
+      <Prose>The link works for 24 hours.</Prose>
     </Screen>
   );
 }

@@ -98,7 +98,7 @@ export default async function ApprovedCoursesPage({ params }: { params: Promise<
       <Section label="On File" count={onFile.length} role="committed" kind="checklist">
         {onFile.length === 0 ? (
           <EmptyState kind="checklist" title="No Approved Lists Yet">
-            The Eligibility Center publishes one per high school. Without it a core GPA is an estimate.
+            Without one, a core GPA is an estimate.
           </EmptyState>
         ) : (
           onFile.map(({ row, origin }) => (

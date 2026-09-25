@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireMember } from "@/lib/auth/guard";
 import { classOf, loadProgram, type ProgramAthlete } from "@/lib/data/member";
 import { stageKind, statusRole } from "@/components/statusHue";
-import { Avatar, Chip, EmptyState, Prose, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
+import { Avatar, Chip, EmptyState, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +58,6 @@ export default async function MemberProgramPage({ params }: { params: Promise<{ 
             />
           ))
         )}
-        <Prose>Where each athlete stands, and nothing more: grades, scores and the staff&apos;s notes stay with {org.name}.</Prose>
       </Section>
     </Screen>
   );

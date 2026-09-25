@@ -84,9 +84,8 @@ export default async function AllSeatsPage({
       back={{ href: `/org/${slug}/board-governance`, label: "Boards" }} lede={`${fiscalYear}, across all ${view.boards.length} ${view.boards.length === 1 ? "board" : "boards"}`}
     >
       {seats.length === 0 ? (
-        <EmptyState kind="people" title="No Seats Yet" action={<LinkButton href={`/org/${slug}/board-governance`}>Open Boards</LinkButton>}>
-          Add a board and its seats, and every one of them shows up here with its give/get progress.
-        </EmptyState>
+        <EmptyState kind="people" title="No Seats Yet" action={<LinkButton href={`/org/${slug}/board-governance`}>Open Boards</LinkButton>}
+        />
       ) : (
         <>
           {active.length > 0 && (

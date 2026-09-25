@@ -327,6 +327,21 @@ nothing past the edge, no row or tile that goes nowhere
 with no deeper screen to open), and every link followed to a real
 screen the signed-in person may open (116 links, none broken).
 
+### Less text on every screen, 2026-09-25
+
+Dave: "eliminate as much instructional subtext as possible. Leave only
+what we will actually need." One rule decided each line: a sentence
+that changes what somebody does stays (a refusal, a warning, an NCAA
+caveat, a rule like a D3 school offering no athletic money); a sentence
+that explains how the app works goes.
+
+Cut or shortened: eight explanatory paragraphs under sections, four
+notes that explained how a total is counted rather than what it is,
+thirty-seven empty states (an empty state with a button on it no longer
+repeats the button in a sentence), and twenty-five field hints that
+gave the reasoning behind a field instead of the format it wants.
+Format examples stay, because they are the part a person acts on.
+
 ---
 
 ## How it is verified

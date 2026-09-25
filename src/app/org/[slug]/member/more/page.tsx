@@ -5,7 +5,7 @@ import { requireMember } from "@/lib/auth/guard";
 import { signout } from "@/lib/auth/actions";
 import { labelForRole } from "@/lib/org/roleLabels";
 import type { OrgRole } from "@/lib/auth/guard";
-import { Avatar, Button, Chevron, EmptyState, Form, Prose, Row, Screen, Section, Stack } from "@/components/kit";
+import { Avatar, Button, Chevron, EmptyState, Form, Row, Screen, Section, Stack } from "@/components/kit";
 
 // More, for a member (Bridge: Board): who to ask (the org's owner and
 // staff, with their emails; Dave's pick, 2026-09-21), who you are, and
@@ -53,7 +53,6 @@ export default async function MemberMorePage({ params }: { params: Promise<{ slu
             />
           ))
         )}
-        <Prose>Everything on these screens is read only. To record a gift, change your details or ask about an athlete, an email is the way.</Prose>
       </Section>
 
       <Section label="You" role="people" kind="settings">

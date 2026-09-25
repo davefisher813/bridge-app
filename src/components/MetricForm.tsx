@@ -56,7 +56,7 @@ export function MetricForm({ action, first, more, today }: { action: ServerActio
         />
         <Field name="measuredOn" label="Measured On" type="date" defaultValue={today} required error={err("measuredOn")} />
       </Grid2>
-      <SelectField name="source" label="Source" hint="Where it was measured. Premier tech is trusted most; self-reported least." defaultValue="event" error={err("source")}>
+      <SelectField name="source" label="Source" hint="Premier tech is trusted most, self-reported least." defaultValue="event" error={err("source")}>
         {SOURCES.map((s) => (
           <option key={s.key} value={s.key}>
             {s.label}

@@ -29,7 +29,6 @@ export function DonorForm({ action }: { action: ServerAction }) {
         label="Type"
         error={err("donorType")}
         defaultValue="individual"
-        hint="Board member is its own type because board giving is a separate line on the P&L."
       >
         {DONOR_TYPES.map((t) => (
           <option key={t.value} value={t.value}>
@@ -42,7 +41,7 @@ export function DonorForm({ action }: { action: ServerAction }) {
 
       <Field name="phone" label="Phone" type="tel" />
 
-      <TextAreaField name="address" label="Address" rows={2} hint="Needed on an acknowledgment letter, which is why it is here." />
+      <TextAreaField name="address" label="Address" rows={2} hint="For acknowledgment letters." />
 
       <TextAreaField name="notes" label="Notes" rows={2} />
 

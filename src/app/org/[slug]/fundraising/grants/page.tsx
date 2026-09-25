@@ -137,10 +137,8 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
       {grants.length === 0 ? (
         <>
           <EmptyState kind="grant" title="No Grants Tracked Yet">
-            A grant has a life before any money exists: researching, applied, waiting on a decision, then a report due months after the
-            cheque clears. Those dates are the part that gets missed.
+            The dates that get missed: applied, decision, report due.
           </EmptyState>
-          <Note>Foundation Grants sits at zero on the overview until the first award arrives, which is accurate rather than a gap.</Note>
         </>
       ) : (
         <>

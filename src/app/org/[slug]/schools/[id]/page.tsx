@@ -156,7 +156,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
         {note?.notes && <Note>{note.notes}</Note>}
         {!note && !canEdit && (
           <EmptyState kind="note" title="Nothing Noted Yet">
-            Staff keep the coach contact and positions of need for this school here.
+            Staff keep the coach contact and positions of need here.
           </EmptyState>
         )}
         {canEdit && (
@@ -165,7 +165,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
             initialValues={{ coachName: note?.coach_name ?? undefined, coachEmail: note?.coach_email ?? undefined, positionsOfNeed: needs || undefined, notes: note?.notes ?? undefined }}
           />
         )}
-        {canEdit && <Label>Private to your organization. A matching position and grad year adds ten to an athlete&apos;s score here.</Label>}
+        {canEdit && <Label>Private to your organization. A matching position and grad year adds ten to a score here.</Label>}
       </Section>
 
       <Section label="Money" role="committed" kind="money">
@@ -216,9 +216,8 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
 
       <Section label="Your Athletes Here" count={scored.length} role="contact" kind="athlete">
         {scored.length === 0 ? (
-          <EmptyState kind="athlete" title="Nobody Here Yet" action={<LinkButton href={`/org/${slug}/roster`}>Open Athletes</LinkButton>}>
-            No athlete on your roster is targeting this school. Adding one from their matches makes it a target with a fit score.
-          </EmptyState>
+          <EmptyState kind="athlete" title="Nobody Here Yet" action={<LinkButton href={`/org/${slug}/roster`}>Open Athletes</LinkButton>}
+          />
         ) : (
           scored.map((t) => (
             <Row

@@ -86,7 +86,7 @@ export default async function DimensionPage({ params }: { params: Promise<{ slug
       <Section label="Why" count={d.reasons.length} role={role} kind={meta.kind}>
         {d.reasons.length === 0 ? (
           <EmptyState kind="note" title="No Reason Given">
-            The engine returned a score without a stated reason, which normally means it had nothing specific to this school to work from.
+            Nothing specific to this school to work from.
           </EmptyState>
         ) : (
           d.reasons.map((r, i) => <Note key={i}>{r}</Note>)

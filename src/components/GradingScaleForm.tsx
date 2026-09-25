@@ -42,7 +42,7 @@ export function GradingScaleForm({
         error={err("schoolName")}
         defaultValue={defaults.schoolName}
         required
-        hint="Spell it the way the transcript does. Courses are matched to this table by school name."
+        hint="Spell it the way the transcript does."
       />
 
       <Stack gap={2}>
@@ -103,7 +103,7 @@ export function GradingScaleForm({
         inputMode="decimal"
         defaultValue={defaults.weightBonus}
         error={err("weightBonus")}
-        hint="What this school actually adds. The NCAA caps it at 1.00, and the cap is not the same as the amount: a school that adds 0.50 would have every AP athlete overstated if the cap were used instead."
+        hint="What this school adds. The NCAA caps it at 1.00."
       />
 
       <TextAreaField
@@ -112,7 +112,7 @@ export function GradingScaleForm({
         defaultValue={defaults.sourceNote}
         required
         error={err("sourceNote")}
-        hint="Required. This table governs every eligibility verdict for every athlete at this school in your org, and in six months nobody will remember who typed it."
+        hint="Required."
       />
 
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>

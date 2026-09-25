@@ -2712,3 +2712,29 @@ Three browser checks run from `scripts/live/check.sh`: the edge driver,
 the clickability baseline, and a link follower that opens every link as
 the login that saw it. The driver also fails on a tap target inside
 another, which is what the Edit link inside a row had become.
+
+## 2026-09-25: a line earns its place by changing what somebody does
+
+**Decision.** Screen copy carries warnings, refusals, rules and
+caveats. It does not carry explanations of how the app works, or
+restatements of what the screen already shows. An empty state with a
+button does not describe the button. A field hint gives the format, not
+the reasoning.
+
+**Reason.** Dave, from his phone: "eliminate as much instructional
+subtext as possible. Leave only what we will actually need." Explaining
+the mechanics on every screen reads as an app that does not trust
+itself, and on a phone it pushes the thing somebody came for below the
+fold.
+
+**Alternatives.** Keeping the explanations behind a tap (rejected: a
+screen nobody opens is not documentation, it is dead weight; what is
+genuinely load bearing belongs on the screen, and the rest belongs in
+docs/). Cutting everything including the caveats (rejected: the NCAA
+projection warning and the D3 scholarship rule are the app's own
+promises about what it does not know).
+
+**Consequences.** Eight paragraphs, four notes, thirty-seven empty
+state bodies and twenty-five hints cut or shortened. The copy law still
+holds every remaining title to Title Case, and the preview audit still
+proves no screen renders empty.

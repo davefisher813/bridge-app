@@ -32,14 +32,13 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
     >
       {athletes.length === 0 ? (
         <>
-          <EmptyState kind="athlete" title="No Athletes on the Roster Yet" action={<LinkButton href={`/org/${slug}/roster/new`}>Add an Athlete</LinkButton>}>
-            A target is one athlete pointed at one school, so the athlete comes first.
-          </EmptyState>
+          <EmptyState kind="athlete" title="No Athletes on the Roster Yet" action={<LinkButton href={`/org/${slug}/roster/new`}>Add an Athlete</LinkButton>}
+          />
         </>
       ) : schools.length === 0 ? (
         <>
           <EmptyState kind="school" title="No Schools on File Yet" action={isOwner && <LinkButton href={`/org/${slug}/schools/new`}>Add the First School</LinkButton>}>
-            Schools are shared across every org, so only an owner can add one.{isOwner ? "" : " Ask an owner to add one."}
+            {isOwner ? "Schools are shared across every org." : "Ask an owner to add one."}
           </EmptyState>
         </>
       ) : (

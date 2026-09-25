@@ -46,9 +46,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
           kind="checklist"
           title="Nothing to Check"
           action={user.role === "family" ? undefined : <LinkButton href={`${athleteHome(slug, id, user.role)}/transcript`}>Open the Transcript</LinkButton>}
-        >
-          No courses on file yet.
-        </EmptyState>
+        />
       ) : (
         GROUPS.map(({ status, label, role, kind }) => {
           const rows = view.approvals.filter((a) => a.match.status === status);

@@ -226,7 +226,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
       >
         {fits.length === 0 ? (
           <EmptyState kind="target" title="No Matches Yet" action={canEdit ? <LinkButton href={`/org/${slug}/schools`}>Open Schools</LinkButton> : undefined}>
-            {canEdit ? "Save the athlete once and every school on file is scored. With no schools on file there is nothing to score against." : "Every school on file is scored once the record is saved."}
+            {canEdit ? "With no schools on file there is nothing to score against." : "Every school on file is scored once the record is saved."}
           </EmptyState>
         ) : (
           <>
@@ -258,9 +258,8 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
       <Section label="Colleges" count={targets.length} role="place" kind="school">
         {targets.length === 0 ? (
-          <EmptyState kind="school" title="No Colleges Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton> : undefined}>
-            A college becomes a target from this athlete's matches.
-          </EmptyState>
+          <EmptyState kind="school" title="No Colleges Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton> : undefined}
+          />
         ) : (
           targets.map((t) => (
             <Row
@@ -279,7 +278,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
       <Section label="Contacts" count={contacts.length} role="people" kind="people">
         {contacts.length === 0 ? (
           <EmptyState kind="people" title="No Contacts Yet">
-            Coaches, parents and advisors for this athlete live here. {canEdit ? "Add the first one below." : ""}
+            {canEdit ? "Add the first one below." : "Coaches, parents and advisors live here."}
           </EmptyState>
         ) : (
           contacts.map((c) => (
@@ -318,7 +317,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
       <Section label="Family" count={family.length} role="people" kind="people">
         {family.length === 0 ? (
           <EmptyState kind="people" title="No Family Login Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/family/new`}>Invite Family</LinkButton> : undefined}>
-            {canEdit ? "Invite the athlete first, then a parent or guardian. Each gets their own sign-in and sees this record, read only." : "Nobody in the family has a sign-in yet."}
+            {canEdit ? "The athlete first, then a parent or guardian." : "Nobody in the family has a sign-in yet."}
           </EmptyState>
         ) : (
           family.map((g) => (
@@ -342,9 +341,8 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
       <Section label="Visits" count={visits.length} role="place" kind="visit">
         {visits.length === 0 ? (
-          <EmptyState kind="visit" title="No Visits Logged Yet" action={targets.length > 0 ? <LinkButton href={`/org/${slug}/board?athlete=${id}`}>Open Their Targets</LinkButton> : undefined}>
-            A visit is logged on the target it was for.
-          </EmptyState>
+          <EmptyState kind="visit" title="No Visits Logged Yet" action={targets.length > 0 ? <LinkButton href={`/org/${slug}/board?athlete=${id}`}>Open Their Targets</LinkButton> : undefined}
+          />
         ) : (
           visits.map((v) => (
             <Card key={v.id} href={`/org/${slug}/board/${v.target_id}`}>

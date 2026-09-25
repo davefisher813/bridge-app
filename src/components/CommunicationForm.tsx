@@ -32,7 +32,7 @@ export function CommunicationForm({ action }: { action: ServerAction }) {
         </SelectField>
         <Field name="occurredOn" label="Date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
       </Grid2>
-      <Field name="notes" label="Notes" hint="What was discussed." />
+      <Field name="notes" label="Notes" />
       <Button variant="secondary" disabled={pending}>
         {pending ? "Logging..." : "Log Communication"}
       </Button>

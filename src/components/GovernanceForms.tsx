@@ -37,7 +37,6 @@ export function BoardForm({ action }: { action: ServerAction }) {
         name="giveGet"
         label="Give/Get per Seat"
         error={err("giveGet")}
-        hint="Prefilled from your governance document. Stored per board, so changing it here changes nothing anybody already agreed to."
         inputMode="decimal"
         className="tabular-nums"
         defaultValue={formatMoney(DEFAULT_GIVE_GET_CENTS[kind]).replace("$", "")}
@@ -92,7 +91,7 @@ export function BoardSeatForm({
         name="roleTitle"
         label="Role"
         list="role-suggestions"
-        hint={roleSuggestions.length > 0 ? `The core roles for this tier are ${roleSuggestions.join(", ")}. Anything else is fine too.` : undefined}
+        hint={roleSuggestions.length > 0 ? `For example, ${roleSuggestions.join(", ")}.` : undefined}
       />
       <datalist id="role-suggestions">
         {roleSuggestions.map((r) => (
@@ -104,7 +103,7 @@ export function BoardSeatForm({
         name="status"
         label="Status"
         error={err("status")}
-        hint="Only an active seat counts toward the board's committed total. A prospect has not joined yet."
+        hint="Only an active seat counts toward the total."
         defaultValue="prospect"
       >
         {SEAT_STATUSES.map((s) => (
@@ -118,7 +117,6 @@ export function BoardSeatForm({
         name="commitment"
         label="Commitment"
         error={err("commitment")}
-        hint="Copied from the board, so changing the tier later does not rewrite what a sitting member agreed to."
         inputMode="decimal"
         className="tabular-nums"
         defaultValue={defaultCommitment}
@@ -128,7 +126,7 @@ export function BoardSeatForm({
         name="donorId"
         label="Donor Record"
         error={err("donorId")}
-        hint="Linking finds their own giving automatically. Without it, only what they bring in can be credited."
+        hint="Without it, only what they bring in can be credited."
         defaultValue=""
       >
         <option value="">Not linked</option>
