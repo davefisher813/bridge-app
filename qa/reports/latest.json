@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "5cf37a2",
-  "commitFull": "5cf37a2e34de7a306bc38afd141666976540993c",
+  "commit": "49919ca",
+  "commitFull": "49919ca8119ee9d9250a1d367e3d0bef2bacf8c7",
   "branch": "main",
   "remoteBranches": [],
   "shipped": false,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-09-22T02:14:33.250Z",
-  "durationMs": 34026,
+  "startedAt": "2026-09-25T19:44:56.911Z",
+  "durationMs": 15658,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,7 +18,7 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 1110,
+        "pass": 1112,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
@@ -31,7 +31,7 @@
       "testsPerFile": {
         "src/laws/actionRun.test.ts": 114,
         "src/laws/copyLaws.test.ts": 2,
-        "src/laws/dataLaws.test.ts": 10,
+        "src/laws/dataLaws.test.ts": 12,
         "src/laws/fitLaws.test.ts": 7,
         "src/laws/fundraisingLaws.test.ts": 13,
         "src/laws/governanceLaws.test.ts": 9,
@@ -111,7 +111,7 @@
             "location": "/login"
           }
         },
-        "ms": 1302
+        "ms": 1265
       },
       "errors": [],
       "warnings": [],
@@ -127,8 +127,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 10,
-      "filesScanned": 392
+      "touchedFiles": 31,
+      "filesScanned": 398
     },
     {
       "name": "types",
