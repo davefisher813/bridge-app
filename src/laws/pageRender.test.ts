@@ -417,22 +417,22 @@ describe("LAW: a placed athlete has no score anywhere", () => {
   });
 });
 
-describe("LAW: Today counts every status, and each tile opens the roster it counts", () => {
-  // Stage 1, 2026-09-26: seven tiles, one per status in vocabulary
-  // order, counted by effectiveStatus (src/lib/placement.ts) exactly as
-  // the roster filters, so a tile and the list it opens never disagree.
-  it("has one tile per status, each linking to the roster filtered by it", async () => {
-    const { ATHLETE_STATUSES } = await import("@/lib/validation/athlete");
+describe("LAW: Today counts every status, and each count opens the roster it counts", () => {
+  // Stage 1, 2026-09-26, reformatted the same day (Dave: "way too much
+  // vertical space and clutter"): one compact line, a count per status
+  // with anyone in it, counted by effectiveStatus (src/lib/placement.ts)
+  // exactly as the roster filters, so a count and the list it opens
+  // never disagree. Statuses with nobody are left out.
+  it("shows every status with anyone in it, each linking to the roster filtered by it", async () => {
     const html = await render("@/app/org/[slug]/page", { params: p({ slug: ORG_WITH_MODULES }) });
     const hrefs = [...html.matchAll(/href="([^"]*roster\?status=[^"]*)"/g)].map((m) => m[1]!);
-    expect(hrefs).toHaveLength(ATHLETE_STATUSES.length);
-    expect(hrefs).toEqual(ATHLETE_STATUSES.map((s) => `/org/${ORG_WITH_MODULES}/roster?status=${s}`));
-    // One Enrolled athlete in the fixture, one Transferring, nobody Inactive.
-    const tile = (status: string) => rowAfter(html, `roster?status=${status}"`).match(/tabular-nums[^>]*>(\d+)<\/div>/)?.[1];
-    expect(tile("Enrolled")).toBe("1");
-    expect(tile("Transferring")).toBe("1");
-    expect(tile("Inactive")).toBe("0");
-    expect(tile("Committed")).toBe("1");
+    for (const s of ["Active", "Committed", "Enrolled", "Transferring", "Graduated", "Drafted"]) expect(hrefs).toContain(`/org/${ORG_WITH_MODULES}/roster?status=${s}`);
+    expect(hrefs).not.toContain(`/org/${ORG_WITH_MODULES}/roster?status=Inactive`);
+    // The count sits in the chip right before the status word.
+    const count = (status: string) => html.match(new RegExp(`>(\\d+)<\\/span>\\s*${status}<`))?.[1];
+    expect(count("Enrolled")).toBe("1");
+    expect(count("Transferring")).toBe("1");
+    expect(count("Committed")).toBe("1");
   });
 
   it("the roster narrowed by a status shows only that status, and offers the way back", async () => {
@@ -454,7 +454,8 @@ describe("LAW: Today counts every status, and each tile opens the roster it coun
     const { ATHLETE_STATUSES } = await import("@/lib/validation/athlete");
     const today = await render("@/app/org/[slug]/page", { params: p({ slug: ORG_WITH_MODULES }) });
     for (const status of ATHLETE_STATUSES) {
-      const count = Number(rowAfter(today, `roster?status=${status}"`).match(/tabular-nums[^>]*>(\d+)<\/div>/)?.[1]);
+      // A status nobody holds is left off Today, so its count is 0.
+      const count = Number(today.match(new RegExp(`>(\\d+)<\\/span>\\s*${status}<`))?.[1] ?? 0);
       const list = await render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ status }) });
       expect(list).toMatch(new RegExp(`${count} of \\d+, ${status}`));
     }

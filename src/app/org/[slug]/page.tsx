@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { getCurrentUser, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
-import { Body, Card, EmptyState, Label, LinkButton, Meter, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { Body, Card, Chip, EmptyState, Label, LinkButton, Row, Score, Screen, Section, Stack, TextLink } from "@/components/kit";
 import { stageKind, statusRole } from "@/components/statusHue";
 import { effectiveStatus, placementAthlete, type PlacementTarget } from "@/lib/placement";
 import { ATHLETE_STATUSES } from "@/lib/validation/athlete";
@@ -145,9 +145,11 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
     committedByAthlete.set(r.athlete_id, [...(committedByAthlete.get(r.athlete_id) ?? []), { id: r.id, status: r.status, schoolName: unwrap(r.schools)?.name ?? null }]);
   }
   const counts = new Map<string, number>(ATHLETE_STATUSES.map((s) => [s, 0]));
+  let athleteTotal = 0;
   for (const a of (athleteRows ?? []) as AthleteRow[]) {
     const status = effectiveStatus(placementAthlete(a), committedByAthlete.get(a.id) ?? []);
     counts.set(status, (counts.get(status) ?? 0) + 1);
+    athleteTotal += 1;
   }
 
   const needsFollowUp = rows
@@ -198,22 +200,29 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
   return (
     <Screen title={`Good morning, ${firstName}.`}>
-      <Stack gap={3}>
-        <StatRow>
-          {/* Each tile opens what it counts. Dave, 2026-09-25. */}
-          {[...counts].map(([status, count]) => (
-            <Stat key={status} value={count} label={status} role={statusRole(status)} kind={stageKind(status)} href={`/org/${slug}/roster?status=${encodeURIComponent(status)}`} />
-          ))}
-        </StatRow>
-        {totalTargets > 0 && (
-          <Meter
-            parts={[
-              { role: "contact", fraction: inContactCount / totalTargets },
-              { role: "committed", fraction: committedCount / totalTargets },
-            ]}
-          />
-        )}
-      </Stack>
+      {/* One line per status with anyone in it, each opening the roster
+          it counts. Seven tiles took half the screen (Dave, 2026-09-26:
+          "way too much vertical space and clutter"). */}
+      <Card isStatic>
+        <div className="flex items-baseline justify-between gap-3">
+          <Body weight="bold">Athletes</Body>
+          <Body weight="bold" numeric>
+            {athleteTotal}
+          </Body>
+        </div>
+        <div className="flex flex-wrap gap-4">
+          {[...counts]
+            .filter(([, count]) => count > 0)
+            .map(([status, count]) => (
+              <TextLink key={status} href={`/org/${slug}/roster?status=${encodeURIComponent(status)}`}>
+                <span className="inline-flex items-center gap-2">
+                  <Chip label={String(count)} kind={stageKind(status)} role={statusRole(status)} />
+                  {status}
+                </span>
+              </TextLink>
+            ))}
+        </div>
+      </Card>
 
       {strongMatches.length > 0 && (
         <Section label="Strong Matches" count={strongMatches.length} role="committed" kind="target">
