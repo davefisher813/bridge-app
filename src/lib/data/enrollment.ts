@@ -27,6 +27,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { longDate } from "@/lib/copy/dates";
+import { currentSchoolOf } from "@/lib/placement";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = SupabaseClient<any, any, any>;
@@ -41,8 +42,8 @@ export interface EnrollmentResult {
 }
 
 export async function applyEnrollment(supabase: Client, orgId: string, athleteId: string, enrolledOn: string): Promise<EnrollmentResult> {
-  const { data: athleteRow } = await supabase.from("athletes").select("name, first_full_time_enrollment").eq("id", athleteId).eq("org_id", orgId).maybeSingle();
-  const athlete = athleteRow as { name: string; first_full_time_enrollment: string | null } | null;
+  const { data: athleteRow } = await supabase.from("athletes").select("name, first_full_time_enrollment, detail").eq("id", athleteId).eq("org_id", orgId).maybeSingle();
+  const athlete = athleteRow as { name: string; first_full_time_enrollment: string | null; detail?: unknown } | null;
   const athleteName = athlete?.name ?? "The athlete";
   const firstEnrollment = athlete?.first_full_time_enrollment ?? null;
 
@@ -54,7 +55,9 @@ export async function applyEnrollment(supabase: Client, orgId: string, athleteId
     .eq("status", "Committed")
     .maybeSingle();
   const committed = committedRow as { schools: { name: string } | { name: string }[] | null } | null;
-  const schoolName = committed ? (unwrap(committed.schools)?.name ?? null) : null;
+  // The Committed target's school, else the Current School on the
+  // athlete's own record (someone already in college with no target).
+  const schoolName = (committed ? (unwrap(committed.schools)?.name ?? null) : null) ?? currentSchoolOf(athlete?.detail);
 
   const { data: openRows } = await supabase
     .from("recruiting_targets")

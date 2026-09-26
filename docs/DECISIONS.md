@@ -2848,3 +2848,37 @@ longer branch on `!committed`. The athlete profile's Mark Enrolled
 button shows for any staff-editable, non-enrolled athlete, not only one
 with a Committed target. `src/lib/data/enrollment.ts` needed no change -
 it already handled a null `schoolName` correctly.
+
+## 2026-09-26: Committed and Enrolled are one fact with a school, everywhere
+
+**Decision.** A shared rule, `placementOf()` in `src/lib/placement.ts`,
+decides whether an athlete is Committed or Enrolled and where, and every
+screen that shows it reads that rule. The school is the Committed
+target, else (Enrolled only) the Current School on the athlete's record.
+Board commits sync `athletes.status` (Active and Committed only).
+Enrolling always has a school: the enroll screen asks when nothing on
+file names one, and a picked school is recorded as the Committed target.
+Matches hide once an athlete is Committed, not only once Enrolled. The
+athlete page's "Colleges" section is renamed "Targets".
+
+**Reason.** Dave: "when they commit, it doesn't say the school they're
+committed to anywhere. And when they're enrolled, it doesn't say it
+anywhere either... I think you just added one thing and didn't think of
+the chain reaction." Each screen read a different source
+(athletes.status, a Committed target, nothing), the Current School he
+typed was read by none of them, and a board commit never reached the
+athlete. "Colleges" was the Targets board under a second name, next to
+Matches, and read as a third list.
+
+**Alternatives considered.** A new athlete column for the enrolled
+school (rejected: needs a migration, and would be a second place a school
+can be named that the board does not see; the Committed target plus the
+existing Current School cover every case). Syncing athletes.status on
+every board save rather than on transitions (rejected: would overwrite a
+status staff set by hand whenever any target was touched).
+
+**Consequences.** Superseded: the same-day "Mark Enrolled no longer
+requires a Committed target" entry's no-school path; enrolling without a
+school is now refused rather than allowed. The member program screen
+still reads its own SQL summary and does not know Enrolled or Current
+School (docs/ROADMAP.md).

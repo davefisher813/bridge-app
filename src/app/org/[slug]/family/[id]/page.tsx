@@ -4,7 +4,9 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
 import { requireFamily, requireFamilyAthlete } from "@/lib/data/family";
 import { JourneyStepper } from "@/components/JourneyStepper";
+import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
+import { currentSchoolOf, placementOf } from "@/lib/placement";
 import { statusRole, stageKind } from "@/components/statusHue";
 import { Card, Chevron, EmptyState, Label, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
@@ -89,7 +91,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
   const [{ data: athlete }, { data: targetRows }, { data: metricRows }, { data: docRows }, fits] = await Promise.all([
     supabase
       .from("athletes")
-      .select("id, name, sport, position, recruit_type, gpa, status, first_full_time_enrollment, goal, family_budget_cents, home_state")
+      .select("id, name, sport, position, recruit_type, gpa, status, first_full_time_enrollment, goal, family_budget_cents, home_state, detail")
       .eq("id", id)
       .eq("org_id", org.id)
       .is("deleted_at", null)
@@ -109,13 +111,11 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
 
   const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ ...t, school: unwrap(t.schools) }));
   const journey = deriveJourneyStage(targets.map((t) => ({ status: t.status, schoolName: t.school?.name ?? "" })));
-  const enrolled = athlete.status === "Enrolled";
-  const committedTarget = targets.find((t) => t.status === "Committed") ?? null;
-  const enrolledMeta = committedTarget
-    ? `${committedTarget.school?.name ?? "Unknown school"}${athlete.first_full_time_enrollment ? ` · since ${longDate(athlete.first_full_time_enrollment)}` : ""}`
-    : athlete.first_full_time_enrollment
-      ? `Since ${longDate(athlete.first_full_time_enrollment)}`
-      : undefined;
+  const placement = placementOf(
+    { status: athlete.status, currentSchool: currentSchoolOf(athlete.detail) },
+    targets.map((t) => ({ id: t.id, status: t.status, schoolName: t.school?.name ?? null })),
+  );
+  const placementMeta = placement?.state === "Enrolled" && athlete.first_full_time_enrollment ? `Since ${longDate(athlete.first_full_time_enrollment)}` : undefined;
   const topFits = fits.slice(0, 5);
   const goal = GOAL_LABEL[(athlete.goal ?? "balanced") as AthleteGoal] ?? GOAL_LABEL.balanced;
   const budgetCents = athlete.family_budget_cents as number | null;
@@ -127,14 +127,19 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
       back={all.length > 1 ? { href: base, label: "Your Athletes" } : undefined}
       lede={`${athlete.sport}${athlete.position ? ` · ${athlete.position}` : ""} · ${RECRUIT_TYPE_LABEL[athlete.recruit_type] ?? athlete.recruit_type}${athlete.gpa != null ? ` · ${Number(athlete.gpa).toFixed(2)} school GPA` : ""}`}
     >
-      {enrolled ? (
+      {placement ? (
         <Row
-          href={committedTarget ? `${base}/colleges/${committedTarget.id}` : `${base}/colleges`}
-          kind={stageKind("Enrolled")}
-          role={statusRole("Enrolled")}
-          title="Enrolled"
-          meta={enrolledMeta}
-          trailing={<Chevron />}
+          href={placement.targetId ? `${base}/colleges/${placement.targetId}` : `${base}/colleges`}
+          kind={stageKind(placement.state)}
+          role={statusRole(placement.state)}
+          title={placement.school ?? "School Not on File"}
+          meta={placementMeta}
+          trailing={
+            <>
+              <StatusPill status={placement.state} />
+              <Chevron />
+            </>
+          }
         />
       ) : (
         <Card href={`${base}/colleges`}>
@@ -167,7 +172,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
         <Label>To change the goal or the budget, ask {org.name}.</Label>
       </Stack>
 
-      {!enrolled && (
+      {!placement && (
         <Section label="Matches" count={fits.length} role="place" kind="target" action={fits.length > 5 ? <TextLink href={`${here}/matches`}>See All</TextLink> : undefined}>
           {fits.length === 0 ? (
             <EmptyState kind="target" title="No Matches Yet">

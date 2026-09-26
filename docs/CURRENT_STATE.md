@@ -1,7 +1,6 @@
 # Current state
 
-Last updated: 2026-09-26, after Mark Enrolled and the clickability and
-copy passes.
+Last updated: 2026-09-26, after the Committed/Enrolled placement chain.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three logins, each with their own app on the same
@@ -363,18 +362,33 @@ enrollment date only if nothing has started it already - a transfer
 athlete's clock started at their original school, years earlier, and
 must never be moved by a later enrollment.
 
-Once Enrolled: the athlete's stage stepper gives way to a single
-Enrolled row naming the school (staff and family screens both); the
-Matches section and the full Matches page stop scoring and rank
-nothing; the Colleges section still lists every target with its real,
-honest status, so the history is never lost. Not touched: the recruiting
-board's Committed group (still shows the athlete, correctly), the
-member/board role's own program screen (still reads the Committed
-target through its own summary function; showing Enrolled there would
-need a change to that SQL function and is left for later), and Today's
-Strong Matches (a same-day recompute right before enrolling could
-surface a stale suggestion for a day; the normal case ages out of the
-window on its own).
+Committed and Enrolled are one fact with a school, worked out by
+`placementOf()` (`src/lib/placement.ts`) and read the same way on the
+athlete page, the roster row and the family page. The school is the
+athlete's Committed target, else (Enrolled only) the Current School on
+their own record. Once an athlete has one: the stepper gives way to a
+row naming the school, the roster row reads "Committed to X" or
+"Enrolled at X" in place of the recruit type, and Matches stops showing
+(ranking more schools is over). The athlete's own schools section is
+called Targets, the same rows as the Targets board; it keeps every
+target with its real status, so history is never lost.
+
+The board and the athlete stay in step (`src/lib/data/commitment.ts`):
+moving a target to Committed makes an Active athlete Committed, and
+moving the last one off Committed makes them Active again. Enrolled and
+Inactive athletes are never touched by a board edit.
+
+Mark Enrolled never enrolls someone nowhere: with no Committed target it
+asks which school, defaulting to the Current School; a school picked from
+the list becomes the athlete's Committed target (or commits the target
+they already had for it). The Edit dropdown refuses Enrolled when no
+school is on file anywhere and points to Mark Enrolled.
+
+Not touched: the member/board role's own program screen, which reads
+Committed targets through its own SQL summary function and does not know
+Enrolled or Current School (docs/ROADMAP.md); Today's Strong Matches (a
+same-day recompute right before enrolling could surface a stale
+suggestion for a day).
 
 "It can't just be like high school recruiting to transfer recruiting,
 it needs to make sense" ruled out reusing `recruit_type` for this, which

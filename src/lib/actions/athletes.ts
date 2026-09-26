@@ -8,6 +8,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { matchingColumnsFrom, parseFirstMetrics, parseAthleteForm } from "@/lib/validation/athlete";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
 import { applyEnrollment, enrollmentNotice } from "@/lib/data/enrollment";
+import { currentSchoolOf } from "@/lib/placement";
 
 // Athlete add/edit was the top ROADMAP.md item once roster/board existed
 // as read-only screens - there was no way to get real data in short of
@@ -110,6 +111,16 @@ export async function updateAthlete(
   // Enrolled - the close-out below runs once, on the transition, never
   // on an ordinary later edit. src/lib/data/enrollment.ts.
   const { data: before } = await supabase.from("athletes").select("status").eq("id", athleteId).eq("org_id", org.id).maybeSingle();
+
+  // Enrolled by hand still needs a school: a Committed target or the
+  // Current School on this record. Without either, the Mark Enrolled
+  // screen is where one gets picked.
+  if (before && before.status !== "Enrolled" && parsed.values.status === "Enrolled" && !currentSchoolOf(parsed.detail)) {
+    const { data: committed } = await supabase.from("recruiting_targets").select("id").eq("org_id", org.id).eq("athlete_id", athleteId).eq("status", "Committed").maybeSingle();
+    if (!committed) {
+      return { errors: { status: "No school on file yet. Use Mark Enrolled on the athlete page to pick one." }, values: valuesFromFormData(formData) };
+    }
+  }
 
   const { error } = await supabase
     .from("athletes")

@@ -409,7 +409,10 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
    migration 0031) still reads an athlete's stage from their Committed
    target only; it has no Enrolled stage of its own. A board member
    sees "Committed" forever, which is still true, just not the whole
-   story. Needs a change to that SQL function, not just the app.
+   story, and an athlete enrolled at their Current School with no
+   target reads "No Targets" there. Should follow `placementOf()`
+   (`src/lib/placement.ts`). Needs a change to that SQL function, not
+   just the app.
 3. **Today's Strong Matches** does not exclude an Enrolled athlete's
    stored fits. In practice they age out of the window on their own;
    the one gap is a recompute on the same day someone enrolls. Fixing

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { parseTargetForm } from "@/lib/validation/target";
+import { syncCommitment } from "@/lib/data/commitment";
 
 export interface TargetActionState {
   errors: Record<string, string>;
@@ -61,8 +62,12 @@ export async function createTarget(slug: string, _prevState: TargetActionState, 
     return { errors: { form: message } };
   }
 
+  await syncCommitment(supabase, org.id, parsed.values.athleteId, { before: null, after: parsed.values.status });
+
   revalidatePath(`/org/${slug}/board`);
   revalidatePath(`/org/${slug}`);
+  revalidatePath(`/org/${slug}/roster`);
+  revalidatePath(`/org/${slug}/roster/${parsed.values.athleteId}`);
   redirect(created?.id ? `/org/${slug}/board/${created.id}` : `/org/${slug}/board`);
 }
 
@@ -79,6 +84,7 @@ export async function updateTarget(slug: string, targetId: string, _prevState: T
   }
 
   const supabase = await createClient();
+  const { data: before } = await supabase.from("recruiting_targets").select("status, athlete_id").eq("id", targetId).eq("org_id", org.id).maybeSingle();
   const { error } = await supabase
     .from("recruiting_targets")
     .update({
@@ -100,8 +106,18 @@ export async function updateTarget(slug: string, targetId: string, _prevState: T
     return { errors: { form: message } };
   }
 
+  // A target moved to another athlete leaves Committed for the old one.
+  if (before && before.athlete_id !== parsed.values.athleteId) {
+    await syncCommitment(supabase, org.id, before.athlete_id, { before: before.status, after: null });
+    await syncCommitment(supabase, org.id, parsed.values.athleteId, { before: null, after: parsed.values.status });
+  } else {
+    await syncCommitment(supabase, org.id, parsed.values.athleteId, { before: before?.status ?? null, after: parsed.values.status });
+  }
+
   revalidatePath(`/org/${slug}/board`);
   revalidatePath(`/org/${slug}`);
   revalidatePath(`/org/${slug}/board/${targetId}`);
+  revalidatePath(`/org/${slug}/roster`);
+  revalidatePath(`/org/${slug}/roster/${parsed.values.athleteId}`);
   redirect(`/org/${slug}/board/${targetId}`);
 }

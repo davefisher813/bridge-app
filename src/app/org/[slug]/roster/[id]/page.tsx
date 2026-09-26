@@ -8,6 +8,7 @@ import { ContactForm } from "@/components/ContactForm";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
+import { currentSchoolOf, placementOf } from "@/lib/placement";
 import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { relationshipLabel } from "@/lib/copy/relationships";
 import { statusRole, stageKind } from "@/components/statusHue";
@@ -73,8 +74,8 @@ function unwrap<T>(value: T | T[] | null): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
-// Athlete profile / detail screen. Colleges (the athlete's own
-// recruiting_targets, reusing the board's data rather than duplicating
+// Athlete profile / detail screen. Targets (the athlete's own
+// recruiting_targets, the same rows as the Targets board, reusing the board's data rather than duplicating
 // it), Contacts (athlete-scoped), and Visits (aggregated from
 // target_visits across every target this athlete has), as sections on
 // one scrollable page.
@@ -91,7 +92,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits] = await Promise.all([
     supabase
       .from("athletes")
-      .select("id, name, sport, position, recruit_type, gpa, status, first_full_time_enrollment, goal, family_budget_cents, home_state")
+      .select("id, name, sport, position, recruit_type, gpa, status, first_full_time_enrollment, goal, family_budget_cents, home_state, detail")
       .eq("id", id)
       .eq("org_id", org.id)
       .is("deleted_at", null)
@@ -151,12 +152,21 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
   const journey = deriveJourneyStage(targets.map((t) => ({ status: t.status, schoolName: t.school?.name ?? "" })));
   const enrolled = athlete.status === "Enrolled";
-  const committedTarget = targets.find((t) => t.status === "Committed") ?? null;
-  const enrolledMeta = committedTarget
-    ? `${committedTarget.school?.name ?? "Unknown school"}${athlete.first_full_time_enrollment ? ` · since ${longDate(athlete.first_full_time_enrollment)}` : ""}`
-    : athlete.first_full_time_enrollment
-      ? `Since ${longDate(athlete.first_full_time_enrollment)}`
-      : undefined;
+  const placement = placementOf(
+    { status: athlete.status, currentSchool: currentSchoolOf(athlete.detail) },
+    targets.map((t) => ({ id: t.id, status: t.status, schoolName: t.school?.name ?? null })),
+  );
+  const placementMeta = placement?.state === "Enrolled" && athlete.first_full_time_enrollment ? `Since ${longDate(athlete.first_full_time_enrollment)}` : undefined;
+  // Opens the target that names the school; with no school on file,
+  // wherever one gets recorded (the board for a commitment, the record's
+  // Current School for someone already enrolled).
+  const placementHref = placement?.targetId
+    ? `/org/${slug}/board/${placement.targetId}`
+    : !canEdit
+      ? undefined
+      : placement?.state === "Committed"
+        ? `/org/${slug}/board/new`
+        : `/org/${slug}/roster/${id}/edit`;
 
   const contacts = contactRows ?? [];
   const schools = (schoolRows ?? []).map((s) => ({ id: s.id, label: `${s.name} (${s.division})` }));
@@ -177,16 +187,21 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
       )}
 
       <Stack gap={3}>
-        {enrolled ? (
-          // Recruiting is over: the stepper (still in progress) gives
-          // way to the one fact that matters now. Dave, 2026-09-26.
+        {placement ? (
+          // Committed or Enrolled: the school is the one fact that
+          // matters now, so it replaces the stepper. Dave, 2026-09-26.
           <Row
-            href={committedTarget ? `/org/${slug}/board/${committedTarget.id}` : `/org/${slug}/board?athlete=${id}`}
-            kind={stageKind("Enrolled")}
-            role={statusRole("Enrolled")}
-            title="Enrolled"
-            meta={enrolledMeta}
-            trailing={<Chevron />}
+            href={placementHref}
+            kind={stageKind(placement.state)}
+            role={statusRole(placement.state)}
+            title={placement.school ?? "School Not on File"}
+            meta={placementMeta}
+            trailing={
+              <>
+                <StatusPill status={placement.state} />
+                {placementHref && <Chevron />}
+              </>
+            }
           />
         ) : (
           // The stage line opens this athlete's targets, which is what
@@ -244,9 +259,9 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         />
       </Stack>
 
-      {!enrolled && (
-        // Once enrolled, recruiting is over: nothing left to score
-        // against. Dave, 2026-09-26.
+      {!placement && (
+        // Once Committed or Enrolled, recruiting is over: ranking more
+        // schools is noise. Dave, 2026-09-26.
         <Section
           label="Matches"
           count={fits.length}
@@ -287,9 +302,9 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         </Section>
       )}
 
-      <Section label="Colleges" count={targets.length} role="place" kind="school">
+      <Section label="Targets" count={targets.length} role="place" kind="school">
         {targets.length === 0 ? (
-          <EmptyState kind="school" title="No Colleges Yet" action={canEdit && !enrolled ? <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton> : undefined}
+          <EmptyState kind="school" title="No Targets Yet" action={canEdit && !enrolled ? <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton> : undefined}
           />
         ) : (
           targets.map((t) => (

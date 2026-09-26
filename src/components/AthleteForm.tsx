@@ -113,7 +113,7 @@ export function AthleteForm({ action, initialValues = {}, submitLabel, firstMetr
       </SelectField>
       <Grid2>
         <Field name="gpa" label="GPA" type="number" step="0.01" min="0" max="4" inputMode="decimal" defaultValue={f("gpa")} error={err("gpa")} />
-        <SelectField name="status" label="Status" defaultValue={f("status") || "Active"}>
+        <SelectField name="status" label="Status" defaultValue={f("status") || "Active"} error={err("status")}>
           {ATHLETE_STATUSES.map((s) => (
             <option key={s} value={s}>
               {s}

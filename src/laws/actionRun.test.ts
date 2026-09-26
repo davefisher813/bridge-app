@@ -1591,23 +1591,76 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
     expect(athleteUpdate?.rows[0]).toMatchObject({ status: "Enrolled", first_full_time_enrollment: "2026-09-01" });
   });
 
-  it("closes open targets even with no Committed target - the transfer/legacy case", async () => {
-    // Dave, 2026-09-26: "I can't mark enrolled for guys already in
-    // college... it's showing a bunch of schools for them... Why are
-    // the other guys in college not following the same logic?" An
-    // athlete with an open target (Offer) and no Committed row must
-    // still get it closed out, same as the Committed case above.
+  it("an athlete already in college is enrolled at their Current School, and their open targets close", async () => {
+    // Dave, 2026-09-26: "if I click edit and I put their school in...
+    // when I mark them as enrolled, it just says enrolled, doesn't even
+    // say what school." The Current School on the record is the school.
+    data.recruiting_targets.push({ id: "tx-open", org_id: data.orgs[0]!.id, athlete_id: IDS.athleteTransfer, school_id: IDS.school, status: "In Contact", coach_name: null, offer_type: null, offer_scholarship_percent: null, updated_at: "2026-08-01" });
     const { markEnrolled } = await import("@/lib/actions/enrollment");
-    const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ enrolledOn: "2026-09-01" })));
-    expect(r.redirect).toContain(`/roster/${IDS.athlete}?notice=`);
-    expect(decodeURIComponent(r.redirect!)).toMatch(/notice=Enrolled\. 1 other target closed\./);
+    const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athleteTransfer, { errors: {} }, form({ enrolledOn: "2026-09-01", schoolId: "" })));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/notice=Enrolled at City College of New York\. 1 other target closed\./);
 
-    const closed = writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.target));
+    const closed = writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === "tx-open"));
     expect(closed?.rows[0]).toMatchObject({ status: "Not Interested" });
-    expect(String(closed?.rows[0]?.notes)).toMatch(/Closed automatically: .+ was marked Enrolled on Sep 1, 2026\./);
+    expect(String(closed?.rows[0]?.notes)).toMatch(/enrolled at City College of New York on Sep 1, 2026\./);
+    expect(writes.some((w) => w.table === "recruiting_targets" && w.op === "insert")).toBe(false);
+  });
 
-    const athleteUpdate = writes.find((w) => w.table === "athletes" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.athlete));
+  it("with no Committed target and no Current School, the picked school becomes the Committed target", async () => {
+    // IDS.athlete holds an Offer from IDS.school: picking that school
+    // commits the existing target rather than closing it or adding a
+    // second one for the same school.
+    const { markEnrolled } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ enrolledOn: "2026-09-01", schoolId: IDS.school })));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/notice=Enrolled at Fixture State University\.$/);
+
+    const committed = writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.target));
+    expect(committed?.rows[0]).toMatchObject({ status: "Committed" });
+    expect(writes.filter((w) => w.table === "recruiting_targets" && w.op === "update" && (w.rows[0] as { status?: string })?.status === "Not Interested")).toEqual([]);
+    const athleteUpdate = writes.find((w) => w.table === "athletes" && w.op === "update");
     expect(athleteUpdate?.rows[0]).toMatchObject({ status: "Enrolled" });
+  });
+
+  it("with no Committed target and no Current School, a school the org has never targeted is added as the Committed one", async () => {
+    const { markEnrolled } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ enrolledOn: "2026-09-01", schoolId: IDS.schoolD3 })));
+    expect(r.redirect).toContain("?notice=");
+    const inserted = writes.find((w) => w.table === "recruiting_targets" && w.op === "insert");
+    expect(inserted?.rows[0]).toMatchObject({ athlete_id: IDS.athlete, school_id: IDS.schoolD3, status: "Committed" });
+  });
+
+  it("never enrolls an athlete nowhere: no Committed target, no Current School, no pick", async () => {
+    const { markEnrolled } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ enrolledOn: "2026-09-01", schoolId: "" })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.schoolId).toMatch(/Pick the school/);
+    expect(writes).toEqual([]);
+  });
+
+  it("a board commit makes the athlete Committed, and taking it back makes them Active again", async () => {
+    const { updateTarget } = await import("@/lib/actions/targets");
+    const commit = await run(() => updateTarget(ORG_WITH_MODULES, IDS.target, { errors: {} }, form({ athleteId: IDS.athlete, schoolId: IDS.school, status: "Committed" })));
+    expect(commit.redirect).toContain(`/board/${IDS.target}`);
+    expect(writes.find((w) => w.table === "athletes" && w.op === "update")?.rows[0]).toMatchObject({ status: "Committed" });
+    expect(data.athletes.find((a) => a.id === IDS.athlete)?.status).toBe("Committed");
+
+    writes.length = 0;
+    await run(() => updateTarget(ORG_WITH_MODULES, IDS.target, { errors: {} }, form({ athleteId: IDS.athlete, schoolId: IDS.school, status: "Offer" })));
+    expect(writes.find((w) => w.table === "athletes" && w.op === "update")?.rows[0]).toMatchObject({ status: "Active" });
+  });
+
+  it("a board edit never touches an Enrolled athlete's status", async () => {
+    const { updateTarget } = await import("@/lib/actions/targets");
+    await run(() => updateTarget(ORG_WITH_MODULES, IDS.targetEnrolledCommitted, { errors: {} }, form({ athleteId: IDS.athleteEnrolled, schoolId: IDS.school, status: "Offer" })));
+    expect(writes.some((w) => w.table === "athletes")).toBe(false);
+  });
+
+  it("the Edit dropdown cannot set Enrolled with no school anywhere", async () => {
+    const { updateAthlete } = await import("@/lib/actions/athletes");
+    const r = await run(() => updateAthlete(ORG_WITH_MODULES, IDS.athleteNoGpa, { errors: {}, values: {} }, form({ name: "Fixture Unknown", sport: "baseball", recruitType: "hs", status: "Enrolled" })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.status).toMatch(/Mark Enrolled/);
+    expect(writes).toEqual([]);
   });
 
   it("refuses a missing or unparseable date", async () => {

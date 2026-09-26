@@ -209,10 +209,28 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     expect(html).toMatch(/Not Interested/);
   });
 
-  it("a Committed athlete not yet enrolled sees the stepper, the Mark Enrolled button, and Matches", async () => {
+  it("a Committed athlete not yet enrolled sees the school at the top and the Mark Enrolled button, and no more Matches", async () => {
     const html = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteCommitted }) });
     expect(html).toMatch(/Mark Enrolled/);
-    expect(html).toMatch(/>Matches</);
+    expect(html).toMatch(/Fixture State University/);
+    // The school replaces the stepper; ranking more schools is over.
+    expect(html).not.toMatch(/Furthest stage/);
+    expect(html).not.toMatch(/>Matches</);
+  });
+
+  it("the roster names where every Committed and Enrolled athlete is going", async () => {
+    // Dave, 2026-09-26: "It doesn't say the school they're committed to
+    // anywhere. And when they're enrolled, it doesn't say it anywhere
+    // either."
+    const html = await render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) });
+    expect(html).toMatch(/Committed to Fixture State University/);
+    expect(html).toMatch(/Enrolled at Fixture State University/);
+  });
+
+  it("the athlete's schools are called Targets, the same as the board they come from", async () => {
+    const html = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
+    expect(html).not.toMatch(/>Colleges</);
+    expect(html).toMatch(/>Targets</);
   });
 
   it("the full Matches page shows an Enrolled state instead of a ranked list", async () => {
@@ -229,7 +247,7 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     expect(html).not.toMatch(/>Matches</);
   });
 
-  it("the enroll screen previews exactly what will close, with or without a Committed target", async () => {
+  it("the enroll screen previews what will close, and asks for the school only when nothing on file names it", async () => {
     const html = await render("@/app/org/[slug]/roster/[id]/enroll/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteCommitted }) });
     expect(html).toMatch(/Fixture State University/);
     expect(html).toMatch(/Will Close/);
@@ -239,7 +257,16 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     // refusing. Dave, 2026-09-26.
     const noCommitted = await render("@/app/org/[slug]/roster/[id]/enroll/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
     expect(noCommitted).toMatch(/Will Close/);
-    expect(noCommitted).not.toMatch(/Committed/);
+    // ...and asks which school, since nothing on file says.
+    expect(noCommitted).toMatch(/Enrolled At/);
+    expect(noCommitted).toMatch(/Pick a School/);
+
+    // An athlete already in college: their Current School is the default.
+    const transfer = await render("@/app/org/[slug]/roster/[id]/enroll/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) });
+    expect(transfer).toMatch(/>City College of New York<\/option>/);
+
+    // A Committed target already names it, so there is nothing to ask.
+    expect(html).not.toMatch(/Enrolled At/);
 
     await expect(render("@/app/org/[slug]/roster/[id]/enroll/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) })).rejects.toThrow(NOT_FOUND);
   });
