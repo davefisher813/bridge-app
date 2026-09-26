@@ -2800,3 +2800,19 @@ Strong Matches, which does not exclude an Enrolled athlete's stored fits
 (a narrow, self-healing gap, docs/ROADMAP.md). Two new fixture athletes
 (Committed, Enrolled) and a law that plants a violation (Matches shown
 after enrollment) and watches it fail before counting.
+
+## 2026-09-26: stop publishing preview artifacts; the build stays a verification gate
+
+**Decision.** No more `Artifact` publish of `app_preview.html` or
+`test_bench.html` after a feature, and no preview link in the report
+back to Dave. `scripts/build_previews.sh` still runs before calling
+anything done - it is the audit, not only the render, and it catches
+what unit tests cannot.
+
+**Reason.** Dave: "I don't need previews. Ship it." Supersedes the
+2026-09 "a preview for everything, automatic" rule in CLAUDE.md.
+
+**Consequences.** CLAUDE.md's preview section rewritten. The pre-build
+design catalog rule (a new, undesigned screen gets a tappable catalog of
+options before code is written) is untouched - a different purpose,
+not what this message was about.

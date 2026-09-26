@@ -28,11 +28,11 @@ what he corrected.
 
 When the question is what something should look like, don't revise a single guessed direction. Build a catalog of real rendered options, component by component, let Dave select, then lock the selection in as a written contract. This is how JARVIS works and Dave asked for it here by name ("we are going to need to create a styling catalog contract like we do with Jarvis before we move forward... build me a catalog with options to select from. Needs visuals. Once I select we will lock it in" - Dave, 2026-09, after two rejected revisions of a single direction). The catalog must be selectable inside the artifact itself, tappable, not a list of codes for him to type back. docs/STYLING_CATALOG.md is the result and is now locked.
 
-## Previews and the test bench are automatic, not on request
+## The preview build stays a verification gate; stop publishing the artifacts
 
-"I need a preview for everything we build it should be automatic once you complete it. We also need to run functional tests in artifacts too to make sure this shit works." - Dave, 2026-09.
+"I need a preview for everything we build it should be automatic once you complete it. We also need to run functional tests in artifacts too to make sure this shit works." - Dave, 2026-09. Superseded 2026-09-26: "I don't need previews. Ship it." Do not call the Artifact tool to publish or update `app_preview.html` or `test_bench.html` after a feature anymore, and do not mention a preview link when reporting what shipped.
 
-So: when a feature is finished and verified, run `scripts/build_previews.sh` and publish the artifacts, without being asked and without checking first. That script regenerates the app preview and the functional test bench from the current state of the repo, and fails if the audit finds anything or the bench's own assertions do not pass in a real browser.
+`scripts/build_previews.sh` still runs as part of verification before calling something done - it is not only a preview, it is the audit below, and that catches real regressions (an empty screen, a contrast failure, a broken word) nothing else does. Run it, read its exit code and findings, fix anything it flags. Just stop publishing what it renders.
 
 Two different things, and both are required:
 
