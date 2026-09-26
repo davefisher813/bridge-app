@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireMember } from "@/lib/auth/guard";
-import { classOf, loadGiving, loadProgram } from "@/lib/data/member";
+import { classOf, isPlaced, loadGiving, loadProgram, programPlacementLine } from "@/lib/data/member";
 import { formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
 import { Body, Card, Chevron, EmptyState, Label, Meter, Prose, Row, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
 import { SeatCard } from "@/components/SeatCard";
@@ -23,7 +23,7 @@ export default async function MemberHomePage({ params }: { params: Promise<{ slu
   const fiscalYear = Number(today.slice(0, 4));
   const [program, giving] = await Promise.all([loadProgram(org.id), org.modules.donor_fundraising ? loadGiving(org.id, fiscalYear, today) : Promise.resolve(null)]);
 
-  const committed = program.filter((a) => a.stage === "Committed");
+  const committed = program.filter(isPlaced);
   const offers = program.reduce((s, a) => s + a.offers, 0);
   const budgetPercent = giving && giving.summary.totalBudgetCents > 0 ? Math.round((giving.summary.totalCashCents / giving.summary.totalBudgetCents) * 100) : null;
   const seat = org.modules.board_governance ? giving?.seat ?? null : null;
@@ -49,7 +49,7 @@ export default async function MemberHomePage({ params }: { params: Promise<{ slu
         ) : (
           <>
             {committed.slice(0, 3).map((a) => (
-              <Row key={a.id} href={`${base}/program/${a.id}`} kind="stage_committed" role="committed" title={a.name} meta={`${classOf(a)} · committed to ${a.committedSchool ?? "a school"}`} trailing={<Chevron />} wrap />
+              <Row key={a.id} href={`${base}/program/${a.id}`} kind="stage_committed" role="committed" title={a.name} meta={`${classOf(a)} · ${programPlacementLine(a)}`} trailing={<Chevron />} wrap />
             ))}
             {committed.length === 0 && <Prose>Nobody has committed yet.</Prose>}
             <Row href={`${base}/program`} kind="athlete" role="people" title="Where Everyone Stands" meta={`${program.length} ${program.length === 1 ? "athlete" : "athletes"}, each with their stage`} trailing={<Chevron />} />

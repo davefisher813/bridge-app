@@ -1704,3 +1704,35 @@ begin
   end loop;
   raise notice 'PASS: the member summary functions are granted to signed-in callers and to nobody else';
 end $$;
+
+-- ── The member program names Enrolled athletes and their school ─────
+-- Migration 0034. Same rule as placementOf() in src/lib/placement.ts:
+-- an Enrolled athlete reads Enrolled, not Committed forever; the school
+-- is the Committed target, else a transfer record's Current School.
+reset role;
+update athletes set status = 'Enrolled', recruit_type = 'transfer_4to4', detail = '{"kind":"transfer","currentSchool":" City College "}'::jsonb
+  where id = '00000000-0000-0000-0000-000000000111';
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000003');
+do $$
+declare st text; sc text;
+begin
+  select stage, committed_school into st, sc from member_program('00000000-0000-0000-0000-000000000010') where athlete_id = '00000000-0000-0000-0000-000000000111';
+  if st <> 'Enrolled' then raise exception 'FAIL: an Enrolled athlete reads as % in member_program', st; end if;
+  if sc is distinct from 'City College' then raise exception 'FAIL: an athlete enrolled at their Current School reads school %', sc; end if;
+  select stage into st from member_program('00000000-0000-0000-0000-000000000010') where athlete_id = '00000000-0000-0000-0000-000000000110';
+  if st <> 'Targeting' then raise exception 'FAIL: an athlete still recruiting now reads as %', st; end if;
+  raise notice 'PASS: member_program names an Enrolled athlete and their Current School';
+end $$;
+reset role;
+update athletes set status = 'Committed' where id = '00000000-0000-0000-0000-000000000111';
+set role app_user;
+do $$
+declare st text; sc text;
+begin
+  select stage, committed_school into st, sc from member_program('00000000-0000-0000-0000-000000000010') where athlete_id = '00000000-0000-0000-0000-000000000111';
+  if st <> 'Committed' then raise exception 'FAIL: an athlete set to Committed by hand reads as %', st; end if;
+  if sc is not null then raise exception 'FAIL: a Committed athlete with no Committed target borrowed the Current School %', sc; end if;
+  raise notice 'PASS: Current School only names the school once they are Enrolled';
+end $$;
+reset role;

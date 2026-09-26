@@ -370,6 +370,16 @@ describe("LAW: a member reads the program as stages, never the roster", () => {
     expect(html).toMatch(/Offer|Targeting|Committed/);
     expect(html).not.toMatch(/GPA|3\.4/);
   });
+
+  it("a member's Program says Enrolled at the school, not Committed forever", async () => {
+    // Migration 0034; the fake RPC mirrors it. Dave, 2026-09-26.
+    currentUser = MEMBER_ID;
+    const html = await render("@/app/org/[slug]/member/program/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    expect(html).toMatch(/Enrolled at Fixture State University/);
+    expect(html).toMatch(/Committed to Fixture State University/);
+    const one = await render("@/app/org/[slug]/member/program/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) });
+    expect(one).toMatch(/Enrolled at Fixture State University/);
+  });
 });
 
 describe("LAW: an org without the fundraising module has no money on the member screens", () => {

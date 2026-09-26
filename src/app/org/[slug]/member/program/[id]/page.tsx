@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireMember } from "@/lib/auth/guard";
-import { classOf, loadProgram, loadProgramSchools } from "@/lib/data/member";
+import { classOf, loadProgram, loadProgramSchools, programPlacementLine } from "@/lib/data/member";
 import { StatusPill } from "@/components/StatusPill";
 import { EmptyState, Row, Screen, Section } from "@/components/kit";
 
@@ -23,7 +23,7 @@ export default async function MemberAthletePage({ params }: { params: Promise<{ 
   if (!athlete) notFound();
 
   return (
-    <Screen title={athlete.name} back={{ href: `${base}/program`, label: "Program" }} lede={`${athlete.sport}${athlete.position ? ` · ${athlete.position}` : ""} · ${classOf(athlete)}`}>
+    <Screen title={athlete.name} back={{ href: `${base}/program`, label: "Program" }} lede={`${athlete.sport}${athlete.position ? ` · ${athlete.position}` : ""} · ${programPlacementLine(athlete) ?? classOf(athlete)}`}>
       <Section label="Schools" count={schools.length} role="place" kind="school">
         {schools.length === 0 ? (
           <EmptyState kind="school" title="No Target Schools Yet">

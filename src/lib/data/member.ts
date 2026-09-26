@@ -10,6 +10,7 @@
 // so the member's number is the number staff see on the seat.
 
 import { createClient } from "@/lib/supabase/server";
+import { placementLine } from "@/lib/placement";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { solicitedByMap, toBoardMembers, toBoards, type BoardMemberRow, type BoardRow } from "@/lib/data/governanceAdapters";
 import { creditedGifts, giveGetProgress, summarizeBoard, type Board, type BoardMember, type BoardSummary, type CreditedGift, type GiveGetProgress } from "@/lib/governance/giveGet";
@@ -22,7 +23,7 @@ export interface ProgramAthlete {
   position: string | null;
   gradYear: number | null;
   recruitType: string;
-  stage: "Committed" | "Offers" | "Targeting" | "No Targets";
+  stage: "Enrolled" | "Committed" | "Offers" | "Targeting" | "No Targets";
   offers: number;
   committedSchool: string | null;
 }
@@ -39,7 +40,7 @@ interface ProgramRow {
   committed_school: string | null;
 }
 
-const STAGES = new Set(["Committed", "Offers", "Targeting", "No Targets"]);
+const STAGES = new Set(["Enrolled", "Committed", "Offers", "Targeting", "No Targets"]);
 
 export async function loadProgram(orgId: string): Promise<ProgramAthlete[]> {
   const supabase = await createClient();
@@ -73,6 +74,18 @@ export async function loadProgramSchools(orgId: string, athleteId: string): Prom
     division: r.division,
     status: r.status,
   }));
+}
+
+// "Committed to X" or "Enrolled at X", worded the way the staff and
+// family screens word it (src/lib/placement.ts); null while recruiting.
+export function programPlacementLine(a: ProgramAthlete): string | null {
+  if (a.stage !== "Committed" && a.stage !== "Enrolled") return null;
+  return placementLine({ state: a.stage, school: a.committedSchool, targetId: null });
+}
+
+// Committed or Enrolled: an athlete who has committed somewhere.
+export function isPlaced(a: ProgramAthlete): boolean {
+  return a.stage === "Committed" || a.stage === "Enrolled";
 }
 
 // A class, or the kind of transfer, in a member's words.

@@ -9,9 +9,11 @@
 // the render laws, with the same rules written twice in plain words:
 //
 //   member_program: every live athlete of the org, its stage being
-//     Committed if any target is Committed, else Offers if any target is
-//     an Offer, else Targeting if any target is not Not Interested,
-//     else No Targets.
+//     Enrolled if the athlete is Enrolled, else Committed if the athlete
+//     is Committed or any target is, else Offers if any target is an
+//     Offer, else Targeting if any target is not Not Interested, else No
+//     Targets. The school is the Committed target's, else (Enrolled
+//     only) a transfer record's Current School. Migration 0034.
 //   member_program_schools: one athlete's targets as school, division
 //     and status, committed first.
 //   member_giving: the org's gifts, pledges, campaigns, budget lines,
@@ -43,8 +45,10 @@ export function fakeRpc(data: Dataset, userId: string | null, name: string, args
         const mine = targets.filter((t) => t.athlete_id === a.id);
         const committed = mine.find((t) => t.status === "Committed");
         const offers = mine.filter((t) => t.status === "Offer").length;
-        const stage = committed ? "Committed" : offers ? "Offers" : mine.some((t) => t.status !== "Not Interested") ? "Targeting" : "No Targets";
+        const stage =
+          a.status === "Enrolled" ? "Enrolled" : a.status === "Committed" || committed ? "Committed" : offers ? "Offers" : mine.some((t) => t.status !== "Not Interested") ? "Targeting" : "No Targets";
         const detail = (a.detail ?? {}) as Row;
+        const currentSchool = a.status === "Enrolled" && detail.kind === "transfer" && typeof detail.currentSchool === "string" && detail.currentSchool.trim() ? detail.currentSchool.trim() : null;
         return {
           athlete_id: a.id,
           name: a.name,
@@ -54,7 +58,7 @@ export function fakeRpc(data: Dataset, userId: string | null, name: string, args
           recruit_type: a.recruit_type,
           stage,
           offers,
-          committed_school: committed ? ((schools.get(committed.school_id) as Row | undefined)?.name ?? null) : null,
+          committed_school: (committed ? ((schools.get(committed.school_id) as Row | undefined)?.name as string | undefined) : undefined) ?? currentSchool,
         };
       })
       .sort((x, y) => String(x.name).localeCompare(String(y.name)));
