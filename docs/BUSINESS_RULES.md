@@ -217,6 +217,38 @@ these in production; rules like this change by NCAA vote.
     window row, timing is reported as unverified - never assumed valid.
     Enforced as a law in `src/laws/fitLaws.test.ts`.
 
+## Athlete lifecycle (2026-09-26)
+
+Seven statuses, app-validated free text (`ATHLETE_STATUSES`): Active,
+Committed, Enrolled, Transferring, Graduated, Drafted, Inactive.
+
+- **Placed** (Committed, Enrolled, Graduated, Drafted): recruiting is
+  done. No score anywhere. The profile shows where they went in place
+  of the stage stepper, and Matches disappears.
+- **Scored** (Active, Transferring): the only two the fit engine scores.
+  Inactive is not scored either; a kid who is not recruiting has nothing
+  to rank.
+- **A close-out** (Mark Enrolled, Graduated, Drafted, or the Edit
+  dropdown) closes every open target to Not Interested and records the
+  status it replaced in `recruiting_targets.closed_from`, so nothing is
+  lost and a reopen knows exactly what to restore. The Committed target
+  stays as history.
+- **Recruiting History** is its own screen off the profile: every
+  school ever targeted, any status, with messages, visits and offers.
+  The profile's Targets section shows only open targets, and nothing
+  for a placed athlete.
+- **Reopen Recruiting**: a Committed athlete goes back to Active and
+  the commitment becomes an Offer or In Contact target. An Enrolled or
+  Graduated athlete becomes Transferring, their record becomes a
+  transfer record (the school they are leaving, transfer type, years
+  left), the targets the close-out took come back as they were (In
+  Contact when unknown), the commitment becomes history, and they are
+  scored again. Drafted cannot reopen. The Edit dropdown refuses to
+  walk a placed athlete backwards; Reopen is the only way.
+- **Today** counts every status, and each tile opens the roster
+  filtered to it. A tile's count and the filtered list are computed by
+  the same rule (`effectiveStatus`), so they never disagree.
+
 ## Fit-scoring model
 
 The scoring rules Dave picked on 2026-09-20 (which number scores, the

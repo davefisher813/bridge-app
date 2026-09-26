@@ -8,7 +8,8 @@ import { ContactForm } from "@/components/ContactForm";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
-import { nextOutcomes, placementAthlete, placementMeta, placementOf, type Outcome } from "@/lib/placement";
+import { canReopen, isScoredStatus, nextOutcomes, placementAthlete, placementMeta, placementOf, type Outcome } from "@/lib/placement";
+import { reopenRecruiting } from "@/lib/actions/reopen";
 import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Grid2, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { relationshipLabel } from "@/lib/copy/relationships";
 import { statusRole, stageKind } from "@/components/statusHue";
@@ -50,8 +51,6 @@ const CONTACT_ROLE_LABEL: Record<string, string> = {
 
 const OUTCOME_LABEL: Record<Outcome, string> = { enroll: "Mark Enrolled", graduate: "Mark Graduated", draft: "Mark Drafted" };
 
-const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior day", camp: "Camp", other: "Other" };
-
 interface SchoolRow {
   id: string;
   name: string;
@@ -76,11 +75,12 @@ function unwrap<T>(value: T | T[] | null): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
-// Athlete profile / detail screen. Targets (the athlete's own
-// recruiting_targets, the same rows as the Targets board, reusing the board's data rather than duplicating
-// it), Contacts (athlete-scoped), and Visits (aggregated from
-// target_visits across every target this athlete has), as sections on
-// one scrollable page.
+// Athlete profile / detail screen. Targets (the athlete's open
+// recruiting_targets, the same rows as the Targets board, reusing the
+// board's data rather than duplicating it), Contacts (athlete-scoped)
+// and Family, as sections on one scrollable page. Closed targets,
+// messages and visits live on Recruiting History; the profile shows
+// only what is live. Dave, 2026-09-26.
 export default async function AthletePage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ notice?: string }> }) {
   const { slug, id } = await params;
   const { notice } = searchParams ? await searchParams : {};
@@ -138,19 +138,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const budgetCents = athlete.family_budget_cents as number | null;
 
   const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ ...t, school: unwrap(t.schools) }));
-  const targetIds = targets.map((t) => t.id);
-
-  const { data: visitRows } = targetIds.length
-    ? await supabase
-        .from("target_visits")
-        .select("id, target_id, visit_type, visit_date, impression, next_step, notes")
-        .in("target_id", targetIds)
-        .eq("org_id", org.id)
-        .order("visit_date", { ascending: false })
-    : { data: [] };
-
-  const schoolNameByTargetId = new Map(targets.map((t) => [t.id, t.school?.name ?? "Unknown school"]));
-  const visits = visitRows ?? [];
+  const openTargets = targets.filter((t) => t.status !== "Not Interested");
 
   const journey = deriveJourneyStage(targets.map((t) => ({ status: t.status, schoolName: t.school?.name ?? "" })));
   const placement = placementOf(
@@ -159,6 +147,10 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   );
   const meta = placement ? placementMeta(placement, { firstEnrollment: athlete.first_full_time_enrollment, graduatedOn: athlete.graduated_on }) : undefined;
   const outcomes = canEdit ? nextOutcomes(athlete.status) : [];
+  // Reopen sits beside the outcomes. A withdrawn commitment needs no
+  // facts, so it is one confirm; leaving college needs the transfer
+  // facts, so it is a screen.
+  const reopen = canEdit && canReopen(athlete.status) ? (athlete.status === "Committed" ? "confirm" : "screen") : null;
   // Opens the target that names the school; otherwise wherever the
   // name gets recorded (the board for a commitment, the record for the
   // Current School or the draft).
@@ -171,6 +163,15 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         : placement?.state === "Drafted"
           ? `/org/${slug}/roster/${id}/draft`
           : `/org/${slug}/roster/${id}/edit`;
+
+  // The Committed athlete's reopen is a plain form with no fields, and
+  // the kit's Form wants an action that returns nothing, so the state
+  // the screen version reads is dropped here; the action redirects
+  // either way.
+  async function reopenNow(formData: FormData) {
+    "use server";
+    await reopenRecruiting(slug, id, formData);
+  }
 
   const contacts = contactRows ?? [];
   const schools = (schoolRows ?? []).map((s) => ({ id: s.id, label: `${s.name} (${s.division})` }));
@@ -224,11 +225,33 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
             ))}
           </Grid2>
         )}
+        {reopen === "screen" && (
+          <LinkButton href={`/org/${slug}/roster/${id}/reopen`} variant="secondary">
+            Reopen Recruiting
+          </LinkButton>
+        )}
+        {reopen === "confirm" && (
+          <Form action={reopenNow}>
+            <ConfirmButton title="Reopen Recruiting?" body="The commitment comes off the board and matches score again." confirmLabel="Reopen">
+              Reopen Recruiting
+            </ConfirmButton>
+          </Form>
+        )}
       </Stack>
 
       <Stack gap={3}>
         <Row href={`/org/${slug}/roster/${id}/eligibility`} kind="checklist" role="contact" title="NCAA Eligibility" meta="Core GPA, qualifier status and the clock" trailing={<Chevron />} />
         <Row href={`/org/${slug}/roster/${id}/transcript`} kind="course" role="contact" title="Transcript" meta="Every course, and what the NCAA counted" trailing={<Chevron />} />
+        {targets.length > 0 && (
+          <Row
+            href={`/org/${slug}/roster/${id}/history`}
+            kind="school"
+            role="place"
+            title="Recruiting History"
+            meta={`${targets.length} ${targets.length === 1 ? "school" : "schools"} · every message, visit and offer`}
+            trailing={<Chevron />}
+          />
+        )}
       </Stack>
 
       {tiles.length > 0 && (
@@ -268,9 +291,10 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         />
       </Stack>
 
-      {!placement && (
+      {!placement && isScoredStatus(athlete.status) && (
         // Once Committed or Enrolled, recruiting is over: ranking more
-        // schools is noise. Dave, 2026-09-26.
+        // schools is noise, and an Inactive athlete is not scored either.
+        // Dave, 2026-09-26.
         <Section
           label="Matches"
           count={fits.length}
@@ -311,24 +335,27 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         </Section>
       )}
 
-      <Section label="Targets" count={targets.length} role="place" kind="school">
-        {targets.length === 0 ? (
-          <EmptyState kind="school" title="No Targets Yet" action={canEdit && !placement ? <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton> : undefined}
-          />
-        ) : (
-          targets.map((t) => (
-            <Row
-              key={t.id}
-              href={`/org/${slug}/board/${t.id}`}
-              kind="school"
-              role={statusRole(t.status)}
-              title={t.school?.name ?? "Unknown school"}
-              meta={`${t.school?.division ?? ""}${t.offer_type ? ` · ${t.offer_type} offer${t.offer_scholarship_percent ? ` (${t.offer_scholarship_percent}%)` : ""}` : ""}`}
-              trailing={<StatusPill status={t.status} />}
-            />
-          ))
-        )}
-      </Section>
+      {!placement && (
+        // Recruiting is over for a placed athlete, so the live list goes
+        // with it; the closed schools are on Recruiting History.
+        <Section label="Targets" count={openTargets.length} role="place" kind="school">
+          {openTargets.length === 0 ? (
+            <EmptyState kind="school" title="No Targets Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton> : undefined} />
+          ) : (
+            openTargets.map((t) => (
+              <Row
+                key={t.id}
+                href={`/org/${slug}/board/${t.id}`}
+                kind="school"
+                role={statusRole(t.status)}
+                title={t.school?.name ?? "Unknown school"}
+                meta={`${t.school?.division ?? ""}${t.offer_type ? ` · ${t.offer_type} offer${t.offer_scholarship_percent ? ` (${t.offer_scholarship_percent}%)` : ""}` : ""}`}
+                trailing={<StatusPill status={t.status} />}
+              />
+            ))
+          )}
+        </Section>
+      )}
 
       <Section label="Contacts" count={contacts.length} role="people" kind="people">
         {contacts.length === 0 ? (
@@ -391,28 +418,6 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           <LinkButton href={`/org/${slug}/roster/${id}/family/new`} variant="secondary">
             Invite Family
           </LinkButton>
-        )}
-      </Section>
-
-      <Section label="Visits" count={visits.length} role="place" kind="visit">
-        {visits.length === 0 ? (
-          <EmptyState kind="visit" title="No Visits Logged Yet" action={targets.length > 0 ? <LinkButton href={`/org/${slug}/board?athlete=${id}`}>Open Their Targets</LinkButton> : undefined}
-          />
-        ) : (
-          visits.map((v) => (
-            <Card key={v.id} href={`/org/${slug}/board/${v.target_id}`}>
-              <div className="flex items-start justify-between gap-3">
-                <Body weight="bold">
-                  {schoolNameByTargetId.get(v.target_id) ?? "Unknown school"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}
-                </Body>
-                <div className="flex-shrink-0">
-                  <Label numeric>{longDate(v.visit_date)}</Label>
-                </div>
-              </div>
-              {v.impression && <Body>{v.impression}</Body>}
-              {v.next_step && <Label>Next: {v.next_step}</Label>}
-            </Card>
-          ))
         )}
       </Section>
     </Screen>

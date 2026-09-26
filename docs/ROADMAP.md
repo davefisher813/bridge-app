@@ -345,7 +345,7 @@ was a `/schools/new` and no list to see what you had added).
    one `icons.tsx` for the fifteen inline SVG functions; `unwrap()` in
    one place; split the 845-line `documents.ts`; `middleware.ts` is `proxy.ts` now
    to `proxy.ts`; `tsconfig` target to ES2022.
-5. **Dependency bumps.** `@supabase/ssr` 0.5 to 0.12, `zod` 3 to 4.
+4. **Dependency bumps.** `@supabase/ssr` 0.5 to 0.12, `zod` 3 to 4.
    Tailwind 4 and TypeScript 7 wait.
 6. **Wire a real `ModelCaller`**, plus a per-org budget table, before an
    Anthropic key goes anywhere near Vercel. `isStubbedModel()` keys off
@@ -406,18 +406,12 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
    landed 2026-09-26 (see DECISIONS). Still open: the current transfer
    windows from an NCAA page, a first metric, a first real family login
    and a first real board login.
-2. **Today's Strong Matches** does not exclude an Enrolled, Graduated
-   or Drafted athlete's
-   stored fits. In practice they age out of the window on their own;
-   the one gap is a recompute on the same day someone enrolls. Fixing
-   it needs an embedded-column filter (`athletes!inner(status)`) that
-   the fake Supabase client does not support yet either.
-3. **AI question and answer about schools.** Named in a handoff from
+2. **AI question and answer about schools.** Named in a handoff from
    another tool as if it existed; it never has. It would answer from
    the schools data rather than the web. Needs Dave's product call, a
    preview of options, and its own usage ledger (not docai_usage), kept
    outside src/lib/fit and src/lib/docai.
-4. **Cleanup pass, no behaviour change** (unchanged from above): one
+3. **Cleanup pass, no behaviour change** (unchanged from above): one
    page loader, `cache()` on the org and user lookups, one icons file,
    split `documents.ts`.
 5. **Dependency bumps.** `@supabase/ssr` 0.5 to 0.12, `zod` 3 to 4.

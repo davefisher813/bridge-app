@@ -4,7 +4,9 @@ import { getCurrentUser, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
 import { Body, Card, EmptyState, Label, LinkButton, Meter, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
-import { statusRole } from "@/components/statusHue";
+import { stageKind, statusRole } from "@/components/statusHue";
+import { effectiveStatus, placementAthlete, type PlacementTarget } from "@/lib/placement";
+import { ATHLETE_STATUSES } from "@/lib/validation/athlete";
 import { formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { STRONG_MATCH_DAYS } from "@/lib/fit/contract";
@@ -15,6 +17,15 @@ import { STRONG_MATCH_DAYS } from "@/lib/fit/contract";
 // he'd actually check every morning: pipeline snapshot, who needs a
 // follow-up, and what's coming up. Every number below comes from a
 // real query; nothing is a placeholder stat. See docs/DECISIONS.md.
+
+interface AthleteRow {
+  id: string;
+  status: string;
+  detail: unknown;
+  draft_team: string | null;
+  draft_round: number | null;
+  draft_year: number | null;
+}
 
 interface TargetRow {
   id: string;
@@ -75,8 +86,8 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
   const supabase = await createClient();
 
-  const [{ count: athleteCount }, { data: targets }, { data: windowRows }, { data: strongRows }] = await Promise.all([
-    supabase.from("athletes").select("id", { count: "exact", head: true }).eq("org_id", org.id).is("deleted_at", null),
+  const [{ data: athleteRows }, { data: targets }, { data: windowRows }, { data: strongRows }] = await Promise.all([
+    supabase.from("athletes").select("id, status, detail, draft_team, draft_round, draft_year").eq("org_id", org.id).is("deleted_at", null),
     supabase
       .from("recruiting_targets")
       .select("id, status, updated_at, visit_date, athlete_id, school_id, athletes(name), schools(name)")
@@ -123,6 +134,21 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   const inContactCount = rows.filter((r) => r.status === "In Contact").length;
   const committedCount = rows.filter((r) => r.status === "Committed").length;
   const totalTargets = rows.length;
+
+  // One tile per athlete status, counted the way the roster filters
+  // (effectiveStatus: a Committed target places an athlete whose own
+  // row still says Active), so a tile and the list it opens agree. A
+  // status outside the vocabulary is counted under its own word rather
+  // than dropped, so nothing hides.
+  const committedByAthlete = new Map<string, PlacementTarget[]>();
+  for (const r of rows.filter((r) => r.status === "Committed")) {
+    committedByAthlete.set(r.athlete_id, [...(committedByAthlete.get(r.athlete_id) ?? []), { id: r.id, status: r.status, schoolName: unwrap(r.schools)?.name ?? null }]);
+  }
+  const counts = new Map<string, number>(ATHLETE_STATUSES.map((s) => [s, 0]));
+  for (const a of (athleteRows ?? []) as AthleteRow[]) {
+    const status = effectiveStatus(placementAthlete(a), committedByAthlete.get(a.id) ?? []);
+    counts.set(status, (counts.get(status) ?? 0) + 1);
+  }
 
   const needsFollowUp = rows
     .filter((r) => OPEN_STATUSES.includes(r.status))
@@ -175,9 +201,9 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       <Stack gap={3}>
         <StatRow>
           {/* Each tile opens what it counts. Dave, 2026-09-25. */}
-          <Stat value={athleteCount ?? 0} label="Athletes" kind="athlete" href={`/org/${slug}/roster`} />
-          <Stat value={inContactCount} label="In Contact" role="contact" kind="stage_contact" href={`/org/${slug}/board?status=${encodeURIComponent("In Contact")}`} />
-          <Stat value={committedCount} label="Committed" role="committed" kind="stage_committed" href={`/org/${slug}/board?status=Committed`} />
+          {[...counts].map(([status, count]) => (
+            <Stat key={status} value={count} label={status} role={statusRole(status)} kind={stageKind(status)} href={`/org/${slug}/roster?status=${encodeURIComponent(status)}`} />
+          ))}
         </StatRow>
         {totalTargets > 0 && (
           <Meter

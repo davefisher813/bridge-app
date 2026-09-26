@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { scoreFit } from "@/lib/fit/score";
+import { SCORED_STATUSES, isScoredStatus } from "@/lib/placement";
 import type { Athlete, FitResult, KnownAid, School, TransferWindow } from "@/lib/fit/types";
 import { DEFAULT_PRESET, type ScoringPreset } from "@/lib/fit/contract";
 import {
@@ -132,8 +133,12 @@ async function loadOrgContext(client: Client, orgId: string): Promise<OrgContext
   return { orgId, preset, windows: ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit), needBySchool, targetStatusByPair, aidByPair };
 }
 
+// Only an athlete who is actively recruiting is scored (Active or
+// Transferring, src/lib/placement.ts). A placed or inactive athlete is
+// left out of every recompute here and has their stored rows deleted by
+// clearFitsForAthlete, so no screen needs its own rule to go quiet.
 async function loadAthletes(client: Client, orgId: string, athleteId?: string): Promise<Athlete[]> {
-  let q = client.from("athletes").select(ATHLETE_FIT_COLUMNS).eq("org_id", orgId).is("deleted_at", null);
+  let q = client.from("athletes").select(ATHLETE_FIT_COLUMNS).eq("org_id", orgId).is("deleted_at", null).in("status", [...SCORED_STATUSES]);
   if (athleteId) q = q.eq("id", athleteId);
   const { data: rows } = await q;
   const ids = ((rows ?? []) as AthleteRow[]).map((r) => r.id);
@@ -180,9 +185,26 @@ async function store(client: Client, rows: FitRow[]): Promise<{ error: string | 
   return { error: null };
 }
 
+// Every stored row for one athlete, gone. The moment recruiting ends
+// (a commitment, a close-out, Inactive) the board, the school page, the
+// family's colleges and Today's strong matches all read nothing for
+// them, with no per-screen logic.
+export async function clearFitsForAthlete(client: Client, orgId: string, athleteId: string): Promise<{ error: string | null }> {
+  const { error } = await client.from("athlete_school_fits").delete().eq("org_id", orgId).eq("athlete_id", athleteId);
+  return { error: error ? error.message : null };
+}
+
 // One athlete against every school. After an athlete's profile, goal,
-// budget, grades or a metric changes.
+// budget, grades or a metric changes. For an athlete who is no longer
+// scored this clears instead, whatever order the caller ran the status
+// change and the recompute in.
 export async function recomputeFitsForAthlete(client: Client, orgId: string, athleteId: string, now = new Date()): Promise<{ error: string | null; count: number }> {
+  const { data: athleteRow } = await client.from("athletes").select("status").eq("id", athleteId).eq("org_id", orgId).maybeSingle();
+  const status = (athleteRow as { status?: string } | null)?.status;
+  if (typeof status === "string" && !isScoredStatus(status)) {
+    const { error } = await clearFitsForAthlete(client, orgId, athleteId);
+    return { error, count: 0 };
+  }
   const [ctx, athletes, schools] = await Promise.all([loadOrgContext(client, orgId), loadAthletes(client, orgId, athleteId), loadSchools(client)]);
   const rows = computeRows(ctx, athletes, schools, now);
   const { error } = await store(client, rows);
@@ -191,7 +213,15 @@ export async function recomputeFitsForAthlete(client: Client, orgId: string, ath
 
 // Every athlete in one org against every school. After the org's preset
 // changes, on Recalculate All, and after an import for the importing org.
+// Also the self-heal: any stored row left on an athlete who is not scored
+// any more is deleted first.
 export async function recomputeFitsForOrg(client: Client, orgId: string, now = new Date()): Promise<{ error: string | null; count: number }> {
+  const { data: statusRows } = await client.from("athletes").select("id, status").eq("org_id", orgId);
+  const stale = ((statusRows ?? []) as { id: string; status: string }[]).filter((a) => !isScoredStatus(a.status)).map((a) => a.id);
+  if (stale.length > 0) {
+    const { error } = await client.from("athlete_school_fits").delete().eq("org_id", orgId).in("athlete_id", stale);
+    if (error) return { error: error.message, count: 0 };
+  }
   const [ctx, athletes, schools] = await Promise.all([loadOrgContext(client, orgId), loadAthletes(client, orgId), loadSchools(client)]);
   const rows = computeRows(ctx, athletes, schools, now);
   const { error } = await store(client, rows);

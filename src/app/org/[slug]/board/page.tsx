@@ -15,8 +15,10 @@ import {
 } from "@/lib/data/fitAdapters";
 import { loadFitsForPairs, rowToFit } from "@/lib/data/fits";
 import type { FitTag } from "@/lib/fit/types";
+import { isScoredStatus } from "@/lib/placement";
 import { AddButton, EmptyState, Label, LinkButton, Row, Score, Screen, Section, TextLink } from "@/components/kit";
 import { SearchField } from "@/components/SearchField";
+import { StatusPill } from "@/components/StatusPill";
 import { stageKind, statusRole } from "@/components/statusHue";
 
 interface TargetRow {
@@ -25,7 +27,7 @@ interface TargetRow {
   coach_name: string | null;
   offer_type: string | null;
   offer_scholarship_percent: number | null;
-  athletes: AthleteRow | AthleteRow[] | null;
+  athletes: (AthleteRow & { status: string }) | (AthleteRow & { status: string })[] | null;
   schools: SchoolRow | SchoolRow[] | null;
 }
 
@@ -51,10 +53,11 @@ function unwrap<T>(value: T | T[] | null): T | null {
 }
 
 // The recruiting board: every school an org is pursuing for every
-// athlete, grouped by status, with a fit tag computed live from
-// src/lib/fit/ rather than stored - a school's profile or an athlete's
-// GPA can change after the target was created, and the tag should never
-// go stale the way Bridge's original stored-tag approach could.
+// athlete, grouped by status, with the stored fit from
+// athlete_school_fits (docs/MATCHING_CONTRACT.md: a screen reads rows,
+// the action that changed an input recomputes them). A placed or
+// Inactive athlete has no row and shows their status where the score
+// would sit.
 export default async function BoardPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string; status?: string; athlete?: string }> }) {
   const { slug } = await params;
   const sp = searchParams ? await searchParams : {};
@@ -75,7 +78,7 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
     supabase
       .from("recruiting_targets")
       .select(
-        "id, status, coach_name, offer_type, offer_scholarship_percent, athletes(id, org_id, recruit_type, name, sport, position, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)"
+        "id, status, coach_name, offer_type, offer_scholarship_percent, athletes(id, org_id, recruit_type, name, sport, position, status, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)"
       )
       .eq("org_id", org.id)
       .order("created_at", { ascending: false }),
@@ -125,7 +128,7 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
       const stored = fits.get(`${athlete.id}:${school.id}`);
       const fit = stored ? { ...rowToFit(stored), signals } : null;
 
-      return { id: t.id, athleteId: athlete.id, status: t.status, coachName: t.coach_name, athleteName: athlete.name, athleteSport: athlete.sport, schoolName: school.name, schoolDivision: school.division, fit };
+      return { id: t.id, athleteId: athlete.id, athleteStatus: athleteRow.status, status: t.status, coachName: t.coach_name, athleteName: athlete.name, athleteSport: athlete.sport, schoolName: school.name, schoolDivision: school.division, fit };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
 
@@ -172,7 +175,9 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
                 title={`${r.athleteName} to ${r.schoolName}`}
                 meta={`${r.athleteSport} · ${r.schoolDivision}${r.coachName ? ` · ${r.coachName}` : ""}`}
                 trailing={
-                  r.fit ? (
+                  !isScoredStatus(r.athleteStatus) ? (
+                    <StatusPill status={r.athleteStatus} />
+                  ) : r.fit ? (
                     <>
                       <Score score={r.fit.score} />
                       <Label tone={TAG_TONE[r.fit.tag]}>{r.fit.tag}</Label>

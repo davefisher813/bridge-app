@@ -6,7 +6,7 @@ import { requireFamily, requireFamilyAthlete } from "@/lib/data/family";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
-import { placementAthlete, placementMeta, placementOf } from "@/lib/placement";
+import { isScoredStatus, placementAthlete, placementMeta, placementOf } from "@/lib/placement";
 import { statusRole, stageKind } from "@/components/statusHue";
 import { Card, Chevron, EmptyState, Label, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
@@ -110,6 +110,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
   const lastLogged = metrics[0]?.measured_on;
 
   const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ ...t, school: unwrap(t.schools) }));
+  const openTargets = targets.filter((t) => t.status !== "Not Interested");
   const journey = deriveJourneyStage(targets.map((t) => ({ status: t.status, schoolName: t.school?.name ?? "" })));
   const placement = placementOf(
     placementAthlete(athlete),
@@ -172,7 +173,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
         <Label>To change the goal or the budget, ask {org.name}.</Label>
       </Stack>
 
-      {!placement && (
+      {!placement && isScoredStatus(athlete.status) && (
         <Section label="Matches" count={fits.length} role="place" kind="target" action={fits.length > 5 ? <TextLink href={`${here}/matches`}>See All</TextLink> : undefined}>
           {fits.length === 0 ? (
             <EmptyState kind="target" title="No Matches Yet">
@@ -207,7 +208,9 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
         </Section>
       )}
 
-      <Section label="Colleges" count={targets.length} role="place" kind="school">
+      {/* The count matches the staff rule: what is live while they are
+          recruiting, the whole record once they are placed. */}
+      <Section label="Colleges" count={placement ? targets.length : openTargets.length} role="place" kind="school">
         {targets.length === 0 ? (
           <EmptyState kind="school" title="No Colleges Yet">
             Schools being pursued show up here.

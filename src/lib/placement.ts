@@ -19,12 +19,41 @@ import { longDate } from "@/lib/copy/dates";
 
 export type PlacementState = "Committed" | "Enrolled" | "Graduated" | "Drafted";
 
-// Statuses that end recruiting for good: nothing left to score, nothing
-// left open on the board.
+// Statuses that end recruiting for good: nothing left open on the board.
+// Committed is not one of them; Mark Enrolled is still ahead of it.
 export const CLOSED_STATUSES = ["Enrolled", "Graduated", "Drafted"] as const;
 
 export function isClosedStatus(status: string): boolean {
   return (CLOSED_STATUSES as readonly string[]).includes(status);
+}
+
+// Placed: the athlete has somewhere to be. Recruiting is done for them
+// and nothing scores. Dave, 2026-09-26: no score anywhere for a placed
+// athlete.
+export const PLACED_STATUSES = ["Committed", "Enrolled", "Graduated", "Drafted"] as const;
+
+export function isPlacedStatus(status: string): boolean {
+  return (PLACED_STATUSES as readonly string[]).includes(status);
+}
+
+// Scored: the athlete is actively recruiting. Only these two ever carry
+// a stored fit (src/lib/data/fits.ts). Inactive is neither placed nor
+// scored: nothing is being looked for, so nothing is measured.
+export const SCORED_STATUSES = ["Active", "Transferring"] as const;
+
+export function isScoredStatus(status: string): boolean {
+  return (SCORED_STATUSES as readonly string[]).includes(status);
+}
+
+// Which placed athletes can reopen recruiting. Drafted is final.
+export function canReopen(status: string): boolean {
+  return status === "Committed" || status === "Enrolled" || status === "Graduated";
+}
+
+// Where reopening lands: a withdrawn commitment goes back to Active; a
+// college athlete leaving a school is recruited again as a transfer.
+export function reopenedStatus(status: string): "Active" | "Transferring" {
+  return status === "Committed" ? "Active" : "Transferring";
 }
 
 export interface Placement {
@@ -60,10 +89,21 @@ export function placementOf(athlete: PlacementAthlete, targets: PlacementTarget[
   if (athlete.status === "Enrolled" || athlete.status === "Graduated") {
     return { state: athlete.status, name: committed?.schoolName ?? current, targetId: committed?.id ?? null };
   }
+  // A leftover Committed target must never read a reopened athlete as
+  // placed again.
+  if (athlete.status === "Transferring") return null;
   if (committed || athlete.status === "Committed") {
     return { state: "Committed", name: committed?.schoolName ?? null, targetId: committed?.id ?? null };
   }
   return null;
+}
+
+// The status a screen filters and counts by: the placement when there is
+// one (a Committed target places an athlete whose own status still says
+// Active), else the athlete's own status. Today's tiles and the roster's
+// status filter both read this, so they can never disagree.
+export function effectiveStatus(athlete: PlacementAthlete, targets: PlacementTarget[]): string {
+  return placementOf(athlete, targets)?.state ?? athlete.status;
 }
 
 // "Round 5, 2026", either half alone, or null.
@@ -93,9 +133,20 @@ export function currentSchoolOf(detail: unknown): string | null {
   return d.kind === "transfer" && typeof d.currentSchool === "string" && d.currentSchool.trim() ? d.currentSchool.trim() : null;
 }
 
-// "Matches stopped scoring once Jose enrolled." for the Matches pages.
+// "Recruiting ended: Committed to X." where a score would otherwise sit,
+// on the board and school rows.
+export function placedSentence(state: string, name: string | null, draft?: Pick<Placement, "draftRound" | "draftYear">): string {
+  const known = (PLACED_STATUSES as readonly string[]).includes(state);
+  const line = known ? placementLine({ state: state as PlacementState, name, targetId: null, draftRound: draft?.draftRound ?? null, draftYear: draft?.draftYear ?? null }) : state;
+  return `Recruiting ended: ${line}.`;
+}
+
+// "Matches stopped scoring once Jose enrolled." for the Matches pages,
+// and "while Jose is inactive." for an athlete who is simply not
+// recruiting.
 export function closedSentence(status: string, name: string): string {
-  const verb = status === "Drafted" ? "was drafted" : status === "Graduated" ? "graduated" : "enrolled";
+  if (status === "Inactive") return `Matches stopped scoring while ${name} is inactive.`;
+  const verb = status === "Drafted" ? "was drafted" : status === "Graduated" ? "graduated" : status === "Committed" ? "committed" : "enrolled";
   return `Matches stopped scoring once ${name} ${verb}.`;
 }
 

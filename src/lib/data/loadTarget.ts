@@ -61,6 +61,9 @@ export interface TargetBundle {
     athleteId: string;
     schoolId: string;
   };
+  // The athlete's own status, so a screen can tell a placed athlete
+  // (isPlacedStatus) apart and show their status instead of the fit.
+  athleteStatus: string;
   athlete: Athlete;
   school: School;
   fit: FitResult;
@@ -79,7 +82,7 @@ export async function loadTarget(orgId: string, targetId: string): Promise<Targe
     supabase
       .from("recruiting_targets")
       .select(
-        "id, status, coach_name, offer_type, offer_scholarship_percent, athlete_id, school_id, athletes(id, org_id, recruit_type, name, sport, position, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)",
+        "id, status, coach_name, offer_type, offer_scholarship_percent, athlete_id, school_id, athletes(id, org_id, recruit_type, name, sport, position, status, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)",
       )
       .eq("id", targetId)
       .eq("org_id", orgId)
@@ -109,7 +112,7 @@ export async function loadTarget(orgId: string, targetId: string): Promise<Targe
     offer_scholarship_percent: number | null;
     athlete_id: string;
     school_id: string;
-    athletes: AthleteRow | AthleteRow[] | null;
+    athletes: (AthleteRow & { status: string }) | (AthleteRow & { status: string })[] | null;
     schools: SchoolRow | SchoolRow[] | null;
   };
 
@@ -150,6 +153,7 @@ export async function loadTarget(orgId: string, targetId: string): Promise<Targe
       athleteId: row.athlete_id,
       schoolId: row.school_id,
     },
+    athleteStatus: athleteRow.status,
     athlete,
     school,
     fit,

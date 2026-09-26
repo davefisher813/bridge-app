@@ -59,6 +59,8 @@ export const IDS = {
   targetEnrolledClosed: "00000000-0000-0000-0000-000000000e6",
   athleteGraduated: "00000000-0000-0000-0000-0000000000c7",
   athleteDrafted: "00000000-0000-0000-0000-0000000000c8",
+  athleteTransferring: "00000000-0000-0000-0000-0000000000c9",
+  targetTransferring: "00000000-0000-0000-0000-000000000e7",
 } as const;
 
 export function buildFixture(): Dataset {
@@ -372,6 +374,36 @@ export function buildFixture(): Dataset {
         home_state: "CT",
         grades: {},
       },
+      {
+        // Reopened recruiting after enrolling: a college athlete scored
+        // again as a transfer. Not placed, so Matches and Targets are
+        // back on the profile, and Today counts a Transferring tile.
+        id: IDS.athleteTransferring,
+        org_id: BRIDGE,
+        recruit_type: "transfer_4to4",
+        name: "Fixture Transferring",
+        sport: "baseball",
+        position: "1B",
+        status: "Transferring",
+        gpa: null,
+        gpa_verified: false,
+        grad_year: null,
+        date_of_birth: null,
+        first_full_time_enrollment: "2025-08-25",
+        intended_enrollment: null,
+        detail: { kind: "transfer", currentSchool: "Fixture State University", currentDivision: "D2", eligibilityYearsRemaining: 2, transferCount: 1 },
+        measurables: null,
+        is_international: false,
+        toefl_score: null,
+        ielts_score: null,
+        f1_visa_status: null,
+        ncaa_eligibility_status: null,
+        deleted_at: null,
+        goal: "balanced",
+        family_budget_cents: null,
+        home_state: "CT",
+        grades: {},
+      },
     ],
     schools: [
       {
@@ -417,6 +449,7 @@ export function buildFixture(): Dataset {
         coach_name: "Fixture Coach",
         offer_type: "scholarship",
         offer_scholarship_percent: 35,
+        closed_from: null,
         updated_at: "2026-09-01",
       },
       {
@@ -430,6 +463,7 @@ export function buildFixture(): Dataset {
         coach_name: null,
         offer_type: null,
         offer_scholarship_percent: null,
+        closed_from: null,
         updated_at: "2026-05-01",
       },
       {
@@ -441,6 +475,7 @@ export function buildFixture(): Dataset {
         coach_name: "Fixture Coach",
         offer_type: "scholarship",
         offer_scholarship_percent: 100,
+        closed_from: null,
         updated_at: "2026-08-01",
       },
       {
@@ -454,6 +489,7 @@ export function buildFixture(): Dataset {
         coach_name: null,
         offer_type: null,
         offer_scholarship_percent: null,
+        closed_from: null,
         updated_at: "2026-08-10",
       },
       {
@@ -465,6 +501,7 @@ export function buildFixture(): Dataset {
         coach_name: "Fixture Coach",
         offer_type: "scholarship",
         offer_scholarship_percent: 100,
+        closed_from: null,
         updated_at: "2026-01-01",
       },
       {
@@ -478,8 +515,27 @@ export function buildFixture(): Dataset {
         coach_name: null,
         offer_type: null,
         offer_scholarship_percent: null,
+        // What the close-out replaced, so Reopen Recruiting can put it
+        // back. Every other row says null explicitly: the fake's .not()
+        // treats a missing key as not-null, so an omitted closed_from
+        // would read as reopenable in tests only.
+        closed_from: "In Contact",
         notes: "Closed automatically: Fixture Enrolled enrolled at Fixture State University on Aug 1, 2026.",
         updated_at: "2026-08-01",
+      },
+      {
+        // The one open target of the athlete who reopened recruiting:
+        // their profile shows Matches and Targets again.
+        id: IDS.targetTransferring,
+        org_id: BRIDGE,
+        athlete_id: IDS.athleteTransferring,
+        school_id: IDS.schoolD3,
+        status: "In Contact",
+        coach_name: null,
+        offer_type: null,
+        offer_scholarship_percent: null,
+        closed_from: null,
+        updated_at: "2026-09-10",
       },
     ],
     target_communications: [
@@ -739,6 +795,27 @@ export function buildFixture(): Dataset {
           eligibility: { score: 80, confidence: "medium", veto: false, reasons: ["Three years of eligibility remaining"], warnings: ["Portal window not on file for D2 baseball"] },
         },
         reasons: ["College GPA 4.0 clears the 2.5 minimum.", "Net cost lands within 25 percent of the family budget."],
+        warnings: [],
+        inputs_hash: "fixture",
+        computed_at: new Date().toISOString(),
+      },
+      {
+        // The reopened athlete's one stored match, so their profile has
+        // a Matches section with a number in it again.
+        id: "fit5",
+        org_id: BRIDGE,
+        athlete_id: IDS.athleteTransferring,
+        school_id: IDS.schoolD3,
+        score: 64,
+        tag: "Fit",
+        partial: false,
+        dimensions: {
+          academic: { score: 60, confidence: "medium", veto: false, reasons: ["No college GPA on file"], warnings: [] },
+          athletic: { score: 62, confidence: "low", veto: false, reasons: [], warnings: ["No measurables on file"] },
+          financial: { score: 70, confidence: "medium", veto: false, reasons: ["Cost of attendance: $55k/yr"], warnings: [] },
+          eligibility: { score: 65, confidence: "medium", veto: false, reasons: ["Two years of eligibility remaining"], warnings: ["Portal window not on file for D3 baseball"] },
+        },
+        reasons: ["Two years of eligibility remaining."],
         warnings: [],
         inputs_hash: "fixture",
         computed_at: new Date().toISOString(),

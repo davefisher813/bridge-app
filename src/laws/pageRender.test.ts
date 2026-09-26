@@ -22,12 +22,17 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { buildFixture, IDS, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID, MEMBER_ID, FAMILY_ID } from "@/testing/fixture";
 import { PAGES, p } from "@/testing/pages";
-import { createFakeClient } from "@/testing/fakeSupabase";
+import { createFakeClient, type Dataset } from "@/testing/fakeSupabase";
 
 const NOT_FOUND = "NEXT_NOT_FOUND";
 const REDIRECT = "NEXT_REDIRECT:";
 
 let currentUser: string | null = OWNER_ID;
+// One dataset per test, rebuilt in beforeEach, so a law can change a
+// row before a render (an athlete set to Transferring, say) and the
+// page reads the changed row. A render never writes, so sharing it
+// across the clients one page opens changes nothing.
+let data: Dataset = buildFixture();
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({ getAll: () => [], set: () => {} }),
@@ -48,7 +53,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => createFakeClient(buildFixture(), { userId: currentUser }),
+  createClient: async () => createFakeClient(data, { userId: currentUser }),
 }));
 
 // The admin client is the service role. A page never uses it, so reaching
@@ -71,7 +76,23 @@ async function render(modulePath: string, props: Record<string, unknown>): Promi
 
 beforeEach(() => {
   currentUser = OWNER_ID;
+  data = buildFixture();
 });
+
+// The markup of one Row, from its title to the next Row (or the end),
+// so a law can say what sits in the trailing slot of that row and not
+// of the one under it.
+function rowAfter(html: string, title: string): string {
+  const start = html.indexOf(title);
+  expect(start).toBeGreaterThan(-1);
+  const rest = html.slice(start);
+  const next = rest.indexOf('data-kit="row"');
+  return next === -1 ? rest : rest.slice(0, next);
+}
+
+// What the kit's Score renders (src/components/kit/index.tsx). A Stat
+// uses the heading size, so this matches a score and nothing else.
+const SCORE = /text-body font-extrabold tabular-nums/;
 
 describe("LAW: every page renders", () => {
   for (const page of PAGES) {
@@ -199,14 +220,41 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
   // recruiting apparatus should stop looking outstanding. The stepper
   // and the Matches section are what "still recruiting" looks like on
   // screen, so they are what has to disappear.
-  it("the athlete page drops the stepper and Matches for the Mark Enrolled row, and keeps Colleges as history", async () => {
+  it("the athlete page drops the stepper, Matches and Targets for the Mark Enrolled row, and points at Recruiting History", async () => {
     const html = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) });
     expect(html).toMatch(/Enrolled[\s\S]*Fixture State University/);
     expect(html).not.toMatch(/>Profile</);
     expect(html).not.toMatch(/Mark Enrolled/);
     expect(html).not.toMatch(/>Matches</);
-    // The closed target's real status still renders, honestly, in Colleges.
-    expect(html).toMatch(/Not Interested/);
+    // Stage 1, 2026-09-26: the closed target left the forefront. The
+    // profile shows what is live; the record is Recruiting History.
+    // Proven to bite by putting the Not Interested row back in the
+    // profile's Targets: planted and reverted.
+    expect(html).not.toMatch(/Not Interested/);
+    expect(html).not.toMatch(/>Targets</);
+    expect(html).toMatch(/Recruiting History/);
+    expect(html).toMatch(new RegExp(`href="/org/${ORG_WITH_MODULES}/roster/${IDS.athleteEnrolled}/history"`));
+  });
+
+  it("Recruiting History keeps every school with its own messages and visits, and only its own", async () => {
+    const page = "@/app/org/[slug]/roster/[id]/history/page";
+    const enrolled = await render(page, { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) });
+    expect(enrolled).toMatch(/Not Interested/);
+    expect(enrolled).toMatch(/Closed automatically/);
+    expect(enrolled).toMatch(/was In Contact/);
+    // That message belongs to IDS.athlete's target, not this one.
+    expect(enrolled).not.toMatch(/Fixture note/);
+
+    const active = await render(page, { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
+    expect(active).toMatch(/Fixture note/);
+    expect(active).toMatch(/Unofficial visit/);
+    expect(active).toMatch(/Fixture impression/);
+    // Every row on the screen opens something (a Row with an href is
+    // wrapped in the kit's block link): the clickable baseline starts at
+    // zero dead surfaces for a new screen.
+    const rows = (active.match(/data-kit="row"/g) ?? []).length;
+    expect(rows).toBeGreaterThan(0);
+    expect((active.match(/<a [^>]*><div data-kit="row"/g) ?? []).length).toBe(rows);
   });
 
   it("a Committed athlete not yet enrolled sees the school at the top and the Mark Enrolled button, and no more Matches", async () => {
@@ -291,6 +339,125 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     expect(html).not.toMatch(/Enrolled At/);
 
     await expect(render("@/app/org/[slug]/roster/[id]/enroll/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) })).rejects.toThrow(NOT_FOUND);
+  });
+});
+
+describe("LAW: a placed athlete has no score anywhere", () => {
+  // Dave, 2026-09-26: no score for an athlete who has committed,
+  // enrolled, graduated or been drafted. Their stored fits are deleted
+  // at placement (src/lib/data/fits.ts), and the two screens that read
+  // an athlete's status directly show the status where the number sat.
+  // Proven to bite by removing the status filter in fits.ts (the
+  // action law) and by putting the closed target back on the profile
+  // (the render law above): planted and reverted.
+  it("the board shows the Enrolled athlete's status where the score would sit, and scores the Active one", async () => {
+    const html = await render("@/app/org/[slug]/board/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    const placed = rowAfter(html, "Fixture Enrolled to Fixture State University");
+    expect(placed).toMatch(/>Enrolled</);
+    expect(placed).not.toMatch(SCORE);
+    expect(placed).not.toMatch(/Not Scored Yet/);
+    const active = rowAfter(html, "Fixture Athlete to Fixture State University");
+    expect(active).toMatch(SCORE);
+    expect(active).toMatch(/>93</);
+  });
+
+  it("the target page says recruiting ended instead of building a score", async () => {
+    const html = await render("@/app/org/[slug]/board/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.targetEnrolledCommitted }) });
+    expect(html).toMatch(/Recruiting ended: Enrolled at Fixture State University\./);
+    expect(html).not.toMatch(/How the Score Is Built/);
+    expect(html).not.toMatch(/Worth Knowing/);
+    expect(html).toMatch(/>Enrolled</);
+    const live = await render("@/app/org/[slug]/board/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) });
+    expect(live).toMatch(/How the Score Is Built/);
+  });
+
+  it("the school page shows the Enrolled chip for the enrolled athlete and a number for the others", async () => {
+    const html = await render("@/app/org/[slug]/schools/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) });
+    const enrolled = rowAfter(html, ">Fixture Enrolled<");
+    expect(enrolled).toMatch(/>Enrolled</);
+    expect(enrolled).not.toMatch(SCORE);
+    const committed = rowAfter(html, ">Fixture Committed<");
+    expect(committed).toMatch(/>Committed</);
+    expect(committed).not.toMatch(SCORE);
+    expect(rowAfter(html, ">Fixture Athlete<")).toMatch(SCORE);
+  });
+
+  it("the Matches page of an Inactive athlete says scoring stopped rather than ranking", async () => {
+    // The lead's call, 2026-09-26: scoring is only for an athlete who
+    // is actively recruiting, so Inactive is not scored either.
+    data.athletes.find((a) => a.id === IDS.athlete)!.status = "Inactive";
+    const html = await render("@/app/org/[slug]/roster/[id]/matches/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({}) });
+    expect(html).toMatch(/Matches stopped scoring while Fixture Athlete is inactive\./);
+    expect(html).not.toMatch(/Add to Board/);
+    // Nor does any other screen build them a number: the target page,
+    // the school page and the profile all read the status instead.
+    const target = await render("@/app/org/[slug]/board/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) });
+    expect(target).toMatch(/Matches stopped scoring while Fixture Athlete is inactive\./);
+    expect(target).not.toMatch(/How the Score Is Built/);
+    expect(target).toMatch(/>Inactive</);
+    const school = await render("@/app/org/[slug]/schools/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) });
+    const row = rowAfter(school, ">Fixture Athlete<");
+    expect(row).toMatch(/>Inactive</);
+    expect(row).not.toMatch(SCORE);
+    const profile = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
+    expect(profile).not.toMatch(/>Matches</);
+    expect(profile).toMatch(/>Targets</);
+    currentUser = FAMILY_ID;
+    const family = await render("@/app/org/[slug]/family/[id]/matches/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
+    expect(family).toMatch(/Matches stopped scoring while Fixture Athlete is inactive\./);
+  });
+
+  it("a Transferring athlete is scored again: Matches and Targets are back on the profile", async () => {
+    const html = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransferring }) });
+    expect(html).toMatch(/>Matches</);
+    expect(html).toMatch(/>Targets</);
+    expect(html).toMatch(/>64</);
+    expect(html).toMatch(/Reopen Recruiting|Mark Enrolled/);
+    expect(html).not.toMatch(/Recruiting ended/);
+  });
+});
+
+describe("LAW: Today counts every status, and each tile opens the roster it counts", () => {
+  // Stage 1, 2026-09-26: seven tiles, one per status in vocabulary
+  // order, counted by effectiveStatus (src/lib/placement.ts) exactly as
+  // the roster filters, so a tile and the list it opens never disagree.
+  it("has one tile per status, each linking to the roster filtered by it", async () => {
+    const { ATHLETE_STATUSES } = await import("@/lib/validation/athlete");
+    const html = await render("@/app/org/[slug]/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    const hrefs = [...html.matchAll(/href="([^"]*roster\?status=[^"]*)"/g)].map((m) => m[1]!);
+    expect(hrefs).toHaveLength(ATHLETE_STATUSES.length);
+    expect(hrefs).toEqual(ATHLETE_STATUSES.map((s) => `/org/${ORG_WITH_MODULES}/roster?status=${s}`));
+    // One Enrolled athlete in the fixture, one Transferring, nobody Inactive.
+    const tile = (status: string) => rowAfter(html, `roster?status=${status}"`).match(/tabular-nums[^>]*>(\d+)<\/div>/)?.[1];
+    expect(tile("Enrolled")).toBe("1");
+    expect(tile("Transferring")).toBe("1");
+    expect(tile("Inactive")).toBe("0");
+    expect(tile("Committed")).toBe("1");
+  });
+
+  it("the roster narrowed by a status shows only that status, and offers the way back", async () => {
+    const enrolled = await render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ status: "Enrolled" }) });
+    expect(enrolled).toMatch(/Fixture Enrolled/);
+    expect(enrolled).not.toMatch(/Fixture Athlete/);
+    expect(enrolled).toMatch(/Show Every Athlete/);
+    expect(enrolled).toMatch(/1 of \d+, Enrolled/);
+    const transferring = await render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ status: "Transferring" }) });
+    expect(transferring).toMatch(/Fixture Transferring/);
+    expect(transferring).not.toMatch(/Fixture Enrolled/);
+    // A status the vocabulary does not know narrows nothing.
+    const unknown = await render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ status: "Bogus" }) });
+    expect(unknown).toMatch(/Fixture Athlete[\s\S]*Fixture Enrolled/);
+    expect(unknown).not.toMatch(/Show Every Athlete/);
+  });
+
+  it("the tile count and the narrowed roster agree for every status", async () => {
+    const { ATHLETE_STATUSES } = await import("@/lib/validation/athlete");
+    const today = await render("@/app/org/[slug]/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    for (const status of ATHLETE_STATUSES) {
+      const count = Number(rowAfter(today, `roster?status=${status}"`).match(/tabular-nums[^>]*>(\d+)<\/div>/)?.[1]);
+      const list = await render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ status }) });
+      expect(list).toMatch(new RegExp(`${count} of \\d+, ${status}`));
+    }
   });
 });
 
@@ -408,6 +575,20 @@ describe("LAW: a member reads the program as stages, never the roster", () => {
     expect(html).toMatch(/Committed to Fixture State University/);
     const one = await render("@/app/org/[slug]/member/program/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) });
     expect(one).toMatch(/Enrolled at Fixture State University/);
+  });
+
+  it("a member's Program reads a Transferring athlete as Targeting, whatever a leftover Committed target says", async () => {
+    // Migration 0038 and src/testing/fakeRpc.ts: a reopened athlete is
+    // recruiting again, so the commitment that placed them is history
+    // even when the row survived. Stage 1, 2026-09-26.
+    currentUser = MEMBER_ID;
+    data.athletes.find((a) => a.id === IDS.athleteEnrolled)!.status = "Transferring";
+    expect(data.recruiting_targets.find((t) => t.id === IDS.targetEnrolledCommitted)?.status).toBe("Committed");
+    const html = await render("@/app/org/[slug]/member/program/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    const row = rowAfter(html, ">Fixture Enrolled<");
+    expect(row).toMatch(/Targeting/);
+    expect(row).not.toMatch(/Committed/);
+    expect(row).not.toMatch(/Enrolled at/);
   });
 });
 

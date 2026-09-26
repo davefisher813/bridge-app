@@ -2990,3 +2990,39 @@ action now reports how many matches it wrote or says plainly that it
 failed. Coaches show on the school and target screens, head coach
 first, tap to email or call. The AI question and answer the handoff
 described does not exist and is on the roadmap.
+
+## 2026-09-26: Stage 1 of the rebuild, the athlete lifecycle
+
+**Decision.** Transferring joins the statuses. Only Active and
+Transferring are scored; a Committed, Enrolled, Graduated, Drafted or
+Inactive athlete has no score anywhere and their stored fits are
+deleted when recruiting ends. The close-out records `closed_from` on
+each target it closes. Recruiting History is its own screen; the
+profile shows only open targets. Reopen Recruiting restores exactly
+what the close-out took (In Contact when unknown), closes the old
+commitment as history, rewrites the record as a transfer record, and
+scores again. Drafted cannot reopen. Today counts every status. Active's
+hue moves from the green check to the target hue so seven tiles read as
+seven, and Transferring takes the contact hue.
+
+**Reason.** Dave's list, 2026-09-26: "why is scoring even relevant at
+that point? It's a match, it worked"; "the recruiting history should
+stay for each student, but it shouldn't be at the forefront"; "if
+someone reopens their process, we want all that info there as well";
+"the dashboard should be reflective of what's actually in the app."
+
+**Alternatives considered.** Parsing the close-out note to know what to
+restore (rejected: a column is a fact, a note is prose). A new target
+status such as Attended for the old commitment (rejected: touches every
+Not Interested consumer; the reopen note says what happened). Keeping
+Inactive scored (rejected: Dave's intent is that scoring is for a kid
+who is recruiting). Keeping the hs detail alongside the transfer detail
+on reopen (rejected for Stage 1: a schema change to athletes.detail;
+the reopen screen says the hs detail is replaced).
+
+**Consequences.** This amends the locked MATCHING_CONTRACT on Dave's
+word. Family logins have no Recruiting History screen yet
+(target_communications has no family read policy). Visits moved off the
+profile into History. The Edit dropdown refuses to walk a placed athlete
+backwards. Stored scores for placed and Inactive athletes were deleted
+by 0038 on production.

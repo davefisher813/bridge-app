@@ -621,7 +621,8 @@ describe("LAW: membership is written by the service role, only by an owner, and 
   it("a family invite for an athlete outside the org is refused", async () => {
     withKey();
     const { inviteMember } = await import("@/lib/actions/members");
-    const FOREIGN = "00000000-0000-0000-0000-0000000000c9";
+    // An id no fixture row carries (c9 is the reopened athlete since Stage 1).
+    const FOREIGN = "00000000-0000-0000-0000-00000000dead";
     data.athletes.push({ ...data.athletes[0], id: FOREIGN, org_id: data.orgs[1]!.id });
     const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "outsider@example.test", role: "family", athleteId: FOREIGN })));
     expect(r.redirect).toBeNull();
@@ -1582,7 +1583,11 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
     expect(decodeURIComponent(r.redirect!)).toMatch(/Enrolled at Fixture State University\. 1 other target closed\./);
 
     const closed = writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.targetToClose));
-    expect(closed?.rows[0]).toMatchObject({ status: "Not Interested" });
+    // closed_from records what the close-out replaced, so Reopen
+    // Recruiting can put it back (Stage 1, 2026-09-26). Proven to bite
+    // by dropping the closed_from write in enrollment.ts: planted and
+    // reverted.
+    expect(closed?.rows[0]).toMatchObject({ status: "Not Interested", closed_from: "In Contact" });
     expect(String(closed?.rows[0]?.notes)).toMatch(/Closed automatically: Fixture Committed enrolled at Fixture State University on Sep 1, 2026\./);
 
     expect(writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.targetCommitted))).toBeUndefined();
@@ -1647,6 +1652,72 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
     writes.length = 0;
     await run(() => updateTarget(ORG_WITH_MODULES, IDS.target, { errors: {} }, form({ athleteId: IDS.athlete, schoolId: IDS.school, status: "Offer" })));
     expect(writes.find((w) => w.table === "athletes" && w.op === "update")?.rows[0]).toMatchObject({ status: "Active" });
+  });
+
+  // A placed athlete has no score anywhere (Dave, 2026-09-26), and the
+  // lead's call the same day: neither does an Inactive one, since
+  // scoring is only for a kid actively recruiting. The stored rows go
+  // at the moment recruiting ends and never come back through a
+  // recompute. Proven to bite by removing the `.in("status", ...)`
+  // filter in fits.ts and watching the Recalculate law fail: planted
+  // and reverted.
+  const fitDeletes = () => writes.filter((w) => w.table === "athlete_school_fits" && w.op === "delete");
+  const fitUpserts = () => writes.filter((w) => w.table === "athlete_school_fits" && w.op === "upsert").flatMap((w) => w.rows as { athlete_id: string }[]);
+
+  it("a close-out deletes every stored fit for the athlete", async () => {
+    const { markEnrolled } = await import("@/lib/actions/enrollment");
+    await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athleteCommitted, { errors: {} }, form({ enrolledOn: "2026-09-01" })));
+    const del = fitDeletes().find((w) => w.filters.some((f) => f.column === "athlete_id" && f.value === IDS.athleteCommitted));
+    expect(del).toBeDefined();
+    expect(del?.filters).toEqual(expect.arrayContaining([expect.objectContaining({ column: "org_id", value: data.orgs[0]!.id })]));
+    expect(fitUpserts()).toEqual([]);
+  });
+
+  it("Recalculate All never scores a placed or Inactive athlete, and deletes what it finds on one", async () => {
+    const org = data.orgs[0]!.id;
+    data.athletes.push({ ...data.athletes.find((a) => a.id === IDS.athleteNoGpa)!, id: "a-inactive", name: "Fixture Inactive", status: "Inactive" });
+    data.athlete_school_fits.push({ ...data.athlete_school_fits.find((f) => f.athlete_id === IDS.athleteNoGpa)!, id: "fit-stale", athlete_id: "a-inactive" });
+    const quiet = [IDS.athleteCommitted, IDS.athleteEnrolled, IDS.athleteGraduated, IDS.athleteDrafted, "a-inactive"];
+
+    const { recalculateAllMatches } = await import("@/lib/actions/matching");
+    const r = await run(() => recalculateAllMatches(ORG_WITH_MODULES));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/matches recalculated/);
+
+    const del = fitDeletes().find((w) => w.filters.some((f) => f.column === "athlete_id"));
+    const deleted = del?.filters.find((f) => f.column === "athlete_id")?.value as string[];
+    expect(deleted).toEqual(expect.arrayContaining(quiet));
+    expect(del?.filters).toEqual(expect.arrayContaining([expect.objectContaining({ column: "org_id", value: org })]));
+
+    const scored = new Set(fitUpserts().map((r) => r.athlete_id));
+    for (const id of quiet) expect(scored.has(id)).toBe(false);
+    expect(scored.has(IDS.athlete)).toBe(true);
+    expect(scored.has(IDS.athleteTransferring)).toBe(true);
+    expect(data.athlete_school_fits.some((f) => f.athlete_id === "a-inactive")).toBe(false);
+  });
+
+  it("a board commit clears the athlete's scores, and taking it back scores them again", async () => {
+    const { updateTarget } = await import("@/lib/actions/targets");
+    await run(() => updateTarget(ORG_WITH_MODULES, IDS.target, { errors: {} }, form({ athleteId: IDS.athlete, schoolId: IDS.school, status: "Committed" })));
+    expect(fitDeletes().some((w) => w.filters.some((f) => f.column === "athlete_id" && f.value === IDS.athlete))).toBe(true);
+    expect(fitUpserts().some((r) => r.athlete_id === IDS.athlete)).toBe(false);
+    expect(data.athlete_school_fits.some((f) => f.athlete_id === IDS.athlete)).toBe(false);
+
+    writes.length = 0;
+    await run(() => updateTarget(ORG_WITH_MODULES, IDS.target, { errors: {} }, form({ athleteId: IDS.athlete, schoolId: IDS.school, status: "Offer" })));
+    expect(fitUpserts().some((r) => r.athlete_id === IDS.athlete)).toBe(true);
+  });
+
+  it("a Transferring athlete who commits on the board is placed, and stops scoring, like an Active one", async () => {
+    // Transferring is Active for a college athlete; a commitment ends
+    // their recruiting the same way. Without this the athlete stayed
+    // Transferring with a Committed target, which placementOf() reads
+    // as not placed at all, and kept scoring.
+    const { updateTarget } = await import("@/lib/actions/targets");
+    await run(() => updateTarget(ORG_WITH_MODULES, IDS.targetTransferring, { errors: {} }, form({ athleteId: IDS.athleteTransferring, schoolId: IDS.schoolD3, status: "Committed" })));
+    const athlete = writes.find((w) => w.table === "athletes" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.athleteTransferring));
+    expect(athlete?.rows[0]).toMatchObject({ status: "Committed" });
+    expect(fitDeletes().some((w) => w.filters.some((f) => f.column === "athlete_id" && f.value === IDS.athleteTransferring))).toBe(true);
+    expect(data.athlete_school_fits.some((f) => f.athlete_id === IDS.athleteTransferring)).toBe(false);
   });
 
   it("a board edit never touches an Enrolled athlete's status", async () => {
@@ -1765,6 +1836,142 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
     );
     expect(r.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athleteEnrolled}`);
     expect(writes.find((w) => w.table === "recruiting_targets" && w.op === "update")).toBeUndefined();
+  });
+});
+
+describe("LAW: reopening restores exactly what the close-out closed", () => {
+  // Dave, 2026-09-26: a kid who committed and backed out, or enrolled
+  // and is now in the portal, is being recruited again, and the schools
+  // the close-out shut come back as they were. src/lib/data/reopen.ts
+  // reads closed_from, the marker the close-out leaves; the commitment
+  // itself becomes history for a transfer and an offer again for a
+  // withdrawn commitment. Drafted is final. Proven to bite by dropping
+  // the `.not("closed_from", "is", null)` filter in reopen.ts and
+  // watching the hand-picked Not Interested come back: planted and
+  // reverted.
+  const targetUpdate = (id: string) => writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === id));
+  const athleteUpdate = (id: string) => writes.find((w) => w.table === "athletes" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === id));
+
+  it("an Enrolled athlete leaves as a transfer: closed targets come back, the commitment closes, and they score again", async () => {
+    const { reopenRecruiting } = await import("@/lib/actions/reopen");
+    const r = await run(() =>
+      reopenRecruiting(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {} }, form({ transferKind: "transfer_4to4", currentSchool: "Fixture State University", eligibilityYearsRemaining: "2", transferCount: "1" })),
+    );
+    expect(r.redirect).toContain(`/roster/${IDS.athleteEnrolled}?notice=`);
+    expect(decodeURIComponent(r.redirect!)).toMatch(/Recruiting reopened\. 1 target restored\./);
+
+    const athlete = athleteUpdate(IDS.athleteEnrolled)?.rows[0] as { status: string; recruit_type: string; detail: Record<string, unknown> };
+    expect(athlete).toMatchObject({ status: "Transferring", recruit_type: "transfer_4to4" });
+    expect(athlete.detail).toMatchObject({ kind: "transfer", currentSchool: "Fixture State University", currentDivision: "D2", eligibilityYearsRemaining: 2, transferCount: 1, degreeCompleted: false });
+    expect(athlete).not.toHaveProperty("first_full_time_enrollment");
+
+    const restored = targetUpdate(IDS.targetEnrolledClosed);
+    expect(restored?.rows[0]).toMatchObject({ status: "In Contact", closed_from: null });
+    expect(String(restored?.rows[0]?.notes)).toMatch(/Closed automatically[\s\S]*Reopened: Fixture Enrolled is recruiting again as of/);
+    expect(restored?.filters).toEqual(expect.arrayContaining([expect.objectContaining({ column: "org_id", value: data.orgs[0]!.id })]));
+
+    const committed = targetUpdate(IDS.targetEnrolledCommitted);
+    expect(committed?.rows[0]).toMatchObject({ status: "Not Interested", closed_from: null });
+    expect(String(committed?.rows[0]?.notes)).toMatch(/Reopened: Fixture Enrolled is transferring from Fixture State University as of/);
+
+    const scored = writes.filter((w) => w.table === "athlete_school_fits" && w.op === "upsert").flatMap((w) => w.rows as { athlete_id: string }[]);
+    expect(scored.some((row) => row.athlete_id === IDS.athleteEnrolled)).toBe(true);
+    expect(revalidated).toEqual(expect.arrayContaining([`/org/${ORG_WITH_MODULES}`, `/org/${ORG_WITH_MODULES}/roster`, `/org/${ORG_WITH_MODULES}/board`]));
+  });
+
+  it("a Graduated athlete leaves as a grad transfer by default, with the degree marked complete", async () => {
+    const { reopenRecruiting } = await import("@/lib/actions/reopen");
+    const r = await run(() => reopenRecruiting(ORG_WITH_MODULES, IDS.athleteGraduated, { errors: {} }, form({ eligibilityYearsRemaining: "1" })));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/Recruiting reopened\.$/);
+    const athlete = athleteUpdate(IDS.athleteGraduated)?.rows[0] as { status: string; recruit_type: string; detail: Record<string, unknown> };
+    expect(athlete).toMatchObject({ status: "Transferring", recruit_type: "transfer_grad" });
+    // Nothing on the board named a school, so the Current School on the
+    // record is the one they are leaving.
+    expect(athlete.detail).toMatchObject({ kind: "transfer", currentSchool: "Fixture Tech", degreeCompleted: true, eligibilityYearsRemaining: 1 });
+    expect(athlete).not.toHaveProperty("graduated_on");
+  });
+
+  it("a transfer needs the eligibility years, and a bad count or date is refused before anything is written", async () => {
+    const { reopenRecruiting } = await import("@/lib/actions/reopen");
+    const r = await run(() => reopenRecruiting(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {} }, form({ transferKind: "transfer_4to4", eligibilityYearsRemaining: "", transferCount: "-1", portalEntryDate: "soon" })));
+    expect(r.redirect).toBeNull();
+    const errors = (r.state as MemberState).errors;
+    expect(errors.eligibilityYearsRemaining).toMatch(/0 to 5/);
+    expect(errors.transferCount).toMatch(/whole number/);
+    expect(errors.portalEntryDate).toMatch(/date/);
+    expect(writes).toEqual([]);
+  });
+
+  it("a withdrawn commitment goes back to Active, the commitment back to the offer it was, and open targets are untouched", async () => {
+    const { reopenRecruiting } = await import("@/lib/actions/reopen");
+    // The profile's confirm posts a plain form: no state, no fields.
+    const r = await run(() => reopenRecruiting(ORG_WITH_MODULES, IDS.athleteCommitted, form({})));
+    expect(decodeURIComponent(r.redirect!)).toMatch(new RegExp(`/roster/${IDS.athleteCommitted}\\?notice=Recruiting reopened\\.$`));
+    const athlete = athleteUpdate(IDS.athleteCommitted)?.rows[0] as Record<string, unknown>;
+    expect(athlete).toMatchObject({ status: "Active" });
+    expect(athlete).not.toHaveProperty("recruit_type");
+    expect(athlete).not.toHaveProperty("detail");
+
+    const committed = targetUpdate(IDS.targetCommitted);
+    expect(committed?.rows[0]).toMatchObject({ status: "Offer", closed_from: null });
+    expect(String(committed?.rows[0]?.notes)).toMatch(/Reopened: commitment withdrawn on/);
+    expect(targetUpdate(IDS.targetToClose)).toBeUndefined();
+
+    const scored = writes.filter((w) => w.table === "athlete_school_fits" && w.op === "upsert").flatMap((w) => w.rows as { athlete_id: string }[]);
+    expect(scored.some((row) => row.athlete_id === IDS.athleteCommitted)).toBe(true);
+  });
+
+  it("a commitment with no offer behind it goes back to In Contact", async () => {
+    data.recruiting_targets.find((t) => t.id === IDS.targetCommitted)!.offer_type = null;
+    const { reopenRecruiting } = await import("@/lib/actions/reopen");
+    await run(() => reopenRecruiting(ORG_WITH_MODULES, IDS.athleteCommitted, form({})));
+    expect(targetUpdate(IDS.targetCommitted)?.rows[0]).toMatchObject({ status: "In Contact" });
+  });
+
+  it("a hand-picked Not Interested stays closed: only a target with closed_from comes back", async () => {
+    data.recruiting_targets.push({ ...data.recruiting_targets.find((t) => t.id === IDS.targetEnrolledClosed)!, id: "t-hand", school_id: IDS.school, closed_from: null, notes: "Coach said no." });
+    const { reopenRecruiting } = await import("@/lib/actions/reopen");
+    const r = await run(() => reopenRecruiting(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {} }, form({ eligibilityYearsRemaining: "2" })));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/1 target restored/);
+    expect(targetUpdate("t-hand")).toBeUndefined();
+    expect(targetUpdate(IDS.targetEnrolledClosed)?.rows[0]).toMatchObject({ status: "In Contact" });
+  });
+
+  it("Drafted is final: reopen sends the person back to the profile and writes nothing", async () => {
+    const { reopenRecruiting } = await import("@/lib/actions/reopen");
+    const r = await run(() => reopenRecruiting(ORG_WITH_MODULES, IDS.athleteDrafted, form({})));
+    expect(r.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athleteDrafted}`);
+    expect(writes).toEqual([]);
+    const active = await run(() => reopenRecruiting(ORG_WITH_MODULES, IDS.athlete, form({})));
+    expect(active.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}`);
+    expect(writes).toEqual([]);
+  });
+
+  it("a member cannot reopen recruiting", async () => {
+    currentUser = MEMBER_ID;
+    const { reopenRecruiting } = await import("@/lib/actions/reopen");
+    const r = await run(() => reopenRecruiting(ORG_WITH_MODULES, IDS.athleteCommitted, form({})));
+    expect(r.redirect).toBe("/unauthorized");
+    expect(writes).toEqual([]);
+  });
+
+  it("the Edit form refuses to bring a placed athlete back by hand", async () => {
+    const { updateAthlete } = await import("@/lib/actions/athletes");
+    for (const status of ["Active", "Transferring", "Inactive"]) {
+      const r = await run(() => updateAthlete(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {}, values: {} }, form({ name: "Fixture Enrolled", sport: "baseball", recruitType: "hs", status })));
+      expect(r.redirect).toBeNull();
+      expect((r.state as MemberState).errors.status).toMatch(/Reopen Recruiting/);
+    }
+    expect(writes).toEqual([]);
+  });
+
+  it("an athlete who arrives already in the portal can be created Transferring", async () => {
+    const { createAthlete } = await import("@/lib/actions/athletes");
+    const r = await run(() =>
+      createAthlete(ORG_WITH_MODULES, { errors: {}, values: {} }, form({ name: "Portal Arrival", sport: "baseball", recruitType: "transfer_4to4", status: "Transferring", currentSchool: "Elsewhere College", eligibilityYearsRemaining: "3", transferCount: "1" })),
+    );
+    expect(r.redirect).toMatch(new RegExp(`^/org/${ORG_WITH_MODULES}/roster/`));
+    expect(inserts("athletes")[0]?.rows[0]).toMatchObject({ status: "Transferring", recruit_type: "transfer_4to4" });
   });
 });
 

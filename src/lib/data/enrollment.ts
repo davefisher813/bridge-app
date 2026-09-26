@@ -10,10 +10,15 @@
 //
 // Whatever else was still open on this athlete - a school still In
 // Contact, a visit still pending - stops being outstanding work the
-// moment they enroll: closed to Not Interested with a note saying why,
-// so Today's Needs Follow-Up and the Targets board never keep showing a
+// moment they enroll: closed to Not Interested with a note saying why
+// and closed_from recording the status it had, so Reopen Recruiting
+// (src/lib/data/reopen.ts) can put back exactly what this took away.
+// Today's Needs Follow-Up and the Targets board never keep showing a
 // coach work on someone who has already left. The Committed target, if
 // there is one, is the one fact that stays true and is left alone.
+//
+// Every stored fit goes with the close-out: a placed athlete has no
+// score anywhere (Dave, 2026-09-26).
 //
 // The NCAA age clock (src/lib/fit/ncaa/ageClock.ts) backfills from this
 // date only if nothing has started it already: a transfer athlete's
@@ -28,6 +33,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { longDate } from "@/lib/copy/dates";
 import { currentSchoolOf, placementLine } from "@/lib/placement";
+import { clearFitsForAthlete } from "@/lib/data/fits";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = SupabaseClient<any, any, any>;
@@ -73,14 +79,14 @@ export async function applyCloseOut(supabase: Client, orgId: string, athleteId: 
     name = (committed ? (unwrap(committed.schools)?.name ?? null) : null) ?? currentSchoolOf(athlete?.detail);
   }
 
-  const { data: openRows } = await supabase.from("recruiting_targets").select("id, notes").eq("org_id", orgId).eq("athlete_id", athleteId).neq("status", "Committed").neq("status", "Not Interested");
+  const { data: openRows } = await supabase.from("recruiting_targets").select("id, status, notes").eq("org_id", orgId).eq("athlete_id", athleteId).neq("status", "Committed").neq("status", "Not Interested");
 
   const note = closeOutNote(athleteName, name, outcome);
-  const open = (openRows ?? []) as { id: string; notes: string | null }[];
+  const open = (openRows ?? []) as { id: string; status: string; notes: string | null }[];
   for (const t of open) {
     await supabase
       .from("recruiting_targets")
-      .update({ status: "Not Interested", notes: t.notes ? `${t.notes}\n\n${note}` : note, updated_at: new Date().toISOString() })
+      .update({ status: "Not Interested", closed_from: t.status, notes: t.notes ? `${t.notes}\n\n${note}` : note, updated_at: new Date().toISOString() })
       .eq("id", t.id)
       .eq("org_id", orgId);
   }
@@ -91,6 +97,7 @@ export async function applyCloseOut(supabase: Client, orgId: string, athleteId: 
   if (outcome.status === "Graduated") patch.graduated_on = outcome.on;
   if (outcome.status === "Drafted") Object.assign(patch, { draft_team: outcome.team, draft_round: outcome.round, draft_year: outcome.year });
   await supabase.from("athletes").update(patch).eq("id", athleteId).eq("org_id", orgId);
+  await clearFitsForAthlete(supabase, orgId, athleteId);
 
   return { name, closedCount: open.length };
 }

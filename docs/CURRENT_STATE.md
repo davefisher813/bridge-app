@@ -428,8 +428,16 @@ both applied to production 2026-09-26), since a member reads no athlete
 rows and cannot call `placementOf()`. `src/testing/fakeRpc.ts` mirrors
 it and `scripts/rls_test.sql` checks it on real Postgres.
 
-Not touched: Today's Strong Matches (a same-day recompute right before a
-close-out could surface a stale suggestion for a day).
+Stage 1 of the rebuild (Dave's list, 2026-09-26): seven statuses with
+Transferring; no score anywhere for a placed or Inactive athlete, and
+their stored rows deleted at the moment recruiting ends (migration 0038
+purged the existing ones); `recruiting_targets.closed_from` records what
+a close-out closed; a Recruiting History screen off the profile holds
+every school, message, visit and offer while the profile's Targets shows
+only open ones; Reopen Recruiting (Committed back to Active, Enrolled or
+Graduated to Transferring with the closed targets restored); Today
+counts every status and each tile opens the roster filtered to it.
+docs/BUSINESS_RULES.md, "Athlete lifecycle".
 
 The app icon, the Apple touch icon and the manifest load without
 signing in (`isPublicPath()`, `src/lib/supabase/middleware.ts`). iOS

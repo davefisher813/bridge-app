@@ -10,11 +10,14 @@
 //
 //   member_program: every live athlete of the org, its stage being
 //     Drafted, Graduated or Enrolled when the athlete is, else Committed
-//     if the athlete is Committed or any target is, else Offers if any target is an
-//     Offer, else Targeting if any target is not Not Interested, else No
-//     Targets. The name is the team for Drafted, else the Committed
-//     target's school, else (Enrolled or Graduated) a transfer record's
-//     Current School. Round and year for Drafted only. Migration 0035.
+//     if the athlete is Committed or any target is (never for a
+//     Transferring athlete, whose leftover Committed target is history),
+//     else Offers if any target is an Offer, else Targeting if any target
+//     is not Not Interested, else No Targets. The name is the team for
+//     Drafted, else the Committed target's school (again not for
+//     Transferring), else (Enrolled or Graduated) a transfer record's
+//     Current School. Round and year for Drafted only. Migrations 0035
+//     and 0038.
 //   member_program_schools: one athlete's targets as school, division
 //     and status, committed first.
 //   member_giving: the org's gifts, pledges, campaigns, budget lines,
@@ -44,7 +47,8 @@ export function fakeRpc(data: Dataset, userId: string | null, name: string, args
       .filter((a) => a.org_id === orgId && !a.deleted_at)
       .map((a) => {
         const mine = targets.filter((t) => t.athlete_id === a.id);
-        const committed = mine.find((t) => t.status === "Committed");
+        const transferring = a.status === "Transferring";
+        const committed = transferring ? undefined : mine.find((t) => t.status === "Committed");
         const offers = mine.filter((t) => t.status === "Offer").length;
         const closed = ["Drafted", "Graduated", "Enrolled"].includes(String(a.status));
         const stage = closed ? String(a.status) : a.status === "Committed" || committed ? "Committed" : offers ? "Offers" : mine.some((t) => t.status !== "Not Interested") ? "Targeting" : "No Targets";

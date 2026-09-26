@@ -8,7 +8,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { matchingColumnsFrom, parseFirstMetrics, parseAthleteForm } from "@/lib/validation/athlete";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
 import { applyCloseOut, closeOutNotice } from "@/lib/data/enrollment";
-import { currentSchoolOf } from "@/lib/placement";
+import { currentSchoolOf, isClosedStatus, isPlacedStatus } from "@/lib/placement";
 
 // Athlete add/edit was the top ROADMAP.md item once roster/board existed
 // as read-only screens - there was no way to get real data in short of
@@ -120,6 +120,16 @@ export async function updateAthlete(
   const transition = before && before.status !== next ? next : null;
   if (transition === "Drafted") {
     return { errors: { status: "Use Mark Drafted on the athlete page to enter the team." }, values: valuesFromFormData(formData) };
+  }
+  // The way back is Reopen Recruiting, which restores what the close-out
+  // closed. A hand edit would leave every target Not Interested and the
+  // dates set. Transferring on create, or from Active or Inactive, is an
+  // athlete who arrives already in the portal, and stays allowed.
+  if (before && transition === "Transferring" && isPlacedStatus(before.status)) {
+    return { errors: { status: "Use Reopen Recruiting on the athlete page." }, values: valuesFromFormData(formData) };
+  }
+  if (before && isClosedStatus(before.status) && (next === "Active" || next === "Committed" || next === "Inactive")) {
+    return { errors: { status: "Use Reopen Recruiting on the athlete page to bring them back." }, values: valuesFromFormData(formData) };
   }
   if ((transition === "Enrolled" || transition === "Graduated") && !currentSchoolOf(parsed.detail)) {
     const { data: committed } = await supabase.from("recruiting_targets").select("id").eq("org_id", org.id).eq("athlete_id", athleteId).eq("status", "Committed").maybeSingle();

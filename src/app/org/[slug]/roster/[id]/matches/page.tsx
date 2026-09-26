@@ -8,7 +8,7 @@
 // input. The filters read school facts, not the score, so they are
 // applied here in memory over the list the store returned.
 
-import { closedSentence, isClosedStatus } from "@/lib/placement";
+import { closedSentence, isScoredStatus } from "@/lib/placement";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -72,9 +72,10 @@ export default async function MatchesPage({
   ]);
   if (!athlete) notFound();
 
-  if (isClosedStatus(athlete.status)) {
-    // Recruiting is over for this athlete; nothing left to rank against.
-    // Dave, 2026-09-26.
+  if (!isScoredStatus(athlete.status)) {
+    // Only an athlete who is actively recruiting is scored. Placed or
+    // inactive, there is nothing to rank against, and the profile hides
+    // Matches for the same reason. Dave, 2026-09-26.
     return (
       <Screen title={athlete.name} back={{ href: `/org/${slug}/roster/${id}`, label: "Back" }}>
         <EmptyState kind="target" title={athlete.status} action={<LinkButton href={`/org/${slug}/roster/${id}`}>Back to Athlete</LinkButton>}>

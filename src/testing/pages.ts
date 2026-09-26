@@ -73,6 +73,15 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "draft-athlete", path: "@/app/org/[slug]/roster/[id]/draft/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteCommitted }) }, expect: /Will Close[\s\S]*Team[\s\S]*Round/ },
   { name: "draft-details", path: "@/app/org/[slug]/roster/[id]/draft/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteDrafted }) }, expect: /Draft Details[\s\S]*Fixture Pros/ },
   { name: "matches-enrolled", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }), searchParams: p({}) }, expect: /Enrolled/ },
+  // Stage 1, 2026-09-26: every school ever in touch, open or closed, is
+  // history; the closed one carries its closing note and its pill. The
+  // meta (the note) renders before the trailing pill on a Row.
+  { name: "history", path: "@/app/org/[slug]/roster/[id]/history/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) }, expect: /Closed automatically[\s\S]*Not Interested/ },
+  { name: "history-empty", path: "@/app/org/[slug]/roster/[id]/history/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteGraduated }) }, expect: /No Recruiting History Yet/ },
+  { name: "reopen-enrolled", path: "@/app/org/[slug]/roster/[id]/reopen/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) }, expect: /Will Reopen[\s\S]*Fixture College[\s\S]*Eligibility Years/ },
+  { name: "athlete-transferring", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransferring }) }, expect: /Fixture Transferring[\s\S]*Matches[\s\S]*Targets/ },
+  { name: "roster-status", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ status: "Enrolled" }) }, expect: /Fixture Enrolled/ },
+  { name: "target-enrolled", path: "@/app/org/[slug]/board/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.targetEnrolledCommitted }) }, expect: /Fixture State University[\s\S]*Recruiting ended/ },
   { name: "family-athlete-enrolled", path: "@/app/org/[slug]/family/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) }, expect: /Enrolled[\s\S]*Fixture State University/, as: FAMILY_ID },
   { name: "family-matches-enrolled", path: "@/app/org/[slug]/family/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) }, expect: /Enrolled/, as: FAMILY_ID },
   { name: "eligibility-transfer", path: "@/app/org/[slug]/roster/[id]/eligibility/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /Fixture Transfer|transfer/i },

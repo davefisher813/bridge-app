@@ -140,6 +140,10 @@ why this needed deciding explicitly rather than being obvious.
 ### Stored matches: `src/lib/data/fits.ts`
 
 A match is stored, not recomputed on view (docs/MATCHING_CONTRACT.md).
+Rows exist only for Active and Transferring athletes: a close-out, a
+board commit, or Recalculate All deletes every row for anyone else, and
+the recompute never writes one for them (2026-09-26).
+
 `athlete_school_fits` holds one row per athlete by school: score, tag,
 `partial`, the dimensions with their reasons and warnings, a hash of
 the inputs and a timestamp. `fits.ts` is the only writer. It loads the

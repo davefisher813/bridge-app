@@ -37,7 +37,11 @@ const STATUS_ROLE: Record<string, Role> = {
   Committed: "committed",
   "Not Interested": "neutral",
   // Athlete-level status, which is a different column with its own values.
-  Active: "committed",
+  // Active is in the pipeline, not the win: with one Today tile per
+  // status (2026-09-26) it reads as a target, and Transferring as a
+  // contact, so seven green checks never sit in a row.
+  Active: "target",
+  Transferring: "contact",
   Enrolled: "committed",
   Graduated: "committed",
   Drafted: "committed",
@@ -62,7 +66,8 @@ const STAGE_KIND: Record<string, RowKind> = {
   Offer: "stage_offer",
   Committed: "stage_committed",
   "Not Interested": "stage_none",
-  Active: "stage_committed",
+  Active: "stage_target",
+  Transferring: "stage_contact",
   Enrolled: "stage_committed",
   Graduated: "stage_committed",
   Drafted: "stage_committed",

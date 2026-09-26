@@ -19,7 +19,7 @@ export const RECRUIT_TYPES: { value: RecruitType; label: string }[] = [
 ];
 
 // Enrolled is the status after Committed: the athlete is actually
-// attending now, not just signed. It is the one value that closes
+// attending now, not just signed. It is one of the values that closes
 // recruiting out - see src/lib/data/enrollment.ts - so it is reachable
 // from the Edit form (a permissive escape hatch, for correcting an
 // import or a mistake) as well as from the dedicated Mark Enrolled
@@ -29,7 +29,12 @@ export const RECRUIT_TYPES: { value: RecruitType; label: string }[] = [
 // needs to make sense" - ruling out reusing recruit_type for this, which
 // describes what KIND of recruit someone is, not whether they still are
 // one.
-export const ATHLETE_STATUSES = ["Active", "Committed", "Enrolled", "Graduated", "Drafted", "Inactive"] as const;
+//
+// Transferring is a college athlete who reopened recruiting (Reopen
+// Recruiting on an Enrolled or Graduated record, src/lib/data/reopen.ts)
+// and is scored again, as a transfer. Committed, Enrolled, Graduated and
+// Drafted are placed and never scored; see src/lib/placement.ts.
+export const ATHLETE_STATUSES = ["Active", "Committed", "Enrolled", "Transferring", "Graduated", "Drafted", "Inactive"] as const;
 
 export const ATHLETE_GOALS: { value: AthleteGoal; label: string }[] = (Object.keys(GOAL_LABEL) as AthleteGoal[]).map((value) => ({ value, label: GOAL_LABEL[value] }));
 

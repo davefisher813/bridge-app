@@ -5,12 +5,17 @@
 // athlete. Before this the two never met: an athlete committed on the
 // board still read Active everywhere else (Dave, 2026-09-26).
 //
-// Only transitions move it, and only between Active and Committed: an
-// Enrolled or Inactive athlete is never touched by a board edit, and an
-// athlete someone set to Committed by hand is left alone until a target
-// actually leaves Committed.
+// Only transitions move it, and only between Active (or Transferring)
+// and Committed: an Enrolled or Inactive athlete is never touched by a
+// board edit, and an athlete someone set to Committed by hand is left
+// alone until a target actually leaves Committed.
+//
+// The scores follow: a commitment clears every stored fit (a placed
+// athlete has no score anywhere), and a withdrawn one scores them again.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { clearFitsForAthlete, recomputeFitsForAthlete } from "@/lib/data/fits";
+import { isScoredStatus } from "@/lib/placement";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = SupabaseClient<any, any, any>;
@@ -24,8 +29,9 @@ export async function syncCommitment(supabase: Client, orgId: string, athleteId:
   const status = (athlete as { status: string } | null)?.status;
   if (!status) return;
 
-  if (became && status === "Active") {
+  if (became && isScoredStatus(status)) {
     await supabase.from("athletes").update({ status: "Committed", updated_at: new Date().toISOString() }).eq("id", athleteId).eq("org_id", orgId);
+    await clearFitsForAthlete(supabase, orgId, athleteId);
     return;
   }
 
@@ -33,6 +39,7 @@ export async function syncCommitment(supabase: Client, orgId: string, athleteId:
     const { data: still } = await supabase.from("recruiting_targets").select("id").eq("org_id", orgId).eq("athlete_id", athleteId).eq("status", "Committed");
     if ((still ?? []).length === 0) {
       await supabase.from("athletes").update({ status: "Active", updated_at: new Date().toISOString() }).eq("id", athleteId).eq("org_id", orgId);
+      await recomputeFitsForAthlete(supabase, orgId, athleteId);
     }
   }
 }

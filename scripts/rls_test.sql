@@ -1832,3 +1832,61 @@ begin
   if has_table_privilege('anon', 'public.college_coaches', 'select') then raise exception 'FAIL: anon holds select on college_coaches'; end if;
   raise notice 'PASS: anon holds no grant on the coach directory';
 end $$;
+
+-- ── Transferring and closed_from (migration 0038) ───────────────────
+-- closed_from only ever holds a status the close-out can replace;
+-- Committed is never one. A Transferring athlete's leftover Committed
+-- target is history: member_program reads them by their open targets,
+-- and names no school. A family reads closed_from on their own athlete's
+-- targets (row policies, no column policy) and writes nothing.
+reset role;
+do $$
+begin
+  begin
+    insert into recruiting_targets (org_id, athlete_id, school_id, status, closed_from) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000130', 'Not Interested', 'Committed');
+    raise exception 'FAIL: closed_from accepted Committed';
+  exception when check_violation then
+    raise notice 'PASS: closed_from holds only a status a close-out can replace';
+  end;
+end $$;
+update recruiting_targets set status = 'Committed' where id = '00000000-0000-0000-0000-000000000211';
+update athletes set status = 'Transferring', draft_team = null, draft_round = null, draft_year = null where id = '00000000-0000-0000-0000-000000000111';
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000003');
+do $$
+declare st text; sc text;
+begin
+  select stage, committed_school into st, sc from member_program('00000000-0000-0000-0000-000000000010') where athlete_id = '00000000-0000-0000-0000-000000000111';
+  if st = 'Committed' then raise exception 'FAIL: a Transferring athlete with a leftover Committed target still reads as Committed'; end if;
+  if st <> 'Targeting' then raise exception 'FAIL: a Transferring athlete with one open target reads as %', st; end if;
+  if sc is not null then raise exception 'FAIL: a Transferring athlete is still named with the school they left, %', sc; end if;
+  raise notice 'PASS: member_program reads a Transferring athlete by their open targets, not the commitment they left';
+end $$;
+reset role;
+update recruiting_targets set status = 'In Contact' where id = '00000000-0000-0000-0000-000000000211';
+update recruiting_targets set closed_from = 'Offer' where id = '00000000-0000-0000-0000-000000000220';
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000005'); -- FAMILY, by now linked to athlete 120 in the second org (0026 block above)
+do $$
+declare n int; cf text;
+begin
+  select count(*) into n from recruiting_targets where closed_from is not null;
+  if n <> 1 then raise exception 'FAIL: family saw % targets with closed_from, expected 1 (their own athlete''s)', n; end if;
+  select closed_from into cf from recruiting_targets where id = '00000000-0000-0000-0000-000000000220';
+  if cf is distinct from 'Offer' then raise exception 'FAIL: family read closed_from as %', cf; end if;
+  update recruiting_targets set closed_from = 'Visit' where id = '00000000-0000-0000-0000-000000000220';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a family member changed closed_from'; end if;
+  raise notice 'PASS: a family member reads closed_from on their own athlete''s targets and cannot change it';
+end $$;
+reset role;
+do $$
+declare cf text;
+begin
+  select closed_from into cf from recruiting_targets where id = '00000000-0000-0000-0000-000000000220';
+  if cf is distinct from 'Offer' then raise exception 'FAIL: closed_from changed under a family write to %', cf; end if;
+  if has_function_privilege('anon', 'public.member_program(uuid)', 'execute') then raise exception 'FAIL: 0038 reopened member_program to anon'; end if;
+  if not has_function_privilege('authenticated', 'public.member_program(uuid)', 'execute') then raise exception 'FAIL: 0038 dropped the signed-in grant on member_program'; end if;
+  raise notice 'PASS: the replaced member_program keeps its grants';
+end $$;

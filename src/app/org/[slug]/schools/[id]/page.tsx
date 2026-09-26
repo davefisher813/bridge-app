@@ -27,6 +27,8 @@ import { isD3 } from "@/lib/fit/benchmarks";
 import { loadTarget } from "@/lib/data/loadTarget";
 import { loadCoachesForSchool } from "@/lib/data/coaches";
 import { CoachRows } from "@/components/CoachRows";
+import { StatusPill } from "@/components/StatusPill";
+import { isScoredStatus } from "@/lib/placement";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +68,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
       .single(),
     supabase
       .from("recruiting_targets")
-      .select("id, status, athletes(id, name, position)")
+      .select("id, status, athletes(id, name, position, status)")
       .eq("school_id", id)
       .eq("org_id", org.id),
     supabase.from("org_school_notes").select("coach_name, coach_email, positions_of_need, notes").eq("org_id", org.id).eq("school_id", id).maybeSingle(),
@@ -79,18 +81,22 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
   const targets = (targetRows ?? []) as Array<{
     id: string;
     status: string;
-    athletes: { id: string; name: string; position: string | null } | Array<{ id: string; name: string; position: string | null }> | null;
+    athletes: { id: string; name: string; position: string | null; status: string } | Array<{ id: string; name: string; position: string | null; status: string }> | null;
   }>;
 
   // Each target's score comes from loadTarget, the same call the target
   // page makes. Scoring them inline here with a second set of adapters is
   // exactly how the same target ends up at 68 on one screen and 71 on
-  // another with nothing failing.
+  // another with nothing failing. A placed or Inactive athlete has no
+  // score: their status sits where it would, and they sort with the
+  // unscored.
   const scored = await Promise.all(
     targets.map(async (t) => {
       const bundle = await loadTarget(org.id, t.id);
       const a = Array.isArray(t.athletes) ? t.athletes[0] : t.athletes;
-      return { id: t.id, status: t.status, name: a?.name ?? "Unknown athlete", position: a?.position ?? null, fit: bundle?.fit ?? null };
+      const athleteStatus = a?.status ?? bundle?.athleteStatus ?? "";
+      const unscored = !isScoredStatus(athleteStatus);
+      return { id: t.id, status: t.status, name: a?.name ?? "Unknown athlete", position: a?.position ?? null, athleteStatus, unscored, fit: unscored ? null : (bundle?.fit ?? null) };
     }),
   );
   scored.sort((a, b) => (b.fit?.score ?? -1) - (a.fit?.score ?? -1));
@@ -233,7 +239,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
               role={statusRole(t.status)}
               title={t.name}
               meta={[t.position, t.status].filter(Boolean).join(" · ")}
-              trailing={t.fit ? <Score score={t.fit.score} /> : undefined}
+              trailing={t.unscored ? <StatusPill status={t.athleteStatus} /> : t.fit ? <Score score={t.fit.score} /> : undefined}
             />
           ))
         )}

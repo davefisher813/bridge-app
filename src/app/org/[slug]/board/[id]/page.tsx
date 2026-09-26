@@ -9,6 +9,12 @@
 // The score is computed here the same way the board computes it, from
 // the same adapters, rather than passed through or stored. A stored
 // score goes stale the moment a GPA or a school profile changes.
+//
+// A placed athlete (Committed, Enrolled, Graduated, Drafted) is not
+// scored at all: the number would read as advice about a decision that
+// is already made. Neither is an Inactive one: nothing is being looked
+// for. Their status sits where the score would, and the breakdown is
+// not built. Dave, 2026-09-26.
 
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
@@ -27,9 +33,11 @@ import {
   type TransferWindowRow,
 } from "@/lib/data/fitAdapters";
 import { scoreFit } from "@/lib/fit/score";
-import type { DimensionResult } from "@/lib/fit/types";
+import type { DimensionResult, FitResult } from "@/lib/fit/types";
+import { closedSentence, isPlacedStatus, isScoredStatus, placedSentence, placementAthlete, placementOf } from "@/lib/placement";
 import { Body, Figure, Label, LinkButton, Row, Screen, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
+import { StatusPill } from "@/components/StatusPill";
 import { CoachRows } from "@/components/CoachRows";
 import { loadCoachesForSchool } from "@/lib/data/coaches";
 import type { RowKind } from "@/components/RowGlyph";
@@ -65,7 +73,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
     supabase
       .from("recruiting_targets")
       .select(
-        "id, status, coach_name, offer_type, offer_scholarship_percent, athletes(id, org_id, recruit_type, name, sport, position, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)",
+        "id, status, coach_name, offer_type, offer_scholarship_percent, athletes(id, org_id, recruit_type, name, sport, position, status, draft_team, draft_round, draft_year, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)",
       )
       .eq("id", id)
       .eq("org_id", org.id)
@@ -77,7 +85,8 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
 
   if (!target) notFound();
 
-  const athleteRow = unwrap((target as { athletes: AthleteRow | AthleteRow[] | null }).athletes);
+  type PlacedAthleteRow = AthleteRow & { status: string; draft_team: string | null; draft_round: number | null; draft_year: number | null };
+  const athleteRow = unwrap((target as { athletes: PlacedAthleteRow | PlacedAthleteRow[] | null }).athletes);
   const schoolRow = unwrap((target as { schools: SchoolRow | SchoolRow[] | null }).schools);
   if (!athleteRow || !schoolRow) notFound();
 
@@ -87,15 +96,39 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
   const comms = (commRows ?? []) as Array<{ target_id: string; kind: string; notes: string | null; occurred_on: string | null }>;
   const visits = (visitRows ?? []) as Array<{ target_id: string; visit_type: string; impression: string | null; visit_date: string | null }>;
 
-  const fit = scoreFit(athlete, school, {
-    isPlaced: (target as { status: string }).status === "Committed",
-    transferWindows: ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit),
-    signals: {
-      ...communicationsToSignals(comms.map((c) => ({ target_id: c.target_id, kind: c.kind }))),
-      visitCount: visitsToVisitCount(visits.map((v) => ({ target_id: v.target_id }))),
-      offer: targetOfferToSignal(target as { offer_type: string | null; offer_scholarship_percent: number | null }),
-    },
-  });
+  const quiet = !isScoredStatus(athleteRow.status);
+
+  // Where they ended up, read the same way the profile reads it, so the
+  // sentence here names the same school. Only the Committed target is
+  // needed for that; this target may be one of the others.
+  let placedLine: string | null = null;
+  if (quiet) {
+    const { data: committedRows } = await supabase
+      .from("recruiting_targets")
+      .select("id, status, schools(name)")
+      .eq("athlete_id", athlete.id)
+      .eq("org_id", org.id)
+      .eq("status", "Committed");
+    const committed = ((committedRows ?? []) as Array<{ id: string; status: string; schools: { name: string } | { name: string }[] | null }>).map((t) => ({
+      id: t.id,
+      status: t.status,
+      schoolName: unwrap(t.schools)?.name ?? null,
+    }));
+    const p = placementOf(placementAthlete(athleteRow), committed);
+    placedLine = p ? placedSentence(p.state, p.name, p) : isPlacedStatus(athleteRow.status) ? placedSentence(athleteRow.status, null) : closedSentence(athleteRow.status, athlete.name);
+  }
+
+  const fit: FitResult | null = quiet
+    ? null
+    : scoreFit(athlete, school, {
+        isPlaced: (target as { status: string }).status === "Committed",
+        transferWindows: ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit),
+        signals: {
+          ...communicationsToSignals(comms.map((c) => ({ target_id: c.target_id, kind: c.kind }))),
+          visitCount: visitsToVisitCount(visits.map((v) => ({ target_id: v.target_id }))),
+          offer: targetOfferToSignal(target as { offer_type: string | null; offer_scholarship_percent: number | null }),
+        },
+      });
 
   const status = (target as { status: string }).status;
   const coachName = (target as { coach_name: string | null }).coach_name;
@@ -106,46 +139,53 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
       back={{ href: `/org/${slug}/board`, label: "Targets" }}
       lede={`${school.division} · ${athlete.name}`}
       action={
-        <div className="text-right">
-          <Figure tone={scoreRole(fit.score)}>{fit.score}</Figure>
-          <Label>{fit.tag}</Label>
-        </div>
+        fit ? (
+          <div className="text-right">
+            <Figure tone={scoreRole(fit.score)}>{fit.score}</Figure>
+            <Label>{fit.tag}</Label>
+          </div>
+        ) : (
+          <StatusPill status={athleteRow.status} />
+        )
       }
     >
       {/* The headline reason, before the breakdown. A score with no
           sentence attached is a number somebody has to take on faith. */}
-      {fit.reasons.length > 0 && <Note>{fit.reasons[0]}</Note>}
+      {placedLine && <Note>{placedLine}</Note>}
+      {fit && fit.reasons.length > 0 && <Note>{fit.reasons[0]}</Note>}
 
-      <Section label="How the Score Is Built" role="contact" kind="target">
-        {DIM.map(({ key, label, kind }) => {
-          const d = fit[key] as DimensionResult | undefined;
-          if (!d) return null;
-          const role = d.veto ? "offer" : d.score >= 70 ? "committed" : d.score >= 40 ? "contact" : "target";
-          const notes = d.reasons.length + d.warnings.length;
-          // One reason shown and the rest behind a tap. The reasons ARE
-          // the argument: a financial 42 is a number, and "average aid
-          // covers only 18% of cost" is the sentence somebody acts on. A
-          // veto is not a low score, it is an override, so it says so.
-          return (
-            <Row
-              key={key}
-              href={`/org/${slug}/board/${id}/dimensions/${key}`}
-              kind={d.veto ? "warning" : kind}
-              role={role}
-              title={d.veto ? `${label} · overrides the blend` : label}
-              meta={`${d.reasons[0] ?? d.warnings[0] ?? "No signal"}${notes > 1 ? ` · ${notes} notes` : ""}`}
-              trailing={
-                <Body weight="bold" numeric>
-                  {d.score}
-                </Body>
-              }
-              wrap
-            />
-          );
-        })}
-      </Section>
+      {fit && (
+        <Section label="How the Score Is Built" role="contact" kind="target">
+          {DIM.map(({ key, label, kind }) => {
+            const d = fit[key] as DimensionResult | undefined;
+            if (!d) return null;
+            const role = d.veto ? "offer" : d.score >= 70 ? "committed" : d.score >= 40 ? "contact" : "target";
+            const notes = d.reasons.length + d.warnings.length;
+            // One reason shown and the rest behind a tap. The reasons ARE
+            // the argument: a financial 42 is a number, and "average aid
+            // covers only 18% of cost" is the sentence somebody acts on. A
+            // veto is not a low score, it is an override, so it says so.
+            return (
+              <Row
+                key={key}
+                href={`/org/${slug}/board/${id}/dimensions/${key}`}
+                kind={d.veto ? "warning" : kind}
+                role={role}
+                title={d.veto ? `${label} · overrides the blend` : label}
+                meta={`${d.reasons[0] ?? d.warnings[0] ?? "No signal"}${notes > 1 ? ` · ${notes} notes` : ""}`}
+                trailing={
+                  <Body weight="bold" numeric>
+                    {d.score}
+                  </Body>
+                }
+                wrap
+              />
+            );
+          })}
+        </Section>
+      )}
 
-      {fit.warnings.length > 0 && (
+      {fit && fit.warnings.length > 0 && (
         <Section label="Worth Knowing" count={fit.warnings.length} role="offer" kind="warning">
           {fit.warnings.map((w) => (
             <Note key={w}>{w}</Note>

@@ -112,6 +112,19 @@ grades on file the athletic score is metrics alone.
 "New" on Today means the stored fit was computed in the last seven days,
 is Safety or Fit, and the school is not on the board (interpretation).
 
+### Amended 2026-09-26: who gets scored
+
+Dave: "when a kid commits to a school or enrolls in a school, why is
+scoring even relevant at that point? It's a match, it worked." So:
+
+- Only an Active or Transferring athlete is scored. A Committed,
+  Enrolled, Graduated, Drafted or Inactive athlete has no score
+  anywhere: their stored rows are deleted the moment recruiting ends,
+  and never written again. Where a number stood, the status shows.
+- Transferring is a college athlete who reopened recruiting. They are
+  scored as a transfer against the schools that fit a transfer.
+- This amends a locked contract on Dave's word from that task.
+
 ## 3. The scoring rules
 
 | Decision | Pick |

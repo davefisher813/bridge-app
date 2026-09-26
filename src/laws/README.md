@@ -92,3 +92,30 @@ and every number read from `src/lib/fit/contract.ts`:
     boost that never passes a veto.**
 14. **One band everywhere: 80, 55, 35.**
 
+## Added 2026-09-26: the athlete lifecycle (Stage 1)
+
+15. **A placed or Inactive athlete has no score anywhere.** Committed,
+    Enrolled, Graduated and Drafted end recruiting; Inactive pauses it.
+    The close-out and a board commit delete the athlete's stored fits,
+    Recalculate All deletes any it finds on one and never scores one,
+    and the board, target and school screens show the status where the
+    number sat. `actionRun.test.ts` (the enrolling block) and
+    `pageRender.test.ts`; proven to bite by removing the status filter
+    in `src/lib/data/fits.ts` and by putting the closed target back on
+    the profile, planted and reverted.
+16. **Reopening restores exactly what the close-out closed.** The
+    close-out writes `closed_from`; Reopen Recruiting puts every target
+    with one back to that status, closes the commitment for a transfer
+    or turns it back into the offer it was for a withdrawn commitment,
+    leaves a hand-picked Not Interested closed, refuses Drafted, and
+    scores the athlete again. The Edit form cannot bring a placed
+    athlete back by hand. `actionRun.test.ts`; proven to bite by
+    dropping the `closed_from` write in `enrollment.ts` and the
+    `closed_from` filter in `reopen.ts`, planted and reverted.
+17. **Today counts every status, and each tile opens the roster it
+    counts.** One tile per status in vocabulary order, counted by
+    `effectiveStatus` the same way the roster filters, so the number on
+    the tile and the narrowed list can never disagree. Recruiting
+    History keeps every school with its own messages and visits, and
+    the profile shows only what is live. `pageRender.test.ts`.
+

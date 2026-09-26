@@ -1,4 +1,4 @@
-import { closedSentence, isClosedStatus } from "@/lib/placement";
+import { closedSentence, isScoredStatus } from "@/lib/placement";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
@@ -38,9 +38,9 @@ export default async function FamilyMatchesPage({ params }: { params: Promise<{ 
   const { athlete } = await requireFamilyAthlete(org.id, user.id, id);
   const here = `/org/${slug}/family/${id}`;
 
-  if (isClosedStatus(athlete.status)) {
-    // Recruiting is over for this athlete; nothing left to rank
-    // against. Dave, 2026-09-26.
+  if (!isScoredStatus(athlete.status)) {
+    // Only an athlete who is actively recruiting is scored. Placed or
+    // inactive, there is nothing to rank against. Dave, 2026-09-26.
     return (
       <Screen title={athlete.name} back={{ href: here, label: "Back" }}>
         <EmptyState kind="target" title={athlete.status} action={<LinkButton href={here}>Back to {athlete.name}</LinkButton>}>
