@@ -1767,3 +1767,14 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
     expect(writes.find((w) => w.table === "recruiting_targets" && w.op === "update")).toBeUndefined();
   });
 });
+
+describe("LAW: Recalculate All says what it did", () => {
+  // A failed rescore after a big import used to look exactly like a
+  // finished one. 2026-09-26.
+  it("reports how many matches it wrote", async () => {
+    const { recalculateAllMatches } = await import("@/lib/actions/matching");
+    const r = await run(() => recalculateAllMatches(ORG_WITH_MODULES));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/\/more\?notice=\d+ match(es)? recalculated\.$/);
+    expect(writes.some((w) => w.table === "athlete_school_fits")).toBe(true);
+  });
+});

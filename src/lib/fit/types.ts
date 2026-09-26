@@ -75,6 +75,7 @@ export interface School {
     satRange?: string;
     actRange?: string;
     majorAvailability?: Record<string, { offered: boolean; accreditationNotes?: string }>;
+    majorsNote?: string;
   };
   financials?: {
     athleticScholarship?: "full" | "partial" | "none";

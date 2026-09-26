@@ -30,6 +30,8 @@ import { scoreFit } from "@/lib/fit/score";
 import type { DimensionResult } from "@/lib/fit/types";
 import { Body, Figure, Label, LinkButton, Row, Screen, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
+import { CoachRows } from "@/components/CoachRows";
+import { loadCoachesForSchool } from "@/lib/data/coaches";
 import type { RowKind } from "@/components/RowGlyph";
 import { scoreRole } from "@/components/statusHue";
 
@@ -81,6 +83,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
 
   const athlete = athleteRowToFitAthlete(athleteRow);
   const school = schoolRowToFitSchool(schoolRow);
+  const coaches = await loadCoachesForSchool(supabase, school.id);
   const comms = (commRows ?? []) as Array<{ target_id: string; kind: string; notes: string | null; occurred_on: string | null }>;
   const visits = (visitRows ?? []) as Array<{ target_id: string; visit_type: string; impression: string | null; visit_date: string | null }>;
 
@@ -178,6 +181,8 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
           </LinkButton>
         )}
       </Section>
+
+      <CoachRows coaches={coaches} />
 
       <Stack>
         <LinkButton href={`/org/${slug}/roster/${athlete.id}`} variant="secondary">

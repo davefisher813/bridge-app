@@ -575,3 +575,26 @@ describe("LAW: a member login opens member screens and nothing else, and staff c
     await expect(render("@/app/org/[slug]/member/program/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: "00000000-0000-0000-0000-00000000dead" }) })).rejects.toThrow(NOT_FOUND);
   });
 });
+
+describe("LAW: the coach directory shows where staff reach out, and only there", () => {
+  // Migration 0036; Dave, 2026-09-26: a shared list for owners and staff.
+  it("the school page lists its coaches, head coach first, each one tappable", async () => {
+    const html = await render("@/app/org/[slug]/schools/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) });
+    expect(html).toMatch(/>Coaches</);
+    expect(html.indexOf("Fixture Head")).toBeLessThan(html.indexOf("Fixture Assistant"));
+    expect(html).toMatch(/href="mailto:assistant@fixture\.example"/);
+    expect(html).toMatch(/href="tel:5550100"/);
+    expect(html).toMatch(/Programs of Interest[\s\S]*Biology \(BS\) and Exercise Science \(BS\)\./);
+  });
+
+  it("the target page lists the same coaches", async () => {
+    const html = await render("@/app/org/[slug]/board/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) });
+    expect(html).toMatch(/>Coaches</);
+    expect(html).toMatch(/Fixture Head/);
+  });
+
+  it("a school with no coaches on file shows no empty Coaches section", async () => {
+    const html = await render("@/app/org/[slug]/schools/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) });
+    expect(html).not.toMatch(/>Coaches</);
+  });
+});

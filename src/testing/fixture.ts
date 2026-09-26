@@ -380,7 +380,7 @@ export function buildFixture(): Dataset {
         division: "D2",
         conference: "Fixture Conference",
         sports_sponsored: ["baseball"],
-        academics: { gpaMin: 2.5, gpaAvg: 3.2, satRange: "1050-1250" },
+        academics: { gpaMin: 2.5, gpaAvg: 3.2, satRange: "1050-1250", majorsNote: "Biology (BS) and Exercise Science (BS)." },
         financials: { athleticScholarship: "partial", avgAthleticAid: 9000, outstateTotal: 38000, rosterSpotsOpen: 2 },
         athletics: { playingTimeOutlook: "competitive", positionDepth: "Three arms ahead on the depth chart." },
         conflicts: [],
@@ -646,6 +646,12 @@ export function buildFixture(): Dataset {
     // contact and a position of need that matches the transfer (MIF,
     // 2027 is the pitcher's grad year, so neither row gets the boost
     // for free; the engine has to check both halves).
+    // The shared coach directory (migration 0036). Invented people at an
+    // invented school; the second has no email, so the row calls instead.
+    college_coaches: [
+      { id: "cc1", school_id: IDS.school, school_name: "Fixture State University", name: "Fixture Assistant", title: "Assistant Coach", email: "assistant@fixture.example", phone: null, is_recruiting_coordinator: true, email_verified: true, source_url: null, notes: null },
+      { id: "cc2", school_id: IDS.school, school_name: "Fixture State University", name: "Fixture Head", title: "Head Coach", email: null, phone: "555-0100", is_recruiting_coordinator: false, email_verified: false, source_url: null, notes: null },
+    ],
     org_school_notes: [
       {
         id: "osn1",

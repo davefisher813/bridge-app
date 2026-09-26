@@ -209,6 +209,12 @@ and the remaining weights are renormalized. The stored fit carries
 Head coach and email are per-org overlay fields, not shared facts, since
 a coach relationship belongs to the org that has it.
 
+Amended 2026-09-26 (Dave): alongside the overlay there is now a shared
+coach directory, `college_coaches` (migration 0036): public staff
+listings, readable by owners and staff of any org and by nobody else.
+It lists who coaches at a school; the overlay stays the org's own
+relationship. Neither feeds the score.
+
 ## 5. Who sees it
 
 "Of course the students see this. They need the same access to their own

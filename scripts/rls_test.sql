@@ -1773,3 +1773,62 @@ begin
   end;
   raise notice 'PASS: the recreated member_program keeps its grants, and the round is checked';
 end $$;
+
+-- ── The college coach directory (migration 0036) ────────────────────
+-- Owners and staff in any org read it; a member, a family login, a
+-- signed-in user with no org and a signed-out caller read nothing; and
+-- nobody writes it except the service role. This table carries no
+-- org_id, so the org_id coverage checks above never look at it.
+reset role;
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-000000000006', 'user6@bridge.example'),
+  ('00000000-0000-0000-0000-000000000007', 'user7@nowhere.example');
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000010', 'member');
+insert into college_coaches (school_id, school_name, name, email, phone) values
+  ('00000000-0000-0000-0000-000000000130', 'Shared Reference School', 'Probe Coach', 'coach@probe.example', '555-0100');
+do $$
+begin
+  begin
+    insert into college_coaches (school_id, school_name, name) values ('00000000-0000-0000-0000-000000000130', 'Shared Reference School', 'probe coach');
+    raise exception 'FAIL: the same coach was loaded twice for one school';
+  exception when unique_violation then null;
+  end;
+  raise notice 'PASS: one row per coach per school';
+end $$;
+set role app_user;
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  select count(*) into n from college_coaches;
+  if n <> 1 then raise exception 'FAIL: an owner saw % coaches, expected 1', n; end if;
+  perform set_test_user('00000000-0000-0000-0000-000000000006');
+  select count(*) into n from college_coaches;
+  if n <> 0 then raise exception 'FAIL: a board member saw % coach rows', n; end if;
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  select count(*) into n from college_coaches;
+  if n <> 0 then raise exception 'FAIL: a family login saw % coach rows', n; end if;
+  perform set_test_user('00000000-0000-0000-0000-000000000007');
+  select count(*) into n from college_coaches;
+  if n <> 0 then raise exception 'FAIL: a user with no org saw % coach rows', n; end if;
+  perform set_test_user(null);
+  select count(*) into n from college_coaches;
+  if n <> 0 then raise exception 'FAIL: a signed-out caller saw % coach rows', n; end if;
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  begin
+    insert into college_coaches (school_id, school_name, name) values ('00000000-0000-0000-0000-000000000130', 'Shared Reference School', 'Owner Write');
+    raise exception 'FAIL: an owner wrote to the coach directory';
+  exception when insufficient_privilege then null;
+  end;
+  update college_coaches set email = 'changed@probe.example';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an owner changed % coach rows', n; end if;
+  raise notice 'PASS: the coach directory is for owners and staff, read-only';
+end $$;
+reset role;
+do $$
+begin
+  if has_table_privilege('anon', 'public.college_coaches', 'select') then raise exception 'FAIL: anon holds select on college_coaches'; end if;
+  raise notice 'PASS: anon holds no grant on the coach directory';
+end $$;

@@ -49,35 +49,44 @@ export function safeParseAthleteDetail(input: unknown) {
 // (0001_core_schema.sql's inline comments show snake_case examples from
 // before this was decided; camelCase is the actual convention). Schools
 // are shared reference data any org can eventually edit, so a malformed
-// field degrades to "not on file" via .catch() rather than throwing and
-// taking down a page over one bad value.
+// field degrades to "not on file" rather than throwing and taking down a
+// page over one bad value.
+//
+// Per field, not per object. The object-level catch this used to have
+// meant one wrong-typed value emptied the whole column: a bulk load on
+// 2026-09-26 wrote athleticScholarship as true/false and the engine
+// silently lost every school's cost data with it. The object catch stays
+// only for input that is not an object at all.
+const field = <T extends z.ZodTypeAny>(schema: T) => schema.optional().catch(undefined);
 
 const schoolAcademicsSchema = z
   .object({
-    gpaMin: z.number().optional(),
-    gpaAvg: z.number().optional(),
-    satRange: z.string().optional(),
-    actRange: z.string().optional(),
-    majorAvailability: z.record(z.string(), z.object({ offered: z.boolean(), accreditationNotes: z.string().optional() })).optional(),
+    gpaMin: field(z.number()),
+    gpaAvg: field(z.number()),
+    satRange: field(z.string()),
+    actRange: field(z.string()),
+    majorAvailability: field(z.record(z.string(), z.object({ offered: z.boolean(), accreditationNotes: z.string().optional() }))),
+    // Free text about the programs families ask about. Shown, never scored.
+    majorsNote: field(z.string()),
   })
   .catch({});
 
 const schoolFinancialsSchema = z
   .object({
-    athleticScholarship: z.enum(["full", "partial", "none"]).optional(),
-    avgAthleticAid: z.number().optional(),
-    avgMeritAid: z.number().optional(),
-    avgNeedAid: z.number().optional(),
-    outstateTotal: z.number().optional(),
-    instateTotal: z.number().optional(),
-    rosterSpotsOpen: z.number().optional(),
+    athleticScholarship: field(z.enum(["full", "partial", "none"])),
+    avgAthleticAid: field(z.number()),
+    avgMeritAid: field(z.number()),
+    avgNeedAid: field(z.number()),
+    outstateTotal: field(z.number()),
+    instateTotal: field(z.number()),
+    rosterSpotsOpen: field(z.number()),
   })
   .catch({});
 
 const schoolAthleticsSchema = z
   .object({
-    playingTimeOutlook: z.enum(["realistic", "competitive", "difficult"]).optional(),
-    positionDepth: z.string().optional(),
+    playingTimeOutlook: field(z.enum(["realistic", "competitive", "difficult"])),
+    positionDepth: field(z.string()),
   })
   .catch({});
 

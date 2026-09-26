@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { signout } from "@/lib/auth/actions";
 import { labelForRole } from "@/lib/org/roleLabels";
-import { Button, ConfirmButton, Form, Label, Row, Screen, Section, Stack } from "@/components/kit";
+import { Button, ConfirmButton, Form, Label, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 import { PresetForm } from "@/components/PresetForm";
 import { DocaiBudgetForm } from "@/components/DocaiBudgetForm";
 import { setDocaiBudget } from "@/lib/actions/docaiBudget";
@@ -15,8 +15,9 @@ import { DEFAULT_PRESET, PRESETS, type ScoringPreset } from "@/lib/fit/contract"
 
 // Everything that isn't Today/Athletes/Board: the modules, the reference
 // data, who you are, and the way out.
-export default async function MorePage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function MorePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ notice?: string; error?: string }> }) {
   const { slug } = await params;
+  const { notice, error } = searchParams ? await searchParams : {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -31,6 +32,16 @@ export default async function MorePage({ params }: { params: Promise<{ slug: str
 
   return (
     <Screen title="More">
+      {notice && (
+        <Notice tone="success" title="Done">
+          {notice}
+        </Notice>
+      )}
+      {error && (
+        <Notice tone="danger" title="Not Finished">
+          {error}
+        </Notice>
+      )}
       <Section label="Work" role="contact" kind="checklist">
         {canEdit && <Row href={`/org/${slug}/documents`} kind="document" role="place" title="Documents" meta="Read a transcript or an offer letter into an athlete's record" wrap />}
         {org.modules.donor_fundraising && <Row href={`/org/${slug}/fundraising`} kind="money" role="committed" title="Fundraising" meta="Donors, gifts, pledges and the year against budget" wrap />}

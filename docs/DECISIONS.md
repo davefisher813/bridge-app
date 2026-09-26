@@ -2925,3 +2925,68 @@ which skips sign-in.
 
 **Consequences.** Nothing else opens up; a law in
 `src/laws/publicPaths.test.ts` holds both sides.
+
+## 2026-09-26: the school and coach data another tool loaded, made real
+
+**Decision.** A handoff from another AI tool reported 125 schools, a new
+240-row `college_coaches` table and two migrations applied to
+production. An audit against the live database found the counts right
+and most of the rest wrong. What was done:
+- **Schema recorded.** The table and `schools.location` had been
+  created with SQL run outside the migration history, under numbers
+  (0021, 0022) this repo already uses. Recorded as 0036 and 0037, tested
+  on real Postgres, applied to production through the migration tool.
+- **Coach access (Dave's pick).** Owners and staff of any org read the
+  directory; members, family, signed-in users with no org and signed-out
+  callers read nothing; only the service role writes. It had arrived
+  readable by every signed-in account. One row per coach per school
+  (unique index), coaches cascade with their school.
+- **The reader fixed.** The school jsonb parser fell back per object,
+  so the sheet's true/false scholarship flag silently erased every cost
+  figure beside it (42 schools), and a sentence where a majors record
+  belonged erased every GPA and test range (all 12 that had them). It
+  now falls back per field. A law holds it.
+- **The data normalized, with a backup** (`private.schools_backup_20260926`,
+  `private.recruiting_targets_backup_20260926`): the scholarship flag
+  mapped (below), the majors sentence moved to a new display-only
+  `academics.majorsNote` shown as Programs of Interest, the prose
+  playing-time sentence appended to the depth chart notes (the field
+  takes one of three words), `state` filled from `location`. Every one
+  of the 122 schools was then parsed through the app's own reader with
+  zero keys lost.
+- **Cleanup (Dave's picks).** Bloomfield no longer lists baseball.
+  Three pre-existing rows were duplicates of sheet rows and were merged
+  into them, moving their Committed targets intact: New Jersey Institute
+  of Technology into NJIT, Holy Cross University into Holy Cross
+  (Worcester), Dominican University into Dominican (NY), which renamed
+  itself Dominican University New York in 2022. Bergen and Cayuga
+  Community Colleges were marked D1; both play NJCAA Division III and
+  are now JUCO D3. Nothing was deleted that held a target.
+- **Athletes: the app is the master copy** (Dave's pick). The sheet
+  sync the handoff proposed was not run: athletes have no natural key,
+  so it would duplicate or overwrite, and a delete-and-reload cascades
+  away targets. The sheet was compared read-only and the differences
+  handed to Dave.
+
+**Athletic scholarship mapping (Dave: "make sure it's accurate and not
+misleading").** The sheet only says yes or no. No, and anything at D3,
+became `none`. Yes became `partial`: baseball and soccer are NCAA
+equivalency sports, where an award is normally a share of a scholarship
+split across the roster, so "partial scholarships available" is the
+claim a yes supports; "full" would promise more than the sheet knows.
+The school page already tells staff to confirm aid with the coaching
+staff before a family plans around it. Absent stays absent.
+
+**Alternatives considered.** Running the handoff's sync script with a
+service role key pasted into chat (rejected: the key is not one-time
+use, it bypasses every policy until rotated, and the sync could not
+match athletes). Parsing the majors sentences into a list (rejected:
+it would put words in the sheet's mouth). Deleting the five empty
+schools (rejected: each carried a real athlete's commitment).
+
+**Consequences.** Stored match scores predate all of this: an owner
+presses Recalculate All under More once the code is deployed, and that
+action now reports how many matches it wrote or says plainly that it
+failed. Coaches show on the school and target screens, head coach
+first, tap to email or call. The AI question and answer the handoff
+described does not exist and is on the roadmap.

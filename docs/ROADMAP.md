@@ -402,15 +402,21 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
 
 ## Next up, 2026-09-26
 
-1. **The first real data**, still open: Dave's school sheet, the
-   current transfer windows from an NCAA page, a first metric, a first
-   real family login and a first real board login.
+1. **The first real data**, partly in: 122 schools and 240 coaches
+   landed 2026-09-26 (see DECISIONS). Still open: the current transfer
+   windows from an NCAA page, a first metric, a first real family login
+   and a first real board login.
 2. **Today's Strong Matches** does not exclude an Enrolled, Graduated
    or Drafted athlete's
    stored fits. In practice they age out of the window on their own;
    the one gap is a recompute on the same day someone enrolls. Fixing
    it needs an embedded-column filter (`athletes!inner(status)`) that
    the fake Supabase client does not support yet either.
+3. **AI question and answer about schools.** Named in a handoff from
+   another tool as if it existed; it never has. It would answer from
+   the schools data rather than the web. Needs Dave's product call, a
+   preview of options, and its own usage ledger (not docai_usage), kept
+   outside src/lib/fit and src/lib/docai.
 4. **Cleanup pass, no behaviour change** (unchanged from above): one
    page loader, `cache()` on the org and user lookups, one icons file,
    split `documents.ts`.

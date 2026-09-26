@@ -1,7 +1,7 @@
 # Current state
 
-Last updated: 2026-09-26, after Graduated and Drafted, the member Program
-fix and the app icon fix.
+Last updated: 2026-09-26, after the school and coach data load was
+recorded, fixed and wired in.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three logins, each with their own app on the same
@@ -327,6 +327,30 @@ nothing past the edge, no row or tile that goes nowhere
 (`qa/clickable-baseline.json`, 234 down to 55, and the 55 are records
 with no deeper screen to open), and every link followed to a real
 screen the signed-in person may open (116 links, none broken).
+
+
+### Real schools and coaches, 2026-09-26
+
+Production holds 122 schools and 240 college coaches, loaded from Dave's
+enriched Google Sheets by another tool and then recorded, corrected and
+checked here (docs/DECISIONS.md, same date). The sheets are no longer
+synced to anything; the app is the master copy of athletes.
+
+- `college_coaches` (migration 0036) is a shared directory readable by
+  owners and staff only. The school and target screens list a school's
+  coaches, head coach first, tapping through to email or a call. Each
+  org's own coach relationship stays in its private school notes.
+- `schools.location` (0037) holds "City, ST"; `state` is filled from it.
+- The school jsonb reader falls back per field, so one malformed value
+  never hides the rest (law in `src/laws/fitLaws.test.ts`).
+- `academics.majorsNote` is a display-only sentence about the programs
+  families ask about, shown as Programs of Interest and editable on the
+  school form. It is never scored.
+- A sheet "yes" for athletic money reads as partial scholarships; "no"
+  and every D3 school read as none.
+- Recalculate All under More reports how many matches it wrote, or
+  that it failed. Stored scores need one run after the deploy that
+  carries this.
 
 ### Enrolling closes recruiting out for good, 2026-09-26
 

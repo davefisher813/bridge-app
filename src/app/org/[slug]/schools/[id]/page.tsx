@@ -25,6 +25,8 @@ import { stageKind, statusRole } from "@/components/statusHue";
 import { schoolRowToFitSchool, type SchoolRow } from "@/lib/data/fitAdapters";
 import { isD3 } from "@/lib/fit/benchmarks";
 import { loadTarget } from "@/lib/data/loadTarget";
+import { loadCoachesForSchool } from "@/lib/data/coaches";
+import { CoachRows } from "@/components/CoachRows";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +58,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
   const editHref = isOwner ? `/org/${slug}/schools/${id}/edit` : undefined;
 
   const supabase = await createClient();
-  const [{ data: schoolRow }, { data: targetRows }, { data: noteRow }] = await Promise.all([
+  const [{ data: schoolRow }, { data: targetRows }, { data: noteRow }, coaches] = await Promise.all([
     supabase
       .from("schools")
       .select("id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date, program_tier, state, majors")
@@ -68,6 +70,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
       .eq("school_id", id)
       .eq("org_id", org.id),
     supabase.from("org_school_notes").select("coach_name, coach_email, positions_of_need, notes").eq("org_id", org.id).eq("school_id", id).maybeSingle(),
+    loadCoachesForSchool(supabase, id),
   ]);
 
   if (!schoolRow) notFound();
@@ -144,6 +147,9 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
       )}
 
       {school.majors && school.majors.length > 0 && <Note title="Majors Offered">{school.majors.join(", ")}</Note>}
+      {ac.majorsNote && <Note title="Programs of Interest">{ac.majorsNote}</Note>}
+
+      <CoachRows coaches={coaches} />
 
       {/* This org's private overlay: the coach relationship and the
           positions the program needs. Positions of need move the score

@@ -3,6 +3,7 @@ import { scoreFinancial } from "../lib/fit/financial";
 import { scoreEligibility } from "../lib/fit/transfer";
 import { scoreFit } from "../lib/fit/score";
 import type { Athlete, School, TransferWindow } from "../lib/fit/types";
+import { parseSchoolAcademics, parseSchoolAthletics, parseSchoolFinancials } from "../lib/fit/schema";
 
 // THE LAWS, AS TESTS. See README.md in this folder.
 
@@ -109,5 +110,36 @@ describe("LAW: a veto always overrides the blend, no matter how high the other d
     };
     const result = scoreFit(athlete, school, { signals: { offer: { offerType: "scholarship" } } });
     expect(result.tag).toBe("Conflict");
+  });
+});
+
+describe("LAW: one bad field on a school never erases the good ones beside it", () => {
+  // 2026-09-26: a bulk load wrote athleticScholarship as true/false and
+  // majorAvailability as a sentence. With an object-level fallback, each
+  // wiped its whole column, and 42 schools lost their cost data to the
+  // engine with no error anywhere.
+  it("a wrong-typed scholarship value keeps the costs", () => {
+    const f = parseSchoolFinancials({ athleticScholarship: true, instateTotal: 50000, outstateTotal: 60000 });
+    expect(f.athleticScholarship).toBeUndefined();
+    expect(f.instateTotal).toBe(50000);
+    expect(f.outstateTotal).toBe(60000);
+  });
+
+  it("a sentence where a record belongs keeps the GPA", () => {
+    const a = parseSchoolAcademics({ majorAvailability: "Biology (BS).", gpaMin: 2.5, satRange: "1100-1300" });
+    expect(a.majorAvailability).toBeUndefined();
+    expect(a.gpaMin).toBe(2.5);
+    expect(a.satRange).toBe("1100-1300");
+  });
+
+  it("prose where an enum belongs keeps the depth notes", () => {
+    const t = parseSchoolAthletics({ playingTimeOutlook: "The roster lists 35 players.", positionDepth: "Two catchers graduating." });
+    expect(t.playingTimeOutlook).toBeUndefined();
+    expect(t.positionDepth).toBe("Two catchers graduating.");
+  });
+
+  it("input that is not an object at all is still read as nothing on file", () => {
+    expect(parseSchoolAthletics("nope")).toEqual({});
+    expect(parseSchoolFinancials(null)).toEqual({});
   });
 });

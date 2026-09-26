@@ -67,9 +67,13 @@ export async function recalculateAllMatches(slug: string): Promise<void> {
   if (!org) redirect("/unauthorized");
   await requireOwner(org.id);
 
+  // Reports what it did, or that it failed. It used to return silently
+  // either way, and a failed rescore after a big import looked exactly
+  // like a finished one.
   const supabase = await createClient();
-  await recomputeFitsForOrg(supabase, org.id);
+  const { error, count } = await recomputeFitsForOrg(supabase, org.id);
 
   revalidatePath(`/org/${slug}`, "layout");
-  redirect(`/org/${slug}/more`);
+  const params = error ? `error=${encodeURIComponent(`The recalculation did not finish: ${error}`)}` : `notice=${encodeURIComponent(`${count} ${count === 1 ? "match" : "matches"} recalculated.`)}`;
+  redirect(`/org/${slug}/more?${params}`);
 }

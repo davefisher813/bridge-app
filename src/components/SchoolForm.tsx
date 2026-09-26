@@ -24,6 +24,7 @@ export interface SchoolFormInitialValues {
   gpaAvg?: number;
   satRange?: string;
   actRange?: string;
+  majorsNote?: string;
   athleticScholarship?: string;
   avgAthleticAid?: number;
   avgMeritAid?: number;
@@ -84,6 +85,7 @@ export function SchoolForm({ action, initialValues = {}, submitLabel }: { action
           <Field name="satRange" label="SAT Range" hint="For example, 1150-1320." defaultValue={v("satRange")} />
           <Field name="actRange" label="ACT Range" hint="For example, 24-29." defaultValue={v("actRange")} />
         </Grid2>
+        <TextAreaField name="majorsNote" label="Programs of Interest" hint="What this school offers in the fields your athletes ask about." rows={2} maxLength={500} defaultValue={v("majorsNote")} error={err("majorsNote")} />
       </Stack>
 
       <Stack gap={3}>

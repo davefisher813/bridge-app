@@ -40,6 +40,7 @@ export default async function EditSchoolPage({ params }: { params: Promise<{ slu
     gpaAvg: ac.gpaAvg,
     satRange: ac.satRange,
     actRange: ac.actRange,
+    majorsNote: ac.majorsNote,
     athleticScholarship: fin.athleticScholarship,
     avgAthleticAid: fin.avgAthleticAid,
     avgMeritAid: fin.avgMeritAid,
