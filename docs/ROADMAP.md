@@ -405,15 +405,8 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
 1. **The first real data**, still open: Dave's school sheet, the
    current transfer windows from an NCAA page, a first metric, a first
    real family login and a first real board login.
-2. **The board member's own Program screen** (`member_program()`,
-   migration 0031) still reads an athlete's stage from their Committed
-   target only; it has no Enrolled stage of its own. A board member
-   sees "Committed" forever, which is still true, just not the whole
-   story, and an athlete enrolled at their Current School with no
-   target reads "No Targets" there. Should follow `placementOf()`
-   (`src/lib/placement.ts`). Needs a change to that SQL function, not
-   just the app.
-3. **Today's Strong Matches** does not exclude an Enrolled athlete's
+2. **Today's Strong Matches** does not exclude an Enrolled, Graduated
+   or Drafted athlete's
    stored fits. In practice they age out of the window on their own;
    the one gap is a recompute on the same day someone enrolls. Fixing
    it needs an embedded-column filter (`athletes!inner(status)`) that

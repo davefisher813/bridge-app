@@ -1,6 +1,7 @@
 # Current state
 
-Last updated: 2026-09-26, after the Committed/Enrolled placement chain.
+Last updated: 2026-09-26, after Graduated and Drafted, the member Program
+fix and the app icon fix.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three logins, each with their own app on the same
@@ -362,14 +363,15 @@ enrollment date only if nothing has started it already - a transfer
 athlete's clock started at their original school, years earlier, and
 must never be moved by a later enrollment.
 
-Committed and Enrolled are one fact with a school, worked out by
-`placementOf()` (`src/lib/placement.ts`) and read the same way on the
-athlete page, the roster row and the family page. The school is the
-athlete's Committed target, else (Enrolled only) the Current School on
-their own record. Once an athlete has one: the stepper gives way to a
-row naming the school, the roster row reads "Committed to X" or
-"Enrolled at X" in place of the recruit type, and Matches stops showing
-(ranking more schools is over). The athlete's own schools section is
+Committed, Enrolled, Graduated and Drafted are one fact with a name,
+worked out by `placementOf()` (`src/lib/placement.ts`) and read the same
+way on the athlete page, the roster row and the family page. The name is
+the school (the Committed target, else, once Enrolled or Graduated, the
+Current School on their own record) or, for Drafted, the team with the
+round and year. Once an athlete has one: the stepper gives way to a row
+naming it, the roster row reads "Committed to X", "Enrolled at X",
+"Graduated from X" or "Drafted by X, Round 5, 2026" in place of the
+recruit type, and Matches stops showing (ranking more schools is over). The athlete's own schools section is
 called Targets, the same rows as the Targets board; it keeps every
 target with its real status, so history is never lost.
 
@@ -378,17 +380,38 @@ moving a target to Committed makes an Active athlete Committed, and
 moving the last one off Committed makes them Active again. Enrolled and
 Inactive athletes are never touched by a board edit.
 
-Mark Enrolled never enrolls someone nowhere: with no Committed target it
-asks which school, defaulting to the Current School; a school picked from
-the list becomes the athlete's Committed target (or commits the target
-they already had for it). The Edit dropdown refuses Enrolled when no
-school is on file anywhere and points to Mark Enrolled.
+Three close-outs, each its own screen off the athlete page, each
+closing open targets with a note through `applyCloseOut()`
+(`src/lib/data/enrollment.ts`). The college commitment is kept as
+history in every case. `nextOutcomes()` decides which buttons show:
+Mark Enrolled and Mark Drafted before college, Mark Graduated and Mark
+Drafted once Enrolled, Mark Drafted once Graduated, none once Drafted.
+- **Mark Enrolled** never enrolls someone nowhere: with no Committed
+  target it asks which school, defaulting to the Current School; a
+  school picked from the list becomes the athlete's Committed target.
+  Backfills the NCAA clock's first full-time enrollment only if empty.
+- **Mark Graduated** (from college, Dave's pick) only follows Enrolled,
+  is named by the same school, and records `graduated_on`.
+- **Mark Drafted** records `draft_team` (required), `draft_round` and
+  `draft_year` (migration 0035). On an athlete already Drafted the same
+  screen corrects the details.
+The Edit dropdown refuses Enrolled or Graduated with no school on file
+anywhere, and refuses Drafted outright (the team lives on Mark Drafted).
 
-Not touched: the member/board role's own program screen, which reads
-Committed targets through its own SQL summary function and does not know
-Enrolled or Current School (docs/ROADMAP.md); Today's Strong Matches (a
-same-day recompute right before enrolling could surface a stale
-suggestion for a day).
+The member/board Program screen follows the same rule through its own
+SQL summary function (`member_program()`, migrations 0034 and 0035,
+both applied to production 2026-09-26), since a member reads no athlete
+rows and cannot call `placementOf()`. `src/testing/fakeRpc.ts` mirrors
+it and `scripts/rls_test.sql` checks it on real Postgres.
+
+Not touched: Today's Strong Matches (a same-day recompute right before a
+close-out could surface a stale suggestion for a day).
+
+The app icon, the Apple touch icon and the manifest load without
+signing in (`isPublicPath()`, `src/lib/supabase/middleware.ts`). iOS
+fetches them without the session when a page is added to the Home
+Screen; behind the sign-in redirect it drew a letter instead of the
+logo. Already-added shortcuts keep the old icon until re-added.
 
 "It can't just be like high school recruiting to transfer recruiting,
 it needs to make sense" ruled out reusing `recruit_type` for this, which

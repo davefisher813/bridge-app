@@ -2879,6 +2879,49 @@ status staff set by hand whenever any target was touched).
 
 **Consequences.** Superseded: the same-day "Mark Enrolled no longer
 requires a Committed target" entry's no-school path; enrolling without a
-school is now refused rather than allowed. The member program screen
-still reads its own SQL summary and does not know Enrolled or Current
-School (docs/ROADMAP.md).
+school is now refused rather than allowed. The member program screen's
+SQL summary (`member_program()`) follows the same rule from migration
+0034, since a member reads no athlete rows and so cannot call
+`placementOf()` itself.
+
+## 2026-09-26: Graduated and Drafted end recruiting the way Enrolled does
+
+**Decision.** Two more athlete statuses. Graduated means graduated from
+college, only follows Enrolled, and is named by the same school.
+Drafted records the team (required), round and year, and can follow any
+status. Both close open targets through the shared close-out, hide
+Matches, and read through `placementOf()` everywhere, including
+`member_program()` (migration 0035). The Edit dropdown cannot set
+Drafted, since the team has no field there.
+
+**Reason.** Dave: "I should be able to say graduated or drafted." His
+picks from the options offered: Drafted records team, round and year;
+Graduated means college.
+
+**Alternatives considered.** A single "Outcome" screen with a type
+picker (rejected: one more tap, and the three need different fields).
+Storing the draft in `athletes.detail` (rejected: that jsonb is
+per-recruit-type and Zod-shaped by recruit type; a draft can happen to
+any type, and the member summary reads it in SQL). Closing the Committed
+target on Drafted (rejected: the commitment is history, the same as
+after Enrolled).
+
+**Consequences.** New columns `draft_team`, `draft_round`,
+`draft_year`, `graduated_on` (nullable, meaningful only under the
+matching status). `member_program()` gained `draft_round` and
+`draft_year` columns, so it was dropped and recreated with 0033's
+grants; the RLS suite checks the grants survive.
+
+## 2026-09-26: the app icon and manifest are public
+
+**Decision.** `/icon`, `/apple-icon` and `/manifest.webmanifest` load
+without signing in.
+
+**Reason.** Dave's Home Screen showed a letter "R" instead of the logo,
+even after re-adding it. iOS fetches the icon without the session; the
+sign-in redirect handed it the login page. The first diagnosis (a stale
+iOS cache) was wrong because it was checked against the fixture build,
+which skips sign-in.
+
+**Consequences.** Nothing else opens up; a law in
+`src/laws/publicPaths.test.ts` holds both sides.
