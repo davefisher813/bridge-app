@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
 import { AddButton, Avatar, Body, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
 import { SearchField } from "@/components/SearchField";
-import { currentSchoolOf, placementLine, placementOf } from "@/lib/placement";
+import { placementAthlete, placementLine, placementOf } from "@/lib/placement";
 
 interface AthleteRow {
   id: string;
@@ -16,6 +16,9 @@ interface AthleteRow {
   gpa: number | null;
   status: string;
   detail: unknown;
+  draft_team: string | null;
+  draft_round: number | null;
+  draft_year: number | null;
 }
 
 interface CommittedRow {
@@ -44,7 +47,7 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
 
   const supabase = await createClient();
   const [{ data: athletes }, { data: committedRows }] = await Promise.all([
-    supabase.from("athletes").select("id, name, sport, position, recruit_type, gpa, status, detail").eq("org_id", org.id).is("deleted_at", null).order("name"),
+    supabase.from("athletes").select("id, name, sport, position, recruit_type, gpa, status, detail, draft_team, draft_round, draft_year").eq("org_id", org.id).is("deleted_at", null).order("name"),
     supabase.from("recruiting_targets").select("id, athlete_id, status, schools(name)").eq("org_id", org.id).eq("status", "Committed"),
   ]);
   const committedByAthlete = new Map<string, { id: string; status: string; schoolName: string | null }[]>();
@@ -68,9 +71,9 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
           </EmptyState>
         ) : (
           rows.map((a) => {
-            // Committed or Enrolled: where to, in place of the recruit
-            // type, which no longer describes what is going on.
-            const placement = placementOf({ status: a.status, currentSchool: currentSchoolOf(a.detail) }, committedByAthlete.get(a.id) ?? []);
+            // Placed: where they went, in place of the recruit type,
+            // which no longer describes what is going on.
+            const placement = placementOf(placementAthlete(a), committedByAthlete.get(a.id) ?? []);
             return (
               <Row
               key={a.id}

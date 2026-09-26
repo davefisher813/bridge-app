@@ -8,6 +8,7 @@
 // input. The filters read school facts, not the score, so they are
 // applied here in memory over the list the store returned.
 
+import { closedSentence, isClosedStatus } from "@/lib/placement";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -71,13 +72,13 @@ export default async function MatchesPage({
   ]);
   if (!athlete) notFound();
 
-  if (athlete.status === "Enrolled") {
+  if (isClosedStatus(athlete.status)) {
     // Recruiting is over for this athlete; nothing left to rank against.
     // Dave, 2026-09-26.
     return (
       <Screen title={athlete.name} back={{ href: `/org/${slug}/roster/${id}`, label: "Back" }}>
-        <EmptyState kind="target" title="Enrolled" action={<LinkButton href={`/org/${slug}/roster/${id}`}>Back to Athlete</LinkButton>}>
-          Matches stopped scoring once {athlete.name} enrolled.
+        <EmptyState kind="target" title={athlete.status} action={<LinkButton href={`/org/${slug}/roster/${id}`}>Back to Athlete</LinkButton>}>
+          {closedSentence(athlete.status, athlete.name)}
         </EmptyState>
       </Screen>
     );

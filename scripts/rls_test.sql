@@ -1736,3 +1736,40 @@ begin
   raise notice 'PASS: Current School only names the school once they are Enrolled';
 end $$;
 reset role;
+
+-- ── Graduated and Drafted (migration 0035) ───────────────────────────
+reset role;
+update athletes set status = 'Graduated', graduated_on = '2026-05-15' where id = '00000000-0000-0000-0000-000000000111';
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000003');
+do $$
+declare st text; sc text;
+begin
+  select stage, committed_school into st, sc from member_program('00000000-0000-0000-0000-000000000010') where athlete_id = '00000000-0000-0000-0000-000000000111';
+  if st <> 'Graduated' or sc is distinct from 'City College' then raise exception 'FAIL: a Graduated athlete reads as % at %', st, sc; end if;
+  raise notice 'PASS: member_program names a Graduated athlete and their school';
+end $$;
+reset role;
+update athletes set status = 'Drafted', draft_team = 'Fixture Pros', draft_round = 5, draft_year = 2026 where id = '00000000-0000-0000-0000-000000000111';
+set role app_user;
+do $$
+declare st text; sc text; rd int; yr int;
+begin
+  select stage, committed_school, draft_round, draft_year into st, sc, rd, yr from member_program('00000000-0000-0000-0000-000000000010') where athlete_id = '00000000-0000-0000-0000-000000000111';
+  if st <> 'Drafted' or sc is distinct from 'Fixture Pros' or rd is distinct from 5 or yr is distinct from 2026 then
+    raise exception 'FAIL: a Drafted athlete reads as % / % / % / %', st, sc, rd, yr;
+  end if;
+  raise notice 'PASS: member_program names the team, round and year of a Drafted athlete';
+end $$;
+reset role;
+do $$
+begin
+  if has_function_privilege('anon', 'public.member_program(uuid)', 'execute') then raise exception 'FAIL: 0035 reopened member_program to anon'; end if;
+  if not has_function_privilege('authenticated', 'public.member_program(uuid)', 'execute') then raise exception 'FAIL: 0035 dropped the signed-in grant on member_program'; end if;
+  begin
+    update athletes set draft_round = 0 where id = '00000000-0000-0000-0000-000000000111';
+    raise exception 'FAIL: a draft round of 0 was accepted';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS: the recreated member_program keeps its grants, and the round is checked';
+end $$;

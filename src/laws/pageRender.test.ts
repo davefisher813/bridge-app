@@ -227,6 +227,28 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     expect(html).toMatch(/Enrolled at Fixture State University/);
   });
 
+  it("the roster names where Graduated and Drafted athletes ended up", async () => {
+    // Dave, 2026-09-26: "I should be able to say graduated or drafted."
+    const html = await render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) });
+    expect(html).toMatch(/Graduated from Fixture Tech/);
+    expect(html).toMatch(/Drafted by Fixture Pros, Round 5, 2026/);
+  });
+
+  it("each athlete gets the close-outs that can still follow, and no others", async () => {
+    const page = "@/app/org/[slug]/roster/[id]/page";
+    const active = await render(page, { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
+    expect(active).toMatch(/Mark Enrolled/);
+    expect(active).toMatch(/Mark Drafted/);
+    expect(active).not.toMatch(/Mark Graduated/);
+    const enrolled = await render(page, { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) });
+    expect(enrolled).toMatch(/Mark Graduated/);
+    expect(enrolled).toMatch(/Mark Drafted/);
+    expect(enrolled).not.toMatch(/Mark Enrolled/);
+    const drafted = await render(page, { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteDrafted }) });
+    expect(drafted).not.toMatch(/Mark (Enrolled|Graduated|Drafted)/);
+    expect(drafted).not.toMatch(/>Matches</);
+  });
+
   it("the athlete's schools are called Targets, the same as the board they come from", async () => {
     const html = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
     expect(html).not.toMatch(/>Colleges</);
@@ -369,6 +391,13 @@ describe("LAW: a member reads the program as stages, never the roster", () => {
     expect(html).toMatch(/Fixture Athlete/);
     expect(html).toMatch(/Offer|Targeting|Committed/);
     expect(html).not.toMatch(/GPA|3\.4/);
+  });
+
+  it("a member's Program names Graduated and Drafted athletes too", async () => {
+    currentUser = MEMBER_ID;
+    const html = await render("@/app/org/[slug]/member/program/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    expect(html).toMatch(/Graduated from Fixture Tech/);
+    expect(html).toMatch(/Drafted by Fixture Pros, Round 5, 2026/);
   });
 
   it("a member's Program says Enrolled at the school, not Committed forever", async () => {

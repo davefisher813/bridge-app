@@ -29,7 +29,7 @@ export const RECRUIT_TYPES: { value: RecruitType; label: string }[] = [
 // needs to make sense" - ruling out reusing recruit_type for this, which
 // describes what KIND of recruit someone is, not whether they still are
 // one.
-export const ATHLETE_STATUSES = ["Active", "Committed", "Enrolled", "Inactive"] as const;
+export const ATHLETE_STATUSES = ["Active", "Committed", "Enrolled", "Graduated", "Drafted", "Inactive"] as const;
 
 export const ATHLETE_GOALS: { value: AthleteGoal; label: string }[] = (Object.keys(GOAL_LABEL) as AthleteGoal[]).map((value) => ({ value, label: GOAL_LABEL[value] }));
 

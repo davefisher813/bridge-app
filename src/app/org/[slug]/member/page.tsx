@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireMember } from "@/lib/auth/guard";
-import { classOf, isPlaced, loadGiving, loadProgram, programPlacementLine } from "@/lib/data/member";
+import { classOf, isPlaced, loadGiving, loadProgram, programPlacementLine, wentToCollege } from "@/lib/data/member";
 import { formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
 import { Body, Card, Chevron, EmptyState, Label, Meter, Prose, Row, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
 import { SeatCard } from "@/components/SeatCard";
@@ -36,7 +36,7 @@ export default async function MemberHomePage({ params }: { params: Promise<{ slu
     <Screen title={org.name} lede={lede}>
       <StatRow>
         <Stat value={program.length} label="Athletes" role="people" kind="athlete" href={`${base}/program`} />
-        <Stat value={committed.length} label="Committed" role="committed" kind="stage_committed" href={`${base}/program`} />
+        <Stat value={committed.filter(wentToCollege).length} label="Committed" role="committed" kind="stage_committed" href={`${base}/program`} />
         <Stat value={offers} label="Offers" role="offer" kind="stage_offer" href={`${base}/program`} />
         {budgetPercent !== null && <Stat value={`${budgetPercent}%`} label="Of Budget" role="high" kind="money" href={`${base}/giving`} />}
       </StatRow>

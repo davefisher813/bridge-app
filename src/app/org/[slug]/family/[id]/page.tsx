@@ -6,7 +6,7 @@ import { requireFamily, requireFamilyAthlete } from "@/lib/data/family";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
-import { currentSchoolOf, placementOf } from "@/lib/placement";
+import { placementAthlete, placementMeta, placementOf } from "@/lib/placement";
 import { statusRole, stageKind } from "@/components/statusHue";
 import { Card, Chevron, EmptyState, Label, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
@@ -91,7 +91,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
   const [{ data: athlete }, { data: targetRows }, { data: metricRows }, { data: docRows }, fits] = await Promise.all([
     supabase
       .from("athletes")
-      .select("id, name, sport, position, recruit_type, gpa, status, first_full_time_enrollment, goal, family_budget_cents, home_state, detail")
+      .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment")
       .eq("id", id)
       .eq("org_id", org.id)
       .is("deleted_at", null)
@@ -112,10 +112,10 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
   const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ ...t, school: unwrap(t.schools) }));
   const journey = deriveJourneyStage(targets.map((t) => ({ status: t.status, schoolName: t.school?.name ?? "" })));
   const placement = placementOf(
-    { status: athlete.status, currentSchool: currentSchoolOf(athlete.detail) },
+    placementAthlete(athlete),
     targets.map((t) => ({ id: t.id, status: t.status, schoolName: t.school?.name ?? null })),
   );
-  const placementMeta = placement?.state === "Enrolled" && athlete.first_full_time_enrollment ? `Since ${longDate(athlete.first_full_time_enrollment)}` : undefined;
+  const meta = placement ? placementMeta(placement, { firstEnrollment: athlete.first_full_time_enrollment, graduatedOn: athlete.graduated_on }) : undefined;
   const topFits = fits.slice(0, 5);
   const goal = GOAL_LABEL[(athlete.goal ?? "balanced") as AthleteGoal] ?? GOAL_LABEL.balanced;
   const budgetCents = athlete.family_budget_cents as number | null;
@@ -132,8 +132,8 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
           href={placement.targetId ? `${base}/colleges/${placement.targetId}` : `${base}/colleges`}
           kind={stageKind(placement.state)}
           role={statusRole(placement.state)}
-          title={placement.school ?? "School Not on File"}
-          meta={placementMeta}
+          title={placement.name ?? (placement.state === "Drafted" ? "Team Not on File" : "School Not on File")}
+          meta={meta}
           trailing={
             <>
               <StatusPill status={placement.state} />

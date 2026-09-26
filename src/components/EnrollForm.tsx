@@ -16,7 +16,25 @@ export interface EnrollSchoolChoice {
   schools: { id: string; label: string }[];
 }
 
-export function EnrollForm({ action, today, schoolChoice }: { action: ServerAction; today: string; schoolChoice: EnrollSchoolChoice | null }) {
+// Mark Enrolled and Mark Graduated: a school when nothing on file names
+// one, and a date.
+export function EnrollForm({
+  action,
+  today,
+  schoolChoice,
+  schoolLabel = "Enrolled At",
+  dateName = "enrolledOn",
+  dateLabel = "Enrolled On",
+  submitLabel = "Mark Enrolled",
+}: {
+  action: ServerAction;
+  today: string;
+  schoolChoice: EnrollSchoolChoice | null;
+  schoolLabel?: string;
+  dateName?: string;
+  dateLabel?: string;
+  submitLabel?: string;
+}) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const err = (key: string) => state.errors[key];
   const value = (key: string) => (state.values?.[key] === undefined ? "" : String(state.values[key]));
@@ -24,7 +42,7 @@ export function EnrollForm({ action, today, schoolChoice }: { action: ServerActi
   return (
     <Form action={formAction} error={state.errors.form}>
       {schoolChoice && (
-        <SelectField name="schoolId" label="Enrolled At" defaultValue={value("schoolId")} error={err("schoolId")} required={!schoolChoice.currentSchool}>
+        <SelectField name="schoolId" label={schoolLabel} defaultValue={value("schoolId")} error={err("schoolId")} required={!schoolChoice.currentSchool}>
           <option value="">{schoolChoice.currentSchool ?? "Pick a School"}</option>
           {schoolChoice.schools.map((s) => (
             <option key={s.id} value={s.id}>
@@ -33,8 +51,8 @@ export function EnrollForm({ action, today, schoolChoice }: { action: ServerActi
           ))}
         </SelectField>
       )}
-      <Field name="enrolledOn" label="Enrolled On" type="date" defaultValue={value("enrolledOn") || today} error={err("enrolledOn")} required />
-      <Button disabled={pending}>{pending ? "Marking Enrolled..." : "Mark Enrolled"}</Button>
+      <Field name={dateName} label={dateLabel} type="date" defaultValue={value(dateName) || today} error={err(dateName)} required />
+      <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );
 }

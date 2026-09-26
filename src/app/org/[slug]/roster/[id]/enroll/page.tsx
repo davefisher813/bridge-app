@@ -6,7 +6,7 @@ import { markEnrolled } from "@/lib/actions/enrollment";
 import { EnrollForm } from "@/components/EnrollForm";
 import { StatusPill } from "@/components/StatusPill";
 import { statusRole } from "@/components/statusHue";
-import { currentSchoolOf } from "@/lib/placement";
+import { currentSchoolOf, nextOutcomes } from "@/lib/placement";
 import { Row, Screen, Section } from "@/components/kit";
 
 interface TargetRow {
@@ -33,7 +33,7 @@ export default async function EnrollAthletePage({ params }: { params: Promise<{ 
   const supabase = await createClient();
   const { data: athlete } = await supabase.from("athletes").select("id, name, status, detail").eq("id", id).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
   if (!athlete) notFound();
-  if (athlete.status === "Enrolled") notFound();
+  if (!nextOutcomes(athlete.status).includes("enroll")) notFound();
 
   const { data: targetRows } = await supabase.from("recruiting_targets").select("id, status, schools(name)").eq("athlete_id", id).eq("org_id", org.id);
   const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ id: t.id, status: t.status, schoolName: unwrap(t.schools)?.name ?? "Unknown school" }));

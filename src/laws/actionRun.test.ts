@@ -1663,6 +1663,57 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
     expect(writes).toEqual([]);
   });
 
+  it("Mark Graduated names the school they were enrolled at, and only follows Enrolled", async () => {
+    // Dave's pick, 2026-09-26: Graduated means graduated from college.
+    const { markGraduated } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {} }, form({ graduatedOn: "2030-05-15" })));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/notice=Graduated from Fixture State University\.$/);
+    expect(writes.find((w) => w.table === "athletes" && w.op === "update")?.rows[0]).toMatchObject({ status: "Graduated", graduated_on: "2030-05-15" });
+
+    writes.length = 0;
+    const early = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ graduatedOn: "2030-05-15" })));
+    expect(early.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}`);
+    expect(writes).toEqual([]);
+  });
+
+  it("Mark Drafted records the team, round and year, and closes open targets", async () => {
+    const { markDrafted } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markDrafted(ORG_WITH_MODULES, IDS.athleteCommitted, { errors: {} }, form({ draftTeam: "New York Yankees", draftRound: "5", draftYear: "2026" })));
+    expect(decodeURIComponent(r.redirect!)).toMatch(/notice=Drafted by New York Yankees, Round 5, 2026\. 1 other target closed\./);
+    expect(writes.find((w) => w.table === "athletes" && w.op === "update")?.rows[0]).toMatchObject({ status: "Drafted", draft_team: "New York Yankees", draft_round: 5, draft_year: 2026 });
+    const closed = writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.targetToClose));
+    expect(String(closed?.rows[0]?.notes)).toMatch(/was drafted by New York Yankees \(round 5, 2026\)\./);
+    // The college commitment is history, not an open target.
+    expect(writes.some((w) => w.table === "recruiting_targets" && w.filters.some((f) => f.value === IDS.targetCommitted))).toBe(false);
+  });
+
+  it("Mark Drafted needs a team, and a sane round and year", async () => {
+    const { markDrafted } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markDrafted(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ draftTeam: "", draftRound: "0", draftYear: "26" })));
+    const errors = (r.state as MemberState).errors;
+    expect(errors.draftTeam).toMatch(/team/);
+    expect(errors.draftRound).toMatch(/1 to 99/);
+    expect(errors.draftYear).toMatch(/four digit/);
+    expect(writes).toEqual([]);
+  });
+
+  it("on an athlete already Drafted, Mark Drafted only corrects the details", async () => {
+    const { markDrafted } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markDrafted(ORG_WITH_MODULES, IDS.athleteDrafted, { errors: {} }, form({ draftTeam: "Fixture Pros", draftRound: "4", draftYear: "2026" })));
+    expect(r.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athleteDrafted}`);
+    expect(writes.filter((w) => w.table === "athletes")).toHaveLength(1);
+    expect(writes.find((w) => w.table === "athletes")?.rows[0]).toMatchObject({ draft_round: 4 });
+    expect(writes.some((w) => w.table === "recruiting_targets")).toBe(false);
+  });
+
+  it("the Edit dropdown sends Drafted to the screen that takes the team", async () => {
+    const { updateAthlete } = await import("@/lib/actions/athletes");
+    const r = await run(() => updateAthlete(ORG_WITH_MODULES, IDS.athlete, { errors: {}, values: {} }, form({ name: "Fixture Athlete", sport: "baseball", recruitType: "hs", status: "Drafted" })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.status).toMatch(/Mark Drafted/);
+    expect(writes).toEqual([]);
+  });
+
   it("refuses a missing or unparseable date", async () => {
     const { markEnrolled } = await import("@/lib/actions/enrollment");
     const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athleteCommitted, { errors: {} }, form({ enrolledOn: "" })));

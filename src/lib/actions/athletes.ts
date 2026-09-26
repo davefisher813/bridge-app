@@ -7,7 +7,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { matchingColumnsFrom, parseFirstMetrics, parseAthleteForm } from "@/lib/validation/athlete";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
-import { applyEnrollment, enrollmentNotice } from "@/lib/data/enrollment";
+import { applyCloseOut, closeOutNotice } from "@/lib/data/enrollment";
 import { currentSchoolOf } from "@/lib/placement";
 
 // Athlete add/edit was the top ROADMAP.md item once roster/board existed
@@ -112,13 +112,20 @@ export async function updateAthlete(
   // on an ordinary later edit. src/lib/data/enrollment.ts.
   const { data: before } = await supabase.from("athletes").select("status").eq("id", athleteId).eq("org_id", org.id).maybeSingle();
 
-  // Enrolled by hand still needs a school: a Committed target or the
-  // Current School on this record. Without either, the Mark Enrolled
-  // screen is where one gets picked.
-  if (before && before.status !== "Enrolled" && parsed.values.status === "Enrolled" && !currentSchoolOf(parsed.detail)) {
+  // A close-out by hand still needs what the dedicated screen asks for.
+  // Enrolled and Graduated need a school: a Committed target or the
+  // Current School on this record. Drafted needs a team, which only the
+  // Mark Drafted screen takes.
+  const next = parsed.values.status;
+  const transition = before && before.status !== next ? next : null;
+  if (transition === "Drafted") {
+    return { errors: { status: "Use Mark Drafted on the athlete page to enter the team." }, values: valuesFromFormData(formData) };
+  }
+  if ((transition === "Enrolled" || transition === "Graduated") && !currentSchoolOf(parsed.detail)) {
     const { data: committed } = await supabase.from("recruiting_targets").select("id").eq("org_id", org.id).eq("athlete_id", athleteId).eq("status", "Committed").maybeSingle();
     if (!committed) {
-      return { errors: { status: "No school on file yet. Use Mark Enrolled on the athlete page to pick one." }, values: valuesFromFormData(formData) };
+      const screen = transition === "Enrolled" ? "Mark Enrolled" : "Mark Enrolled, then Mark Graduated,";
+      return { errors: { status: `No school on file yet. Use ${screen} on the athlete page to pick one.` }, values: valuesFromFormData(formData) };
     }
   }
 
@@ -152,10 +159,10 @@ export async function updateAthlete(
   await recomputeFitsForAthlete(supabase, org.id, athleteId);
 
   let notice: string | null = null;
-  if (before && before.status !== "Enrolled" && parsed.values.status === "Enrolled") {
+  if (transition === "Enrolled" || transition === "Graduated") {
     const today = new Date().toISOString().slice(0, 10);
-    const { schoolName, closedCount } = await applyEnrollment(supabase, org.id, athleteId, today);
-    notice = enrollmentNotice(schoolName, closedCount);
+    const { name, closedCount } = await applyCloseOut(supabase, org.id, athleteId, { status: transition, on: today });
+    notice = closeOutNotice({ state: transition, name }, closedCount);
   }
 
   revalidatePath(`/org/${slug}/roster`);

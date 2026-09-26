@@ -8,8 +8,8 @@ import { ContactForm } from "@/components/ContactForm";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
-import { currentSchoolOf, placementOf } from "@/lib/placement";
-import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { nextOutcomes, placementAthlete, placementMeta, placementOf, type Outcome } from "@/lib/placement";
+import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Grid2, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { relationshipLabel } from "@/lib/copy/relationships";
 import { statusRole, stageKind } from "@/components/statusHue";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
@@ -47,6 +47,8 @@ const CONTACT_ROLE_LABEL: Record<string, string> = {
   college_coach: "College coach",
   other: "Other",
 };
+
+const OUTCOME_LABEL: Record<Outcome, string> = { enroll: "Mark Enrolled", graduate: "Mark Graduated", draft: "Mark Drafted" };
 
 const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior day", camp: "Camp", other: "Other" };
 
@@ -92,7 +94,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits] = await Promise.all([
     supabase
       .from("athletes")
-      .select("id, name, sport, position, recruit_type, gpa, status, first_full_time_enrollment, goal, family_budget_cents, home_state, detail")
+      .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment")
       .eq("id", id)
       .eq("org_id", org.id)
       .is("deleted_at", null)
@@ -151,22 +153,24 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const visits = visitRows ?? [];
 
   const journey = deriveJourneyStage(targets.map((t) => ({ status: t.status, schoolName: t.school?.name ?? "" })));
-  const enrolled = athlete.status === "Enrolled";
   const placement = placementOf(
-    { status: athlete.status, currentSchool: currentSchoolOf(athlete.detail) },
+    placementAthlete(athlete),
     targets.map((t) => ({ id: t.id, status: t.status, schoolName: t.school?.name ?? null })),
   );
-  const placementMeta = placement?.state === "Enrolled" && athlete.first_full_time_enrollment ? `Since ${longDate(athlete.first_full_time_enrollment)}` : undefined;
-  // Opens the target that names the school; with no school on file,
-  // wherever one gets recorded (the board for a commitment, the record's
-  // Current School for someone already enrolled).
+  const meta = placement ? placementMeta(placement, { firstEnrollment: athlete.first_full_time_enrollment, graduatedOn: athlete.graduated_on }) : undefined;
+  const outcomes = canEdit ? nextOutcomes(athlete.status) : [];
+  // Opens the target that names the school; otherwise wherever the
+  // name gets recorded (the board for a commitment, the record for the
+  // Current School or the draft).
   const placementHref = placement?.targetId
     ? `/org/${slug}/board/${placement.targetId}`
     : !canEdit
       ? undefined
       : placement?.state === "Committed"
         ? `/org/${slug}/board/new`
-        : `/org/${slug}/roster/${id}/edit`;
+        : placement?.state === "Drafted"
+          ? `/org/${slug}/roster/${id}/draft`
+          : `/org/${slug}/roster/${id}/edit`;
 
   const contacts = contactRows ?? [];
   const schools = (schoolRows ?? []).map((s) => ({ id: s.id, label: `${s.name} (${s.division})` }));
@@ -188,14 +192,15 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
       <Stack gap={3}>
         {placement ? (
-          // Committed or Enrolled: the school is the one fact that
-          // matters now, so it replaces the stepper. Dave, 2026-09-26.
+          // Committed, Enrolled, Graduated or Drafted: where they went is
+          // the one fact that matters now, so it replaces the stepper.
+          // Dave, 2026-09-26.
           <Row
             href={placementHref}
             kind={stageKind(placement.state)}
             role={statusRole(placement.state)}
-            title={placement.school ?? "School Not on File"}
-            meta={placementMeta}
+            title={placement.name ?? (placement.state === "Drafted" ? "Team Not on File" : "School Not on File")}
+            meta={meta}
             trailing={
               <>
                 <StatusPill status={placement.state} />
@@ -210,10 +215,14 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
             <JourneyStepper result={journey} />
           </Card>
         )}
-        {!enrolled && canEdit && (
-          <LinkButton href={`/org/${slug}/roster/${id}/enroll`} variant="secondary">
-            Mark Enrolled
-          </LinkButton>
+        {outcomes.length > 0 && (
+          <Grid2>
+            {outcomes.map((o) => (
+              <LinkButton key={o} href={`/org/${slug}/roster/${id}/${o}`} variant="secondary">
+                {OUTCOME_LABEL[o]}
+              </LinkButton>
+            ))}
+          </Grid2>
         )}
       </Stack>
 
@@ -304,7 +313,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
       <Section label="Targets" count={targets.length} role="place" kind="school">
         {targets.length === 0 ? (
-          <EmptyState kind="school" title="No Targets Yet" action={canEdit && !enrolled ? <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton> : undefined}
+          <EmptyState kind="school" title="No Targets Yet" action={canEdit && !placement ? <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton> : undefined}
           />
         ) : (
           targets.map((t) => (

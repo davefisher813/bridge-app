@@ -10,7 +10,7 @@
 // so the member's number is the number staff see on the seat.
 
 import { createClient } from "@/lib/supabase/server";
-import { placementLine } from "@/lib/placement";
+import { placementLine, type PlacementState } from "@/lib/placement";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { solicitedByMap, toBoardMembers, toBoards, type BoardMemberRow, type BoardRow } from "@/lib/data/governanceAdapters";
 import { creditedGifts, giveGetProgress, summarizeBoard, type Board, type BoardMember, type BoardSummary, type CreditedGift, type GiveGetProgress } from "@/lib/governance/giveGet";
@@ -23,9 +23,12 @@ export interface ProgramAthlete {
   position: string | null;
   gradYear: number | null;
   recruitType: string;
-  stage: "Enrolled" | "Committed" | "Offers" | "Targeting" | "No Targets";
+  stage: PlacementState | "Offers" | "Targeting" | "No Targets";
   offers: number;
+  // The school, or for a Drafted athlete the team.
   committedSchool: string | null;
+  draftRound: number | null;
+  draftYear: number | null;
 }
 
 interface ProgramRow {
@@ -38,9 +41,12 @@ interface ProgramRow {
   stage: string;
   offers: number;
   committed_school: string | null;
+  draft_round?: number | null;
+  draft_year?: number | null;
 }
 
-const STAGES = new Set(["Enrolled", "Committed", "Offers", "Targeting", "No Targets"]);
+const PLACED: readonly string[] = ["Committed", "Enrolled", "Graduated", "Drafted"];
+const STAGES = new Set([...PLACED, "Offers", "Targeting", "No Targets"]);
 
 export async function loadProgram(orgId: string): Promise<ProgramAthlete[]> {
   const supabase = await createClient();
@@ -55,6 +61,8 @@ export async function loadProgram(orgId: string): Promise<ProgramAthlete[]> {
     stage: (STAGES.has(r.stage) ? r.stage : "No Targets") as ProgramAthlete["stage"],
     offers: Number(r.offers ?? 0),
     committedSchool: r.committed_school,
+    draftRound: r.draft_round ?? null,
+    draftYear: r.draft_year ?? null,
   }));
 }
 
@@ -76,16 +84,23 @@ export async function loadProgramSchools(orgId: string, athleteId: string): Prom
   }));
 }
 
-// "Committed to X" or "Enrolled at X", worded the way the staff and
-// family screens word it (src/lib/placement.ts); null while recruiting.
+// "Committed to X", "Enrolled at X", "Graduated from X" or "Drafted by
+// X, Round 5, 2026", worded the way the staff and family screens word it
+// (src/lib/placement.ts); null while recruiting.
 export function programPlacementLine(a: ProgramAthlete): string | null {
-  if (a.stage !== "Committed" && a.stage !== "Enrolled") return null;
-  return placementLine({ state: a.stage, school: a.committedSchool, targetId: null });
+  if (!isPlaced(a)) return null;
+  return placementLine({ state: a.stage as PlacementState, name: a.committedSchool, targetId: null, draftRound: a.draftRound, draftYear: a.draftYear });
 }
 
-// Committed or Enrolled: an athlete who has committed somewhere.
+// Recruiting has ended somewhere: committed, enrolled, graduated or drafted.
 export function isPlaced(a: ProgramAthlete): boolean {
-  return a.stage === "Committed" || a.stage === "Enrolled";
+  return PLACED.includes(a.stage);
+}
+
+// Went to college: every placed stage but Drafted. What the Committed
+// count on the member screens counts.
+export function wentToCollege(a: ProgramAthlete): boolean {
+  return isPlaced(a) && a.stage !== "Drafted";
 }
 
 // A class, or the kind of transfer, in a member's words.

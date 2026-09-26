@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireMember } from "@/lib/auth/guard";
-import { classOf, isPlaced, loadProgram, programPlacementLine, type ProgramAthlete } from "@/lib/data/member";
+import { classOf, loadProgram, programPlacementLine, wentToCollege, type ProgramAthlete } from "@/lib/data/member";
 import { stageKind, statusRole } from "@/components/statusHue";
 import { Avatar, Chip, EmptyState, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
 
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // read about an athlete.
 
 function stageChip(a: ProgramAthlete) {
-  if (a.stage === "Enrolled") return <Chip label="Enrolled" kind={stageKind("Enrolled")} role={statusRole("Enrolled")} />;
+  if (a.stage === "Enrolled" || a.stage === "Graduated" || a.stage === "Drafted") return <Chip label={a.stage} kind={stageKind(a.stage)} role={statusRole(a.stage)} />;
   if (a.stage === "Committed") return <Chip label="Committed" kind={stageKind("Committed")} role="committed" />;
   if (a.stage === "Offers") return <Chip label={a.offers === 1 ? "1 Offer" : `${a.offers} Offers`} kind={stageKind("Offer")} role="offer" />;
   if (a.stage === "Targeting") return <Chip label="Targeting" kind={stageKind("Target")} role={statusRole("Target")} />;
@@ -29,8 +29,9 @@ export default async function MemberProgramPage({ params }: { params: Promise<{ 
   const base = `/org/${slug}/member`;
 
   const program = await loadProgram(org.id);
-  // Enrolled athletes committed first, so they count here too.
-  const committed = program.filter(isPlaced).length;
+  // Enrolled and Graduated athletes committed first, so they count here
+  // too; a Drafted athlete went pro instead.
+  const committed = program.filter(wentToCollege).length;
   const withOffers = program.filter((a) => a.stage === "Offers").length;
   const targeting = program.filter((a) => a.stage === "Targeting").length;
 

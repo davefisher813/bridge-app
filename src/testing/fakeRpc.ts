@@ -9,11 +9,12 @@
 // the render laws, with the same rules written twice in plain words:
 //
 //   member_program: every live athlete of the org, its stage being
-//     Enrolled if the athlete is Enrolled, else Committed if the athlete
-//     is Committed or any target is, else Offers if any target is an
+//     Drafted, Graduated or Enrolled when the athlete is, else Committed
+//     if the athlete is Committed or any target is, else Offers if any target is an
 //     Offer, else Targeting if any target is not Not Interested, else No
-//     Targets. The school is the Committed target's, else (Enrolled
-//     only) a transfer record's Current School. Migration 0034.
+//     Targets. The name is the team for Drafted, else the Committed
+//     target's school, else (Enrolled or Graduated) a transfer record's
+//     Current School. Round and year for Drafted only. Migration 0035.
 //   member_program_schools: one athlete's targets as school, division
 //     and status, committed first.
 //   member_giving: the org's gifts, pledges, campaigns, budget lines,
@@ -45,10 +46,13 @@ export function fakeRpc(data: Dataset, userId: string | null, name: string, args
         const mine = targets.filter((t) => t.athlete_id === a.id);
         const committed = mine.find((t) => t.status === "Committed");
         const offers = mine.filter((t) => t.status === "Offer").length;
-        const stage =
-          a.status === "Enrolled" ? "Enrolled" : a.status === "Committed" || committed ? "Committed" : offers ? "Offers" : mine.some((t) => t.status !== "Not Interested") ? "Targeting" : "No Targets";
+        const closed = ["Drafted", "Graduated", "Enrolled"].includes(String(a.status));
+        const stage = closed ? String(a.status) : a.status === "Committed" || committed ? "Committed" : offers ? "Offers" : mine.some((t) => t.status !== "Not Interested") ? "Targeting" : "No Targets";
         const detail = (a.detail ?? {}) as Row;
-        const currentSchool = a.status === "Enrolled" && detail.kind === "transfer" && typeof detail.currentSchool === "string" && detail.currentSchool.trim() ? detail.currentSchool.trim() : null;
+        const drafted = a.status === "Drafted";
+        const currentSchool =
+          (a.status === "Enrolled" || a.status === "Graduated") && detail.kind === "transfer" && typeof detail.currentSchool === "string" && detail.currentSchool.trim() ? detail.currentSchool.trim() : null;
+        const team = typeof a.draft_team === "string" && a.draft_team.trim() ? a.draft_team.trim() : null;
         return {
           athlete_id: a.id,
           name: a.name,
@@ -58,7 +62,9 @@ export function fakeRpc(data: Dataset, userId: string | null, name: string, args
           recruit_type: a.recruit_type,
           stage,
           offers,
-          committed_school: (committed ? ((schools.get(committed.school_id) as Row | undefined)?.name as string | undefined) : undefined) ?? currentSchool,
+          committed_school: drafted ? team : ((committed ? ((schools.get(committed.school_id) as Row | undefined)?.name as string | undefined) : undefined) ?? currentSchool),
+          draft_round: drafted ? (a.draft_round ?? null) : null,
+          draft_year: drafted ? (a.draft_year ?? null) : null,
         };
       })
       .sort((x, y) => String(x.name).localeCompare(String(y.name)));
