@@ -1642,6 +1642,33 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
     expect(writes).toEqual([]);
   });
 
+  it("a board commit closes every other open target, and taking it back brings them back", async () => {
+    // Dave, 2026-09-26: Derek committed to one school and still showed
+    // In Contact at two others. A commitment ends recruiting everywhere
+    // else, the same way enrolling does. Planted and reverted: dropped
+    // the closeOpenTargets call in syncCommitment, watched this fail.
+    data.recruiting_targets.push({ id: "other-open", org_id: data.orgs[0]!.id, athlete_id: IDS.athlete, school_id: IDS.schoolD3, status: "In Contact", coach_name: null, offer_type: null, offer_scholarship_percent: null, closed_from: null, notes: null, updated_at: "2026-08-01" });
+    const { updateTarget } = await import("@/lib/actions/targets");
+    await run(() => updateTarget(ORG_WITH_MODULES, IDS.target, { errors: {} }, form({ athleteId: IDS.athlete, schoolId: IDS.school, status: "Committed" })));
+    const closed = writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === "other-open"));
+    expect(closed?.rows[0]).toMatchObject({ status: "Not Interested", closed_from: "In Contact" });
+    expect(String(closed?.rows[0]?.notes)).toMatch(/committed to Fixture State University/);
+
+    writes.length = 0;
+    await run(() => updateTarget(ORG_WITH_MODULES, IDS.target, { errors: {} }, form({ athleteId: IDS.athlete, schoolId: IDS.school, status: "Offer" })));
+    const restored = writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === "other-open"));
+    expect(restored?.rows[0]).toMatchObject({ status: "In Contact", closed_from: null });
+    expect(String(restored?.rows[0]?.notes)).toMatch(/commitment withdrawn/);
+  });
+
+  it("the Edit dropdown cannot set Committed without a commitment on the board", async () => {
+    const { updateAthlete } = await import("@/lib/actions/athletes");
+    const r = await run(() => updateAthlete(ORG_WITH_MODULES, IDS.athlete, { errors: {}, values: {} }, form({ name: "Fixture Athlete", sport: "baseball", recruitType: "hs", status: "Committed" })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.status).toMatch(/Targets board/);
+    expect(writes).toEqual([]);
+  });
+
   it("a board commit makes the athlete Committed, and taking it back makes them Active again", async () => {
     const { updateTarget } = await import("@/lib/actions/targets");
     const commit = await run(() => updateTarget(ORG_WITH_MODULES, IDS.target, { errors: {} }, form({ athleteId: IDS.athlete, schoolId: IDS.school, status: "Committed" })));

@@ -79,17 +79,7 @@ export async function applyCloseOut(supabase: Client, orgId: string, athleteId: 
     name = (committed ? (unwrap(committed.schools)?.name ?? null) : null) ?? currentSchoolOf(athlete?.detail);
   }
 
-  const { data: openRows } = await supabase.from("recruiting_targets").select("id, status, notes").eq("org_id", orgId).eq("athlete_id", athleteId).neq("status", "Committed").neq("status", "Not Interested");
-
-  const note = closeOutNote(athleteName, name, outcome);
-  const open = (openRows ?? []) as { id: string; status: string; notes: string | null }[];
-  for (const t of open) {
-    await supabase
-      .from("recruiting_targets")
-      .update({ status: "Not Interested", closed_from: t.status, notes: t.notes ? `${t.notes}\n\n${note}` : note, updated_at: new Date().toISOString() })
-      .eq("id", t.id)
-      .eq("org_id", orgId);
-  }
+  const closedCount = await closeOpenTargets(supabase, orgId, athleteId, closeOutNote(athleteName, name, outcome));
 
   const patch: Record<string, unknown> = { status: outcome.status, updated_at: new Date().toISOString() };
   // The NCAA clock only ever backfills, and only from a first enrollment.
@@ -99,7 +89,47 @@ export async function applyCloseOut(supabase: Client, orgId: string, athleteId: 
   await supabase.from("athletes").update(patch).eq("id", athleteId).eq("org_id", orgId);
   await clearFitsForAthlete(supabase, orgId, athleteId);
 
-  return { name, closedCount: open.length };
+  return { name, closedCount };
+}
+
+// Every open target (not Committed, not already Not Interested) closes
+// to Not Interested with the note and a closed_from, so a reopen can put
+// it back exactly. One rule for a commitment, an enrollment, a
+// graduation and a draft: Dave, 2026-09-26, "all statuses must change
+// accordingly when something else impacts it."
+export async function closeOpenTargets(supabase: Client, orgId: string, athleteId: string, note: string): Promise<number> {
+  const { data: openRows } = await supabase.from("recruiting_targets").select("id, status, notes").eq("org_id", orgId).eq("athlete_id", athleteId).neq("status", "Committed").neq("status", "Not Interested");
+  const open = (openRows ?? []) as { id: string; status: string; notes: string | null }[];
+  for (const t of open) {
+    await supabase
+      .from("recruiting_targets")
+      .update({ status: "Not Interested", closed_from: t.status, notes: t.notes ? `${t.notes}\n\n${note}` : note, updated_at: new Date().toISOString() })
+      .eq("id", t.id)
+      .eq("org_id", orgId);
+  }
+  return open.length;
+}
+
+// The reverse: every target a close-out took comes back as it was (In
+// Contact when a row from before closed_from carries none). A
+// hand-picked Not Interested has no closed_from and stays closed.
+export async function restoreClosedTargets(supabase: Client, orgId: string, athleteId: string, note: string): Promise<number> {
+  const { data: closedRows } = await supabase
+    .from("recruiting_targets")
+    .select("id, status, closed_from, notes")
+    .eq("org_id", orgId)
+    .eq("athlete_id", athleteId)
+    .eq("status", "Not Interested")
+    .not("closed_from", "is", null);
+  const closed = (closedRows ?? []) as { id: string; closed_from: string | null; notes: string | null }[];
+  for (const t of closed) {
+    await supabase
+      .from("recruiting_targets")
+      .update({ status: t.closed_from ?? "In Contact", closed_from: null, notes: t.notes ? `${t.notes}\n\n${note}` : note, updated_at: new Date().toISOString() })
+      .eq("id", t.id)
+      .eq("org_id", orgId);
+  }
+  return closed.length;
 }
 
 function closeOutNote(athleteName: string, name: string | null, outcome: CloseOut): string {

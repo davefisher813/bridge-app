@@ -26,6 +26,7 @@ import { longDate } from "@/lib/copy/dates";
 import { parseAthleteDetail } from "@/lib/fit/schema";
 import { canReopen, currentSchoolOf, reopenedStatus } from "@/lib/placement";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
+import { restoreClosedTargets } from "@/lib/data/enrollment";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = SupabaseClient<any, any, any>;
@@ -85,21 +86,7 @@ export async function applyReopen(supabase: Client, orgId: string, athleteId: st
   const date = longDate(stamp.slice(0, 10));
   const next = reopenedStatus(athlete.status);
 
-  const { data: closedRows } = await supabase
-    .from("recruiting_targets")
-    .select("id, status, closed_from, notes")
-    .eq("org_id", orgId)
-    .eq("athlete_id", athleteId)
-    .eq("status", "Not Interested")
-    .not("closed_from", "is", null);
-  const closed = (closedRows ?? []) as { id: string; status: string; closed_from: string | null; notes: string | null }[];
-  for (const t of closed) {
-    await supabase
-      .from("recruiting_targets")
-      .update({ status: t.closed_from ?? "In Contact", closed_from: null, notes: appended(t.notes, `Reopened: ${athlete.name} is recruiting again as of ${date}.`), updated_at: stamp })
-      .eq("id", t.id)
-      .eq("org_id", orgId);
-  }
+  const restoredCount = await restoreClosedTargets(supabase, orgId, athleteId, `Reopened: ${athlete.name} is recruiting again as of ${date}.`);
 
   const { data: committedRow } = await supabase
     .from("recruiting_targets")
@@ -150,7 +137,7 @@ export async function applyReopen(supabase: Client, orgId: string, athleteId: st
 
   await recomputeFitsForAthlete(supabase, orgId, athleteId, now);
 
-  return { restoredCount: closed.length, closedCommitted, status: next };
+  return { restoredCount, closedCommitted, status: next };
 }
 
 // "Recruiting reopened. 2 targets restored."

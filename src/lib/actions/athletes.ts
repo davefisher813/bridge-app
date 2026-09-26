@@ -131,6 +131,12 @@ export async function updateAthlete(
   if (before && isClosedStatus(before.status) && (next === "Active" || next === "Committed" || next === "Inactive")) {
     return { errors: { status: "Use Reopen Recruiting on the athlete page to bring them back." }, values: valuesFromFormData(formData) };
   }
+  if (transition === "Committed") {
+    const { data: committed } = await supabase.from("recruiting_targets").select("id").eq("org_id", org.id).eq("athlete_id", athleteId).eq("status", "Committed").maybeSingle();
+    if (!committed) {
+      return { errors: { status: "Commit on the Targets board, which records the school and closes the other targets." }, values: valuesFromFormData(formData) };
+    }
+  }
   if ((transition === "Enrolled" || transition === "Graduated") && !currentSchoolOf(parsed.detail)) {
     const { data: committed } = await supabase.from("recruiting_targets").select("id").eq("org_id", org.id).eq("athlete_id", athleteId).eq("status", "Committed").maybeSingle();
     if (!committed) {
