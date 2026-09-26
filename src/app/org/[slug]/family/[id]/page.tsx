@@ -218,6 +218,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
         ) : (
           <Row href={`${base}/colleges`} kind="school" role="place" title="Where Things Stand" meta={`${targets.length} ${targets.length === 1 ? "school" : "schools"} on the list, and every visit`} trailing={<Chevron />} />
         )}
+        <Row href={`${base}/schools`} kind="school" role="place" title="Every School" meta="Search the whole database" trailing={<Chevron />} />
       </Section>
 
       <Section label="Documents" count={docs.length} role="contact" kind="document">

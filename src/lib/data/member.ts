@@ -8,6 +8,14 @@
 // member screens call, so a page cannot reach for a table by mistake,
 // and the give/get arithmetic runs through src/lib/governance/giveGet.ts
 // so the member's number is the number staff see on the seat.
+//
+// The one exception: the member school directory (member/schools)
+// reads `schools` directly, through src/lib/data/schoolDirectory.ts.
+// That table is shared reference data, not an org row: it carries no
+// org_id, the schools_read policy (migrations/0016) admits any signed
+// in user, and 0031's contract is about org rows, so the RLS coverage
+// loop in scripts/rls_test.sql never sees it. Coaches, org notes and
+// targets stay staff only and are never read on a member screen.
 
 import { createClient } from "@/lib/supabase/server";
 import { placementLine, type PlacementState } from "@/lib/placement";

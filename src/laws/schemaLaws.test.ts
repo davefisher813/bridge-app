@@ -71,16 +71,16 @@ function buildSchema(): Map<string, Set<string>> {
       tables.set(table, cols);
     }
 
-    for (const m of sql.matchAll(/alter\s+table\s+(\w+)\s+add\s+column\s+(?:if\s+not\s+exists\s+)?(\w+)/gi)) {
+    for (const m of sql.matchAll(/alter\s+table\s+(?:only\s+)?(?:public\.)?(\w+)\s+add\s+column\s+(?:if\s+not\s+exists\s+)?(\w+)/gi)) {
       const cols = tables.get(m[1]);
       if (cols) cols.add(m[2]);
     }
-    for (const m of sql.matchAll(/alter\s+table\s+(\w+)\s+drop\s+column\s+(?:if\s+exists\s+)?(\w+)/gi)) {
+    for (const m of sql.matchAll(/alter\s+table\s+(?:only\s+)?(?:public\.)?(\w+)\s+drop\s+column\s+(?:if\s+exists\s+)?(\w+)/gi)) {
       tables.get(m[1])?.delete(m[2]);
     }
     // The multi-column `alter table X add column a ..., add column b ...`
     // form, which 0002 uses.
-    for (const m of sql.matchAll(/alter\s+table\s+(\w+)\s+([\s\S]*?);/gi)) {
+    for (const m of sql.matchAll(/alter\s+table\s+(?:only\s+)?(?:public\.)?(\w+)\s+([\s\S]*?);/gi)) {
       const cols = tables.get(m[1]);
       if (!cols) continue;
       for (const c of m[2].matchAll(/add\s+column\s+(?:if\s+not\s+exists\s+)?(\w+)/gi)) cols.add(c[1]);
@@ -261,7 +261,7 @@ function collectForeignKeysAndIndexes(): { fks: ForeignKey[]; indexed: Set<strin
       }
     }
 
-    for (const m of sql.matchAll(/alter\s+table\s+(\w+)\s+add\s+column\s+(?:if\s+not\s+exists\s+)?(\w+)\s+[^;]*\breferences\b/gi)) {
+    for (const m of sql.matchAll(/alter\s+table\s+(?:only\s+)?(?:public\.)?(\w+)\s+add\s+column\s+(?:if\s+not\s+exists\s+)?(\w+)\s+[^;]*\breferences\b/gi)) {
       fks.push({ table: m[1], column: m[2], file: f });
     }
 

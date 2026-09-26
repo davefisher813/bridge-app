@@ -419,6 +419,7 @@ export function buildFixture(): Dataset {
         profile_date: "2024-01-01",
         program_tier: "d2_naia",
         state: "CT",
+        location: "Fixture City, CT",
         majors: ["Business", "Biology"],
       },
       {
@@ -436,6 +437,7 @@ export function buildFixture(): Dataset {
         profile_date: null,
         program_tier: "d2_naia",
         state: "NY",
+        location: "Fixture Town, NY",
         majors: ["Business"],
       },
     ],

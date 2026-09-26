@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireMember } from "@/lib/auth/guard";
 import { classOf, loadProgram, programPlacementLine, wentToCollege, type ProgramAthlete } from "@/lib/data/member";
 import { stageKind, statusRole } from "@/components/statusHue";
-import { Avatar, Chip, EmptyState, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
+import { Avatar, Chevron, Chip, EmptyState, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +62,8 @@ export default async function MemberProgramPage({ params }: { params: Promise<{ 
           ))
         )}
       </Section>
+
+      <Row href={`${base}/schools`} kind="school" role="place" title="Schools" meta="Every school on file, with search and filters" trailing={<Chevron />} />
     </Screen>
   );
 }

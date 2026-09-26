@@ -1,7 +1,7 @@
 # Current state
 
-Last updated: 2026-09-26, after the school and coach data load was
-recorded, fixed and wired in.
+Last updated: 2026-09-26, after the school directory opened to every
+role (Stage 2).
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three logins, each with their own app on the same
@@ -328,6 +328,21 @@ nothing past the edge, no row or tile that goes nowhere
 with no deeper screen to open), and every link followed to a real
 screen the signed-in person may open (116 links, none broken).
 
+
+### The school directory, every role (Stage 2, 2026-09-26)
+
+Every signed-in role can browse and search every school: staff at
+`/schools`, a family at `/family/schools`, a member at
+`/member/schools`, one implementation (`src/lib/data/schoolDirectory.ts`,
+`SchoolDirectory`, `SchoolProfile`) under three guards. Search reaches
+name, division, conference, state and city; Division, State, Conference
+and Major dropdowns are built from the data, so no filter empties the
+list on its own; the list runs A to Z. Staff see the schools they are
+recruiting at first. A school shows everyone the shared facts (academics,
+sports, majors, cost, D3 rule, depth chart, flags); coaches, the org's
+notes and its athletes stay owner and staff only. Entry points: a row
+on Today, member Home and Program, and the family athlete and Colleges
+screens. No tab bar changed.
 
 ### Real schools and coaches, 2026-09-26
 

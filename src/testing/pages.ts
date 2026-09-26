@@ -39,6 +39,12 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "member-athlete", path: "@/app/org/[slug]/member/program/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Fixture State University/, as: MEMBER_ID },
   { name: "member-giving", path: "@/app/org/[slug]/member/giving/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Campaign[\s\S]*Your Seat[\s\S]*Credited to You[\s\S]*The Board/, as: MEMBER_ID },
   { name: "member-more", path: "@/app/org/[slug]/member/more/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Who to Ask[\s\S]*Example Owner[\s\S]*Sign Out/, as: MEMBER_ID },
+  // Stage 2, 2026-09-26: the school directory, as a member sees it. The
+  // shared facts only; no coach, note, athlete or score reaches it.
+  { name: "member-schools", path: "@/app/org/[slug]/member/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture College[\s\S]*Fixture State University/, as: MEMBER_ID },
+  { name: "member-schools-state", path: "@/app/org/[slug]/member/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ state: "NY" }) }, expect: /Fixture College/, as: MEMBER_ID },
+  { name: "member-school", path: "@/app/org/[slug]/member/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Fixture State University[\s\S]*Money/, as: MEMBER_ID },
+  { name: "member-schoolD3", path: "@/app/org/[slug]/member/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) }, expect: /No athletic scholarships at D3/, as: MEMBER_ID },
   // The same screens for an org with no modules: no Giving tab, no
   // seat, nothing about money. Elite Squad is every org that is not
   // Bridge, so this is the common case, not the edge one.
@@ -55,6 +61,12 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "family-colleges", path: "@/app/org/[slug]/family/colleges/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture State University[\s\S]*Visits/, as: FAMILY_ID },
   { name: "family-college", path: "@/app/org/[slug]/family/colleges/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) }, expect: /Fixture State University[\s\S]*Where Things Stand/, as: FAMILY_ID },
   { name: "family-more", path: "@/app/org/[slug]/family/more/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Who to Ask[\s\S]*Example Owner[\s\S]*Sign Out/, as: FAMILY_ID },
+  // Stage 2, 2026-09-26: the school directory, as a family sees it.
+  // A to Z inside "F", then one filter, then the two schools.
+  { name: "family-schools", path: "@/app/org/[slug]/family/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture College[\s\S]*Fixture State University/, as: FAMILY_ID },
+  { name: "family-schools-major", path: "@/app/org/[slug]/family/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ major: "Biology" }) }, expect: /Fixture State University/, as: FAMILY_ID },
+  { name: "family-school", path: "@/app/org/[slug]/family/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Fixture State University[\s\S]*Money/, as: FAMILY_ID },
+  { name: "family-schoolD3", path: "@/app/org/[slug]/family/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) }, expect: /No athletic scholarships at D3/, as: FAMILY_ID },
   { name: "member-long-address", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: LONG_INVITE_ID }), searchParams: p({}) }, expect: /example-organization\.test/ },
   { name: "roster", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Athlete/ },
   // The search path on each list that has one: the term narrows the
@@ -99,6 +111,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "schools", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture State University/ },
   { name: "schools-search", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "state" }) }, expect: /Fixture State University/ },
   { name: "schools-imported", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ imported: "3" }) }, expect: /3 Schools Imported/ },
+  { name: "schools-filtered", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ division: "D3" }) }, expect: /Fixture College/ },
   { name: "metrics", path: "@/app/org/[slug]/roster/[id]/metrics/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /FB Velo[\s\S]*86 mph[\s\S]*Premier/ },
   { name: "metrics-empty", path: "@/app/org/[slug]/roster/[id]/metrics/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteNoGpa }) }, expect: /Nothing Logged Yet/ },
   { name: "matches", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({}) }, expect: /Fixture State University[\s\S]*Fixture College/ },

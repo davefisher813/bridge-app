@@ -94,6 +94,14 @@ function rowAfter(html: string, title: string): string {
 // uses the heading size, so this matches a score and nothing else.
 const SCORE = /text-body font-extrabold tabular-nums/;
 
+// The org's side of a school, which a family or member school page must
+// never carry (Stage 2, 2026-09-26): an athlete's name, a coach from the
+// directory or an org note, a note's text, the staff-only sections and
+// the stale-profile instruction, a score, a metric, a donor. The
+// school's own Avg GPA and SAT range are the shared facts and are
+// allowed; an athlete's are not, and no athlete is on the page.
+const ORG_SIDE_OF_A_SCHOOL = /Fixture (Athlete|Unknown|Transfer|Committed|Enrolled|Graduated|Drafted|Coach|Head|Assistant|Donor|Parent)|coach@|assistant@|Wants a shortstop|Positions of Need|Your Notes|Your Athletes Here|Coaches|Days Old|Score|FB Velo/;
+
 describe("LAW: every page renders", () => {
   for (const page of PAGES) {
     it(`${page.name} renders without throwing`, async () => {
@@ -170,6 +178,21 @@ describe("LAW: a family login opens family screens and nothing else, and staff c
     it(`an owner cannot open ${page.name}`, async () => {
       currentUser = OWNER_ID;
       await expect(render(page.path, page.props)).rejects.toThrow(REDIRECT + "/unauthorized");
+    });
+  }
+
+  // The school directory (Stage 2): a family reads the school row and
+  // nothing else, so nothing of the org's side can be on the page, and
+  // every link stays on the family side.
+  for (const page of family.filter((x) => x.name.startsWith("family-school"))) {
+    it(`a family opening ${page.name} sees the school's facts, none of the org's side, and only family links`, async () => {
+      currentUser = FAMILY_ID;
+      const html = await render(page.path, page.props);
+      expect(html).not.toMatch(ORG_SIDE_OF_A_SCHOOL);
+      const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+      expect(links.length).toBeGreaterThan(0);
+      expect(links.filter((l) => l.startsWith("/org/") && !l.includes("/family/"))).toEqual([]);
+      expect(html).not.toMatch(/<form/);
     });
   }
 
@@ -730,8 +753,13 @@ describe("LAW: a member login opens member screens and nothing else, and staff c
       const forms = (html.match(/<form/g) ?? []).length;
       expect(forms).toBe(page.name.startsWith("member-more") ? 1 : 0);
       // Nothing a board member must not see: a GPA, a test score, a
-      // metric, a call note, a donor's name.
-      expect(html).not.toMatch(/GPA|SAT|ACT|FB Velo|Fixture Donor|coach@/);
+      // metric, a call note, a donor's name. The school pages are the one
+      // split (Stage 2, 2026-09-26): a school's own Avg GPA and SAT range
+      // are reference facts, not an athlete's, so there the ban is on the
+      // org's side of the school instead, which is where an athlete, a
+      // coach or a note would come from.
+      if (page.name.startsWith("member-school")) expect(html).not.toMatch(ORG_SIDE_OF_A_SCHOOL);
+      else expect(html).not.toMatch(/GPA|SAT|ACT|FB Velo|Fixture Donor|coach@/);
     });
 
     it(`an owner cannot open ${page.name}`, async () => {
@@ -779,4 +807,108 @@ describe("LAW: the coach directory shows where staff reach out, and only there",
     const html = await render("@/app/org/[slug]/schools/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) });
     expect(html).not.toMatch(/>Coaches</);
   });
+
+  // Stage 2: the same school is on the family and member directories,
+  // and the coaches are not (college_coaches_staff_read, migration 0036).
+  it("the family and member school pages never name a coach", async () => {
+    for (const [as, role] of [[FAMILY_ID, "family"], [MEMBER_ID, "member"]] as const) {
+      currentUser = as;
+      const html = await render(`@/app/org/[slug]/${role}/schools/[id]/page`, { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) });
+      expect(html).toMatch(/Fixture State University/);
+      expect(html).not.toMatch(/Fixture Head|Fixture Assistant|assistant@fixture|mailto:|tel:/);
+    }
+  });
+});
+
+// Stage 2, 2026-09-26: every signed-in role browses the same school
+// directory, under its own prefix (docs/DECISIONS.md). The facts are
+// the same for everyone; the org's side (coaches, notes, its athletes,
+// the stale-profile instruction) is staff's alone.
+describe("LAW: the school directory shows the shared facts to everyone and the org's side to staff only", () => {
+  const ROLES = [
+    { as: OWNER_ID, role: "owner", dir: "@/app/org/[slug]/schools/page", one: "@/app/org/[slug]/schools/[id]/page", base: `/org/${ORG_WITH_MODULES}/schools/` },
+    { as: FAMILY_ID, role: "family", dir: "@/app/org/[slug]/family/schools/page", one: "@/app/org/[slug]/family/schools/[id]/page", base: `/org/${ORG_WITH_MODULES}/family/schools/` },
+    { as: MEMBER_ID, role: "member", dir: "@/app/org/[slug]/member/schools/page", one: "@/app/org/[slug]/member/schools/[id]/page", base: `/org/${ORG_WITH_MODULES}/member/schools/` },
+  ] as const;
+
+  it("staff see the org's side of a school: coaches, their notes, their athletes", async () => {
+    const html = await render("@/app/org/[slug]/schools/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) });
+    expect(html).toMatch(/>Coaches</);
+    expect(html).toMatch(/Your Notes/);
+    expect(html).toMatch(/Your Athletes Here[\s\S]*Fixture Athlete/);
+    expect(html).toMatch(/Days Old/);
+  });
+
+  for (const r of ROLES.filter((x) => x.role !== "owner")) {
+    it(`a ${r.role} sees the shared facts of a school, and every row on it opens something`, async () => {
+      currentUser = r.as;
+      const html = await render(r.one, { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) });
+      expect(html).toMatch(/Fixture City, CT/);
+      expect(html).toMatch(/Avg GPA/);
+      expect(html).toMatch(/SAT 1050-1250/);
+      expect(html).toMatch(/Sports Sponsored/);
+      expect(html).toMatch(/Majors Offered/);
+      expect(html).toMatch(/Programs of Interest/);
+      expect(html).toMatch(/Money[\s\S]*Out of State: \$38,000/);
+      expect(html).toMatch(/Depth Chart/);
+      expect(html).not.toMatch(ORG_SIDE_OF_A_SCHOOL);
+      // Lead's decision: the cost lines are notes for everyone but an
+      // owner, so no row on the page goes nowhere.
+      const rows = (html.match(/data-kit="row"/g) ?? []).length;
+      expect((html.match(/<a [^>]*><div data-kit="row"/g) ?? []).length).toBe(rows);
+      const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+      expect(links).toEqual([r.base.slice(0, -1)]);
+    });
+  }
+
+  for (const r of ROLES) {
+    it(`a D3 school never offers athletic money, as ${r.role} sees it`, async () => {
+      currentUser = r.as;
+      const html = await render(r.one, { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) });
+      expect(html).toMatch(/No athletic scholarships at D3/);
+      expect(html).not.toMatch(/Full scholarships available/);
+      expect(html).toMatch(/Flags on This School[\s\S]*Fixture flag on this school/);
+    });
+
+    it(`the ${r.role} directory lists every school A to Z, each row linked on the ${r.role} side`, async () => {
+      currentUser = r.as;
+      const html = await render(r.dir, { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) });
+      expect(html).toMatch(/Fixture College[\s\S]*Fixture State University/);
+      expect(html).toMatch(/Fixture Town, NY/);
+      expect(html).toContain(`href="${r.base}${IDS.school}"`);
+      expect(html).toContain(`href="${r.base}${IDS.schoolD3}"`);
+      const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!).filter((l) => l.startsWith("/org/"));
+      // Besides the rows: the member back link to Home, an owner's Add and Import.
+      expect(links.filter((l) => !l.startsWith(r.base) && l !== `/org/${ORG_WITH_MODULES}/${r.role}` && !l.endsWith("/schools/new") && !l.endsWith("/schools/import"))).toEqual([]);
+    });
+
+    // One case per filter, and the search. Each fixture school carries
+    // its own division, state and conference, and only one has Biology.
+    const CASES: Array<[string, Record<string, string>, "college" | "state" | "both" | "none"]> = [
+      ["division D3", { division: "D3" }, "college"],
+      ["division D2", { division: "D2" }, "state"],
+      ["state NY", { state: "NY" }, "college"],
+      ["conference Fixture League", { conference: "Fixture League" }, "college"],
+      ["major Biology", { major: "Biology" }, "state"],
+      ["major biology in any case", { major: "biology" }, "state"],
+      ["a search that reaches the conference", { q: "league" }, "college"],
+      ["a search with a filter, neither clearing the other", { q: "fixture", state: "CT" }, "state"],
+      ["a division the data does not carry, which is dropped", { division: "Nope" }, "both"],
+      ["a search nothing matches", { q: "zzzz" }, "none"],
+    ];
+    for (const [label, search, shows] of CASES) {
+      it(`the ${r.role} directory filtered by ${label}`, async () => {
+        currentUser = r.as;
+        const html = await render(r.dir, { params: p({ slug: ORG_WITH_MODULES }), searchParams: p(search) });
+        const college = html.includes(`${r.base}${IDS.schoolD3}"`);
+        const state = html.includes(`${r.base}${IDS.school}"`);
+        expect({ college, state }).toEqual({ college: shows === "college" || shows === "both", state: shows === "state" || shows === "both" });
+        if (shows === "none") expect(html).toMatch(/No School Matches/);
+        // An applied major shows in its dropdown whatever case the
+        // address carried it in, so the screen never says "Any Major"
+        // over a filtered list.
+        if (search.major) expect(html).toMatch(/<option value="Biology" selected/);
+      });
+    }
+  }
 });

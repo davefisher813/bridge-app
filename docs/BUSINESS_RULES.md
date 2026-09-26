@@ -11,6 +11,17 @@
   what a role can actually do - that's the fixed `org_role` enum plus
   `requireRole()` / `requireOwner()` in `src/lib/auth/guard.ts`.
 
+## Who sees a school (2026-09-26)
+
+- The school directory and a school's shared facts are open to every
+  signed-in role: owner, staff, family and member. `schools` is shared
+  reference data with no `org_id`.
+- A school's coaches (`college_coaches`), the org's notes
+  (`org_school_notes`) and which of the org's athletes are pointed at it
+  are owner and staff only. A family or member school page never loads
+  them.
+- A D3 school never shows a scholarship claim, to any role.
+
 ## NCAA initial eligibility: verified against primary sources 2026-09-15
 
 Everything in this section was read directly out of an NCAA-published

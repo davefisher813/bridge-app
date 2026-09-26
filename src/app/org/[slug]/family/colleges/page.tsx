@@ -6,7 +6,7 @@ import { loadFamilyAthletes, requireFamily } from "@/lib/data/family";
 import { loadFitsForPairs } from "@/lib/data/fits";
 import { StatusPill } from "@/components/StatusPill";
 import { statusRole } from "@/components/statusHue";
-import { Body, Card, EmptyState, Label, Prose, Row, Score, Screen, Section } from "@/components/kit";
+import { Body, Card, Chevron, EmptyState, Label, Prose, Row, Score, Screen, Section } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -145,6 +145,8 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
       </Section>
 
       <Prose>Staff keep this list. To add a school or log a visit, ask {org.name}.</Prose>
+
+      <Row href={`${base}/schools`} kind="school" role="place" title="Every School" meta="Search the whole database" trailing={<Chevron />} />
     </Screen>
   );
 }

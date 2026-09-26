@@ -3026,3 +3026,32 @@ word. Family logins have no Recruiting History screen yet
 profile into History. The Edit dropdown refuses to walk a placed athlete
 backwards. Stored scores for placed and Inactive athletes were deleted
 by 0038 on production.
+
+## 2026-09-26: the school directory for every role
+
+**Decision.** One directory and one school profile, rendered under three
+per-role paths (staff `/schools`, family `/family/schools`, member
+`/member/schools`) with each role's own guard. Search plus four
+dropdown filters built from the data, A to Z. Shared facts for every
+role; coaches, notes and the org's athletes for owner and staff only.
+Entry is a row on each role's home screens; no tab bar changed. The
+three academics tiles have no link for a non-owner, accepted in the tap
+audit baseline at 3 per family and member school screen.
+
+**Reason.** Dave, 2026-09-26: the school database should be browsable
+by anyone signed in, including the kids, with buttons and dropdowns
+rather than only a search.
+
+**Alternatives considered.** One role-neutral `/directory` route
+(rejected: every family link must stay under `/family/`, every member
+link under `/member`, and the tab bar lights by path prefix). A Schools
+tab (rejected for now: the tab counts are Dave's locked picks).
+
+**Consequences.** A member page now reads `schools` directly; it is
+reference data with no org_id, so the member contract about org rows
+is unchanged. The member render law bans athlete and org-side text on
+member school pages instead of the words GPA and SAT, which a school
+legitimately prints. Filtering is in memory over the whole table, fine
+at 122 schools. The member Program screen's school rows stay unlinked
+until the RPC returns a school id.
+

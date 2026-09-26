@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { getCurrentUser, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
-import { Body, Card, Chip, EmptyState, Label, LinkButton, Row, Score, Screen, Section, Stack, TextLink } from "@/components/kit";
+import { Body, Card, Chevron, Chip, EmptyState, Label, LinkButton, Row, Score, Screen, Section, Stack, TextLink } from "@/components/kit";
 import { stageKind, statusRole } from "@/components/statusHue";
 import { effectiveStatus, placementAthlete, type PlacementTarget } from "@/lib/placement";
 import { ATHLETE_STATUSES } from "@/lib/validation/athlete";
@@ -223,6 +223,8 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
             ))}
         </div>
       </Card>
+
+      <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" meta="Every school on file, with search and filters" trailing={<Chevron />} />
 
       {strongMatches.length > 0 && (
         <Section label="Strong Matches" count={strongMatches.length} role="committed" kind="target">

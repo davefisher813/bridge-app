@@ -1833,6 +1833,39 @@ begin
   raise notice 'PASS: anon holds no grant on the coach directory';
 end $$;
 
+-- ── The school directory for every role (Stage 2, 2026-09-26) ────────
+-- A member and a family login browse the same school directory staff
+-- do, so they read the shared reference table directly (schools_read,
+-- migration 0016) and change none of it. user6 is a member and nothing
+-- else; user3 is a Bridge member (and Elite staff); user5 is a family
+-- login and nothing else. The table carries no org_id, so the org_id
+-- coverage checks above never look at it.
+set role app_user;
+do $$
+declare n int; who text;
+begin
+  foreach who in array array['00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000005'] loop
+    perform set_test_user(who::uuid);
+    select count(*) into n from schools;
+    if n <> 1 then raise exception 'FAIL: user % saw % schools, expected 1 (shared reference data)', who, n; end if;
+    begin
+      update schools set name = 'Renamed From the Directory';
+      get diagnostics n = row_count;
+      if n <> 0 then raise exception 'FAIL: user % changed % schools from the directory', who, n; end if;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+  raise notice 'PASS: a member and a family login read the school directory and cannot change it';
+end $$;
+reset role;
+do $$
+declare nm text;
+begin
+  select name into nm from schools where id = '00000000-0000-0000-0000-000000000130';
+  if nm is distinct from 'Shared Reference School' then raise exception 'FAIL: the shared school was renamed to % under a directory write', nm; end if;
+  raise notice 'PASS: the shared school is unchanged after the directory writes';
+end $$;
+
 -- ── Transferring and closed_from (migration 0038) ───────────────────
 -- closed_from only ever holds a status the close-out can replace;
 -- Committed is never one. A Transferring athlete's leftover Committed

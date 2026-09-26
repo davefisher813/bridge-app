@@ -41,6 +41,8 @@ export default async function MemberHomePage({ params }: { params: Promise<{ slu
         {budgetPercent !== null && <Stat value={`${budgetPercent}%`} label="Of Budget" role="high" kind="money" href={`${base}/giving`} />}
       </StatRow>
 
+      <Row href={`${base}/schools`} kind="school" role="place" title="Schools" meta="Every school on file, with search and filters" trailing={<Chevron />} />
+
       <Section label="The Program" count={program.length} role="people" kind="athlete">
         {program.length === 0 ? (
           <EmptyState kind="athlete" title="No Athletes Yet">
