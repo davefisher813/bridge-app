@@ -6,7 +6,7 @@ import { markEnrolled } from "@/lib/actions/enrollment";
 import { EnrollForm } from "@/components/EnrollForm";
 import { StatusPill } from "@/components/StatusPill";
 import { statusRole } from "@/components/statusHue";
-import { EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
+import { Row, Screen, Section } from "@/components/kit";
 
 interface TargetRow {
   id: string;
@@ -19,9 +19,12 @@ function unwrap<T>(v: T | T[] | null): T | null {
 }
 
 // Enrolling is the one event that closes high school recruiting for
-// good (Dave, 2026-09-26). It only runs from here, once a target is
-// already Committed - that is where the school comes from, so nothing
-// is typed twice - and shows exactly what closes before it happens.
+// good (Dave, 2026-09-26). When a target is already Committed, that is
+// where the school comes from, so nothing is typed twice - but an
+// athlete already in college with no Committed row (a transfer, a
+// historical record) still needs their open targets closed the same
+// way, so this screen never requires one. Shows exactly what closes
+// before it happens.
 export default async function EnrollAthletePage({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
@@ -42,25 +45,19 @@ export default async function EnrollAthletePage({ params }: { params: Promise<{ 
 
   return (
     <Screen title="Mark Enrolled" back={{ href: `/org/${slug}/roster/${id}`, label: athlete.name }}>
-      {!committed ? (
-        <EmptyState kind="school" title="No Committed School Yet" action={<LinkButton href={`/org/${slug}/roster/${id}/matches`}>Open Matches</LinkButton>}>
-          Mark a target Committed first. Enrolling reads which school from there.
-        </EmptyState>
-      ) : (
-        <>
-          <Row href={`/org/${slug}/board/${committed.id}`} kind="school" role={statusRole("Committed")} title={committed.schoolName} trailing={<StatusPill status="Committed" />} />
-
-          {closing.length > 0 && (
-            <Section label="Will Close" count={closing.length} role="place" kind="school">
-              {closing.map((t) => (
-                <Row key={t.id} href={`/org/${slug}/board/${t.id}`} kind="school" role={statusRole(t.status)} title={t.schoolName} trailing={<StatusPill status={t.status} />} />
-              ))}
-            </Section>
-          )}
-
-          <EnrollForm action={markEnrolled.bind(null, slug, id)} today={today} />
-        </>
+      {committed && (
+        <Row href={`/org/${slug}/board/${committed.id}`} kind="school" role={statusRole("Committed")} title={committed.schoolName} trailing={<StatusPill status="Committed" />} />
       )}
+
+      {closing.length > 0 && (
+        <Section label="Will Close" count={closing.length} role="place" kind="school">
+          {closing.map((t) => (
+            <Row key={t.id} href={`/org/${slug}/board/${t.id}`} kind="school" role={statusRole(t.status)} title={t.schoolName} trailing={<StatusPill status={t.status} />} />
+          ))}
+        </Section>
+      )}
+
+      <EnrollForm action={markEnrolled.bind(null, slug, id)} today={today} />
     </Screen>
   );
 }

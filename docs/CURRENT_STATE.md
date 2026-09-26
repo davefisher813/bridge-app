@@ -340,14 +340,18 @@ status change actually do something.
 
 A new athletes.status value, Enrolled, the stage after Committed. It is
 reached two ways: the dedicated Mark Enrolled screen
-(`/roster/[id]/enroll`), which requires a Committed target first (that
-is where the school comes from), previews exactly which of the
-athlete's other targets will close, and lets the enrollment date be
-picked; or the plain Edit form's status dropdown, a permissive escape
-hatch for correcting an import or a mistake, which cascades the same
-way and defaults the date to today. Both run through one shared
-function, `applyEnrollment` (`src/lib/data/enrollment.ts`), so neither
-path can silently do nothing the way athletes.status used to.
+(`/roster/[id]/enroll`), which reads which school from a Committed
+target when one exists (that is where the school comes from, so nothing
+is typed twice) but does not require one - an athlete already in college
+with no clean Committed row (a transfer, a historical record) still
+gets their open targets closed the same way, just with no school named
+in the notice - previews exactly which of the athlete's other targets
+will close, and lets the enrollment date be picked; or the plain Edit
+form's status dropdown, a permissive escape hatch for correcting an
+import or a mistake, which cascades the same way and defaults the date
+to today. Both run through one shared function, `applyEnrollment`
+(`src/lib/data/enrollment.ts`), so neither path can silently do nothing
+the way athletes.status used to.
 
 What actually happens: every other open target on the athlete (not
 Committed, not already Not Interested) closes to Not Interested with an

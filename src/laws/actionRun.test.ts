@@ -1591,12 +1591,23 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
     expect(athleteUpdate?.rows[0]).toMatchObject({ status: "Enrolled", first_full_time_enrollment: "2026-09-01" });
   });
 
-  it("refuses without a Committed target", async () => {
+  it("closes open targets even with no Committed target - the transfer/legacy case", async () => {
+    // Dave, 2026-09-26: "I can't mark enrolled for guys already in
+    // college... it's showing a bunch of schools for them... Why are
+    // the other guys in college not following the same logic?" An
+    // athlete with an open target (Offer) and no Committed row must
+    // still get it closed out, same as the Committed case above.
     const { markEnrolled } = await import("@/lib/actions/enrollment");
     const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ enrolledOn: "2026-09-01" })));
-    expect(r.redirect).toBeNull();
-    expect((r.state as MemberState).errors.form).toMatch(/Mark a target Committed first/);
-    expect(writes).toEqual([]);
+    expect(r.redirect).toContain(`/roster/${IDS.athlete}?notice=`);
+    expect(decodeURIComponent(r.redirect!)).toMatch(/notice=Enrolled\. 1 other target closed\./);
+
+    const closed = writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.target));
+    expect(closed?.rows[0]).toMatchObject({ status: "Not Interested" });
+    expect(String(closed?.rows[0]?.notes)).toMatch(/Closed automatically: .+ was marked Enrolled on Sep 1, 2026\./);
+
+    const athleteUpdate = writes.find((w) => w.table === "athletes" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.athlete));
+    expect(athleteUpdate?.rows[0]).toMatchObject({ status: "Enrolled" });
   });
 
   it("refuses a missing or unparseable date", async () => {

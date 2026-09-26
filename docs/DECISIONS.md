@@ -2816,3 +2816,35 @@ what unit tests cannot.
 design catalog rule (a new, undesigned screen gets a tappable catalog of
 options before code is written) is untouched - a different purpose,
 not what this message was about.
+
+## 2026-09-26: Mark Enrolled no longer requires a Committed target
+
+**Decision.** Loosened the just-shipped Mark Enrolled flow: it reads
+which school from a Committed `recruiting_targets` row when one exists,
+but no longer refuses to run without one. Every other open target still
+closes to Not Interested with the same automatic note; `schoolName` is
+simply null, so the notice reads "Enrolled." instead of "Enrolled at
+{school}."
+
+**Reason.** Dave: "I can't mark enrolled for guys already in college
+which I understand but it's showing a bunch of schools for them... Why
+are the other guys in college not following the same logic?" An athlete
+already in college - a transfer, or a historical roster entry - often
+has no clean Committed row in this system, and the original hard
+requirement meant their open targets never closed, unlike an athlete who
+went through the normal HS-committed-then-enrolled path.
+
+**Alternatives considered.** A free-text or school-picker field to name
+a destination when there is no Committed target (rejected: introduces an
+untyped destination name outside the existing `schools`/
+`recruiting_targets` relational model for no real product gain - the
+close-out cascade, which is the actual complaint, does not need a school
+name to run). Removing the Committed-target read entirely (rejected: it
+is still the right, zero-typing source of truth when it exists).
+
+**Consequences.** `markEnrolled` (`src/lib/actions/enrollment.ts`) and
+the enroll screen (`src/app/org/[slug]/roster/[id]/enroll/page.tsx`) no
+longer branch on `!committed`. The athlete profile's Mark Enrolled
+button shows for any staff-editable, non-enrolled athlete, not only one
+with a Committed target. `src/lib/data/enrollment.ts` needed no change -
+it already handled a null `schoolName` correctly.

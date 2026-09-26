@@ -195,7 +195,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
             <JourneyStepper result={journey} />
           </Card>
         )}
-        {!enrolled && canEdit && committedTarget && (
+        {!enrolled && canEdit && (
           <LinkButton href={`/org/${slug}/roster/${id}/enroll`} variant="secondary">
             Mark Enrolled
           </LinkButton>

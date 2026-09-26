@@ -12,11 +12,15 @@ export interface EnrollActionState {
   values?: Record<string, FormDataEntryValue>;
 }
 
-// The deliberate path onto Enrolled: it requires a Committed target
-// (that is where "which school" comes from, so nothing is typed twice)
-// and lets the date be picked, unlike the plain Edit form's escape
-// hatch in updateAthlete, which defaults it to today. See
-// src/lib/data/enrollment.ts for what actually happens.
+// The deliberate path onto Enrolled: it reads which school from a
+// Committed target when there is one (so nothing is typed twice), but
+// does not require one - an athlete already in college (a transfer, or
+// a historical record with no clean Committed row) still needs their
+// open targets closed out the same way. Dave, 2026-09-26: "Why are the
+// other guys in college not following the same logic?" Lets the date be
+// picked, unlike the plain Edit form's escape hatch in updateAthlete,
+// which defaults it to today. See src/lib/data/enrollment.ts for what
+// actually happens.
 export async function markEnrolled(slug: string, athleteId: string, _prev: EnrollActionState, formData: FormData): Promise<EnrollActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
@@ -31,17 +35,6 @@ export async function markEnrolled(slug: string, athleteId: string, _prev: Enrol
   const { data: athlete } = await supabase.from("athletes").select("id, status").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
   if (!athlete) redirect("/unauthorized");
   if (athlete.status === "Enrolled") redirect(`/org/${slug}/roster/${athleteId}`);
-
-  const { data: committed } = await supabase
-    .from("recruiting_targets")
-    .select("id")
-    .eq("org_id", org.id)
-    .eq("athlete_id", athleteId)
-    .eq("status", "Committed")
-    .maybeSingle();
-  if (!committed) {
-    return { errors: { form: "Mark a target Committed first. Enrolling reads which school from there." }, values: Object.fromEntries(formData.entries()) };
-  }
 
   const { schoolName, closedCount } = await applyEnrollment(supabase, org.id, athleteId, enrolledOn);
 
