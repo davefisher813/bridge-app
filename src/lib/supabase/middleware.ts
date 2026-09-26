@@ -7,6 +7,20 @@ import { NextResponse, type NextRequest } from "next/server";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
+// Self-registration is disabled (same as tucci-admin): accounts are
+// created by an org owner, not open signup, so there is no /signup
+// route to allow through here.
+//
+// The app icon and manifest are public too. iOS fetches them without the
+// session when a page is added to the Home Screen; behind the sign-in
+// redirect it got the login page instead of an image and drew a letter
+// in place of the logo (Dave, 2026-09-26).
+const PUBLIC_EXACT = new Set(["/unauthorized", "/icon", "/apple-icon", "/manifest.webmanifest"]);
+
+export function isPublicPath(path: string): boolean {
+  return path.startsWith("/login") || path.startsWith("/auth") || PUBLIC_EXACT.has(path);
+}
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -29,13 +43,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const path = request.nextUrl.pathname;
-  // Self-registration is disabled (same as tucci-admin): accounts are
-  // created by an org owner, not open signup, so there is no /signup
-  // route to allow through here.
-  const isPublic = path.startsWith("/login") || path.startsWith("/auth") || path === "/unauthorized";
-
-  if (!user && !isPublic) {
+  if (!user && !isPublicPath(request.nextUrl.pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
