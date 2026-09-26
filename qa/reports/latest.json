@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "0abc76d",
-  "commitFull": "0abc76df930f63a2c2a577261f1926b2f0f6d59e",
+  "commit": "d31c88a",
+  "commitFull": "d31c88af931452176751ee23d7d77af494ad9a75",
   "branch": "main",
   "remoteBranches": [],
   "shipped": false,
-  "dirty": false,
+  "dirty": true,
   "onMain": false,
-  "startedAt": "2026-09-25T19:58:55.236Z",
-  "durationMs": 14264,
+  "startedAt": "2026-09-26T01:39:42.437Z",
+  "durationMs": 14813,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,7 +18,7 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 1112,
+        "pass": 1143,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
@@ -29,7 +29,7 @@
       "filesNotLoaded": [],
       "filesWithNoTests": [],
       "testsPerFile": {
-        "src/laws/actionRun.test.ts": 114,
+        "src/laws/actionRun.test.ts": 122,
         "src/laws/copyLaws.test.ts": 2,
         "src/laws/dataLaws.test.ts": 12,
         "src/laws/fitLaws.test.ts": 7,
@@ -39,7 +39,7 @@
         "src/laws/laws.test.ts": 13,
         "src/laws/matchingLaws.test.ts": 26,
         "src/laws/ncaaLaws.test.ts": 36,
-        "src/laws/pageRender.test.ts": 326,
+        "src/laws/pageRender.test.ts": 349,
         "src/laws/schemaLaws.test.ts": 5,
         "src/laws/stylingLaws.test.ts": 19,
         "src/lib/ai/anthropicCaller.test.ts": 11,
@@ -111,7 +111,7 @@
             "location": "/login"
           }
         },
-        "ms": 1249
+        "ms": 1212
       },
       "errors": [],
       "warnings": [],
@@ -127,8 +127,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 53,
-      "filesScanned": 400
+      "touchedFiles": 23,
+      "filesScanned": 406
     },
     {
       "name": "types",
