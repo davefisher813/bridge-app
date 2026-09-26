@@ -399,3 +399,23 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
 6. ~~A unique constraint on a transfer window~~ Done 2026-09-22,
    migration 0032, applied live. The check in the action stays, so the
    loser of a race reads a sentence rather than a database error.
+
+## Next up, 2026-09-26
+
+1. **The first real data**, still open: Dave's school sheet, the
+   current transfer windows from an NCAA page, a first metric, a first
+   real family login and a first real board login.
+2. **The board member's own Program screen** (`member_program()`,
+   migration 0031) still reads an athlete's stage from their Committed
+   target only; it has no Enrolled stage of its own. A board member
+   sees "Committed" forever, which is still true, just not the whole
+   story. Needs a change to that SQL function, not just the app.
+3. **Today's Strong Matches** does not exclude an Enrolled athlete's
+   stored fits. In practice they age out of the window on their own;
+   the one gap is a recompute on the same day someone enrolls. Fixing
+   it needs an embedded-column filter (`athletes!inner(status)`) that
+   the fake Supabase client does not support yet either.
+4. **Cleanup pass, no behaviour change** (unchanged from above): one
+   page loader, `cache()` on the org and user lookups, one icons file,
+   split `documents.ts`.
+5. **Dependency bumps.** `@supabase/ssr` 0.5 to 0.12, `zod` 3 to 4.

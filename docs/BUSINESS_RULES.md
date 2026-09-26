@@ -129,6 +129,15 @@ or an online-program athlete who graduated late all burn eligibility
 while sitting out. Any athlete who will turn 19 before the September 1
 preceding their intended enrollment needs this checked by hand.
 
+`athletes.first_full_time_enrollment` is the one thing the app writes
+into this rule (2026-09-26, Mark Enrolled): only when the column is
+still null, and only to the date staff enter when an athlete actually
+enrolls. A transfer athlete's clock started at their original school,
+years before this org ever saw them, so a later enrollment recorded
+here must never move it. Nothing else about the age clock is written by
+the app; every other input is entered by hand where the eligibility
+screen asks for it.
+
 ### Two NCAA-hosted pages that are wrong
 
 - `ncaa.org/division-ii/governance/academics/` still describes "two

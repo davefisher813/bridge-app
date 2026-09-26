@@ -19,7 +19,7 @@ import { StatusPill } from "@/components/StatusPill";
 import { PROGRAM_TIERS } from "@/lib/fit/contract";
 import { regionOf } from "@/lib/fit/regions";
 import type { FitTag } from "@/lib/fit/types";
-import { Body, Button, EmptyState, Form, Label, Notice, Row, Score, Screen, Section, Stack, TextLink } from "@/components/kit";
+import { Body, Button, EmptyState, Form, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, TextLink } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -64,12 +64,24 @@ export default async function MatchesPage({
 
   const supabase = await createClient();
   const [{ data: athlete }, fits, { data: schoolRows }, { data: targetRows }] = await Promise.all([
-    supabase.from("athletes").select("id, name, sport, position, home_state").eq("id", id).eq("org_id", org.id).is("deleted_at", null).single(),
+    supabase.from("athletes").select("id, name, sport, position, home_state, status").eq("id", id).eq("org_id", org.id).is("deleted_at", null).single(),
     loadFitsForAthlete(supabase, org.id, id),
     supabase.from("schools").select("id, division, conference, state, program_tier, majors, sports_sponsored, financials, athletics"),
     supabase.from("recruiting_targets").select("id, school_id, status").eq("athlete_id", id).eq("org_id", org.id),
   ]);
   if (!athlete) notFound();
+
+  if (athlete.status === "Enrolled") {
+    // Recruiting is over for this athlete; nothing left to rank against.
+    // Dave, 2026-09-26.
+    return (
+      <Screen title={athlete.name} back={{ href: `/org/${slug}/roster/${id}`, label: "Back" }}>
+        <EmptyState kind="target" title="Enrolled" action={<LinkButton href={`/org/${slug}/roster/${id}`}>Back to Athlete</LinkButton>}>
+          Matches stopped scoring once {athlete.name} enrolled.
+        </EmptyState>
+      </Screen>
+    );
+  }
 
   const facts = new Map(((schoolRows ?? []) as SchoolFacts[]).map((s) => [s.id, s]));
   const targetBySchool = new Map(((targetRows ?? []) as { id: string; school_id: string; status: string }[]).map((t) => [t.school_id, t]));

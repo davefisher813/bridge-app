@@ -194,6 +194,51 @@ describe("LAW: the list above covers every page in the app", () => {
   });
 });
 
+describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and the family side", () => {
+  // Dave, 2026-09-26: once an athlete enrolls, the high school
+  // recruiting apparatus should stop looking outstanding. The stepper
+  // and the Matches section are what "still recruiting" looks like on
+  // screen, so they are what has to disappear.
+  it("the athlete page drops the stepper and Matches for the Mark Enrolled row, and keeps Colleges as history", async () => {
+    const html = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) });
+    expect(html).toMatch(/Enrolled[\s\S]*Fixture State University/);
+    expect(html).not.toMatch(/>Profile</);
+    expect(html).not.toMatch(/Mark Enrolled/);
+    expect(html).not.toMatch(/>Matches</);
+    // The closed target's real status still renders, honestly, in Colleges.
+    expect(html).toMatch(/Not Interested/);
+  });
+
+  it("a Committed athlete not yet enrolled sees the stepper, the Mark Enrolled button, and Matches", async () => {
+    const html = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteCommitted }) });
+    expect(html).toMatch(/Mark Enrolled/);
+    expect(html).toMatch(/>Matches</);
+  });
+
+  it("the full Matches page shows an Enrolled state instead of a ranked list", async () => {
+    const html = await render("@/app/org/[slug]/roster/[id]/matches/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }), searchParams: p({}) });
+    expect(html).toMatch(/Enrolled/);
+    expect(html).not.toMatch(/Add to Board/);
+  });
+
+  it("the family mirror also drops the stepper and Matches once enrolled", async () => {
+    currentUser = FAMILY_ID;
+    const html = await render("@/app/org/[slug]/family/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) });
+    expect(html).toMatch(/Enrolled[\s\S]*Fixture State University/);
+    expect(html).not.toMatch(/>Profile</);
+    expect(html).not.toMatch(/>Matches</);
+  });
+
+  it("the enroll screen previews exactly what will close, and requires a Committed target", async () => {
+    const html = await render("@/app/org/[slug]/roster/[id]/enroll/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteCommitted }) });
+    expect(html).toMatch(/Fixture State University/);
+    expect(html).toMatch(/Will Close/);
+
+    await expect(render("@/app/org/[slug]/roster/[id]/enroll/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) })).resolves.toMatch(/No Committed School Yet/);
+    await expect(render("@/app/org/[slug]/roster/[id]/enroll/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) })).rejects.toThrow(NOT_FOUND);
+  });
+});
+
 describe("LAW: the awkward rows render too", () => {
   // Every one of these is a row the fixture made deliberately incomplete.
   // A page that only ever sees a complete row is a page nobody has tested.

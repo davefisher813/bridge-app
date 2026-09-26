@@ -2738,3 +2738,65 @@ promises about what it does not know).
 state bodies and twenty-five hints cut or shortened. The copy law still
 holds every remaining title to Title Case, and the preview audit still
 proves no screen renders empty.
+
+## 2026-09-26: Enrolled is the status after Committed, and it closes recruiting out
+
+**Decision.** A new `athletes.status` value, Enrolled. Reaching it (from
+the dedicated Mark Enrolled screen, or from the plain Edit form's status
+dropdown) runs one shared function, `applyEnrollment`
+(`src/lib/data/enrollment.ts`): every other open target on the athlete
+(not Committed, not already Not Interested) closes to Not Interested
+with an appended note saying why and when; the Committed target is left
+alone; `first_full_time_enrollment` backfills from the enrollment date
+only if it was null. Once Enrolled, the athlete's stage stepper and
+Matches section (staff and family screens both) give way to a single
+Enrolled row and disappear, respectively; the Colleges section keeps
+showing every target's real status as history.
+
+**Reason.** Dave, after trying to update an athlete's status and
+watching nothing else change: "their status should change and
+everything should shift based on that status... the schools that
+they're interested in, all that should no longer be relevant, it should
+be cleared out. Right now, everything is stagnant. So if I update
+anybody, nothing really changes." `athletes.status` already had a
+"Committed" value with nothing reading it beyond a roster pill, which
+is the exact bug: a status column that looked meaningful and did
+nothing.
+
+He also ruled out one shape before I ever proposed it: "it can't just
+be like high school recruiting to transfer recruiting, it needs to make
+sense." `recruit_type` describes what kind of recruit an athlete is
+being evaluated as (`hs`, `transfer_4to4`, `transfer_juco`,
+`transfer_grad`); flipping it after enrolling would misrepresent the
+athlete's own history and would re-trigger transfer-specific reasoning
+that does not apply to someone who was never a transfer. Enrolled is a
+new, orthogonal, athlete-level lifecycle fact instead.
+
+**Alternatives.** Reusing `recruiting_targets.status = "Not Interested"`
+as the athlete-level signal (rejected: it already means something else,
+a school-specific coaching decision, and conflating it would make the
+Colleges history dishonest - which is why the auto-close writes a note
+rather than a bare status flip, so a staff member reading it later
+knows why). A new terminal `recruiting_targets` status distinct from
+"Not Interested" (considered; rejected for now: "Not Interested" is
+already excluded from the journey stage calculation, Today's Needs
+Follow-Up, and the board's forward-progress ordering, so reusing it
+needed zero changes to any of those, and the note makes the reason
+explicit without adding an enum value everywhere else has to learn
+about). Enforcing enrollment only through the dedicated screen
+(rejected: the plain Edit dropdown would still silently no-op, which is
+the exact bug being fixed - so both paths run the same close-out, with
+the dedicated screen additionally requiring a Committed target first
+and letting the date be picked).
+
+**Consequences.** `ATHLETE_STATUSES` gains "Enrolled" (no migration:
+both status columns are app-validated free text, not a Postgres enum).
+New screen `/roster/[id]/enroll`, new action `markEnrolled`, `updateAthlete`
+reads the prior status before writing so the cascade runs once, on the
+transition, never on an ordinary later save. Not touched: the recruiting
+board's own Committed grouping; the member/board role's Program screen,
+which still reads only the Committed target (docs/ROADMAP.md); Today's
+Strong Matches, which does not exclude an Enrolled athlete's stored fits
+(a narrow, self-healing gap, docs/ROADMAP.md). Two new fixture athletes
+(Committed, Enrolled) and a law that plants a violation (Matches shown
+after enrollment) and watches it fail before counting.

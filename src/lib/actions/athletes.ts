@@ -7,6 +7,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { matchingColumnsFrom, parseFirstMetrics, parseAthleteForm } from "@/lib/validation/athlete";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
+import { applyEnrollment, enrollmentNotice } from "@/lib/data/enrollment";
 
 // Athlete add/edit was the top ROADMAP.md item once roster/board existed
 // as read-only screens - there was no way to get real data in short of
@@ -103,6 +104,13 @@ export async function updateAthlete(
   }
 
   const supabase = await createClient();
+
+  // Read before write, so a save that flips the dropdown to Enrolled by
+  // hand can be told apart from every other save while it already reads
+  // Enrolled - the close-out below runs once, on the transition, never
+  // on an ordinary later edit. src/lib/data/enrollment.ts.
+  const { data: before } = await supabase.from("athletes").select("status").eq("id", athleteId).eq("org_id", org.id).maybeSingle();
+
   const { error } = await supabase
     .from("athletes")
     .update({
@@ -132,8 +140,16 @@ export async function updateAthlete(
   // Every input the score reads may have changed. docs/MATCHING_CONTRACT.md.
   await recomputeFitsForAthlete(supabase, org.id, athleteId);
 
+  let notice: string | null = null;
+  if (before && before.status !== "Enrolled" && parsed.values.status === "Enrolled") {
+    const today = new Date().toISOString().slice(0, 10);
+    const { schoolName, closedCount } = await applyEnrollment(supabase, org.id, athleteId, today);
+    notice = enrollmentNotice(schoolName, closedCount);
+  }
+
   revalidatePath(`/org/${slug}/roster`);
   revalidatePath(`/org/${slug}/roster/${athleteId}`);
   revalidatePath(`/org/${slug}/board`);
-  redirect(`/org/${slug}/roster/${athleteId}`);
+  revalidatePath(`/org/${slug}`);
+  redirect(notice ? `/org/${slug}/roster/${athleteId}?notice=${encodeURIComponent(notice)}` : `/org/${slug}/roster/${athleteId}`);
 }

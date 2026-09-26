@@ -1567,3 +1567,88 @@ describe("LAW: transfer window dates are data an owner enters, never code", () =
     expect(del?.filters).toEqual(expect.arrayContaining([expect.objectContaining({ column: "id", value: "tw1" })]));
   });
 });
+
+describe("LAW: enrolling closes out recruiting, and nothing else does it silently", () => {
+  // Dave, 2026-09-26, after trying to update an athlete's status and
+  // watching nothing else change: "their status should change and
+  // everything should shift based on that status... it should be
+  // cleared out." src/lib/data/enrollment.ts is the one place this
+  // actually happens; both callers below run through it.
+
+  it("marks Enrolled, closes the open target with a note, and leaves the Committed one alone", async () => {
+    const { markEnrolled } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athleteCommitted, { errors: {} }, form({ enrolledOn: "2026-09-01" })));
+    expect(r.redirect).toContain(`/roster/${IDS.athleteCommitted}?notice=`);
+    expect(decodeURIComponent(r.redirect!)).toMatch(/Enrolled at Fixture State University\. 1 other target closed\./);
+
+    const closed = writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.targetToClose));
+    expect(closed?.rows[0]).toMatchObject({ status: "Not Interested" });
+    expect(String(closed?.rows[0]?.notes)).toMatch(/Closed automatically: Fixture Committed enrolled at Fixture State University on Sep 1, 2026\./);
+
+    expect(writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.targetCommitted))).toBeUndefined();
+
+    const athleteUpdate = writes.find((w) => w.table === "athletes" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.athleteCommitted));
+    expect(athleteUpdate?.rows[0]).toMatchObject({ status: "Enrolled", first_full_time_enrollment: "2026-09-01" });
+  });
+
+  it("refuses without a Committed target", async () => {
+    const { markEnrolled } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ enrolledOn: "2026-09-01" })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.form).toMatch(/Mark a target Committed first/);
+    expect(writes).toEqual([]);
+  });
+
+  it("refuses a missing or unparseable date", async () => {
+    const { markEnrolled } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athleteCommitted, { errors: {} }, form({ enrolledOn: "" })));
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.enrolledOn).toMatch(/Pick the date/);
+    expect(writes).toEqual([]);
+  });
+
+  it("is a quiet no-op on an athlete already Enrolled", async () => {
+    const { markEnrolled } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {} }, form({ enrolledOn: "2026-09-01" })));
+    expect(r.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athleteEnrolled}`);
+    expect(writes).toEqual([]);
+  });
+
+  it("a member cannot mark an athlete Enrolled", async () => {
+    currentUser = MEMBER_ID;
+    const { markEnrolled } = await import("@/lib/actions/enrollment");
+    const r = await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athleteCommitted, { errors: {} }, form({ enrolledOn: "2026-09-01" })));
+    expect(r.redirect).toBe("/unauthorized");
+    expect(writes).toEqual([]);
+  });
+
+  it("never overwrites a first full-time enrollment that already started the NCAA clock", async () => {
+    // A transfer athlete's clock started at their original school, years
+    // before this org ever saw them. Enrolling here must not move it.
+    data.recruiting_targets.push({ id: "tx-committed", org_id: data.orgs[0]!.id, athlete_id: IDS.athleteTransfer, school_id: IDS.schoolD3, status: "Committed", coach_name: null, offer_type: null, offer_scholarship_percent: null, updated_at: "2026-08-01" });
+    const { markEnrolled } = await import("@/lib/actions/enrollment");
+    await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athleteTransfer, { errors: {} }, form({ enrolledOn: "2026-09-01" })));
+    const athleteUpdate = writes.find((w) => w.table === "athletes" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.athleteTransfer));
+    expect(athleteUpdate?.rows[0]).not.toHaveProperty("first_full_time_enrollment");
+    expect(data.athletes.find((a) => a.id === IDS.athleteTransfer)?.first_full_time_enrollment).toBe("2024-08-26");
+  });
+
+  it("a plain Edit save that flips the dropdown to Enrolled cascades the same way", async () => {
+    const { updateAthlete } = await import("@/lib/actions/athletes");
+    const r = await run(() =>
+      updateAthlete(ORG_WITH_MODULES, IDS.athleteCommitted, { errors: {}, values: {} }, form({ name: "Fixture Committed", sport: "baseball", recruitType: "hs", status: "Enrolled" })),
+    );
+    expect(decodeURIComponent(r.redirect!)).toMatch(/Enrolled at Fixture State University\. 1 other target closed\./);
+    const closed = writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.targetToClose));
+    expect(closed?.rows[0]).toMatchObject({ status: "Not Interested" });
+  });
+
+  it("an ordinary save on an already-Enrolled athlete does not re-run the close-out", async () => {
+    const { updateAthlete } = await import("@/lib/actions/athletes");
+    const r = await run(() =>
+      updateAthlete(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {}, values: {} }, form({ name: "Fixture Enrolled", sport: "baseball", recruitType: "hs", status: "Enrolled" })),
+    );
+    expect(r.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athleteEnrolled}`);
+    expect(writes.find((w) => w.table === "recruiting_targets" && w.op === "update")).toBeUndefined();
+  });
+});

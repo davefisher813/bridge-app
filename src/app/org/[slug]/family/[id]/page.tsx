@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireFamily, requireFamilyAthlete } from "@/lib/data/family";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { deriveJourneyStage } from "@/lib/journey";
+import { statusRole, stageKind } from "@/components/statusHue";
 import { Card, Chevron, EmptyState, Label, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
 import { loadFitsForAthlete } from "@/lib/data/fits";
@@ -86,7 +87,13 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
 
   const supabase = await createClient();
   const [{ data: athlete }, { data: targetRows }, { data: metricRows }, { data: docRows }, fits] = await Promise.all([
-    supabase.from("athletes").select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state").eq("id", id).eq("org_id", org.id).is("deleted_at", null).single(),
+    supabase
+      .from("athletes")
+      .select("id, name, sport, position, recruit_type, gpa, status, first_full_time_enrollment, goal, family_budget_cents, home_state")
+      .eq("id", id)
+      .eq("org_id", org.id)
+      .is("deleted_at", null)
+      .single(),
     supabase.from("recruiting_targets").select("id, status, schools(name)").eq("athlete_id", id).eq("org_id", org.id).order("created_at", { ascending: false }),
     supabase.from("athlete_metrics").select("id, metric, value, measured_on, source").eq("athlete_id", id).eq("org_id", org.id).order("measured_on", { ascending: false }),
     supabase.from("documents").select("id, file_name, category, status, created_at").eq("athlete_id", id).eq("org_id", org.id).order("created_at", { ascending: false }),
@@ -102,6 +109,13 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
 
   const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ ...t, school: unwrap(t.schools) }));
   const journey = deriveJourneyStage(targets.map((t) => ({ status: t.status, schoolName: t.school?.name ?? "" })));
+  const enrolled = athlete.status === "Enrolled";
+  const committedTarget = targets.find((t) => t.status === "Committed") ?? null;
+  const enrolledMeta = committedTarget
+    ? `${committedTarget.school?.name ?? "Unknown school"}${athlete.first_full_time_enrollment ? ` · since ${longDate(athlete.first_full_time_enrollment)}` : ""}`
+    : athlete.first_full_time_enrollment
+      ? `Since ${longDate(athlete.first_full_time_enrollment)}`
+      : undefined;
   const topFits = fits.slice(0, 5);
   const goal = GOAL_LABEL[(athlete.goal ?? "balanced") as AthleteGoal] ?? GOAL_LABEL.balanced;
   const budgetCents = athlete.family_budget_cents as number | null;
@@ -113,9 +127,20 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
       back={all.length > 1 ? { href: base, label: "Your Athletes" } : undefined}
       lede={`${athlete.sport}${athlete.position ? ` · ${athlete.position}` : ""} · ${RECRUIT_TYPE_LABEL[athlete.recruit_type] ?? athlete.recruit_type}${athlete.gpa != null ? ` · ${Number(athlete.gpa).toFixed(2)} school GPA` : ""}`}
     >
-      <Card href={`${base}/colleges`}>
-        <JourneyStepper result={journey} />
-      </Card>
+      {enrolled ? (
+        <Row
+          href={committedTarget ? `${base}/colleges/${committedTarget.id}` : `${base}/colleges`}
+          kind={stageKind("Enrolled")}
+          role={statusRole("Enrolled")}
+          title="Enrolled"
+          meta={enrolledMeta}
+          trailing={<Chevron />}
+        />
+      ) : (
+        <Card href={`${base}/colleges`}>
+          <JourneyStepper result={journey} />
+        </Card>
+      )}
 
       <Stack gap={3}>
         <Row href={`${here}/eligibility`} kind="checklist" role="contact" title="NCAA Eligibility" meta="Core GPA, qualifier status and the clock" trailing={<Chevron />} />
@@ -142,38 +167,40 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
         <Label>To change the goal or the budget, ask {org.name}.</Label>
       </Stack>
 
-      <Section label="Matches" count={fits.length} role="place" kind="target" action={fits.length > 5 ? <TextLink href={`${here}/matches`}>See All</TextLink> : undefined}>
-        {fits.length === 0 ? (
-          <EmptyState kind="target" title="No Matches Yet">
-            Every school on file is scored once the record is complete.
-          </EmptyState>
-        ) : (
-          <>
-            {topFits.map((f) => (
-              <Row
-                key={f.school_id}
-                href={`${here}/matches/${f.school_id}`}
-                kind="school"
-                role={f.tag === "Conflict" ? "danger" : f.tag === "Safety" ? "committed" : "place"}
-                title={f.school.name}
-                meta={`${f.school.division} · ${f.partial ? (f.warnings[0] ?? "Partial score") : (f.reasons[0] ?? f.warnings[0] ?? "")}`}
-                trailing={
-                  <>
-                    <Score score={f.score} />
-                    <Label tone={TAG_TONE[f.tag as FitTag] ?? "muted"}>{f.tag}</Label>
-                  </>
-                }
-              />
-            ))}
-            {topFits.some((f) => f.partial) && (
-              <Notice tone="info" title="Some Scores Are Partial">
-                A dimension with nothing on file is left out and the rest are reweighted. The score fills in once the missing numbers are logged.
-              </Notice>
-            )}
-            <TextLink href={`${here}/matches`}>{`See All ${fits.length} Matches`}</TextLink>
-          </>
-        )}
-      </Section>
+      {!enrolled && (
+        <Section label="Matches" count={fits.length} role="place" kind="target" action={fits.length > 5 ? <TextLink href={`${here}/matches`}>See All</TextLink> : undefined}>
+          {fits.length === 0 ? (
+            <EmptyState kind="target" title="No Matches Yet">
+              Every school on file is scored once the record is complete.
+            </EmptyState>
+          ) : (
+            <>
+              {topFits.map((f) => (
+                <Row
+                  key={f.school_id}
+                  href={`${here}/matches/${f.school_id}`}
+                  kind="school"
+                  role={f.tag === "Conflict" ? "danger" : f.tag === "Safety" ? "committed" : "place"}
+                  title={f.school.name}
+                  meta={`${f.school.division} · ${f.partial ? (f.warnings[0] ?? "Partial score") : (f.reasons[0] ?? f.warnings[0] ?? "")}`}
+                  trailing={
+                    <>
+                      <Score score={f.score} />
+                      <Label tone={TAG_TONE[f.tag as FitTag] ?? "muted"}>{f.tag}</Label>
+                    </>
+                  }
+                />
+              ))}
+              {topFits.some((f) => f.partial) && (
+                <Notice tone="info" title="Some Scores Are Partial">
+                  A dimension with nothing on file is left out and the rest are reweighted. The score fills in once the missing numbers are logged.
+                </Notice>
+              )}
+              <TextLink href={`${here}/matches`}>{`See All ${fits.length} Matches`}</TextLink>
+            </>
+          )}
+        </Section>
+      )}
 
       <Section label="Colleges" count={targets.length} role="place" kind="school">
         {targets.length === 0 ? (

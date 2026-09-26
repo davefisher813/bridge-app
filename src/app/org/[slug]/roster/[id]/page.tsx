@@ -10,7 +10,7 @@ import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
 import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { relationshipLabel } from "@/lib/copy/relationships";
-import { statusRole } from "@/components/statusHue";
+import { statusRole, stageKind } from "@/components/statusHue";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
 import { loadFitsForAthlete } from "@/lib/data/fits";
 import { formatMetricValue, metricsFor, positionGroupOf, selectScoringMetrics } from "@/lib/fit";
@@ -91,7 +91,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits] = await Promise.all([
     supabase
       .from("athletes")
-      .select("id, name, sport, position, recruit_type, gpa, status, goal, family_budget_cents, home_state")
+      .select("id, name, sport, position, recruit_type, gpa, status, first_full_time_enrollment, goal, family_budget_cents, home_state")
       .eq("id", id)
       .eq("org_id", org.id)
       .is("deleted_at", null)
@@ -150,6 +150,13 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const visits = visitRows ?? [];
 
   const journey = deriveJourneyStage(targets.map((t) => ({ status: t.status, schoolName: t.school?.name ?? "" })));
+  const enrolled = athlete.status === "Enrolled";
+  const committedTarget = targets.find((t) => t.status === "Committed") ?? null;
+  const enrolledMeta = committedTarget
+    ? `${committedTarget.school?.name ?? "Unknown school"}${athlete.first_full_time_enrollment ? ` · since ${longDate(athlete.first_full_time_enrollment)}` : ""}`
+    : athlete.first_full_time_enrollment
+      ? `Since ${longDate(athlete.first_full_time_enrollment)}`
+      : undefined;
 
   const contacts = contactRows ?? [];
   const schools = (schoolRows ?? []).map((s) => ({ id: s.id, label: `${s.name} (${s.division})` }));
@@ -169,11 +176,31 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         </Notice>
       )}
 
-      {/* The stage line opens this athlete's targets, which is what it
-          is a summary of. Dave, 2026-09-25. */}
-      <Card href={`/org/${slug}/board?athlete=${id}`}>
-        <JourneyStepper result={journey} />
-      </Card>
+      <Stack gap={3}>
+        {enrolled ? (
+          // Recruiting is over: the stepper (still in progress) gives
+          // way to the one fact that matters now. Dave, 2026-09-26.
+          <Row
+            href={committedTarget ? `/org/${slug}/board/${committedTarget.id}` : `/org/${slug}/board?athlete=${id}`}
+            kind={stageKind("Enrolled")}
+            role={statusRole("Enrolled")}
+            title="Enrolled"
+            meta={enrolledMeta}
+            trailing={<Chevron />}
+          />
+        ) : (
+          // The stage line opens this athlete's targets, which is what
+          // it is a summary of. Dave, 2026-09-25.
+          <Card href={`/org/${slug}/board?athlete=${id}`}>
+            <JourneyStepper result={journey} />
+          </Card>
+        )}
+        {!enrolled && canEdit && committedTarget && (
+          <LinkButton href={`/org/${slug}/roster/${id}/enroll`} variant="secondary">
+            Mark Enrolled
+          </LinkButton>
+        )}
+      </Stack>
 
       <Stack gap={3}>
         <Row href={`/org/${slug}/roster/${id}/eligibility`} kind="checklist" role="contact" title="NCAA Eligibility" meta="Core GPA, qualifier status and the clock" trailing={<Chevron />} />
@@ -217,48 +244,52 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         />
       </Stack>
 
-      <Section
-        label="Matches"
-        count={fits.length}
-        role="place"
-        kind="target"
-        action={fits.length > 5 ? <TextLink href={`/org/${slug}/roster/${id}/matches`}>See All</TextLink> : undefined}
-      >
-        {fits.length === 0 ? (
-          <EmptyState kind="target" title="No Matches Yet" action={canEdit ? <LinkButton href={`/org/${slug}/schools`}>Open Schools</LinkButton> : undefined}>
-            {canEdit ? "With no schools on file there is nothing to score against." : "Every school on file is scored once the record is saved."}
-          </EmptyState>
-        ) : (
-          <>
-            {topFits.map((f) => (
-              <Row
-                key={f.school_id}
-                href={`/org/${slug}/roster/${id}/matches`}
-                kind="school"
-                role={f.tag === "Conflict" ? "danger" : f.tag === "Safety" ? "committed" : "place"}
-                title={f.school.name}
-                meta={`${f.school.division} · ${f.partial ? (f.warnings[0] ?? "Partial score") : (f.reasons[0] ?? f.warnings[0] ?? "")}`}
-                trailing={
-                  <>
-                    <Score score={f.score} />
-                    <Label tone={TAG_TONE[f.tag as FitTag] ?? "muted"}>{f.tag}</Label>
-                  </>
-                }
-              />
-            ))}
-            {topFits.some((f) => f.partial) && (
-              <Notice tone="info" title="Some Scores Are Partial">
-                A dimension with no data on file is left out and the rest are reweighted. Add the missing numbers and the score fills in.
-              </Notice>
-            )}
-            <TextLink href={`/org/${slug}/roster/${id}/matches`}>{`See All ${fits.length} Matches`}</TextLink>
-          </>
-        )}
-      </Section>
+      {!enrolled && (
+        // Once enrolled, recruiting is over: nothing left to score
+        // against. Dave, 2026-09-26.
+        <Section
+          label="Matches"
+          count={fits.length}
+          role="place"
+          kind="target"
+          action={fits.length > 5 ? <TextLink href={`/org/${slug}/roster/${id}/matches`}>See All</TextLink> : undefined}
+        >
+          {fits.length === 0 ? (
+            <EmptyState kind="target" title="No Matches Yet" action={canEdit ? <LinkButton href={`/org/${slug}/schools`}>Open Schools</LinkButton> : undefined}>
+              {canEdit ? "With no schools on file there is nothing to score against." : "Every school on file is scored once the record is saved."}
+            </EmptyState>
+          ) : (
+            <>
+              {topFits.map((f) => (
+                <Row
+                  key={f.school_id}
+                  href={`/org/${slug}/roster/${id}/matches`}
+                  kind="school"
+                  role={f.tag === "Conflict" ? "danger" : f.tag === "Safety" ? "committed" : "place"}
+                  title={f.school.name}
+                  meta={`${f.school.division} · ${f.partial ? (f.warnings[0] ?? "Partial score") : (f.reasons[0] ?? f.warnings[0] ?? "")}`}
+                  trailing={
+                    <>
+                      <Score score={f.score} />
+                      <Label tone={TAG_TONE[f.tag as FitTag] ?? "muted"}>{f.tag}</Label>
+                    </>
+                  }
+                />
+              ))}
+              {topFits.some((f) => f.partial) && (
+                <Notice tone="info" title="Some Scores Are Partial">
+                  A dimension with no data on file is left out and the rest are reweighted. Add the missing numbers and the score fills in.
+                </Notice>
+              )}
+              <TextLink href={`/org/${slug}/roster/${id}/matches`}>{`See All ${fits.length} Matches`}</TextLink>
+            </>
+          )}
+        </Section>
+      )}
 
       <Section label="Colleges" count={targets.length} role="place" kind="school">
         {targets.length === 0 ? (
-          <EmptyState kind="school" title="No Colleges Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton> : undefined}
+          <EmptyState kind="school" title="No Colleges Yet" action={canEdit && !enrolled ? <LinkButton href={`/org/${slug}/roster/${id}/matches`}>Pick from Matches</LinkButton> : undefined}
           />
         ) : (
           targets.map((t) => (

@@ -38,6 +38,7 @@ const STATUS_ROLE: Record<string, Role> = {
   "Not Interested": "neutral",
   // Athlete-level status, which is a different column with its own values.
   Active: "committed",
+  Enrolled: "committed",
   Inactive: "neutral",
 };
 
@@ -60,6 +61,7 @@ const STAGE_KIND: Record<string, RowKind> = {
   Committed: "stage_committed",
   "Not Interested": "stage_none",
   Active: "stage_committed",
+  Enrolled: "stage_committed",
   Inactive: "stage_none",
 };
 

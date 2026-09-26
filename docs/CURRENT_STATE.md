@@ -1,8 +1,7 @@
 # Current state
 
-Last updated: 2026-09-22, after the board member's own version, the
-staff-side gaps (invite family, seat sign-in, transfer windows, search)
-and the region filter.
+Last updated: 2026-09-26, after Mark Enrolled and the clickability and
+copy passes.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three logins, each with their own app on the same
@@ -12,9 +11,11 @@ and their own seat. The matching engine scores every athlete against
 every school and stores it; Doc AI reads a document into the right
 place and is hardened against misreads; every list over five rows has a
 search; matches filter by region as well as state; an owner enters the
-NCAA transfer windows as data. Seventy-seven screens on one kit, 1,108
-tests green, the app itself driven in a browser at 320, 375 and 390 in
-both themes with nothing past the edge.
+NCAA transfer windows as data; enrolling an athlete closes their
+recruiting out for good, everywhere it shows. Seventy-eight screens on
+one kit, 1,143 tests green, the app itself driven in a browser at 320,
+375 and 390 in both themes with nothing past the edge, no row or tile
+that goes nowhere, and every link followed to a real screen.
 
 ---
 
@@ -35,7 +36,7 @@ both themes with nothing past the edge.
 
 ## What exists
 
-**77 pages**, 33 migrations, 1,112 tests in 51 files, 13 law files,
+**78 pages**, 33 migrations, 1,143 tests in 51 files, 13 law files,
 129 PASS lines in the row-level-security suite.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
@@ -326,6 +327,55 @@ nothing past the edge, no row or tile that goes nowhere
 (`qa/clickable-baseline.json`, 234 down to 55, and the 55 are records
 with no deeper screen to open), and every link followed to a real
 screen the signed-in person may open (116 links, none broken).
+
+### Enrolling closes recruiting out for good, 2026-09-26
+
+Dave, after trying to update an athlete's status and watching nothing
+else on the screen change: "their status should change and everything
+should shift based on that status... the schools that they're
+interested in, all that should no longer be relevant, it should be
+cleared out." athletes.status already had an unused "Committed" value
+with nothing reading it beyond a roster pill; this is what makes a
+status change actually do something.
+
+A new athletes.status value, Enrolled, the stage after Committed. It is
+reached two ways: the dedicated Mark Enrolled screen
+(`/roster/[id]/enroll`), which requires a Committed target first (that
+is where the school comes from), previews exactly which of the
+athlete's other targets will close, and lets the enrollment date be
+picked; or the plain Edit form's status dropdown, a permissive escape
+hatch for correcting an import or a mistake, which cascades the same
+way and defaults the date to today. Both run through one shared
+function, `applyEnrollment` (`src/lib/data/enrollment.ts`), so neither
+path can silently do nothing the way athletes.status used to.
+
+What actually happens: every other open target on the athlete (not
+Committed, not already Not Interested) closes to Not Interested with an
+appended note saying why and when, so Today's Needs Follow-Up and the
+Targets board stop showing a coach outstanding work on someone who has
+already enrolled elsewhere. The Committed target is left alone. The
+NCAA age clock's `first_full_time_enrollment` backfills from the
+enrollment date only if nothing has started it already - a transfer
+athlete's clock started at their original school, years earlier, and
+must never be moved by a later enrollment.
+
+Once Enrolled: the athlete's stage stepper gives way to a single
+Enrolled row naming the school (staff and family screens both); the
+Matches section and the full Matches page stop scoring and rank
+nothing; the Colleges section still lists every target with its real,
+honest status, so the history is never lost. Not touched: the recruiting
+board's Committed group (still shows the athlete, correctly), the
+member/board role's own program screen (still reads the Committed
+target through its own summary function; showing Enrolled there would
+need a change to that SQL function and is left for later), and Today's
+Strong Matches (a same-day recompute right before enrolling could
+surface a stale suggestion for a day; the normal case ages out of the
+window on its own).
+
+"It can't just be like high school recruiting to transfer recruiting,
+it needs to make sense" ruled out reusing `recruit_type` for this, which
+describes what KIND of recruit someone is, never whether they still
+are one.
 
 ### Less text on every screen, 2026-09-25
 

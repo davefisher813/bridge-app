@@ -51,6 +51,12 @@ export const IDS = {
   orgList: "00000000-0000-0000-0000-000000000131",
   athleteTransfer: "00000000-0000-0000-0000-0000000000c3",
   athleteElite: "00000000-0000-0000-0000-0000000000c4",
+  athleteCommitted: "00000000-0000-0000-0000-0000000000c5",
+  athleteEnrolled: "00000000-0000-0000-0000-0000000000c6",
+  targetCommitted: "00000000-0000-0000-0000-000000000e3",
+  targetToClose: "00000000-0000-0000-0000-000000000e4",
+  targetEnrolledCommitted: "00000000-0000-0000-0000-000000000e5",
+  targetEnrolledClosed: "00000000-0000-0000-0000-000000000e6",
 } as const;
 
 export function buildFixture(): Dataset {
@@ -122,6 +128,7 @@ export function buildFixture(): Dataset {
     athlete_guardians: [
       { org_id: BRIDGE, athlete_id: IDS.athlete, user_id: FAMILY, relationship: "parent", created_at: "2026-09-03T12:00:00.000Z" },
       { org_id: BRIDGE, athlete_id: IDS.athleteNoGpa, user_id: FAMILY, relationship: "parent", created_at: "2026-09-03T12:00:00.000Z" },
+      { org_id: BRIDGE, athlete_id: IDS.athleteEnrolled, user_id: FAMILY, relationship: "parent", created_at: "2026-09-03T12:00:00.000Z" },
     ],
     athletes: [
       // The one athlete in the org with no modules. Elite Squad is every
@@ -243,6 +250,65 @@ export function buildFixture(): Dataset {
         home_state: "NY",
         grades: {},
       },
+      {
+        // Committed on one target, still In Contact on another: the
+        // Mark Enrolled screen and action have something real to close.
+        id: IDS.athleteCommitted,
+        org_id: BRIDGE,
+        recruit_type: "hs",
+        name: "Fixture Committed",
+        sport: "baseball",
+        position: "SS",
+        status: "Committed",
+        gpa: 3.5,
+        gpa_verified: true,
+        grad_year: 2027,
+        date_of_birth: "2009-01-01",
+        first_full_time_enrollment: null,
+        intended_enrollment: "2027-08-20",
+        detail: { kind: "hs" },
+        measurables: {},
+        is_international: false,
+        toefl_score: null,
+        ielts_score: null,
+        f1_visa_status: null,
+        ncaa_eligibility_status: "In Progress",
+        deleted_at: null,
+        goal: "balanced",
+        family_budget_cents: null,
+        home_state: "CT",
+        grades: {},
+      },
+      {
+        // Already enrolled: no Matches section, the stepper gives way
+        // to the Enrolled row, and the target that would have stayed
+        // open already carries its closing note.
+        id: IDS.athleteEnrolled,
+        org_id: BRIDGE,
+        recruit_type: "hs",
+        name: "Fixture Enrolled",
+        sport: "baseball",
+        position: "OF",
+        status: "Enrolled",
+        gpa: 3.6,
+        gpa_verified: true,
+        grad_year: 2026,
+        date_of_birth: "2008-05-01",
+        first_full_time_enrollment: "2026-08-01",
+        intended_enrollment: "2026-08-01",
+        detail: { kind: "hs" },
+        measurables: {},
+        is_international: false,
+        toefl_score: null,
+        ielts_score: null,
+        f1_visa_status: null,
+        ncaa_eligibility_status: "Cleared",
+        deleted_at: null,
+        goal: "balanced",
+        family_budget_cents: null,
+        home_state: "CT",
+        grades: {},
+      },
     ],
     schools: [
       {
@@ -302,6 +368,55 @@ export function buildFixture(): Dataset {
         offer_type: null,
         offer_scholarship_percent: null,
         updated_at: "2026-05-01",
+      },
+      {
+        id: IDS.targetCommitted,
+        org_id: BRIDGE,
+        athlete_id: IDS.athleteCommitted,
+        school_id: IDS.school,
+        status: "Committed",
+        coach_name: "Fixture Coach",
+        offer_type: "scholarship",
+        offer_scholarship_percent: 100,
+        updated_at: "2026-08-01",
+      },
+      {
+        // Still open: the enroll screen previews this closing, and the
+        // action closes it to Not Interested with a note.
+        id: IDS.targetToClose,
+        org_id: BRIDGE,
+        athlete_id: IDS.athleteCommitted,
+        school_id: IDS.schoolD3,
+        status: "In Contact",
+        coach_name: null,
+        offer_type: null,
+        offer_scholarship_percent: null,
+        updated_at: "2026-08-10",
+      },
+      {
+        id: IDS.targetEnrolledCommitted,
+        org_id: BRIDGE,
+        athlete_id: IDS.athleteEnrolled,
+        school_id: IDS.school,
+        status: "Committed",
+        coach_name: "Fixture Coach",
+        offer_type: "scholarship",
+        offer_scholarship_percent: 100,
+        updated_at: "2026-01-01",
+      },
+      {
+        // Already closed by a prior enrollment, note and all: proves the
+        // Colleges section still shows the honest history.
+        id: IDS.targetEnrolledClosed,
+        org_id: BRIDGE,
+        athlete_id: IDS.athleteEnrolled,
+        school_id: IDS.schoolD3,
+        status: "Not Interested",
+        coach_name: null,
+        offer_type: null,
+        offer_scholarship_percent: null,
+        notes: "Closed automatically: Fixture Enrolled enrolled at Fixture State University on Aug 1, 2026.",
+        updated_at: "2026-08-01",
       },
     ],
     target_communications: [

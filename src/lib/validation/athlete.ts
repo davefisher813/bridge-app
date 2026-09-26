@@ -18,7 +18,18 @@ export const RECRUIT_TYPES: { value: RecruitType; label: string }[] = [
   { value: "transfer_grad", label: "Transfer (Grad)" },
 ];
 
-export const ATHLETE_STATUSES = ["Active", "Committed", "Inactive"] as const;
+// Enrolled is the status after Committed: the athlete is actually
+// attending now, not just signed. It is the one value that closes
+// recruiting out - see src/lib/data/enrollment.ts - so it is reachable
+// from the Edit form (a permissive escape hatch, for correcting an
+// import or a mistake) as well as from the dedicated Mark Enrolled
+// screen (which requires a Committed target first and lets the date be
+// picked). Both paths run the same close-out. Dave, 2026-09-26: "it
+// can't just be like high school recruiting to transfer recruiting, it
+// needs to make sense" - ruling out reusing recruit_type for this, which
+// describes what KIND of recruit someone is, not whether they still are
+// one.
+export const ATHLETE_STATUSES = ["Active", "Committed", "Enrolled", "Inactive"] as const;
 
 export const ATHLETE_GOALS: { value: AthleteGoal; label: string }[] = (Object.keys(GOAL_LABEL) as AthleteGoal[]).map((value) => ({ value, label: GOAL_LABEL[value] }));
 

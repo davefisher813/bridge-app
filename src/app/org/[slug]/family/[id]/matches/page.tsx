@@ -6,7 +6,7 @@ import { loadFitsForAthlete } from "@/lib/data/fits";
 import { StatusPill } from "@/components/StatusPill";
 import { PROGRAM_TIERS } from "@/lib/fit/contract";
 import type { FitTag } from "@/lib/fit/types";
-import { Body, EmptyState, Label, Notice, Row, Score, Screen, Section, Stack } from "@/components/kit";
+import { Body, EmptyState, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +36,18 @@ export default async function FamilyMatchesPage({ params }: { params: Promise<{ 
   const user = await requireFamily(org.id);
   const { athlete } = await requireFamilyAthlete(org.id, user.id, id);
   const here = `/org/${slug}/family/${id}`;
+
+  if (athlete.status === "Enrolled") {
+    // Recruiting is over for this athlete; nothing left to rank
+    // against. Dave, 2026-09-26.
+    return (
+      <Screen title={athlete.name} back={{ href: here, label: "Back" }}>
+        <EmptyState kind="target" title="Enrolled" action={<LinkButton href={here}>Back to {athlete.name}</LinkButton>}>
+          Matches stopped scoring once {athlete.name} enrolled.
+        </EmptyState>
+      </Screen>
+    );
+  }
 
   const supabase = await createClient();
   const [fits, { data: schoolRows }, { data: targetRows }] = await Promise.all([

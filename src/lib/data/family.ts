@@ -16,6 +16,7 @@ export interface FamilyAthlete {
   sport: string;
   position: string | null;
   recruit_type: string;
+  status: string;
   relationship: string | null;
 }
 
@@ -23,8 +24,8 @@ interface GuardianRow {
   athlete_id: string;
   relationship: string | null;
   athletes:
-    | { id: string; name: string; sport: string; position: string | null; recruit_type: string; deleted_at: string | null }
-    | { id: string; name: string; sport: string; position: string | null; recruit_type: string; deleted_at: string | null }[]
+    | { id: string; name: string; sport: string; position: string | null; recruit_type: string; status: string; deleted_at: string | null }
+    | { id: string; name: string; sport: string; position: string | null; recruit_type: string; status: string; deleted_at: string | null }[]
     | null;
 }
 
@@ -45,14 +46,14 @@ export async function loadFamilyAthletes(orgId: string, userId: string): Promise
   const supabase = await createClient();
   const { data } = await supabase
     .from("athlete_guardians")
-    .select("athlete_id, relationship, athletes(id, name, sport, position, recruit_type, deleted_at)")
+    .select("athlete_id, relationship, athletes(id, name, sport, position, recruit_type, status, deleted_at)")
     .eq("org_id", orgId)
     .eq("user_id", userId);
   return ((data ?? []) as GuardianRow[])
     .map((g) => {
       const a = unwrap(g.athletes);
       if (!a || a.deleted_at) return null;
-      return { id: a.id, name: a.name, sport: a.sport, position: a.position, recruit_type: a.recruit_type, relationship: g.relationship };
+      return { id: a.id, name: a.name, sport: a.sport, position: a.position, recruit_type: a.recruit_type, status: a.status, relationship: g.relationship };
     })
     .filter((a): a is FamilyAthlete => a !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
