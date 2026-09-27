@@ -3,12 +3,15 @@ import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
 import { requireFamily, requireFamilyAthlete } from "@/lib/data/family";
+import { threadSummaryByAthlete } from "@/lib/data/messages";
+import { loadStaff } from "@/lib/data/staff";
+import { labelForRole } from "@/lib/org/roleLabels";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
 import { isScoredStatus, placementAthlete, placementMeta, placementOf } from "@/lib/placement";
 import { statusRole, stageKind } from "@/components/statusHue";
-import { Card, Chevron, EmptyState, Label, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { Avatar, Card, Chevron, EmptyState, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
 import { loadFitsForAthlete } from "@/lib/data/fits";
 import { formatMetricValue, metricsFor, positionGroupOf, selectScoringMetrics } from "@/lib/fit";
@@ -19,7 +22,9 @@ import type { FitTag } from "@/lib/fit/types";
 // read only, with nothing from the rest of the org on it. Dave's picks
 // in the Family Access catalog (2026-09-21): this page is home, every
 // match shows its reasons, their own documents are listed, nothing is
-// editable, and staff are who to ask.
+// editable, and staff are who to ask. Stage 3 (2026-09-26): the athlete's
+// advisor, by name with an email, and the thread with them. Check-ins
+// are staff only and never show here.
 
 const TAG_TONE: Record<FitTag, "committed" | "ink" | "muted" | "danger"> = {
   Safety: "committed",
@@ -88,10 +93,10 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
   const here = `${base}/${id}`;
 
   const supabase = await createClient();
-  const [{ data: athlete }, { data: targetRows }, { data: metricRows }, { data: docRows }, fits] = await Promise.all([
+  const [{ data: athlete }, { data: targetRows }, { data: metricRows }, { data: docRows }, fits, staff, threads] = await Promise.all([
     supabase
       .from("athletes")
-      .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment")
+      .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment, advisor_id")
       .eq("id", id)
       .eq("org_id", org.id)
       .is("deleted_at", null)
@@ -100,6 +105,8 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
     supabase.from("athlete_metrics").select("id, metric, value, measured_on, source").eq("athlete_id", id).eq("org_id", org.id).order("measured_on", { ascending: false }),
     supabase.from("documents").select("id, file_name, category, status, created_at").eq("athlete_id", id).eq("org_id", org.id).order("created_at", { ascending: false }),
     loadFitsForAthlete(supabase, org.id, id),
+    loadStaff(supabase, org.id),
+    threadSummaryByAthlete(supabase, org.id, user.id, [id]),
   ]);
   if (!athlete) notFound();
 
@@ -121,6 +128,11 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
   const goal = GOAL_LABEL[(athlete.goal ?? "balanced") as AthleteGoal] ?? GOAL_LABEL.balanced;
   const budgetCents = athlete.family_budget_cents as number | null;
   const docs = (docRows ?? []) as DocRow[];
+  // The advisor is looked up among the org's owners and staff, so one who
+  // has since left the staff reads as nobody named rather than a stale name.
+  const advisor = athlete.advisor_id ? staff.find((s) => s.id === athlete.advisor_id && s.email) : undefined;
+  const thread = threads.get(id) ?? { total: 0, unread: 0 };
+  const threadMeta = thread.total === 0 ? "Nothing sent yet" : `${thread.total} ${thread.total === 1 ? "message" : "messages"}${thread.unread > 0 ? ` · ${thread.unread} new` : ""}`;
 
   return (
     <Screen
@@ -147,6 +159,24 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
           <JourneyStepper result={journey} />
         </Card>
       )}
+
+      <Section label="Your Advisor" role="people" kind="people">
+        {advisor ? (
+          <Row
+            href={`mailto:${advisor.email}`}
+            leading={<Avatar name={advisor.name} />}
+            title={advisor.name}
+            meta={`${labelForRole(org.roleLabels, advisor.role)} · ${advisor.email}`}
+            trailing={<Chevron />}
+            wrap
+          />
+        ) : (
+          <EmptyState kind="people" title="No Advisor Named Yet" action={<LinkButton href={`${base}/more`} variant="secondary">Who to Ask</LinkButton>}>
+            Ask {org.name} under More.
+          </EmptyState>
+        )}
+        <Row href={`${here}/messages`} kind="message" role="contact" title="Messages" meta={threadMeta} trailing={<Chevron />} />
+      </Section>
 
       <Stack gap={3}>
         <Row href={`${here}/eligibility`} kind="checklist" role="contact" title="NCAA Eligibility" meta="Core GPA, qualifier status and the clock" trailing={<Chevron />} />

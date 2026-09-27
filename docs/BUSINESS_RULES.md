@@ -260,6 +260,31 @@ Committed, Enrolled, Transferring, Graduated, Drafted, Inactive.
   filtered to it. A tile's count and the filtered list are computed by
   the same rule (`effectiveStatus`), so they never disagree.
 
+## Advisors, messages and check-ins (2026-09-26)
+
+- **One advisor per athlete**, an owner or staff member of the
+  athlete's own org, or nobody. It is display and reminders only, never
+  a permission: every owner and staff member still reads and writes
+  every athlete. A database trigger refuses anyone else, and removing a
+  person or making them a member clears them as advisor. Production
+  starts with nobody; Dave assigns from the Edit screen.
+- **A check-in is due after 14 days** without one, or when there has
+  never been one (`CHECKIN_DUE_DAYS` in `src/lib/checkins.ts`, the one
+  place the number lives). Reminders are for Active and Transferring
+  athletes with an advisor; a placed or Inactive athlete is not chased.
+- **Check-ins are staff only.** Owner and staff read and write the log
+  and its notes. A family login and a member read no row, enforced in
+  the database, because these athletes are minors and a note written
+  for staff must never reach a parent through the API.
+- **The message thread** is one per athlete, between the org's owner
+  and staff and that athlete's family logins. A member never reads it.
+- **A family writes exactly one thing**: a message it authors, on an
+  athlete it is linked to, plus its own read marker. It cannot edit or
+  delete a message (staff can), cannot sign as someone else, and cannot
+  file a message under another org.
+- **No email yet.** A new message is signalled only by the unread count
+  in the app.
+
 ## Fit-scoring model
 
 The scoring rules Dave picked on 2026-09-20 (which number scores, the

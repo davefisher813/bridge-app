@@ -18,6 +18,8 @@ export interface AthleteFormInitialValues {
   gpa?: number;
   gpaVerified?: boolean;
   status?: string;
+  // The owner or staff member who checks in (migration 0039).
+  advisorId?: string;
   isInternational?: boolean;
   toeflScore?: number;
   ieltsScore?: number;
@@ -63,11 +65,15 @@ function field(state: AthleteActionState, initial: AthleteFormInitialValues, key
   return fromInitial === undefined || fromInitial === null ? "" : String(fromInitial);
 }
 
+// `advisors` is the org's owners and staff (src/lib/data/staff.ts), the
+// only people the database lets advise. A record whose advisor is no
+// longer among them shows Nobody Yet, and saving clears it.
+//
 // `firstMetrics` puts a First Metrics section on the form (the Add
 // screen): the sport's metrics, one date, one source, each number
 // logged as a dated entry when the athlete is saved. The Edit screen
 // leaves it out; the Metrics screen is the log there.
-export function AthleteForm({ action, initialValues = {}, submitLabel, firstMetrics = false }: { action: ServerAction; initialValues?: AthleteFormInitialValues; submitLabel: string; firstMetrics?: boolean }) {
+export function AthleteForm({ action, initialValues = {}, submitLabel, firstMetrics = false, advisors = [] }: { action: ServerAction; initialValues?: AthleteFormInitialValues; submitLabel: string; firstMetrics?: boolean; advisors?: { id: string; name: string }[] }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const [recruitType, setRecruitType] = useState<RecruitType>((state.values.recruitType as RecruitType) || initialValues.recruitType || "hs");
   const [isInternational, setIsInternational] = useState<boolean>(
@@ -122,6 +128,14 @@ export function AthleteForm({ action, initialValues = {}, submitLabel, firstMetr
         </SelectField>
       </Grid2>
       <CheckField name="gpaVerified" label="GPA Verified" defaultChecked={f("gpaVerified") === "on" || !!initialValues.gpaVerified} />
+      <SelectField name="advisorId" label="Advisor" hint="Who checks in with this athlete. The family sees the name." defaultValue={advisors.some((a) => a.id === f("advisorId")) ? f("advisorId") : ""} error={err("advisorId")}>
+        <option value="">Nobody Yet</option>
+        {advisors.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.name}
+          </option>
+        ))}
+      </SelectField>
 
       {recruitType === "hs" ? (
         <Stack gap={3}>

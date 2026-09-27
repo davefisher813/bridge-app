@@ -1,21 +1,23 @@
 # Current state
 
-Last updated: 2026-09-26, after the school directory opened to every
-role (Stage 2).
+Last updated: 2026-09-26, after advisors, the family thread and staff
+check-ins (Stage 3), written and tested locally, not yet deployed.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three logins, each with their own app on the same
 database: staff run recruiting, fundraising and governance; a family
-sees one athlete read only; a board member sees the program as stages
-and their own seat. The matching engine scores every athlete against
-every school and stores it; Doc AI reads a document into the right
-place and is hardened against misreads; every list over five rows has a
-search; matches filter by region as well as state; an owner enters the
-NCAA transfer windows as data; enrolling an athlete closes their
-recruiting out for good, everywhere it shows. Seventy-eight screens on
-one kit, 1,143 tests green, the app itself driven in a browser at 320,
-375 and 390 in both themes with nothing past the edge, no row or tile
-that goes nowhere, and every link followed to a real screen.
+sees one athlete and writes only messages on that athlete's thread; a
+board member sees the program as stages and their own seat. The
+matching engine scores every athlete against every school and stores
+it; Doc AI reads a document into the right place and is hardened
+against misreads; every list over five rows has a search; matches
+filter by region as well as state; an owner enters the NCAA transfer
+windows as data; enrolling an athlete closes their recruiting out for
+good, everywhere it shows; every athlete can have an advisor on staff
+who logs check-ins and talks with the family in the app. Ninety screens
+on one kit, 1,385 tests green, the app itself driven in a browser at
+320, 375 and 390 in both themes with nothing past the edge, no row or
+tile that goes nowhere, and every link followed to a real screen.
 
 ---
 
@@ -28,16 +30,17 @@ that goes nowhere, and every link followed to a real screen.
   2026-09-21 (Alfred): every push to `main` builds and deploys on its
   own. Vercel Authentication is off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
-  us-west-2). 33 migrations applied, 0033 (the member summary functions
-  are for signed-in callers only) on 2026-09-22. RLS on every table.
+  us-west-2). 38 migrations applied, the last 0038 (Transferring and
+  `closed_from`) on 2026-09-26. 0039 (advisors, messages, check-ins) is
+  tested locally and not applied yet. RLS on every table.
 - **Accounts:** dave@bffsa.org and davefisher813@gmail.com, both owners
   of both orgs, both with the same password. Password is the first
   screen; the magic link sits behind "Email me a link instead".
 
 ## What exists
 
-**78 pages**, 33 migrations, 1,143 tests in 51 files, 13 law files,
-129 PASS lines in the row-level-security suite.
+**90 pages**, 39 migrations, 1,385 tests in 55 files, 14 law files,
+191 PASS lines in the row-level-security suite.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
@@ -190,9 +193,10 @@ org's grading scales and approved lists are readable so the eligibility
 screen can explain itself; `private._member_org_ids()` now excludes the
 family role, so communications, contacts, documents, private school
 notes, fundraising and governance stay closed. A family member writes
-nothing. The users policy shows a family member the org's owner and
-staff and never another family. All of it is asserted in
-`scripts/rls_test.sql` (118 PASS lines) and the suite fails when the
+nothing but messages on their own athlete's thread and their own read
+marker (Stage 3, below). The users policy shows a family member the
+org's owner and staff and never another family. All of it is asserted
+in `scripts/rls_test.sql` and the suite fails when the
 exclusion is removed.
 
 Migration 0024 adds the two reads Dave's picks needed: the org's owner
@@ -343,6 +347,44 @@ sports, majors, cost, D3 rule, depth chart, flags); coaches, the org's
 notes and its athletes stay owner and staff only. Entry points: a row
 on Today, member Home and Program, and the family athlete and Colleges
 screens. No tab bar changed.
+
+### Advisors, the family thread and staff check-ins (Stage 3, 2026-09-26)
+
+Migration 0039. Nothing here changes what anyone may do; the advisor is
+a name and a reminder, never a permission.
+
+- **Advisor** (`athletes.advisor_id`): picked on the athlete's Add and
+  Edit forms from the org's owner and staff, or Nobody Yet. A trigger
+  refuses anyone else; removing a person or making them a member clears
+  it. The profile has an Advisor section (tap to email) or No Advisor
+  Yet with Pick One; the family's athlete page has Your Advisor or No
+  Advisor Named Yet, pointing at More.
+- **My Athletes** (`/mine`, owner and staff): the athletes you advise,
+  never checked in first, then the longest gap, each with its new
+  messages. Today has a My Athletes row, and Needs Follow-Up lists up
+  to four check-in reminders ahead of the targets: org wide, Active and
+  Transferring athletes with an advisor still on staff, advisor named.
+  The roster filters to yours with `?advisor=me` (Just Mine).
+- **Check-ins** (`/roster/[id]/checkins`): kind (Call, Meeting, Text,
+  Other), date and notes, logged and removed by owner and staff. Due
+  after 14 days (`CHECKIN_DUE_DAYS`, `src/lib/checkins.ts`). Staff only
+  in the database as well as on screen: a family or member login reads
+  no row.
+- **Messages**: one thread per athlete, `/roster/[id]/messages` for
+  staff and `/family/[id]/messages` for the family, one component for
+  both. Opening a thread marks it read (one marker per person per
+  thread); unread counts show on the profile, the family's athlete page
+  and My Athletes. A member never sees a thread.
+- **No email.** A new message tells nobody outside the app; the unread
+  count is the only signal. Stage 3b on the roadmap.
+- **Production starts empty.** Every athlete's advisor is null until
+  Dave picks one on Edit, so My Athletes is empty and no reminder shows
+  until then. Anyone to be picked needs an owner or staff login first.
+
+The RLS suite proves a family login reads no check-in, writes only its
+own messages on its own athlete, cannot sign as someone else or file a
+message under another org, and that the advisor must be owner or staff
+of the athlete's org (each planted and watched to fail).
 
 ### Real schools and coaches, 2026-09-26
 
@@ -546,6 +588,10 @@ Format examples stay, because they are the part a person acts on.
   390. One screenshot from his phone is the missing input.
 - **No API key for Doc AI.** The model caller is a stand-in.
 - **The name.** "BFFSA" is what the app calls itself for now.
+- **Who advises whom.** Every production athlete's advisor is null
+  until Dave picks one on the Edit screen; the notes name Dave, Mike
+  and Kev, but nothing maps those names to logins, and Mike and Kev
+  need owner or staff logins before they can be picked.
 
 ### Known and deliberate
 
@@ -565,12 +611,13 @@ Format examples stay, because they are the part a person acts on.
 
 ### Not yet done, not blocked
 
-- The database has no schools, no transfer windows and no benchmark
-  sets. The CSV import exists and the transfer-window form exists; the
-  schools are Dave's Google Sheet exported to the template, and the
-  window dates have to be read off an NCAA-published page rather than
-  recalled, which is why none are seeded.
+- The database has no transfer windows and no benchmark sets. The
+  transfer-window form exists; the window dates have to be read off an
+  NCAA-published page rather than recalled, which is why none are
+  seeded.
 - `@supabase/ssr` 0.5 and `zod` 3 are both a major behind.
+- No message notifications: the app sends no email of its own, so a
+  family learns of a message only by opening the app (Stage 3b).
 - A stat tile has no sub-line and a row has two lines; the few captions
   that lost a home moved into a meta line or a note beside them. Worth a
   look during the audit.
@@ -588,18 +635,20 @@ Format examples stay, because they are the part a person acts on.
 
 ## Immediate next steps
 
-1. Dave exports his school sheet to the template and imports it, then
+1. Stage 3 ships when Dave says "go": apply 0039 to production, deploy,
+   then Dave picks an advisor on each athlete's Edit screen.
+2. Dave exports his school sheet to the template and imports it, then
    logs a first metric and reads a real match. The three interpreted
    numbers (strike target, grade weights, preset weights) get revisited
    on what he sees. Nothing else in the app is waiting on code: every
    screen it needs exists and is verified against the fixture.
-2. Dave's page-by-page audit of the new screens on his phone.
-3. The first real family (the athlete first, then a parent or legal
+3. Dave's page-by-page audit of the new screens on his phone.
+4. The first real family (the athlete first, then a parent or legal
    guardian) and the first real board login, each from the athlete's
    page and the seat's page respectively.
-4. The current NCAA transfer windows, entered from an NCAA-published
+5. The current NCAA transfer windows, entered from an NCAA-published
    page, so transfer timing stops reading as unverified.
-5. Cleanup pass: one page loader, `cache()` on the org and user lookups,
+6. Cleanup pass: one page loader, `cache()` on the org and user lookups,
    split `documents.ts`, then the `@supabase/ssr` and `zod` bumps.
 
 See docs/ROADMAP.md for the rest.

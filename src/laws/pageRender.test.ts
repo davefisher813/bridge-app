@@ -30,8 +30,10 @@ const REDIRECT = "NEXT_REDIRECT:";
 let currentUser: string | null = OWNER_ID;
 // One dataset per test, rebuilt in beforeEach, so a law can change a
 // row before a render (an athlete set to Transferring, say) and the
-// page reads the changed row. A render never writes, so sharing it
-// across the clients one page opens changes nothing.
+// page reads the changed row. The one write a render makes is the
+// thread pages' read mark (Stage 3, an idempotent upsert of the
+// viewer's own row), so sharing it across the clients one page opens
+// changes nothing another page reads.
 let data: Dataset = buildFixture();
 
 vi.mock("next/headers", () => ({
@@ -910,5 +912,152 @@ describe("LAW: the school directory shows the shared facts to everyone and the o
         if (search.major) expect(html).toMatch(/<option value="Biology" selected/);
       });
     }
+  }
+});
+
+// Stage 3, 2026-09-26: an athlete has an advisor, and the advisor and
+// the athlete's family share one message thread (migration 0039). A
+// member (Bridge: Board) never reads the thread. Check-ins are staff
+// only (the lead's decision: these athletes are minors, and RLS is row
+// level, so the only safe place for a call note is a table the family
+// cannot read at all): no family screen names them, links to them or
+// shows a note, and a family login is refused from the staff log.
+//
+// Each assertion was planted against and reverted before this was
+// called done: the family athlete page's section retitled, the /mine
+// sort reversed, a Check-Ins row added to the family athlete page, the
+// staff check-ins page and the staff thread each opened to the family
+// role, the family guard dropped from the family thread, a message body
+// shown on the member's athlete page, and Today's reminder pointed at
+// the athlete instead of the log. Each failed here, and passes again
+// reverted.
+describe("LAW: an advisor and the family share one thread, the member never sees it, and check-ins stay with staff", () => {
+  const ATHLETE = { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) };
+  const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+  const BODIES = /Fixture message from staff|Fixture reply from the family/;
+  // The word in any form a screen could carry it: a title, a chip, a
+  // link to a /checkins route, the fixture note itself.
+  const CHECKIN = /check-?ins?\b|Fixture check-in note/i;
+
+  it("the family athlete page names the advisor, with a way to write to them", async () => {
+    currentUser = FAMILY_ID;
+    const html = await render("@/app/org/[slug]/family/[id]/page", ATHLETE);
+    expect(html).toMatch(/Your Advisor[\s\S]*Example Owner/);
+    expect(html).toContain('href="mailto:owner@example.test"');
+    expect(html).toContain(`href="/org/${ORG_WITH_MODULES}/family/${IDS.athlete}/messages"`);
+  });
+
+  it("the staff athlete page names the advisor and opens the thread and the log", async () => {
+    const html = await render("@/app/org/[slug]/roster/[id]/page", ATHLETE);
+    expect(html).toMatch(/Advisor[\s\S]*Example Owner/);
+    expect(html).toContain('href="mailto:owner@example.test"');
+    expect(html).toContain(`href="/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}/messages"`);
+    expect(html).toContain(`href="/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}/checkins"`);
+  });
+
+  // Opening the thread clears the count on both athlete pages, and a
+  // read thread says how many messages it holds, never "0 new".
+  it("opening the thread clears its new count on the athlete page", async () => {
+    // The Row bolds the first meta clause, so the text is read with tags out.
+    const text = (html: string) => html.replace(/<[^>]+>/g, "");
+    expect(text(await render("@/app/org/[slug]/roster/[id]/page", ATHLETE))).toMatch(/2 messages · 1 new/);
+    await render("@/app/org/[slug]/roster/[id]/messages/page", ATHLETE);
+    const after = text(await render("@/app/org/[slug]/roster/[id]/page", ATHLETE));
+    expect(after).toMatch(/2 messages/);
+    expect(after).not.toMatch(/2 messages · \d+ new/);
+  });
+
+  it("staff and family read the same thread, each with a composer", async () => {
+    const staff = await render("@/app/org/[slug]/roster/[id]/messages/page", ATHLETE);
+    currentUser = FAMILY_ID;
+    const family = await render("@/app/org/[slug]/family/[id]/messages/page", ATHLETE);
+    for (const html of [staff, family]) {
+      expect(html).toMatch(/Fixture message from staff[\s\S]*Fixture reply from the family/);
+      expect(html).toMatch(/<form/);
+    }
+    // The family's copy keeps every link on the family side.
+    expect(hrefs(family).filter((l) => l.startsWith("/org/") && !l.startsWith(`/org/${ORG_WITH_MODULES}/family/`))).toEqual([]);
+  });
+
+  it("each side is refused from the other's thread, and a family from a thread that is not theirs", async () => {
+    currentUser = OWNER_ID;
+    await expect(render("@/app/org/[slug]/family/[id]/messages/page", ATHLETE)).rejects.toThrow(REDIRECT + "/unauthorized");
+    currentUser = FAMILY_ID;
+    await expect(render("@/app/org/[slug]/roster/[id]/messages/page", ATHLETE)).rejects.toThrow(REDIRECT + "/unauthorized");
+    await expect(render("@/app/org/[slug]/family/[id]/messages/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) })).rejects.toThrow(NOT_FOUND);
+  });
+
+  it("My Athletes lists the athlete never checked in with first, and only the ones this person advises", async () => {
+    const html = await render("@/app/org/[slug]/mine/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    const never = html.indexOf("Fixture Unknown");
+    const recent = html.indexOf("Fixture Athlete");
+    expect(never).toBeGreaterThan(-1);
+    expect(recent).toBeGreaterThan(-1);
+    expect(never).toBeLessThan(recent);
+    expect(html).not.toMatch(/Fixture (Transfer|Committed|Enrolled|Graduated|Drafted)/);
+  });
+
+  // A placed or graduated athlete is never due: the reminders on Today
+  // skip them, so the counts on Today and My Athletes must too, or the
+  // tile promises a check-in the reminders never show. Planted (the
+  // status check dropped from each count) and watched fail.
+  it("an athlete who is no longer being recruited is never counted as due", async () => {
+    const before = await render("@/app/org/[slug]/mine/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    expect(before).toMatch(/2 athletes · 1 due for a check-in/);
+    const row = data.athletes.find((a) => a.id === IDS.athleteNoGpa)!;
+    row.status = "Graduated";
+    const mine = await render("@/app/org/[slug]/mine/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    expect(mine).toMatch(/2 athletes · 0 due for a check-in/);
+    const today = await render("@/app/org/[slug]/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    expect(today).toMatch(/2 athletes, 0 due for a check-in/);
+    expect(today).not.toContain(`/roster/${IDS.athleteNoGpa}/checkins`);
+  });
+
+  it("Today opens My Athletes and reminds staff of the athlete never checked in with", async () => {
+    const html = await render("@/app/org/[slug]/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    expect(html).toContain(`href="/org/${ORG_WITH_MODULES}/mine"`);
+    const href = `href="/org/${ORG_WITH_MODULES}/roster/${IDS.athleteNoGpa}/checkins"`;
+    const at = html.indexOf(href);
+    expect(at).toBeGreaterThan(-1);
+    const row = html.slice(at, html.indexOf("</a>", at));
+    expect(row).toMatch(/Fixture Unknown/);
+    expect(row).toMatch(/never checked in/);
+  });
+
+  it("a member opens none of it, and the member's athlete page carries no message and no note", async () => {
+    currentUser = MEMBER_ID;
+    for (const path of ["@/app/org/[slug]/roster/[id]/messages/page", "@/app/org/[slug]/roster/[id]/checkins/page", "@/app/org/[slug]/family/[id]/messages/page"]) {
+      await expect(render(path, ATHLETE)).rejects.toThrow(REDIRECT + "/unauthorized");
+    }
+    await expect(render("@/app/org/[slug]/mine/page", { params: p({ slug: ORG_WITH_MODULES }) })).rejects.toThrow(REDIRECT + "/unauthorized");
+    const html = await render("@/app/org/[slug]/member/program/[id]/page", ATHLETE);
+    expect(html).toMatch(/Fixture Athlete/);
+    expect(html).not.toMatch(BODIES);
+    expect(html).not.toMatch(CHECKIN);
+  });
+
+  it("a family login is refused from the staff check-in log, for its own athlete and any other", async () => {
+    currentUser = FAMILY_ID;
+    for (const id of [IDS.athlete, IDS.athleteNoGpa, IDS.athleteTransfer]) {
+      await expect(render("@/app/org/[slug]/roster/[id]/checkins/page", { params: p({ slug: ORG_WITH_MODULES, id }) })).rejects.toThrow(REDIRECT + "/unauthorized");
+    }
+  });
+
+  // Every family screen, not only the two this stage touched: a check-in
+  // row added to the family home or Colleges later would leak the same
+  // way. The fixture athlete carries a check-in with a note, so a screen
+  // that read the log would have something to show.
+  const family = PAGES.filter((x) => x.as === FAMILY_ID);
+  it("there are family screens to check, the athlete page and the thread among them", () => {
+    expect(family.map((x) => x.name)).toEqual(expect.arrayContaining(["family-athlete", "family-messages"]));
+    expect(data.athlete_checkins.some((c) => c.athlete_id === IDS.athlete && c.notes)).toBe(true);
+  });
+  for (const page of family) {
+    it(`${page.name} never shows a check-in, its note or a link to the log`, async () => {
+      currentUser = FAMILY_ID;
+      const html = await render(page.path, page.props);
+      expect(html).not.toMatch(CHECKIN);
+      expect(hrefs(html).filter((l) => /checkin/i.test(l))).toEqual([]);
+    });
   }
 });

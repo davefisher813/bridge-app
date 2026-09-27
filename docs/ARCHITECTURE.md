@@ -203,10 +203,46 @@ is every membership and is used only to resolve the org row;
 `_family_staff_ids()` the people they may ask. Every read policy on
 athlete data is `org_id in member orgs OR athlete_id in family
 athletes`; every write policy is `org_id in staff orgs`, which never
-included family. A trigger on `athlete_guardians` refuses a row whose
+includes family, with one exception since 0039: a message (below). A trigger on `athlete_guardians` refuses a row whose
 athlete or person is not in the row's org, so the org id on it cannot be
 used to cross tenants. `scripts/rls_test.sql` seeds a family member and
 asserts each of these.
+
+### Advisors, the thread and check-ins (migration 0039)
+
+- **`athletes.advisor_id`** is a nullable column (`references users on
+  delete set null`), not an assignments table: one advisor per athlete.
+  `private.advisor_is_staff()`, a before insert or update trigger on
+  `advisor_id, org_id`, refuses anyone who is not owner or staff of
+  `new.org_id`. The trigger fires only on write, so
+  `removeMember` and `changeMemberRole` (to member) null the column
+  themselves. Pages look the advisor up in `loadStaff()`
+  (`src/lib/data/staff.ts`) rather than embedding `users` from
+  `athletes`, which now reaches `users` three ways and would be
+  ambiguous to PostgREST.
+- **`athlete_checkins`**: staff only. Read is `_member_org_ids()` with
+  no family clause, writes are `_staff_org_ids()`.
+- **`athlete_messages`**: read is member orgs or `_family_athlete_ids()`.
+  Insert requires `author_id = auth.uid()` and (staff org or family
+  athlete), the first write policy a family satisfies. Delete is staff
+  only. A second trigger, `private.athlete_message_is_honest()`, stamps
+  `created_at` with the server's clock on insert and refuses any update
+  that changes the author, the time, the words or the thread (author_id
+  going null on account deletion excepted), so a message is never
+  redated, re-signed or rewritten once sent. A check-in is signed by the
+  caller: `advisor_id` must be null or `auth.uid()`.
+- **`athlete_message_reads`**: a watermark, one row per person per
+  thread (primary key `(athlete_id, user_id)`), upserted by
+  `markThreadRead()` when a thread page renders, the only page that
+  writes on render (idempotent). Unread is messages by someone else
+  newer than my `read_at` (`src/lib/data/messages.ts`).
+- **Coherence.** Every row carries a denormalised `org_id`;
+  `private.athlete_row_is_coherent()`, a trigger on all three tables,
+  refuses a row whose athlete is not in that org. Without it a family
+  login in two orgs could file one org's message under the other's
+  `org_id`, where the other org's staff would read it.
+- The due rule and the reminder order are pure (`src/lib/checkins.ts`),
+  so Today, My Athletes and the check-in log read the same arithmetic.
 
 ## Testing a Supabase-flavored migration without Docker or a live project
 

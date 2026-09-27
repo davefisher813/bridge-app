@@ -867,7 +867,10 @@ declare
     array['org_approved_courses', 'insert into org_approved_courses (list_id, org_id, title, subject) values (''00000000-0000-0000-0000-000000000910'', %L, ''Member Course'', ''math'')'],
     array['athlete_metrics', 'insert into athlete_metrics (org_id, athlete_id, metric, value, measured_on) values (%L, ''00000000-0000-0000-0000-000000000110'', ''fbVelo'', 90.00, ''2026-09-01'')'],
     array['org_school_notes', 'insert into org_school_notes (org_id, school_id, coach_name) values (%L, ''00000000-0000-0000-0000-000000000130'', ''Member Coach'')'],
-    array['athlete_school_fits', 'insert into athlete_school_fits (org_id, athlete_id, school_id, score, tag, inputs_hash) values (%L, ''00000000-0000-0000-0000-000000000111'', ''00000000-0000-0000-0000-000000000130'', 50, ''Fit'', ''member'')']
+    array['athlete_school_fits', 'insert into athlete_school_fits (org_id, athlete_id, school_id, score, tag, inputs_hash) values (%L, ''00000000-0000-0000-0000-000000000111'', ''00000000-0000-0000-0000-000000000130'', 50, ''Fit'', ''member'')'],
+    array['athlete_checkins', 'insert into athlete_checkins (org_id, athlete_id, kind) values (%L, ''00000000-0000-0000-0000-000000000110'', ''call'')'],
+    array['athlete_messages', 'insert into athlete_messages (org_id, athlete_id, author_id, body) values (%L, ''00000000-0000-0000-0000-000000000110'', ''00000000-0000-0000-0000-000000000003'', ''member wrote this'')'],
+    array['athlete_message_reads', 'insert into athlete_message_reads (org_id, athlete_id, user_id) values (%L, ''00000000-0000-0000-0000-000000000110'', ''00000000-0000-0000-0000-000000000003'')']
   ];
 begin
   for i in 1 .. array_length(inserts, 1) loop
@@ -1614,6 +1617,375 @@ begin
 end $$;
 reset role;
 
+-- ── Migration 0039: advisors, the thread and the check-in log ────────
+-- The advisor is owner or staff of the athlete's own org, nobody else.
+-- Check-ins are staff only: a family login reads none and writes none,
+-- because the notes are about a minor and written for staff. The thread
+-- is staff and that athlete's family, never a member, and it is the one
+-- table a family login may write, only as themselves. Placed before the
+-- 0026 block, while user5 is family in Bridge alone (athlete A). ──
+reset role;
+update athletes set advisor_id = '00000000-0000-0000-0000-000000000001' where id = '00000000-0000-0000-0000-000000000110';
+update athletes set advisor_id = '00000000-0000-0000-0000-000000000002' where id = '00000000-0000-0000-0000-000000000120';
+insert into athlete_checkins (org_id, athlete_id, advisor_id, kind, occurred_on, notes) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000001', 'call', '2026-09-20', 'Bridge staff call note'),
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000002', 'meeting', '2026-09-20', 'Elite staff meeting note');
+insert into athlete_messages (org_id, athlete_id, author_id, body) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000001', 'Bridge message on athlete A'),
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000002', 'Elite message'),
+  -- Athlete B's thread, so the family boundary has something to miss.
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000001', 'Bridge message on athlete B');
+-- The owner's marker on athlete B's thread: a row the family must not see.
+insert into athlete_message_reads (org_id, athlete_id, user_id) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000001');
+
+-- The coherence trigger, as the superuser, so RLS is not what stops it.
+do $$
+begin
+  begin
+    insert into athlete_messages (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000001', 'cross-org');
+    raise exception 'FAIL: a message filed a Bridge athlete under Elite Squad''s org';
+  exception when check_violation then
+    raise notice 'PASS: a message must carry its athlete''s own org';
+  end;
+  begin
+    insert into athlete_checkins (org_id, athlete_id, kind) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000110', 'call');
+    raise exception 'FAIL: a check-in filed a Bridge athlete under Elite Squad''s org';
+  exception when check_violation then
+    raise notice 'PASS: a check-in must carry its athlete''s own org';
+  end;
+  begin
+    insert into athlete_message_reads (org_id, athlete_id, user_id) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000002');
+    raise exception 'FAIL: a read marker filed a Bridge athlete under Elite Squad''s org';
+  exception when check_violation then
+    raise notice 'PASS: a read marker must carry its athlete''s own org';
+  end;
+  begin
+    update athlete_messages set org_id = '00000000-0000-0000-0000-000000000020' where body = 'Bridge message on athlete A';
+    raise exception 'FAIL: a message was moved to another org by update';
+  exception when check_violation then
+    raise notice 'PASS: a message cannot be moved to another org';
+  end;
+end $$;
+
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge owner
+do $$
+declare n int; affected int;
+begin
+  select count(*) into n from athlete_checkins;
+  if n <> 1 then raise exception 'FAIL: Bridge''s owner saw % check-ins, expected 1 (Bridge''s)', n; end if;
+  select count(*) into n from athlete_messages;
+  if n <> 2 then raise exception 'FAIL: Bridge''s owner saw % messages, expected 2 (athletes A and B)', n; end if;
+  select count(*) into n from athlete_checkins where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 0 then raise exception 'FAIL: Bridge''s owner read % of Elite Squad''s check-ins', n; end if;
+  select count(*) into n from athlete_messages where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 0 then raise exception 'FAIL: Bridge''s owner read % of Elite Squad''s messages', n; end if;
+  select count(*) into n from athlete_message_reads;
+  if n <> 1 then raise exception 'FAIL: Bridge''s owner saw % read markers, expected 1', n; end if;
+  raise notice 'PASS: staff read their own org''s check-ins, threads and read markers and nothing of another org''s';
+
+  insert into athlete_checkins (org_id, athlete_id, advisor_id, kind, notes) values
+    ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000001', 'text', 'owner logged this');
+  insert into athlete_messages (org_id, athlete_id, author_id, body) values
+    ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000001', 'owner wrote this');
+  insert into athlete_message_reads (org_id, athlete_id, user_id) values
+    ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000001');
+  raise notice 'PASS: staff log a check-in, write to a thread and mark it read';
+
+  begin
+    insert into athlete_checkins (org_id, athlete_id, kind) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'call');
+    raise exception 'FAIL: Bridge''s owner logged a check-in in Elite Squad''s org';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a check-in cannot be logged in another org';
+  end;
+  begin
+    insert into athlete_messages (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000001', 'sneaky');
+    raise exception 'FAIL: Bridge''s owner wrote into Elite Squad''s thread';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a message cannot be written into another org''s thread';
+  end;
+  begin
+    insert into athlete_messages (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000003', 'written as someone else');
+    raise exception 'FAIL: staff wrote a message signed as somebody else';
+  exception when insufficient_privilege then
+    raise notice 'PASS: staff write messages only as themselves';
+  end;
+  begin
+    insert into athlete_message_reads (org_id, athlete_id, user_id) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000003');
+    raise exception 'FAIL: staff wrote a read marker for somebody else';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a read marker is only ever the caller''s own';
+  end;
+
+  -- The advisor: owner or staff of the athlete's org, nobody else.
+  begin
+    update athletes set advisor_id = '00000000-0000-0000-0000-000000000003' where id = '00000000-0000-0000-0000-000000000110';
+    raise exception 'FAIL: a Bridge member (Board) was made an athlete''s advisor';
+  exception when check_violation then
+    raise notice 'PASS: a member cannot advise';
+  end;
+  begin
+    update athletes set advisor_id = '00000000-0000-0000-0000-000000000005' where id = '00000000-0000-0000-0000-000000000110';
+    raise exception 'FAIL: a family login was made an athlete''s advisor';
+  exception when check_violation then
+    raise notice 'PASS: a family login cannot advise';
+  end;
+  begin
+    update athletes set advisor_id = '00000000-0000-0000-0000-000000000002' where id = '00000000-0000-0000-0000-000000000110';
+    raise exception 'FAIL: Elite Squad''s owner was made a Bridge athlete''s advisor';
+  exception when check_violation then
+    raise notice 'PASS: staff of another org cannot advise';
+  end;
+  begin
+    insert into athletes (org_id, recruit_type, name, sport, advisor_id)
+      values ('00000000-0000-0000-0000-000000000010', 'hs', 'Advised By A Member', 'baseball', '00000000-0000-0000-0000-000000000003');
+    raise exception 'FAIL: an athlete was created with a member as advisor';
+  exception when check_violation then
+    raise notice 'PASS: the advisor rule holds on insert too';
+  end;
+  update athletes set advisor_id = '00000000-0000-0000-0000-000000000001' where id = '00000000-0000-0000-0000-000000000110';
+  get diagnostics affected = row_count;
+  if affected <> 1 then raise exception 'FAIL: the owner could not be set as advisor (% rows)', affected; end if;
+  update athletes set advisor_id = null where id = '00000000-0000-0000-0000-000000000111';
+  get diagnostics affected = row_count;
+  if affected <> 1 then raise exception 'FAIL: an advisor could not be cleared (% rows)', affected; end if;
+  raise notice 'PASS: owner or staff of the athlete''s org can be picked as advisor, and the pick can be cleared';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000003'); -- Bridge MEMBER, Elite STAFF
+do $$
+declare n int; affected int;
+begin
+  select count(*) into n from athlete_checkins where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: a Bridge member read % Bridge check-ins, expected 0', n; end if;
+  select count(*) into n from athlete_messages where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: a Bridge member read % Bridge messages, expected 0', n; end if;
+  select count(*) into n from athlete_message_reads where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: a Bridge member read % Bridge read markers, expected 0', n; end if;
+  select count(*) into n from athlete_checkins where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 1 then raise exception 'FAIL: as Elite staff, user3 read % Elite check-ins, expected 1', n; end if;
+  select count(*) into n from athlete_messages where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 1 then raise exception 'FAIL: as Elite staff, user3 read % Elite messages, expected 1', n; end if;
+  raise notice 'PASS: a member never reads the thread, the log or the markers; the same person reads them where they are staff';
+
+  update athlete_messages set body = 'member edit' where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'FAIL: a member edited % Bridge messages', affected; end if;
+  delete from athlete_checkins where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'FAIL: a member deleted % Bridge check-ins', affected; end if;
+  raise notice 'PASS: a member edits and removes nothing in the thread or the log';
+
+  -- Staff of Elite may advise an Elite athlete: the rule is per org.
+  update athletes set advisor_id = '00000000-0000-0000-0000-000000000003' where id = '00000000-0000-0000-0000-000000000120';
+  get diagnostics affected = row_count;
+  if affected <> 1 then raise exception 'FAIL: Elite staff could not be picked as an Elite athlete''s advisor (% rows)', affected; end if;
+  update athletes set advisor_id = '00000000-0000-0000-0000-000000000002' where id = '00000000-0000-0000-0000-000000000120';
+  raise notice 'PASS: the advisor rule is per org: the same person advises where they are staff';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000005'); -- Bridge FAMILY, athlete A only
+do $$
+declare n int; affected int;
+begin
+  select count(*) into n from athlete_checkins;
+  if n <> 0 then raise exception 'FAIL: a family login read % check-ins, expected 0 (staff only)', n; end if;
+  select count(*) into n from athlete_checkins where athlete_id = '00000000-0000-0000-0000-000000000110';
+  if n <> 0 then raise exception 'FAIL: a family login read their own athlete''s check-in notes by filtering on athlete_id'; end if;
+  raise notice 'PASS: a family login reads no check-ins, not even their own athlete''s';
+
+  select count(*) into n from athlete_messages where athlete_id = '00000000-0000-0000-0000-000000000110';
+  if n <> 2 then raise exception 'FAIL: a family login read % messages on their athlete''s thread, expected 2', n; end if;
+  select count(*) into n from athlete_messages where athlete_id <> '00000000-0000-0000-0000-000000000110';
+  if n <> 0 then raise exception 'FAIL: a family login read % messages on other athletes'' threads', n; end if;
+  select count(*) into n from athlete_messages where athlete_id = '00000000-0000-0000-0000-000000000111';
+  if n <> 0 then raise exception 'FAIL: a family login read athlete B''s thread by id'; end if;
+  select count(*) into n from athlete_message_reads;
+  if n <> 0 then raise exception 'FAIL: a family login read % of staff''s read markers, expected 0', n; end if;
+  raise notice 'PASS: a family login reads their own athlete''s thread and nothing else';
+
+  -- Sent with a created_at of its own, which the server replaces: dated
+  -- 2099 it would read as new to staff forever and sit last in the
+  -- thread; backdated it would rewrite the record.
+  insert into athlete_messages (org_id, athlete_id, author_id, body, created_at) values
+    ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000005', 'family wrote this', '2099-01-01');
+  raise notice 'PASS: a family login writes to their own athlete''s thread';
+  select count(*) into n from athlete_messages where body = 'family wrote this' and created_at > now() + interval '1 minute';
+  if n <> 0 then raise exception 'FAIL: a family login dated a message in the future'; end if;
+  raise notice 'PASS: a message is stamped with the server''s time, whatever the caller sends';
+
+  begin
+    insert into athlete_messages (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000001', 'pretending to be staff');
+    raise exception 'FAIL: a family login wrote a message signed as the owner';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a family login writes messages only as themselves';
+  end;
+  begin
+    insert into athlete_messages (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000005', 'wrong athlete');
+    raise exception 'FAIL: a family login wrote into another athlete''s thread';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a family login cannot write into another athlete''s thread';
+  end;
+  begin
+    insert into athlete_messages (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000005', 'filed under the wrong org');
+    raise exception 'FAIL: a family login filed their athlete''s message under Elite Squad''s org';
+  exception when check_violation or insufficient_privilege then
+    raise notice 'PASS: a family login cannot file a message under another org';
+  end;
+  select count(*) into n from athlete_messages where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 0 then raise exception 'FAIL: a family login''s message landed in Elite Squad''s org'; end if;
+  begin
+    insert into athlete_checkins (org_id, athlete_id, kind, notes) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'call', 'family logged this');
+    raise exception 'FAIL: a family login logged a check-in';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a family login cannot log a check-in';
+  end;
+
+  insert into athlete_message_reads (org_id, athlete_id, user_id) values
+    ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000005');
+  update athlete_message_reads set read_at = now()
+    where athlete_id = '00000000-0000-0000-0000-000000000110' and user_id = '00000000-0000-0000-0000-000000000005';
+  get diagnostics affected = row_count;
+  if affected <> 1 then raise exception 'FAIL: a family login could not move their own read marker (% rows)', affected; end if;
+  select count(*) into n from athlete_message_reads;
+  if n <> 1 then raise exception 'FAIL: a family login read % read markers, expected 1 (their own)', n; end if;
+  raise notice 'PASS: a family login marks their own thread read';
+  begin
+    insert into athlete_message_reads (org_id, athlete_id, user_id) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000002');
+    raise exception 'FAIL: a family login wrote a read marker for somebody else';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a family login cannot write a read marker for somebody else';
+  end;
+  begin
+    insert into athlete_message_reads (org_id, athlete_id, user_id) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000005');
+    raise exception 'FAIL: a family login marked another athlete''s thread read';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a family login cannot mark another athlete''s thread';
+  end;
+  update athlete_message_reads set read_at = now() where user_id = '00000000-0000-0000-0000-000000000001';
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'FAIL: a family login moved the owner''s read marker'; end if;
+
+  update athlete_messages set body = 'family edit' where author_id = '00000000-0000-0000-0000-000000000005';
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'FAIL: a family login edited % messages', affected; end if;
+  update athlete_messages set body = 'family edit' where author_id = '00000000-0000-0000-0000-000000000001';
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'FAIL: a family login edited % of staff''s messages', affected; end if;
+  delete from athlete_messages where author_id = '00000000-0000-0000-0000-000000000005';
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'FAIL: a family login deleted % messages', affected; end if;
+  delete from athlete_messages where athlete_id = '00000000-0000-0000-0000-000000000110';
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'FAIL: a family login deleted % messages from their thread', affected; end if;
+  update athletes set advisor_id = null where id = '00000000-0000-0000-0000-000000000110';
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'FAIL: a family login changed their athlete''s advisor'; end if;
+  raise notice 'PASS: a family login writes one thing, their own message and their own read marker, and edits or removes nothing';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge owner
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_messages where author_id = '00000000-0000-0000-0000-000000000005';
+  if n <> 1 then raise exception 'FAIL: staff cannot read the family''s message (saw %)', n; end if;
+  select count(*) into n from athlete_message_reads where user_id = '00000000-0000-0000-0000-000000000005';
+  if n <> 1 then raise exception 'FAIL: staff cannot see the family''s read marker (saw %)', n; end if;
+  raise notice 'PASS: staff read the family''s reply and whether the family has seen the thread';
+
+  -- Staff may edit a message, never who wrote it or when: insert as
+  -- yourself, then re-sign the row as the parent, is refused.
+  begin
+    update athlete_messages set author_id = '00000000-0000-0000-0000-000000000005' where body = 'owner wrote this';
+    raise exception 'FAIL: staff re-signed their own message as the family';
+  exception when check_violation then
+    raise notice 'PASS: staff cannot change who wrote a message';
+  end;
+  begin
+    update athlete_messages set created_at = '2020-01-01' where author_id = '00000000-0000-0000-0000-000000000005';
+    raise exception 'FAIL: staff backdated the family''s message';
+  exception when check_violation then
+    raise notice 'PASS: staff cannot change when a message was written';
+  end;
+  begin
+    update athlete_messages set body = 'rewritten' where author_id = '00000000-0000-0000-0000-000000000005';
+    raise exception 'FAIL: staff rewrote what the family said';
+  exception when check_violation then
+    raise notice 'PASS: nobody rewrites a message once it is sent';
+  end;
+  begin
+    update athlete_messages set athlete_id = '00000000-0000-0000-0000-000000000111' where author_id = '00000000-0000-0000-0000-000000000005';
+    raise exception 'FAIL: staff moved the family''s message into another athlete''s thread';
+  exception when check_violation then
+    raise notice 'PASS: a message stays in the thread it was written in';
+  end;
+  begin
+    insert into athlete_checkins (org_id, athlete_id, advisor_id, kind) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000005', 'call');
+    raise exception 'FAIL: staff logged a check-in in someone else''s name';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a check-in is signed by whoever logs it';
+  end;
+end $$;
+
+-- The one change the honesty trigger lets through: author_id going null
+-- when the author's account is deleted (on delete set null). Without the
+-- exception, deleting anyone who ever wrote a message would fail.
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000039', 'leaver@bridge.example');
+insert into users (id, email) values ('00000000-0000-0000-0000-000000000039', 'leaver@bridge.example') on conflict (id) do nothing;
+insert into athlete_messages (org_id, athlete_id, author_id, body) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000039', 'written by someone who leaves');
+delete from auth.users where id = '00000000-0000-0000-0000-000000000039';
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_messages where body = 'written by someone who leaves' and author_id is null;
+  if n <> 1 then raise exception 'FAIL: deleting an author did not keep their message with no author (% rows)', n; end if;
+  delete from athlete_messages where body = 'written by someone who leaves';
+  raise notice 'PASS: a deleted author''s message stays, unsigned';
+end $$;
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge owner
+
+select set_test_user('00000000-0000-0000-0000-000000000002'); -- Elite owner
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_messages;
+  if n <> 1 then raise exception 'FAIL: Elite Squad''s owner saw % messages, expected 1 (Elite''s own)', n; end if;
+  select count(*) into n from athlete_checkins;
+  if n <> 1 then raise exception 'FAIL: Elite Squad''s owner saw % check-ins, expected 1 (Elite''s own)', n; end if;
+  select count(*) into n from athlete_message_reads;
+  if n <> 0 then raise exception 'FAIL: Elite Squad''s owner saw % of Bridge''s read markers', n; end if;
+  raise notice 'PASS: another org sees nothing of Bridge''s thread, log or markers';
+end $$;
+
+select set_test_user(null);
+do $$
+declare n int;
+begin
+  select (select count(*) from athlete_checkins) + (select count(*) from athlete_messages) + (select count(*) from athlete_message_reads) into n;
+  if n <> 0 then raise exception 'FAIL: an anonymous session saw % thread, log or marker rows, expected 0', n; end if;
+  raise notice 'PASS: anonymous session sees no check-ins, messages or read markers';
+end $$;
+reset role;
+
 -- ── Migration 0026: a family link is only as alive as the membership,
 -- and staff rows open per org, never across orgs. ──
 reset role;
@@ -1639,6 +2011,45 @@ begin
   raise notice 'PASS: staff rows open to a family per org, never across orgs';
 end $$;
 
+-- Migration 0039, the two-org family. user5 may now write to a thread in
+-- each org, and the insert policy admits a message by athlete_id, so
+-- only the coherence trigger stops Athlete A's message being filed
+-- under Elite Squad's org_id, where Elite's staff would read it.
+do $$
+declare n int;
+begin
+  begin
+    insert into athlete_messages (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000005', 'Bridge athlete under Elite');
+    raise exception 'FAIL: a family login in two orgs filed a Bridge athlete''s message under Elite Squad';
+  exception when check_violation or insufficient_privilege then
+    raise notice 'PASS: a family login in two orgs cannot file a Bridge athlete''s message under Elite Squad';
+  end;
+  begin
+    insert into athlete_messages (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000005', 'Elite athlete under Bridge');
+    raise exception 'FAIL: a family login in two orgs filed an Elite athlete''s message under Bridge';
+  exception when check_violation or insufficient_privilege then
+    raise notice 'PASS: a family login in two orgs cannot file an Elite athlete''s message under Bridge';
+  end;
+  insert into athlete_messages (org_id, athlete_id, author_id, body) values
+    ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000005', 'family wrote to Elite');
+  select count(*) into n from athlete_checkins;
+  if n <> 0 then raise exception 'FAIL: a family login in two orgs read % check-ins, expected 0', n; end if;
+  raise notice 'PASS: a family login in two orgs writes to each of their athletes'' threads in that athlete''s own org, and reads no check-ins in either';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000002'); -- Elite owner
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_messages where athlete_id <> '00000000-0000-0000-0000-000000000120';
+  if n <> 0 then raise exception 'FAIL: Elite Squad''s owner read % messages about a Bridge athlete', n; end if;
+  select count(*) into n from athlete_messages where author_id = '00000000-0000-0000-0000-000000000005';
+  if n <> 1 then raise exception 'FAIL: Elite Squad''s owner saw % of the family''s Elite messages, expected 1', n; end if;
+  raise notice 'PASS: Elite Squad''s staff read the shared family''s Elite thread and nothing of Bridge''s';
+end $$;
+
 -- The Bridge membership goes, the guardian row is left behind on
 -- purpose: the database must stop honouring it by itself.
 reset role;
@@ -1654,6 +2065,15 @@ begin
   if n <> 0 then raise exception 'FAIL: a removed family member still read the athlete''s metrics'; end if;
   select count(*) into n from documents where athlete_id = '00000000-0000-0000-0000-000000000110';
   if n <> 0 then raise exception 'FAIL: a removed family member still read the athlete''s documents'; end if;
+  select count(*) into n from athlete_messages where athlete_id = '00000000-0000-0000-0000-000000000110';
+  if n <> 0 then raise exception 'FAIL: a removed family member still read the athlete''s thread (migration 0039)'; end if;
+  begin
+    insert into athlete_messages (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000005', 'after removal');
+    raise exception 'FAIL: a removed family member still wrote to the athlete''s thread (migration 0039)';
+  exception when insufficient_privilege then
+    null;
+  end;
   select count(*) into n from athletes where org_id = '00000000-0000-0000-0000-000000000020';
   if n <> 1 then raise exception 'FAIL: the other org''s link stopped working too'; end if;
   raise notice 'PASS: a family link dies with the membership, org by org';

@@ -2012,3 +2012,160 @@ describe("LAW: Recalculate All says what it did", () => {
     expect(writes.some((w) => w.table === "athlete_school_fits")).toBe(true);
   });
 });
+
+// Stage 3, 2026-09-26 (migration 0039). A message on an athlete's thread
+// is the one thing a family login writes, and only as itself, on its own
+// athlete. Check-ins are staff only. An advisor is an owner or staff
+// member of the athlete's own org, and stops being one the moment they
+// leave the org or become a member. The database holds each line too
+// (policies and triggers, scripts/rls_test.sql); these prove the actions
+// answer first, with a page rather than an error.
+//
+// Each was planted against and reverted before this was called done: the
+// author taken from the form instead of the session, the family branch
+// skipping requireFamilyAthlete, logCheckin opened to every role, the
+// org filter dropped from removeCheckin, the advisor check in athletes.ts
+// removed, and the advisor clearing removed from removeMember and from
+// changeMemberRole. Each failed here.
+describe("LAW: a family writes one thing, a message on its own athlete's thread, as itself", () => {
+  const ORG = () => data.orgs[0]!.id;
+  const msg = (body = "Hello from the test.") => form({ body });
+
+  it("a family message on its own athlete is signed by the family login and marks the thread read for it", async () => {
+    currentUser = FAMILY_ID;
+    const { sendMessage } = await import("@/lib/actions/messages");
+    const r = await run(() => sendMessage(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, msg()));
+    expect(r.redirect).toBeNull();
+    expect((r.state as { errors: Record<string, string> }).errors).toEqual({});
+    const [w] = inserts("athlete_messages");
+    expect(w?.rows[0]).toEqual({ org_id: ORG(), athlete_id: IDS.athlete, author_id: FAMILY_ID, body: "Hello from the test." });
+    const read = writes.find((x) => x.table === "athlete_message_reads");
+    expect(read?.op).toBe("upsert");
+    expect(read?.rows[0]).toMatchObject({ org_id: ORG(), athlete_id: IDS.athlete, user_id: FAMILY_ID });
+    // Nothing a family writes touches the staff-only log.
+    expect(writes.filter((x) => x.table === "athlete_checkins")).toEqual([]);
+    expect(revalidated).toContain(`/org/${ORG_WITH_MODULES}/family/${IDS.athlete}/messages`);
+  });
+
+  it("a family login cannot write on an athlete it is not linked to", async () => {
+    currentUser = FAMILY_ID;
+    const { sendMessage } = await import("@/lib/actions/messages");
+    await expect(sendMessage(ORG_WITH_MODULES, IDS.athleteTransfer, { errors: {} }, msg())).rejects.toThrow(NOT_FOUND);
+    expect(writes).toEqual([]);
+  });
+
+  it("a member cannot write on a thread", async () => {
+    currentUser = MEMBER_ID;
+    const { sendMessage } = await import("@/lib/actions/messages");
+    const r = await run(() => sendMessage(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, msg()));
+    expect(r.redirect).toBe("/unauthorized");
+    expect(writes).toEqual([]);
+  });
+
+  it("staff write as themselves, and never on another org's athlete", async () => {
+    const { sendMessage } = await import("@/lib/actions/messages");
+    const ok = await run(() => sendMessage(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, msg()));
+    expect(ok.redirect).toBeNull();
+    expect(inserts("athlete_messages")[0]?.rows[0]).toMatchObject({ org_id: ORG(), author_id: OWNER_ID });
+    writes.length = 0;
+    // The fixture owner is Elite Squad's owner too; a Bridge athlete
+    // under Elite's slug is refused before anything is written.
+    const cross = await run(() => sendMessage(ORG_WITHOUT_MODULES, IDS.athlete, { errors: {} }, msg()));
+    expect(cross.redirect).toBeNull();
+    expect((cross.state as { errors: Record<string, string> }).errors.form).toMatch(/roster/);
+    expect(writes).toEqual([]);
+  });
+
+  it("an empty message is refused and hands back nothing to send", async () => {
+    currentUser = FAMILY_ID;
+    const { sendMessage } = await import("@/lib/actions/messages");
+    const r = await run(() => sendMessage(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, msg("   ")));
+    expect((r.state as { errors: Record<string, string> }).errors.body).toBeTruthy();
+    expect(writes).toEqual([]);
+  });
+});
+
+describe("LAW: a check-in is staff's to write and remove, in its own org", () => {
+  const ORG = () => data.orgs[0]!.id;
+
+  for (const [who, as] of [["family", FAMILY_ID], ["member", MEMBER_ID]] as const) {
+    it(`a ${who} login cannot log or remove a check-in`, async () => {
+      currentUser = as;
+      const { logCheckin, removeCheckin } = await import("@/lib/actions/checkins");
+      expect((await run(() => logCheckin(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ kind: "call", notes: "x" })))).redirect).toBe("/unauthorized");
+      expect((await run(() => removeCheckin(ORG_WITH_MODULES, IDS.athlete, "ck1"))).redirect).toBe("/unauthorized");
+      expect(writes).toEqual([]);
+    });
+  }
+
+  it("staff log a check-in stamped with the org and themselves as who checked in", async () => {
+    const { logCheckin } = await import("@/lib/actions/checkins");
+    const r = await run(() => logCheckin(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ kind: "meeting", occurredOn: "2026-09-25", notes: "Talked about visits." })));
+    expect((r.state as { errors: Record<string, string> }).errors).toEqual({});
+    expect(inserts("athlete_checkins")[0]?.rows[0]).toEqual({ org_id: ORG(), athlete_id: IDS.athlete, advisor_id: OWNER_ID, kind: "meeting", occurred_on: "2026-09-25", notes: "Talked about visits." });
+    // The log is staff only, so no family screen goes stale.
+    expect(revalidated.filter((x) => x.includes("/family/"))).toEqual([]);
+  });
+
+  it("a check-in on another org's athlete is refused, and a removal is scoped to the org and the athlete", async () => {
+    const { logCheckin, removeCheckin } = await import("@/lib/actions/checkins");
+    const cross = await run(() => logCheckin(ORG_WITHOUT_MODULES, IDS.athlete, { errors: {} }, form({ kind: "call" })));
+    expect((cross.state as { errors: Record<string, string> }).errors.form).toMatch(/roster/);
+    expect(writes).toEqual([]);
+    await removeCheckin(ORG_WITH_MODULES, IDS.athlete, "ck1");
+    const del = writes.find((w) => w.table === "athlete_checkins" && w.op === "delete");
+    expect(del?.filters).toEqual(expect.arrayContaining([{ column: "id", value: "ck1" }, { column: "org_id", value: ORG() }, { column: "athlete_id", value: IDS.athlete }]));
+  });
+});
+
+describe("LAW: an advisor is owner or staff of the athlete's org, and stops being one on leaving it", () => {
+  const withKey = () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-only";
+  };
+  const athlete = (fields: Record<string, string> = {}) => form({ name: "Fixture Athlete", sport: "baseball", recruitType: "hs", status: "Active", ...fields });
+  const advisorOf = (id: string) => data.athletes.find((a) => a.id === id)?.advisor_id ?? null;
+
+  it("the owner can be picked; a member and another org's staff cannot", async () => {
+    const { updateAthlete, createAthlete } = await import("@/lib/actions/athletes");
+    const picked = await run(() => updateAthlete(ORG_WITH_MODULES, IDS.athleteTransfer, { errors: {}, values: {} }, athlete({ advisorId: OWNER_ID })));
+    expect(picked.redirect).toContain(`/roster/${IDS.athleteTransfer}`);
+    expect(advisorOf(IDS.athleteTransfer)).toBe(OWNER_ID);
+    writes.length = 0;
+    // MEMBER_ID is a Bridge member (Board); OUTSIDER_ID is Elite's staff.
+    for (const advisorId of [MEMBER_ID, OUTSIDER_ID, FAMILY_ID]) {
+      const r = await run(() => createAthlete(ORG_WITH_MODULES, { errors: {}, values: {} }, athlete({ name: "New Athlete", advisorId })));
+      expect(r.redirect).toBeNull();
+      expect((r.state as { errors: Record<string, string> }).errors.advisorId).toMatch(/staff/);
+    }
+    expect(writes).toEqual([]);
+  });
+
+  it("removing someone from the org clears them as advisor, in that org only", async () => {
+    withKey();
+    // A stale pointer: a member is not a legal advisor, which is exactly
+    // what the removal must not leave behind.
+    data.athletes.find((a) => a.id === IDS.athlete)!.advisor_id = MEMBER_ID;
+    const { removeMember } = await import("@/lib/actions/members");
+    expect((await removeMember(ORG_WITH_MODULES, MEMBER_ID)).ok).toBe(true);
+    const cleared = writes.find((w) => w.table === "athletes" && w.op === "update");
+    expect(cleared?.rows[0]).toEqual({ advisor_id: null });
+    expect(cleared?.filters).toEqual(expect.arrayContaining([{ column: "org_id", value: data.orgs[0]!.id }, { column: "advisor_id", value: MEMBER_ID }]));
+    expect(advisorOf(IDS.athlete)).toBeNull();
+    // The owner's own athlete keeps its advisor.
+    expect(advisorOf(IDS.athleteNoGpa)).toBe(OWNER_ID);
+  });
+
+  it("a staff advisor made a member stops advising; made an owner, keeps it", async () => {
+    withKey();
+    // Elite Squad: the fixture owner owns it and OUTSIDER_ID is its staff.
+    data.athletes.find((a) => a.id === IDS.athleteElite)!.advisor_id = OUTSIDER_ID;
+    const { changeMemberRole } = await import("@/lib/actions/members");
+    expect((await changeMemberRole(ORG_WITHOUT_MODULES, OUTSIDER_ID, "owner")).ok).toBe(true);
+    expect(advisorOf(IDS.athleteElite)).toBe(OUTSIDER_ID);
+    expect(writes.filter((w) => w.table === "athletes")).toEqual([]);
+    expect((await changeMemberRole(ORG_WITHOUT_MODULES, OUTSIDER_ID, "member")).ok).toBe(true);
+    const cleared = writes.find((w) => w.table === "athletes" && w.op === "update");
+    expect(cleared?.filters).toEqual(expect.arrayContaining([{ column: "org_id", value: data.orgs[1]!.id }, { column: "advisor_id", value: OUTSIDER_ID }]));
+    expect(advisorOf(IDS.athleteElite)).toBeNull();
+  });
+});

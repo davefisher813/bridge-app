@@ -170,6 +170,9 @@ export function buildFixture(): Dataset {
         org_id: BRIDGE,
         recruit_type: "hs",
         name: "Fixture Athlete",
+        // The owner advises this one and the next (migration 0039): one
+        // checked in six days ago, one never. The rest carry no advisor.
+        advisor_id: OWNER,
         sport: "baseball",
         position: "RHP",
         status: "Active",
@@ -199,6 +202,7 @@ export function buildFixture(): Dataset {
         org_id: BRIDGE,
         recruit_type: "hs",
         name: "Fixture Unknown",
+        advisor_id: OWNER,
         sport: "baseball",
         position: null,
         status: "Active",
@@ -547,6 +551,21 @@ export function buildFixture(): Dataset {
     target_visits: [
       { id: "tv1", org_id: BRIDGE, target_id: IDS.target, visit_type: "unofficial", impression: "Fixture impression.", visit_date: "2026-07-04", next_step: null, notes: null },
     ],
+    // Stage 3 (migration 0039). One check-in on the fixture athlete, six
+    // days before whenever the fixture is built so it is never due and
+    // never drifts into due as the calendar moves; the athlete with no
+    // GPA has none, so Today and My Athletes have a never checked in row.
+    // Two messages on the same athlete's thread, staff then family, and
+    // no read marks yet. Check-ins are staff only; the family reads the
+    // thread and never the log.
+    athlete_checkins: [
+      { id: "ck1", org_id: BRIDGE, athlete_id: IDS.athlete, advisor_id: OWNER, kind: "call", occurred_on: new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10), notes: "Fixture check-in note.", created_at: new Date(Date.now() - 6 * 86_400_000).toISOString() },
+    ],
+    athlete_messages: [
+      { id: "am1", org_id: BRIDGE, athlete_id: IDS.athlete, author_id: OWNER, body: "Fixture message from staff.", created_at: "2026-09-21T14:00:00.000Z" },
+      { id: "am2", org_id: BRIDGE, athlete_id: IDS.athlete, author_id: FAMILY, body: "Fixture reply from the family.", created_at: "2026-09-22T18:30:00.000Z" },
+    ],
+    athlete_message_reads: [],
     contacts: [{ id: "ct1", org_id: BRIDGE, athlete_id: IDS.athlete, name: "Fixture Parent", role: "parent_guardian", email: null, phone: null, school_id: null, notes: null }],
     transfer_windows: [
       { id: "tw1", sport: "baseball", division: "D2", season_year: "2026", window_label: "Fixture window", opens_on: "2026-12-01", closes_on: "2026-12-15", source_url: "https://example.test/fixture-window" },

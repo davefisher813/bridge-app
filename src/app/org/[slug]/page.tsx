@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
 import { Body, Card, Chevron, Chip, EmptyState, Label, LinkButton, Row, Score, Screen, Section, Stack, TextLink } from "@/components/kit";
 import { stageKind, statusRole } from "@/components/statusHue";
-import { effectiveStatus, placementAthlete, type PlacementTarget } from "@/lib/placement";
+import { effectiveStatus, isScoredStatus, placementAthlete, type PlacementTarget } from "@/lib/placement";
+import { checkinDue, daysSinceCheckin, latestByAthlete, sortByNeed } from "@/lib/checkins";
+import { loadStaff } from "@/lib/data/staff";
 import { ATHLETE_STATUSES } from "@/lib/validation/athlete";
 import { formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
@@ -20,6 +22,8 @@ import { STRONG_MATCH_DAYS } from "@/lib/fit/contract";
 
 interface AthleteRow {
   id: string;
+  name: string;
+  advisor_id: string | null;
   status: string;
   detail: unknown;
   draft_team: string | null;
@@ -86,8 +90,8 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
   const supabase = await createClient();
 
-  const [{ data: athleteRows }, { data: targets }, { data: windowRows }, { data: strongRows }] = await Promise.all([
-    supabase.from("athletes").select("id, status, detail, draft_team, draft_round, draft_year").eq("org_id", org.id).is("deleted_at", null),
+  const [{ data: athleteRows }, { data: targets }, { data: windowRows }, { data: strongRows }, { data: checkinRows }, staff] = await Promise.all([
+    supabase.from("athletes").select("id, name, advisor_id, status, detail, draft_team, draft_round, draft_year").eq("org_id", org.id).is("deleted_at", null),
     supabase
       .from("recruiting_targets")
       .select("id, status, updated_at, visit_date, athlete_id, school_id, athletes(name), schools(name)")
@@ -99,6 +103,10 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       .eq("org_id", org.id)
       .in("tag", ["Safety", "Fit"])
       .order("score", { ascending: false }),
+    // Stage 3: the check-in log, for the reminders, and the staff list,
+    // for the advisor's name on each one.
+    supabase.from("athlete_checkins").select("athlete_id, occurred_on").eq("org_id", org.id).order("occurred_on", { ascending: false }),
+    loadStaff(supabase, org.id),
   ]);
 
   // Only queried when the module is on. An org without fundraising does
@@ -146,11 +154,30 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   }
   const counts = new Map<string, number>(ATHLETE_STATUSES.map((s) => [s, 0]));
   let athleteTotal = 0;
+  const effectiveById = new Map<string, string>();
   for (const a of (athleteRows ?? []) as AthleteRow[]) {
     const status = effectiveStatus(placementAthlete(a), committedByAthlete.get(a.id) ?? []);
     counts.set(status, (counts.get(status) ?? 0) + 1);
+    effectiveById.set(a.id, status);
     athleteTotal += 1;
   }
+
+  // Check-in reminders (Stage 3). Org wide, with the advisor named, so
+  // an owner sees who on the staff owes a call: every athlete with an
+  // advisor still on the staff who is still being recruited and has had
+  // no check-in in CHECKIN_DUE_DAYS, never checked in first.
+  const today = new Date();
+  const lastCheckin = latestByAthlete((checkinRows ?? []) as { athlete_id: string; occurred_on: string | null }[]);
+  const staffById = new Map(staff.map((s) => [s.id, s]));
+  const advised = ((athleteRows ?? []) as AthleteRow[]).filter((a) => a.advisor_id && staffById.has(a.advisor_id));
+  const checkinReminders = sortByNeed(
+    advised
+      .filter((a) => isScoredStatus(effectiveById.get(a.id) ?? a.status) && checkinDue(lastCheckin.get(a.id), today))
+      .map((a) => ({ athleteId: a.id, name: a.name, days: daysSinceCheckin(lastCheckin.get(a.id), today), advisorFirstName: staffById.get(a.advisor_id!)!.name.split(" ")[0] })),
+  ).slice(0, 4);
+  // The way into My Athletes, with the same due rule the screen uses.
+  const mine = advised.filter((a) => a.advisor_id === user.id);
+  const mineDue = mine.filter((a) => isScoredStatus(effectiveById.get(a.id) ?? a.status) && checkinDue(lastCheckin.get(a.id), today)).length;
 
   const needsFollowUp = rows
     .filter((r) => OPEN_STATUSES.includes(r.status))
@@ -175,7 +202,6 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       visitDate: r.visit_date as string,
     }));
 
-  const today = new Date();
   const in60Days = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
   const upcomingWindows = ((windowRows ?? []) as TransferWindowRow[])
     .filter((w) => new Date(w.opens_on) >= today && new Date(w.opens_on) <= in60Days)
@@ -225,6 +251,14 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
       </Card>
 
       <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" meta="Every school on file, with search and filters" trailing={<Chevron />} />
+      <Row
+        href={`/org/${slug}/mine`}
+        kind="athlete"
+        role="people"
+        title="My Athletes"
+        meta={mine.length === 0 ? "Nobody assigned to you yet" : `${mine.length} ${mine.length === 1 ? "athlete" : "athletes"}, ${mineDue} due for a check-in`}
+        trailing={<Chevron />}
+      />
 
       {strongMatches.length > 0 && (
         <Section label="Strong Matches" count={strongMatches.length} role="committed" kind="target">
@@ -242,23 +276,37 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
         </Section>
       )}
 
-      <Section label="Needs Follow-Up" count={needsFollowUp.length} action={needsFollowUp.length > 0 ? <TextLink href={`/org/${slug}/board`}>View Board</TextLink> : undefined}>
-        {needsFollowUp.length === 0 ? (
+      <Section label="Needs Follow-Up" count={checkinReminders.length + needsFollowUp.length} action={needsFollowUp.length > 0 ? <TextLink href={`/org/${slug}/board`}>View Board</TextLink> : undefined}>
+        {checkinReminders.length === 0 && needsFollowUp.length === 0 ? (
           <EmptyState kind="check" role="committed" title="Nothing Needs a Follow-Up" action={<LinkButton href={`/org/${slug}/board`}>Open Targets</LinkButton>}
           />
         ) : (
-          needsFollowUp.map((t) => (
-            <Row
-              key={t.id}
-              href={`/org/${slug}/board/${t.id}`}
-              kind="school"
-              role={statusRole(t.status)}
-              title={t.athleteName}
-              meta={`${t.schoolName} · no update in ${t.days} ${t.days === 1 ? "day" : "days"}`}
-              trailing={<StatusPill status={t.status} />}
-              wrap
-            />
-          ))
+          <>
+            {checkinReminders.map((r) => (
+              <Row
+                key={`checkin-${r.athleteId}`}
+                href={`/org/${slug}/roster/${r.athleteId}/checkins`}
+                kind="clock"
+                role="time"
+                title={r.name}
+                meta={`${r.days === null ? "never checked in" : `no check-in in ${r.days} days`} · ${r.advisorFirstName}`}
+                trailing={<Chip label="Check-In" kind="clock" role="time" />}
+                wrap
+              />
+            ))}
+            {needsFollowUp.map((t) => (
+              <Row
+                key={t.id}
+                href={`/org/${slug}/board/${t.id}`}
+                kind="school"
+                role={statusRole(t.status)}
+                title={t.athleteName}
+                meta={`${t.schoolName} · no update in ${t.days} ${t.days === 1 ? "day" : "days"}`}
+                trailing={<StatusPill status={t.status} />}
+                wrap
+              />
+            ))}
+          </>
         )}
       </Section>
 

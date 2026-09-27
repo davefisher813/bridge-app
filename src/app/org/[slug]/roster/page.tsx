@@ -16,6 +16,7 @@ interface AthleteRow {
   recruit_type: string;
   gpa: number | null;
   status: string;
+  advisor_id: string | null;
   detail: unknown;
   draft_team: string | null;
   draft_round: number | null;
@@ -37,13 +38,16 @@ const RECRUIT_TYPE_LABEL: Record<string, string> = {
 };
 
 // The roster. Staff and owners add and edit; members read.
-export default async function RosterPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string; status?: string }> }) {
+export default async function RosterPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string; status?: string; advisor?: string }> }) {
   const { slug } = await params;
   const sp = searchParams ? await searchParams : {};
   const q = sp.q?.trim().toLowerCase() ?? "";
   // Only a status the vocabulary knows narrows the list; anything else
   // shows everyone rather than an empty screen.
   const status = (ATHLETE_STATUSES as readonly string[]).includes(sp.status ?? "") ? sp.status! : "";
+  // advisor=me narrows to the athletes this person advises (Stage 3).
+  // Any other value is ignored, like an unknown status.
+  const mine = sp.advisor === "me";
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
@@ -52,7 +56,7 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
 
   const supabase = await createClient();
   const [{ data: athletes }, { data: committedRows }] = await Promise.all([
-    supabase.from("athletes").select("id, name, sport, position, recruit_type, gpa, status, detail, draft_team, draft_round, draft_year").eq("org_id", org.id).is("deleted_at", null).order("name"),
+    supabase.from("athletes").select("id, name, sport, position, recruit_type, gpa, status, detail, draft_team, draft_round, draft_year, advisor_id").eq("org_id", org.id).is("deleted_at", null).order("name"),
     supabase.from("recruiting_targets").select("id, athlete_id, status, schools(name)").eq("org_id", org.id).eq("status", "Committed"),
   ]);
   const committedByAthlete = new Map<string, { id: string; status: string; schoolName: string | null }[]>();
@@ -72,16 +76,20 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
   // than in the query so the list, the count and the empty state agree
   // with each other, and with the tile on Today that opened this.
   const searched = q ? all.filter((a) => `${a.name} ${a.sport} ${a.position ?? ""}`.toLowerCase().includes(q)) : all;
-  const rows = status ? searched.filter((a) => a.effective === status) : searched;
+  const byStatus = status ? searched.filter((a) => a.effective === status) : searched;
+  const rows = mine ? byStatus.filter((a) => a.advisor_id === user.id) : byStatus;
+  const advisesAnyone = all.some((a) => a.advisor_id === user.id);
+  const lede = [status || mine ? `${rows.length} of ${all.length}` : null, status || null, mine ? "yours" : null].filter(Boolean).join(", ");
 
   return (
-    <Screen title="Athletes" lede={status ? `${rows.length} of ${all.length}, ${status}` : undefined} action={canEdit ? <AddButton href={`/org/${slug}/roster/new`} label="Add" /> : undefined}>
-      {status && <TextLink href={`/org/${slug}/roster`}>Show Every Athlete</TextLink>}
+    <Screen title="Athletes" lede={lede || undefined} action={canEdit ? <AddButton href={`/org/${slug}/roster/new`} label="Add" /> : undefined}>
+      {(status || mine) && <TextLink href={`/org/${slug}/roster`}>Show Every Athlete</TextLink>}
+      {mine ? <TextLink href={`/org/${slug}/mine`}>My Athletes</TextLink> : advisesAnyone && <TextLink href={`/org/${slug}/roster?advisor=me${status ? `&status=${encodeURIComponent(status)}` : ""}`}>Just Mine</TextLink>}
       {(all.length > 5 || q) && <SearchField initial={q} placeholder="A name, a sport or a position" />}
       <Section label="Roster" count={rows.length} role="people" kind="athlete">
         {rows.length === 0 ? (
-          <EmptyState kind="athlete" title={q ? "Nobody Matches" : status ? "Nothing Matches" : "No Athletes Yet"}>
-            {q ? "Try a shorter name, or clear the search." : status ? "Nobody is at this status. Show every athlete to see the rest." : canEdit ? "Add the first one below." : "Ask an owner or coordinator to add one."}
+          <EmptyState kind="athlete" title={q ? "Nobody Matches" : status || mine ? "Nothing Matches" : "No Athletes Yet"}>
+            {q ? "Try a shorter name, or clear the search." : mine ? "Nobody here is assigned to you. Pick yourself as Advisor on an athlete's Edit screen." : status ? "Nobody is at this status. Show every athlete to see the rest." : canEdit ? "Add the first one below." : "Ask an owner or coordinator to add one."}
           </EmptyState>
         ) : (
           rows.map((a) => (

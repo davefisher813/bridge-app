@@ -82,6 +82,25 @@ describe("parseAthleteForm", () => {
     expect(r.values.status).toBe("Active");
     expect(r.values.gpaVerified).toBe(false);
   });
+
+  it("reads a blank advisor as nobody yet", () => {
+    const r = parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "hs", advisorId: "" }));
+    expect(r.ok).toBe(true);
+    expect(r.values.advisorId).toBeUndefined();
+  });
+
+  it("carries a picked advisor through", () => {
+    const id = "00000000-0000-0000-0000-0000000000b1";
+    const r = parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "hs", advisorId: id }));
+    expect(r.ok).toBe(true);
+    expect(r.values.advisorId).toBe(id);
+  });
+
+  it("rejects an advisor that is not an id", () => {
+    const r = parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "hs", advisorId: "Mike" }));
+    expect(r.ok).toBe(false);
+    expect(r.errors.advisorId).toBe("Pick someone on the staff.");
+  });
 });
 
 describe("first metrics on the Add form", async () => {

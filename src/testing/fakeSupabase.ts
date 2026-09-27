@@ -110,6 +110,18 @@ const EMBEDS: Record<string, Record<string, EmbedSpec>> = {
     athletes: { table: "athletes", foreignKey: "athlete_id", many: false },
     users: { table: "users", foreignKey: "user_id", many: false },
   },
+  // Migration 0039: the advisor on an athlete and on a check-in, the
+  // author of a message. Each table has exactly one key to users, so the
+  // bare embed name is unambiguous in PostgREST too.
+  athletes: {
+    users: { table: "users", foreignKey: "advisor_id", many: false },
+  },
+  athlete_checkins: {
+    users: { table: "users", foreignKey: "advisor_id", many: false },
+  },
+  athlete_messages: {
+    users: { table: "users", foreignKey: "author_id", many: false },
+  },
 };
 
 interface Filter {

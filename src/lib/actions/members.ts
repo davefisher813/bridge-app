@@ -173,10 +173,22 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
   if (!serviceRoleConfigured()) return { ok: false, error: "Changing roles is not set up on this server yet: the service role key is missing." };
 
   const admin = createAdminClient();
+  // A member cannot advise (migration 0039). The trigger only fires when
+  // an athlete is written, so the demotion clears the column itself, or
+  // the athletes they advised keep pointing at somebody who no longer
+  // may and reminders keep counting them.
+  if (nextRole === "member") {
+    const { error: advisorError } = await admin.from("athletes").update({ advisor_id: null }).eq("org_id", org.id).eq("advisor_id", userId);
+    if (advisorError) return { ok: false, error: advisorError.message };
+  }
   const { error } = await admin.from("org_members").update({ role: nextRole satisfies OrgRole }).eq("user_id", userId).eq("org_id", org.id);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/org/${slug}/members`);
+  if (nextRole === "member") {
+    revalidatePath(`/org/${slug}/mine`);
+    revalidatePath(`/org/${slug}`);
+  }
   return { ok: true };
 }
 
@@ -198,12 +210,18 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
   // honouring them the moment the membership is gone (migration 0026),
   // and a stale row must not come back to life on a re-invite.
   const admin = createAdminClient();
+  // The athletes they advised here lose their advisor with the
+  // membership, for the same reason as a demotion above.
+  const { error: advisorError } = await admin.from("athletes").update({ advisor_id: null }).eq("org_id", org.id).eq("advisor_id", userId);
+  if (advisorError) return { ok: false, error: advisorError.message };
   const { error: linkError } = await admin.from("athlete_guardians").delete().eq("user_id", userId).eq("org_id", org.id);
   if (linkError) return { ok: false, error: linkError.message };
   const { error } = await admin.from("org_members").delete().eq("user_id", userId).eq("org_id", org.id);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/org/${slug}/members`);
+  revalidatePath(`/org/${slug}/mine`);
+  revalidatePath(`/org/${slug}`);
   return { ok: true, removedSelf: caller.id === userId };
 }
 

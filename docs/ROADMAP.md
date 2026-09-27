@@ -415,3 +415,19 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
    page loader, `cache()` on the org and user lookups, one icons file,
    split `documents.ts`.
 5. **Dependency bumps.** `@supabase/ssr` 0.5 to 0.12, `zod` 3 to 4.
+
+## Dave's rebuild list, 2026-09-26
+
+1. ~~Stage 1: the athlete lifecycle~~ Done: seven statuses, no score
+   once placed, Recruiting History, Reopen Recruiting.
+2. ~~Stage 2: the school directory for every role~~ Done.
+3. ~~Stage 3: advisors, My Athletes, the family thread, check-ins and
+   reminders~~ Done locally (migration 0039), ships when Dave says go.
+   Check-ins are staff only; the family's one write is a message.
+4. **Stage 3b: message notifications.** The app sends no email of its
+   own, and Supabase Auth only sends sign-in mail, so a family hears of
+   a message only by opening the app. Resend, or an Edge Function on
+   insert into `athlete_messages`.
+5. **Stage 4:** autofill and a high school database, notes fields.
+6. **Stage 5:** Spanish mode and translated messages. The thread has
+   no `body_es` column yet; it is added then, not guessed now.

@@ -16,6 +16,10 @@ import { statusRole, stageKind } from "@/components/statusHue";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
 import { loadFitsForAthlete } from "@/lib/data/fits";
 import { formatMetricValue, metricsFor, positionGroupOf, selectScoringMetrics } from "@/lib/fit";
+import { loadStaff } from "@/lib/data/staff";
+import { threadSummaryByAthlete } from "@/lib/data/messages";
+import { checkinDue } from "@/lib/checkins";
+import { labelForRole } from "@/lib/org/roleLabels";
 import { GOAL_LABEL, type AthleteGoal } from "@/lib/fit/contract";
 import type { FitTag } from "@/lib/fit/types";
 
@@ -91,10 +95,10 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
-  const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits] = await Promise.all([
+  const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits, staff, { data: lastCheckinRows }, threads] = await Promise.all([
     supabase
       .from("athletes")
-      .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment")
+      .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment, advisor_id")
       .eq("id", id)
       .eq("org_id", org.id)
       .is("deleted_at", null)
@@ -109,6 +113,12 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
     supabase.from("schools").select("id, name, division").order("name"),
     supabase.from("athlete_metrics").select("id, metric, value, measured_on, source").eq("athlete_id", id).eq("org_id", org.id).order("measured_on", { ascending: false }),
     loadFitsForAthlete(supabase, org.id, id),
+    // Stage 3 (migration 0039): the advisor comes from the staff list,
+    // which also carries the role for the label, so a removed or
+    // demoted advisor reads as nobody picked rather than a stale name.
+    loadStaff(supabase, org.id),
+    supabase.from("athlete_checkins").select("occurred_on").eq("org_id", org.id).eq("athlete_id", id).order("occurred_on", { ascending: false }).limit(1),
+    threadSummaryByAthlete(supabase, org.id, user.id, [id]),
   ]);
 
   if (!athlete) notFound();
@@ -172,6 +182,11 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
     "use server";
     await reopenRecruiting(slug, id, formData);
   }
+
+  const advisor = staff.find((s) => s.id === athlete.advisor_id) ?? null;
+  const thread = threads.get(id);
+  const lastCheckinOn = ((lastCheckinRows ?? []) as { occurred_on: string | null }[])[0]?.occurred_on ?? null;
+  const checkinIsDue = checkinDue(lastCheckinOn, new Date());
 
   const contacts = contactRows ?? [];
   const schools = (schoolRows ?? []).map((s) => ({ id: s.id, label: `${s.name} (${s.division})` }));
@@ -356,6 +371,42 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           )}
         </Section>
       )}
+
+      {/* Who checks in with this athlete, and the two things they do:
+          the thread with the family and the check-in log. The advisor
+          is display and reminders only, never a permission. */}
+      <Section label="Advisor" role="people" kind="people">
+        {advisor ? (
+          <Row
+            href={advisor.email ? `mailto:${advisor.email}` : undefined}
+            leading={<Avatar name={advisor.name} />}
+            title={advisor.name}
+            meta={`${labelForRole(org.roleLabels, advisor.role)}${advisor.email ? ` · ${advisor.email}` : ""}`}
+            trailing={advisor.email ? <Chevron /> : undefined}
+            wrap
+          />
+        ) : (
+          <EmptyState kind="people" title="No Advisor Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/edit`}>Pick One</LinkButton> : undefined}>
+            The advisor checks in with this athlete and the family sees their name.
+          </EmptyState>
+        )}
+        <Row
+          href={`/org/${slug}/roster/${id}/messages`}
+          kind="message"
+          role="contact"
+          title="Messages"
+          meta={thread ? `${thread.total} ${thread.total === 1 ? "message" : "messages"}${thread.unread > 0 ? ` · ${thread.unread} new` : ""}` : "Nothing sent yet"}
+          trailing={<Chevron />}
+        />
+        <Row
+          href={`/org/${slug}/roster/${id}/checkins`}
+          kind="clock"
+          role="time"
+          title="Check-Ins"
+          meta={lastCheckinOn ? `last on ${longDate(lastCheckinOn)}${checkinIsDue ? " · due for one" : ""}` : "None yet"}
+          trailing={<Chevron />}
+        />
+      </Section>
 
       <Section label="Contacts" count={contacts.length} role="people" kind="people">
         {contacts.length === 0 ? (

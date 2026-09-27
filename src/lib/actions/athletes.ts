@@ -26,6 +26,18 @@ function valuesFromFormData(formData: FormData): Record<string, FormDataEntryVal
   return Object.fromEntries(formData.entries());
 }
 
+// The advisor must be an owner or staff member of this org (migration
+// 0039). The database trigger refuses anyone else; this asks first so the
+// answer is a field error, not a constraint message. Read through the
+// caller's own client: an owner or staff member sees their org's rows.
+const ADVISOR_ERROR = { advisorId: "Pick someone on the staff." };
+
+async function assertAdvisorInOrg(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string, advisorId: string | undefined): Promise<boolean> {
+  if (!advisorId) return true;
+  const { data } = await supabase.from("org_members").select("user_id").eq("user_id", advisorId).eq("org_id", orgId).in("role", ["owner", "staff"]).maybeSingle();
+  return !!data;
+}
+
 export async function createAthlete(slug: string, _prevState: AthleteActionState, formData: FormData): Promise<AthleteActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
@@ -38,6 +50,9 @@ export async function createAthlete(slug: string, _prevState: AthleteActionState
   }
 
   const supabase = await createClient();
+  if (!(await assertAdvisorInOrg(supabase, org.id, parsed.values.advisorId))) {
+    return { errors: ADVISOR_ERROR, values: valuesFromFormData(formData) };
+  }
   const { data: created, error } = await supabase
     .from("athletes")
     .insert({
@@ -49,6 +64,7 @@ export async function createAthlete(slug: string, _prevState: AthleteActionState
     gpa: parsed.values.gpa ?? null,
     gpa_verified: parsed.values.gpaVerified,
     status: parsed.values.status,
+    advisor_id: parsed.values.advisorId ?? null,
     is_international: parsed.values.isInternational,
     toefl_score: parsed.values.toeflScore ?? null,
     ielts_score: parsed.values.ieltsScore ?? null,
@@ -106,6 +122,10 @@ export async function updateAthlete(
 
   const supabase = await createClient();
 
+  if (!(await assertAdvisorInOrg(supabase, org.id, parsed.values.advisorId))) {
+    return { errors: ADVISOR_ERROR, values: valuesFromFormData(formData) };
+  }
+
   // Read before write, so a save that flips the dropdown to Enrolled by
   // hand can be told apart from every other save while it already reads
   // Enrolled - the close-out below runs once, on the transition, never
@@ -155,6 +175,7 @@ export async function updateAthlete(
       gpa: parsed.values.gpa ?? null,
       gpa_verified: parsed.values.gpaVerified,
       status: parsed.values.status,
+      advisor_id: parsed.values.advisorId ?? null,
       is_international: parsed.values.isInternational,
       toefl_score: parsed.values.toeflScore ?? null,
       ielts_score: parsed.values.ieltsScore ?? null,

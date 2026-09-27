@@ -21,6 +21,9 @@ export const p = (o: Record<string, string>) => Promise.resolve(o);
 // the render law also proves the two roles cannot open each other's.
 export const PAGES: Array<{ name: string; path: string; props: Record<string, unknown>; expect: RegExp; as?: string }> = [
   { name: "today", path: "@/app/org/[slug]/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture/ },
+  // Stage 3, 2026-09-26: the staff member's own athletes, the one never
+  // checked in with first.
+  { name: "mine", path: "@/app/org/[slug]/mine/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /My Athletes[\s\S]*never checked in[\s\S]*Fixture Athlete/ },
   { name: "members", path: "@/app/org/[slug]/members/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Example Owner[\s\S]*Invited[\s\S]*Example Member/ },
   { name: "invite", path: "@/app/org/[slug]/members/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Send Invite/ },
   { name: "member", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: MEMBER_ID }), searchParams: p({}) }, expect: /Example Member[\s\S]*Coordinator[\s\S]*Remove From/ },
@@ -51,6 +54,9 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "member-home-lite", path: "@/app/org/[slug]/member/page", props: { params: p({ slug: ORG_WITHOUT_MODULES }) }, expect: /Athletes[\s\S]*The Program/, as: MEMBER_ID },
   { name: "member-more-lite", path: "@/app/org/[slug]/member/more/page", props: { params: p({ slug: ORG_WITHOUT_MODULES }), searchParams: p({}) }, expect: /Who to Ask[\s\S]*Sign Out/, as: MEMBER_ID },
   { name: "family-athlete", path: "@/app/org/[slug]/family/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Matches[\s\S]*Documents/, as: FAMILY_ID },
+  // Stage 3: the athlete's thread, the one thing a family login writes.
+  // There is no family check-ins screen; the log is staff only.
+  { name: "family-messages", path: "@/app/org/[slug]/family/[id]/messages/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture message from staff[\s\S]*Send/, as: FAMILY_ID },
   { name: "family-eligibility", path: "@/app/org/[slug]/family/[id]/eligibility/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /core/i, as: FAMILY_ID },
   { name: "family-approvals", path: "@/app/org/[slug]/family/[id]/eligibility/approvals/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /approv/i, as: FAMILY_ID },
   { name: "family-caveats", path: "@/app/org/[slug]/family/[id]/eligibility/caveats/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Things to Know/i, as: FAMILY_ID },
@@ -74,6 +80,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // than an empty screen.
   { name: "roster-search", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "transfer" }) }, expect: /Fixture Transfer/ },
   { name: "roster-search-empty", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "zzzz" }) }, expect: /Nobody Matches/ },
+  { name: "roster-mine", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ advisor: "me" }) }, expect: /2 of \d+, yours/ },
   { name: "athlete", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete/ },
   { name: "athlete-transfer", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /Fixture Transfer/ },
   { name: "athlete-committed", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteCommitted }) }, expect: /Fixture Committed[\s\S]*Mark Enrolled/ },
@@ -108,6 +115,12 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "target", path: "@/app/org/[slug]/board/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) }, expect: /Fixture State University/ },
   { name: "dimension", path: "@/app/org/[slug]/board/[id]/dimensions/[dim]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target, dim: "academic" }) }, expect: /Academic/ },
   { name: "communications", path: "@/app/org/[slug]/board/[id]/communications/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) }, expect: /Fixture note/ },
+  // Stage 3: the athlete's thread and check-in log on the staff side,
+  // each with an athlete that has nothing on it yet.
+  { name: "messages", path: "@/app/org/[slug]/roster/[id]/messages/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture message from staff[\s\S]*Fixture reply from the family[\s\S]*Send/ },
+  { name: "messages-empty", path: "@/app/org/[slug]/roster/[id]/messages/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /Nothing Sent Yet/ },
+  { name: "checkins", path: "@/app/org/[slug]/roster/[id]/checkins/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture check-in note[\s\S]*Log Check-In/ },
+  { name: "checkins-empty", path: "@/app/org/[slug]/roster/[id]/checkins/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteNoGpa }) }, expect: /No Check-Ins Yet/ },
   { name: "schools", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture State University/ },
   { name: "schools-search", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "state" }) }, expect: /Fixture State University/ },
   { name: "schools-imported", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ imported: "3" }) }, expect: /3 Schools Imported/ },

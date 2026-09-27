@@ -3055,3 +3055,51 @@ legitimately prints. Filtering is in memory over the whole table, fine
 at 122 schools. The member Program screen's school rows stay unlinked
 until the RPC returns a school id.
 
+
+## 2026-09-26: advisors, the family thread and staff check-ins
+
+**Decision.** Stage 3, migration 0039.
+- **Advisor as a column.** `athletes.advisor_id`, one per athlete, held
+  to owner or staff of the athlete's org by a trigger, and cleared by
+  the app when that person is removed or made a member. Display and
+  reminders only, never a permission.
+- **Check-ins are staff only.** `athlete_checkins` has no family read
+  clause; a family or member login reads no row. The family's athlete
+  page shows no check-in, and the form's notes hint says "Staff only."
+- **The first table a family writes.** `athlete_messages` accepts a
+  family insert only when the family login is the author and is linked
+  to the athlete; update and delete stay with staff. A trigger keeps
+  every row's `org_id` equal to its athlete's org.
+- **Unread is a per-thread watermark** (`athlete_message_reads`, one row
+  per person per thread), upserted when the thread page renders.
+- **No email in Stage 3.** The unread count is the only signal.
+- **Production `advisor_id` stays null.** Dave assigns from Edit.
+
+**Reason.** Dave's brief: every athlete has someone on staff who checks
+in with them, and staff and families talk through the app. These
+athletes are minors, and row level security hides rows, not columns: a
+family read policy on the check-in log would hand every call note to a
+parent through the API whatever the page chose to show. A thread is
+the one write a family needs, so the policy admits exactly that row and
+nothing wider. The app sends no email of its own; Supabase Auth only
+sends sign-in mail, and dressing a sign-in link up as a notification
+would count against auth rate limits. Dave's notes name Dave, Mike and
+Kev as advisors, but nothing maps those names to logins, so guessing
+would put the wrong name in front of a family.
+
+**Alternatives considered.** An assignments table (rejected: a table for
+one relationship nobody asked to be many). Check-ins readable by the
+family with a private flag on notes (rejected: a flag is one forgotten
+tap from a parent reading a staff note; revisit only if Dave asks). A
+staff-only thread with a mailto link to the family (rejected: Dave asked
+for communication through the app). Per-message read receipts (rejected:
+a family-writable update on a staff table for no gain over a
+watermark). Email through `signInWithOtp` (rejected, above).
+
+**Consequences.** "A family changes nothing" becomes "a family writes
+only its own messages and read marker", asserted in
+`scripts/rls_test.sql` along with the two-org filing case, each planted
+and watched to fail. The thread page is the first page that writes on
+render (idempotent). Until Dave picks advisors, My Athletes is empty and
+Today shows no check-in reminders. Message notifications are Stage 3b
+on the roadmap; a Spanish body column waits for Stage 5.
