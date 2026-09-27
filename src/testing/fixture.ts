@@ -610,6 +610,24 @@ export function buildFixture(): Dataset {
       { id: "an1", org_id: BRIDGE, athlete_id: IDS.athlete, author_id: OWNER, context: "general", body: "Fixture note.", created_at: "2026-09-24T15:00:00.000Z" },
       { id: "an2", org_id: ELITE, athlete_id: IDS.athleteElite, author_id: OWNER, context: "general", body: "Fixture squad note.", created_at: "2026-09-25T15:00:00.000Z" },
     ],
+    // The activity log (migration 0044): who did what, on the fixture
+    // athlete and on the org, in template sentences that carry names,
+    // statuses, kinds and dates only, never a note, a message or a
+    // reading (src/laws/activityLaws.test.ts holds the fixture to that).
+    // None on the transfer athlete, so the empty state renders. One Elite
+    // row, so a leak across orgs shows as a wrong line rather than an
+    // empty screen. Admins only: no family or member page reads this.
+    activity_log: [
+      { id: "al1", org_id: BRIDGE, athlete_id: IDS.athlete, actor_id: OWNER, action: "athlete_created", subject_type: "athlete", subject_id: IDS.athlete, summary: "Added Fixture Athlete", created_at: "2026-09-05T13:00:00.000Z" },
+      { id: "al2", org_id: BRIDGE, athlete_id: IDS.athlete, actor_id: OWNER, action: "target_added", subject_type: "target", subject_id: IDS.target, summary: "Added Fixture State University as a target for Fixture Athlete", created_at: "2026-09-12T15:30:00.000Z" },
+      { id: "al3", org_id: BRIDGE, athlete_id: IDS.athlete, actor_id: OWNER, action: "target_status_changed", subject_type: "target", subject_id: IDS.target, summary: "Moved Fixture Athlete at Fixture State University from Target to In Contact", created_at: "2026-09-18T16:00:00.000Z" },
+      { id: "al4", org_id: BRIDGE, athlete_id: IDS.athlete, actor_id: OWNER, action: "checkin_logged", subject_type: "checkin", subject_id: "ck1", summary: "Logged a call check-in for Fixture Athlete on Sep 21, 2026", created_at: "2026-09-21T17:00:00.000Z" },
+      { id: "al5", org_id: BRIDGE, athlete_id: IDS.athlete, actor_id: FAMILY, action: "message_sent", subject_type: "message", subject_id: null, summary: "Sent a message", created_at: "2026-09-22T18:30:00.000Z" },
+      { id: "al6", org_id: BRIDGE, athlete_id: IDS.athlete, actor_id: OWNER, action: "advisor_set", subject_type: "athlete", subject_id: IDS.athlete, summary: "Set Example Owner as the advisor for Fixture Athlete", created_at: "2026-09-10T12:00:00.000Z" },
+      // About the org, not an athlete: the member row the owner invited.
+      { id: "al7", org_id: BRIDGE, athlete_id: null, actor_id: OWNER, action: "member_invited", subject_type: "member", subject_id: "m2", summary: "Invited Example Member as a Viewer", created_at: "2026-09-04T12:00:00.000Z" },
+      { id: "al8", org_id: ELITE, athlete_id: IDS.athleteElite, actor_id: OWNER, action: "athlete_created", subject_type: "athlete", subject_id: IDS.athleteElite, summary: "Added Squad Athlete", created_at: "2026-09-06T12:00:00.000Z" },
+    ],
     athlete_courses: [
       { id: "ac1", org_id: BRIDGE, athlete_id: IDS.athlete, title: "English 11", subject: "english", credit: 1, grade: "B", term: "25-26 S1", school_name: "Fixture High School", weighted: false, ncaa_approved: null, duplicate_of: null, approval_source: null },
       { id: "ac2", org_id: BRIDGE, athlete_id: IDS.athlete, title: "Algebra II", subject: "math", credit: 1, grade: "A", term: "25-26 S1", school_name: "Unscaled High School", weighted: false, ncaa_approved: null, duplicate_of: null, approval_source: null },

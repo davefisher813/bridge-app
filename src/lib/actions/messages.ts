@@ -8,6 +8,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireFamilyAthlete } from "@/lib/data/family";
 import { markThreadRead } from "@/lib/data/messages";
 import { parseMessageForm } from "@/lib/validation/message";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 
 // A message on an athlete's thread (migration 0039). The one thing a
 // family login may write: a message on its own athlete's thread, as
@@ -23,12 +24,12 @@ export interface MessageActionState {
   body?: string;
 }
 
-// Same cross-org shape as the other actions' assertAthleteInOrg: RLS
-// only sees the new row's own org_id.
-async function athleteInOrg(orgId: string, athleteId: string): Promise<boolean> {
+// Same cross-org shape as the other actions' loadOrgAthlete: RLS only
+// sees the new row's own org_id. The name comes back for the log line.
+async function loadOrgAthlete(orgId: string, athleteId: string): Promise<{ id: string; name: string } | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("athletes").select("id").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).maybeSingle();
-  return !!data;
+  const { data } = await supabase.from("athletes").select("id, name").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).maybeSingle();
+  return (data as { id: string; name: string } | null) ?? null;
 }
 
 function revalidateThread(slug: string, athleteId: string) {
@@ -46,11 +47,16 @@ export async function sendMessage(slug: string, athleteId: string, _prevState: M
   const user = await getCurrentUser(org.id);
   if (!user) redirect("/login");
 
+  // The athlete's name, for the Admin's log line; a family login's line
+  // is written by SQL and names nobody.
+  let athleteName: string | null = null;
   if (user.role === "family") {
     // Not linked to this athlete is not found, the database's answer.
     await requireFamilyAthlete(org.id, user.id, athleteId);
   } else if (user.role === "owner" || user.role === "staff") {
-    if (!(await athleteInOrg(org.id, athleteId))) return { errors: { form: "That athlete isn't on this org's roster." } };
+    const athlete = await loadOrgAthlete(org.id, athleteId);
+    if (!athlete) return { errors: { form: "That athlete isn't on this org's roster." } };
+    athleteName = athlete.name;
   } else {
     redirect("/unauthorized");
   }
@@ -60,16 +66,40 @@ export async function sendMessage(slug: string, athleteId: string, _prevState: M
   if (!parsed.ok || !parsed.values) return { errors: parsed.errors, body: typed };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("athlete_messages").insert({
-    org_id: org.id,
-    athlete_id: athleteId,
-    author_id: user.id,
-    body: parsed.values.body,
-  });
+  const { data: created, error } = await supabase
+    .from("athlete_messages")
+    .insert({
+      org_id: org.id,
+      athlete_id: athleteId,
+      author_id: user.id,
+      body: parsed.values.body,
+    })
+    .select("id")
+    .maybeSingle();
   if (error) return { errors: { form: error.message }, body: typed };
 
   // Whoever wrote the last message has read the thread.
   await markThreadRead(supabase, org.id, athleteId, user.id);
+
+  // The log line says a message was sent, never what it said. A family
+  // login has no right to write the log itself, so the database's
+  // log_family_message (migration 0044) writes its fixed line; the only
+  // thing handed to it is the athlete's id. A failed log line is warned
+  // about and the message stands.
+  if (user.role === "family") {
+    const { error: logError } = await supabase.rpc("log_family_message", { p_athlete: athleteId });
+    if (logError) console.warn(`activity_log: message_sent was not recorded: ${logError.message}`);
+  } else {
+    await logActivity(supabase, {
+      orgId: org.id,
+      actorId: user.id,
+      athleteId,
+      action: "message_sent",
+      subjectType: "message",
+      subjectId: (created as { id?: string } | null)?.id ?? null,
+      summary: activitySummary("message_sent", { name: athleteName }),
+    });
+  }
 
   revalidateThread(slug, athleteId);
   return { errors: {} };

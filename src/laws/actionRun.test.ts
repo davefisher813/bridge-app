@@ -2238,3 +2238,198 @@ describe("LAW: an advisor is owner or staff of the athlete's org, and stops bein
     expect(advisorOf(IDS.athleteElite)).toBeNull();
   });
 });
+
+describe("LAW: every action writes one activity_log row on success, none on refusal, and never fails for the log", () => {
+  // Stage 5, Phase 6 (Dave approved the plan 2026-09-27). The activity
+  // log is written at the action layer, after the business write and
+  // before revalidatePath, one row per thing that happened: an edit that
+  // moved the status dropdown is two things, an advisor set on several
+  // athletes is one per athlete, and an invite that also assigned the
+  // new Admin as an advisor is an invite and an assignment. Nothing is
+  // logged inside src/lib/data/enrollment.ts or reopen.ts, so a close-out
+  // reached from any screen logs once. A refused action logs nothing,
+  // and a log that cannot be written never undoes the write it records.
+  //
+  // Proven to bite: removed the logActivity call from removeAthlete
+  // (failed, 0 rows); added a second logActivity inside applyCloseOut
+  // (failed, 2 rows on Mark Enrolled); made logActivity rethrow (the
+  // failing-log case failed on the missing redirect). Each reverted.
+  const ORG = () => data.orgs[0]!.id;
+  const logs = () => inserts("activity_log").map((w) => w.rows[0] as Record<string, unknown>);
+  const withKey = () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-only";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://app.example.test";
+  };
+  const hsForm = (fields: Record<string, string> = {}) => form({ name: "Fixture Athlete", sport: "baseball", recruitType: "hs", status: "Active", ...fields });
+
+  // Every row carries the org, the caller, a listed action and a
+  // summary with no email in it.
+  const wellFormed = (row: Record<string, unknown>) => {
+    expect(row.org_id).toBe(ORG());
+    expect(row.actor_id).toBe(currentUser);
+    expect(String(row.summary)).not.toMatch(/@/);
+    expect(String(row.summary).length).toBeLessThanOrEqual(200);
+  };
+
+  it("adding an athlete logs one row on the new athlete, without the note typed on the form", async () => {
+    const { createAthlete } = await import("@/lib/actions/athletes");
+    const r = await run(() => createAthlete(ORG_WITH_MODULES, { errors: {}, values: {} }, hsForm({ name: "New Athlete", notes: "Fixture note." })));
+    expect(r.redirect).toContain("/roster/");
+    const created = data.athletes.find((a) => a.name === "New Athlete")!;
+    expect(logs()).toHaveLength(1);
+    wellFormed(logs()[0]);
+    expect(logs()[0]).toMatchObject({ action: "athlete_created", subject_type: "athlete", subject_id: created.id, athlete_id: created.id, summary: "Added New Athlete" });
+    expect(String(logs()[0].summary)).not.toContain("Fixture note");
+  });
+
+  it("an edit logs one row, and an edit that moves the status logs the move as a second", async () => {
+    const { updateAthlete } = await import("@/lib/actions/athletes");
+    await run(() => updateAthlete(ORG_WITH_MODULES, IDS.athlete, { errors: {}, values: {} }, hsForm({ notes: "Fixture note." })));
+    expect(logs().map((r) => r.action)).toEqual(["athlete_edited"]);
+    expect(logs()[0]).toMatchObject({ athlete_id: IDS.athlete, summary: "Edited Fixture Athlete" });
+    writes.length = 0;
+    await run(() => updateAthlete(ORG_WITH_MODULES, IDS.athlete, { errors: {}, values: {} }, hsForm({ status: "Inactive" })));
+    expect(logs().map((r) => r.action)).toEqual(["athlete_edited", "athlete_status_changed"]);
+    expect(logs()[1]).toMatchObject({ athlete_id: IDS.athlete, summary: "Moved Fixture Athlete from Active to Inactive" });
+    for (const row of logs()) wellFormed(row);
+  });
+
+  it("removing an athlete logs one row that keeps the name", async () => {
+    const { removeAthlete } = await import("@/lib/actions/athletes");
+    const r = await run(() => removeAthlete(ORG_WITH_MODULES, IDS.athlete));
+    expect(r.redirect).toContain("/roster?notice=");
+    expect(logs()).toHaveLength(1);
+    wellFormed(logs()[0]);
+    expect(logs()[0]).toMatchObject({ action: "athlete_removed", athlete_id: IDS.athlete, summary: "Removed Fixture Athlete" });
+  });
+
+  it("each close-out logs one status change, from the status they had, and the reopen logs the way back", async () => {
+    const { markEnrolled, markGraduated, markDrafted } = await import("@/lib/actions/enrollment");
+    const { reopenRecruiting } = await import("@/lib/actions/reopen");
+
+    await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athleteCommitted, { errors: {} }, form({ enrolledOn: "2026-09-01", note: "Fixture note." })));
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "athlete_status_changed", athlete_id: IDS.athleteCommitted, summary: "Moved Fixture Committed from Committed to Enrolled" });
+    writes.length = 0;
+
+    await run(() => markGraduated(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {} }, form({ graduatedOn: "2026-09-01" })));
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "athlete_status_changed", athlete_id: IDS.athleteEnrolled, summary: "Moved Fixture Enrolled from Enrolled to Graduated" });
+    writes.length = 0;
+
+    await run(() => markDrafted(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ draftTeam: "Fixture Pros" })));
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "athlete_status_changed", athlete_id: IDS.athlete, summary: "Moved Fixture Athlete from Active to Drafted" });
+    writes.length = 0;
+
+    // Already Drafted: a correction of the details, so an edit, not a move.
+    await run(() => markDrafted(ORG_WITH_MODULES, IDS.athleteDrafted, { errors: {} }, form({ draftTeam: "Fixture Pros", draftRound: "6" })));
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "athlete_edited", athlete_id: IDS.athleteDrafted, summary: "Edited Fixture Drafted" });
+    writes.length = 0;
+
+    data = buildFixture();
+    await run(() => reopenRecruiting(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {} }, form({ transferKind: "transfer_4to4", currentSchool: "Fixture State University", eligibilityYearsRemaining: "2", transferCount: "1", note: "Fixture note." })));
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "athlete_status_changed", athlete_id: IDS.athleteEnrolled, summary: "Moved Fixture Enrolled from Enrolled to Transferring" });
+    wellFormed(logs()[0]);
+  });
+
+  it("setting an advisor logs one row per athlete changed, naming the advisor; clearing names nobody", async () => {
+    const { setAthleteAdvisor } = await import("@/lib/actions/members");
+    expect((await setAthleteAdvisor(ORG_WITH_MODULES, [IDS.athlete, IDS.athleteTransfer], OWNER_ID)).ok).toBe(true);
+    expect(logs()).toHaveLength(2);
+    expect(logs().map((r) => [r.action, r.athlete_id, r.summary])).toEqual([
+      ["advisor_set", IDS.athlete, "Set Example Owner as the advisor for Fixture Athlete"],
+      ["advisor_set", IDS.athleteTransfer, "Set Example Owner as the advisor for Fixture Transfer"],
+    ]);
+    for (const row of logs()) wellFormed(row);
+    writes.length = 0;
+    // Taking off an advisor who does not advise that athlete changes
+    // nothing, and logs nothing.
+    expect((await setAthleteAdvisor(ORG_WITH_MODULES, [IDS.athleteTransfer], null, { onlyFrom: MEMBER_ID })).ok).toBe(true);
+    expect(logs()).toEqual([]);
+    expect((await setAthleteAdvisor(ORG_WITH_MODULES, [IDS.athleteTransfer], null, { onlyFrom: OWNER_ID })).ok).toBe(true);
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "advisor_cleared", athlete_id: IDS.athleteTransfer, summary: "Cleared the advisor for Fixture Transfer" });
+  });
+
+  it("an invite logs the person and the access level, never the email, and the athlete when it made an Athlete login", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "new@example.test", role: "owner", fullName: "New Person" })));
+    expect(logs()).toHaveLength(1);
+    wellFormed(logs()[0]);
+    expect(logs()[0]).toMatchObject({ action: "member_invited", subject_type: "member", athlete_id: null, summary: "Invited New Person as an Admin" });
+    writes.length = 0;
+
+    // An existing account with no name typed: the name their account
+    // carries, never the address it was invited by.
+    await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "outsider@example.test", role: "family", athleteId: IDS.athlete })));
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "member_invited", subject_id: OUTSIDER_ID, athlete_id: IDS.athlete, summary: "Invited Example Outsider as an Athlete for Fixture Athlete" });
+    writes.length = 0;
+
+    // A parent linked to a second athlete: the link is an invite on that athlete.
+    await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "parent@example.test", role: "family", athleteId: IDS.athleteTransfer })));
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "member_invited", subject_id: FAMILY_ID, athlete_id: IDS.athleteTransfer, summary: "Invited Fixture Parent as an Athlete for Fixture Transfer" });
+  });
+
+  it("Add Admin from the Advisor sheet logs the invite and the assignment", async () => {
+    withKey();
+    data = buildFixture();
+    const { inviteMember } = await import("@/lib/actions/members");
+    await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "coach@example.test", role: "owner", fullName: "New Coach", assignAthleteId: IDS.athleteTransfer })));
+    expect(logs().map((r) => [r.action, r.athlete_id, r.summary])).toEqual([
+      ["member_invited", null, "Invited New Coach as an Admin"],
+      ["advisor_set", IDS.athleteTransfer, "Set New Coach as the advisor for Fixture Transfer"],
+    ]);
+  });
+
+  it("a role change and a removal each log one row with the person's name and the levels", async () => {
+    withKey();
+    const { changeMemberRole, removeMember } = await import("@/lib/actions/members");
+    expect((await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "owner")).ok).toBe(true);
+    expect(logs()).toHaveLength(1);
+    wellFormed(logs()[0]);
+    expect(logs()[0]).toMatchObject({ action: "member_role_changed", subject_id: MEMBER_ID, athlete_id: null, summary: "Changed Example Member from Viewer to Admin" });
+    writes.length = 0;
+    // The same role again changes nothing and logs nothing.
+    expect((await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "owner")).ok).toBe(true);
+    expect(logs()).toEqual([]);
+    expect((await removeMember(ORG_WITH_MODULES, MEMBER_ID)).ok).toBe(true);
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "member_removed", subject_id: MEMBER_ID, summary: "Removed Example Member" });
+    // The name was read before the membership went, not after.
+    expect(String(logs()[0].summary)).toContain("Example Member");
+  });
+
+  it("a refused action logs nothing", async () => {
+    withKey();
+    const { createAthlete, updateAthlete } = await import("@/lib/actions/athletes");
+    const { markEnrolled } = await import("@/lib/actions/enrollment");
+    const { changeMemberRole, setAthleteAdvisor } = await import("@/lib/actions/members");
+    await run(() => updateAthlete(ORG_WITH_MODULES, IDS.athlete, { errors: {}, values: {} }, hsForm({ status: "Committed" })));
+    await run(() => markEnrolled(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ enrolledOn: "2026-09-01", schoolId: "" })));
+    await changeMemberRole(ORG_WITH_MODULES, OWNER_ID, "member");
+    await setAthleteAdvisor(ORG_WITH_MODULES, [IDS.athlete], MEMBER_ID);
+    currentUser = MEMBER_ID;
+    await run(() => createAthlete(ORG_WITH_MODULES, { errors: {}, values: {} }, hsForm({ name: "Sneaked In" })));
+    expect(writes).toEqual([]);
+  });
+
+  it("a log that cannot be written leaves the business write standing and the action finishing", async () => {
+    failOn = (table, op) => (table === "activity_log" && op === "insert" ? "the log is down" : null);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { removeAthlete } = await import("@/lib/actions/athletes");
+      const r = await run(() => removeAthlete(ORG_WITH_MODULES, IDS.athlete));
+      expect(r.redirect).toContain("/roster?notice=");
+      expect(data.athletes.find((a) => a.id === IDS.athlete)?.deleted_at).toBeTruthy();
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});

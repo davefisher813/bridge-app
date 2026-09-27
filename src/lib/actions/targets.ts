@@ -11,6 +11,7 @@ import { recomputeFitsForAthlete } from "@/lib/data/fits";
 import { aidFromRow, parseTargetAidForm } from "@/lib/validation/targetAid";
 import { loadLiveTarget } from "@/lib/data/loadTarget";
 import { isClosedStatus } from "@/lib/placement";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 
 export interface TargetActionState {
   errors: Record<string, string>;
@@ -25,22 +26,43 @@ export interface TargetActionState {
 // mixing one org's target list with another org's athlete. So the action
 // re-fetches the athlete scoped by org_id itself before ever building the
 // insert - the same "app validates shape" split as everywhere else in
-// this repo, just for a relationship instead of a jsonb column.
-async function assertAthleteInOrg(orgId: string, athleteId: string): Promise<boolean> {
+// this repo, just for a relationship instead of a jsonb column. The
+// name comes back with the row for the activity log's line.
+async function loadOrgAthlete(orgId: string, athleteId: string): Promise<{ id: string; name: string } | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("athletes").select("id").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).single();
-  return !!data;
+  const { data } = await supabase.from("athletes").select("id, name").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).single();
+  return (data as { id: string; name: string } | null) ?? null;
+}
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+// The school's name for the log line. Schools are the shared directory,
+// readable to every signed-in member, so a miss only leaves the name
+// blank and the template says "a school".
+async function schoolName(supabase: Supabase, schoolId: string): Promise<string> {
+  const { data } = await supabase.from("schools").select("name").eq("id", schoolId).maybeSingle();
+  return (data as { name?: string | null } | null)?.name ?? "";
+}
+
+// Both names on an existing target, read before it is written or
+// removed, so the log can say whose target at which school it was.
+async function targetNames(supabase: Supabase, orgId: string, targetId: string): Promise<{ name: string; school: string }> {
+  const { data } = await supabase.from("recruiting_targets").select("athletes(name), schools(name)").eq("id", targetId).eq("org_id", orgId).maybeSingle();
+  const row = data as { athletes: { name: string } | { name: string }[] | null; schools: { name: string } | { name: string }[] | null } | null;
+  const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
+  return { name: one(row?.athletes)?.name ?? "", school: one(row?.schools)?.name ?? "" };
 }
 
 export async function createTarget(slug: string, _prevState: TargetActionState, formData: FormData): Promise<TargetActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const parsed = parseTargetForm(formData);
   if (!parsed.ok || !parsed.values) return { errors: parsed.errors };
 
-  if (!(await assertAthleteInOrg(org.id, parsed.values.athleteId))) {
+  const athlete = await loadOrgAthlete(org.id, parsed.values.athleteId);
+  if (!athlete) {
     return { errors: { athleteId: "That athlete isn't on this org's roster." } };
   }
 
@@ -68,6 +90,16 @@ export async function createTarget(slug: string, _prevState: TargetActionState, 
 
   await syncCommitment(supabase, org.id, parsed.values.athleteId, { before: null, after: parsed.values.status });
 
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    athleteId: athlete.id,
+    action: "target_added",
+    subjectType: "target",
+    subjectId: created?.id ?? null,
+    summary: activitySummary("target_added", { name: athlete.name, school: await schoolName(supabase, parsed.values.schoolId) }),
+  });
+
   revalidatePath(`/org/${slug}/board`);
   revalidatePath(`/org/${slug}`);
   revalidatePath(`/org/${slug}/roster`);
@@ -78,12 +110,13 @@ export async function createTarget(slug: string, _prevState: TargetActionState, 
 export async function updateTarget(slug: string, targetId: string, _prevState: TargetActionState, formData: FormData): Promise<TargetActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const parsed = parseTargetForm(formData);
   if (!parsed.ok || !parsed.values) return { errors: parsed.errors };
 
-  if (!(await assertAthleteInOrg(org.id, parsed.values.athleteId))) {
+  const athlete = await loadOrgAthlete(org.id, parsed.values.athleteId);
+  if (!athlete) {
     return { errors: { athleteId: "That athlete isn't on this org's roster." } };
   }
 
@@ -127,6 +160,20 @@ export async function updateTarget(slug: string, targetId: string, _prevState: T
     await syncCommitment(supabase, org.id, parsed.values.athleteId, { before: before.status, after: parsed.values.status });
   }
 
+  // Only a stage change is history worth a line; a coach name or a note
+  // edited in place is not.
+  if (before.status !== parsed.values.status) {
+    await logActivity(supabase, {
+      orgId: org.id,
+      actorId: user.id,
+      athleteId: athlete.id,
+      action: "target_status_changed",
+      subjectType: "target",
+      subjectId: targetId,
+      summary: activitySummary("target_status_changed", { name: athlete.name, school: await schoolName(supabase, parsed.values.schoolId), from: before.status, to: parsed.values.status }),
+    });
+  }
+
   revalidatePath(`/org/${slug}/board`);
   revalidatePath(`/org/${slug}`);
   revalidatePath(`/org/${slug}/board/${targetId}`);
@@ -163,7 +210,7 @@ const PLACED_COMMITMENT_REFUSAL = "Reopen Recruiting first, then remove it.";
 export async function deleteTarget(slug: string, targetId: string): Promise<void> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
   const live = await loadLiveTarget(supabase, org.id, targetId);
@@ -172,6 +219,8 @@ export async function deleteTarget(slug: string, targetId: string): Promise<void
     redirect(`/org/${slug}/board/${targetId}/edit?error=${encodeURIComponent(PLACED_COMMITMENT_REFUSAL)}`);
   }
   const row = { status: live.status, athlete_id: live.athleteId };
+  // Read before the delete; there is nothing to name afterwards.
+  const named = await targetNames(supabase, org.id, targetId);
 
   await supabase.from("target_communications").delete().eq("target_id", targetId).eq("org_id", org.id);
   await supabase.from("target_visits").delete().eq("target_id", targetId).eq("org_id", org.id);
@@ -180,6 +229,16 @@ export async function deleteTarget(slug: string, targetId: string): Promise<void
 
   await syncCommitment(supabase, org.id, row.athlete_id, { before: row.status, after: null });
   await recomputeFitsForAthlete(supabase, org.id, row.athlete_id);
+
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    athleteId: row.athlete_id,
+    action: "target_removed",
+    subjectType: "target",
+    subjectId: targetId,
+    summary: activitySummary("target_removed", { name: named.name, school: named.school }),
+  });
 
   revalidateTargetScreens(slug, targetId, row.athlete_id);
   redirect(`/org/${slug}/roster/${row.athlete_id}`);

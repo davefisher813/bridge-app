@@ -9,6 +9,7 @@ import { applyReopen, reopenNotice, type ReopenInput, type TransferKind } from "
 import { canReopen, currentSchoolOf } from "@/lib/placement";
 import { resolveCollege } from "@/lib/data/lookups";
 import { addAthleteNote } from "@/lib/data/athleteNotes";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 
 export interface ReopenActionState {
   errors: Record<string, string>;
@@ -35,7 +36,7 @@ export async function reopenRecruiting(slug: string, athleteId: string, prevOrFo
   const user = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const { data: athlete } = await supabase.from("athletes").select("id, status, detail").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
+  const { data: athlete } = await supabase.from("athletes").select("id, name, status, detail").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
   if (!athlete) redirect("/unauthorized");
   const profile = `/org/${slug}/roster/${athleteId}`;
   if (!canReopen(athlete.status)) redirect(profile);
@@ -86,6 +87,19 @@ export async function reopenRecruiting(slug: string, athleteId: string, prevOrFo
 
   // The optional note, filed under Reopened Recruiting. Blank adds none.
   const noteError = await addAthleteNote(supabase, { orgId: org.id, athleteId, authorId: user.id, context: "reopened", body: String(formData.get("note") ?? "") });
+
+  // The activity log (Stage 5, Phase 6): a reopen is a status change,
+  // from what they were to Active or Transferring. Never inside
+  // src/lib/data/reopen.ts, so it is logged once. The note stays above.
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    action: "athlete_status_changed",
+    subjectType: "athlete",
+    subjectId: athleteId,
+    athleteId,
+    summary: activitySummary("athlete_status_changed", { name: athlete.name, from: athlete.status, to: result.status }),
+  });
 
   revalidatePath(profile);
   revalidatePath(`/org/${slug}/roster`);

@@ -13,6 +13,7 @@ import { addAthleteNote, deleteAthleteNote } from "@/lib/data/athleteNotes";
 import { escapeIlike, nameKey } from "@/lib/lookup/nameKey";
 import { isUsStateCode } from "@/lib/lookup/states";
 import { isEligibleAdvisor } from "@/lib/org/advisors";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 import type { AthleteFormResult } from "@/lib/validation/athlete";
 
 // Athlete add/edit was the top ROADMAP.md item once roster/board existed
@@ -155,6 +156,20 @@ export async function createAthlete(slug: string, _prevState: AthleteActionState
   // Stored fits: a new athlete is scored against every school now, so
   // the Matches section is full the first time anyone opens the record.
   if (created?.id) await recomputeFitsForAthlete(supabase, org.id, created.id);
+
+  // The activity log (Stage 5, Phase 6): one row, the athlete's name and
+  // nothing typed on the form. The note above stays in athlete_notes.
+  if (created?.id) {
+    await logActivity(supabase, {
+      orgId: org.id,
+      actorId: user.id,
+      action: "athlete_created",
+      subjectType: "athlete",
+      subjectId: created.id,
+      athleteId: created.id,
+      summary: activitySummary("athlete_created", { name: parsed.values.name }),
+    });
+  }
   if (metricsWarning) {
     return { errors: { form: `${parsed.values.name} was added, but the metrics could not be logged: ${metricsWarning}. Log them from the athlete's Metrics screen.` }, values: valuesFromFormData(formData) };
   }
@@ -288,6 +303,16 @@ export async function updateAthlete(
   // Add a Note: a new dated entry in the staff log. Blank adds nothing.
   const noteError = await addAthleteNote(supabase, { orgId: org.id, athleteId, authorId: user.id, context: "general", body: parsed.values.notes });
 
+  // The activity log (Stage 5, Phase 6): the edit itself, and a second
+  // row when the save moved the dropdown, so a status change reads as
+  // one whichever screen made it. Names and statuses only; the note
+  // stays in athlete_notes.
+  const logged = { orgId: org.id, actorId: user.id, subjectType: "athlete" as const, subjectId: athleteId, athleteId };
+  await logActivity(supabase, { ...logged, action: "athlete_edited", summary: activitySummary("athlete_edited", { name: parsed.values.name }) });
+  if (transition) {
+    await logActivity(supabase, { ...logged, action: "athlete_status_changed", summary: activitySummary("athlete_status_changed", { name: parsed.values.name, from: before.status, to: transition }) });
+  }
+
   revalidatePath(`/org/${slug}/roster`);
   revalidatePath(`/org/${slug}/roster/${athleteId}`);
   revalidatePath(`/org/${slug}/board`);
@@ -342,7 +367,7 @@ export async function removeNote(slug: string, athleteId: string, noteId: string
 export async function removeAthlete(slug: string, athleteId: string): Promise<void> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
   const stamp = new Date().toISOString();
@@ -357,6 +382,18 @@ export async function removeAthlete(slug: string, athleteId: string): Promise<vo
   if (!row) redirect(`/org/${slug}/roster`);
 
   await clearFitsForAthlete(supabase, org.id, athleteId);
+
+  // The activity log (Stage 5, Phase 6). The row is a soft delete, so
+  // the log line keeps its athlete_id and the name it had.
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    action: "athlete_removed",
+    subjectType: "athlete",
+    subjectId: athleteId,
+    athleteId,
+    summary: activitySummary("athlete_removed", { name: row.name }),
+  });
 
   revalidatePath(`/org/${slug}/roster`);
   revalidatePath(`/org/${slug}/roster/${athleteId}`);

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { parseCheckinForm } from "@/lib/validation/checkin";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 
 // The check-in log (migration 0039). Staff only, to read and to write:
 // these athletes are minors and an advisor's call notes never reach a
@@ -17,11 +18,12 @@ export interface CheckinActionState {
 }
 
 // RLS only checks the new row's own org_id; the athlete must be this
-// org's too (the coherence trigger is the backstop).
-async function assertAthleteInOrg(orgId: string, athleteId: string): Promise<boolean> {
+// org's too (the coherence trigger is the backstop). The name comes
+// back for the activity log's line.
+async function loadOrgAthlete(orgId: string, athleteId: string): Promise<{ id: string; name: string } | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("athletes").select("id").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).maybeSingle();
-  return !!data;
+  const { data } = await supabase.from("athletes").select("id, name").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).maybeSingle();
+  return (data as { id: string; name: string } | null) ?? null;
 }
 
 function revalidateCheckins(slug: string, athleteId: string) {
@@ -39,20 +41,38 @@ export async function logCheckin(slug: string, athleteId: string, _prevState: Ch
   const parsed = parseCheckinForm(formData);
   if (!parsed.ok || !parsed.values) return { errors: parsed.errors };
 
-  if (!(await assertAthleteInOrg(org.id, athleteId))) {
+  const athlete = await loadOrgAthlete(org.id, athleteId);
+  if (!athlete) {
     return { errors: { form: "That athlete isn't on this org's roster." } };
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("athlete_checkins").insert({
-    org_id: org.id,
-    athlete_id: athleteId,
-    advisor_id: user.id,
-    kind: parsed.values.kind,
-    occurred_on: parsed.values.occurredOn ?? new Date().toISOString().slice(0, 10),
-    notes: parsed.values.notes ?? null,
-  });
+  const occurredOn = parsed.values.occurredOn ?? new Date().toISOString().slice(0, 10);
+  const { data: created, error } = await supabase
+    .from("athlete_checkins")
+    .insert({
+      org_id: org.id,
+      athlete_id: athleteId,
+      advisor_id: user.id,
+      kind: parsed.values.kind,
+      occurred_on: occurredOn,
+      notes: parsed.values.notes ?? null,
+    })
+    .select("id")
+    .maybeSingle();
   if (error) return { errors: { form: error.message } };
+
+  // The log line carries the kind and the day. The note stays in
+  // athlete_checkins, where only staff read it.
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    athleteId: athlete.id,
+    action: "checkin_logged",
+    subjectType: "checkin",
+    subjectId: (created as { id?: string } | null)?.id ?? null,
+    summary: activitySummary("checkin_logged", { name: athlete.name, kind: parsed.values.kind, date: occurredOn }),
+  });
 
   revalidateCheckins(slug, athleteId);
   return { errors: {} };
@@ -71,7 +91,7 @@ export async function updateCheckin(slug: string, athleteId: string, checkinId: 
   if (!parsed.ok || !parsed.values) return { errors: parsed.errors };
   if (!parsed.values.occurredOn) return { errors: { occurredOn: "Pick the date it happened." } };
 
-  if (!(await assertAthleteInOrg(org.id, athleteId))) {
+  if (!(await loadOrgAthlete(org.id, athleteId))) {
     return { errors: { form: "That athlete isn't on this org's roster." } };
   }
 
