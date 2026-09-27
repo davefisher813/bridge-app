@@ -3256,3 +3256,21 @@ title under the mark, on Today only.
 (rejected: at the locked type sizes a 390 screen leaves about 100px per
 tile, and "Committed" or "Transferring" with its number and chevron
 needs 110 to 130).
+
+## 2026-09-27: yellow Active, Graduated from any status, placed athletes off the board, tab bar above the home indicator
+
+**Decision.** Active takes the yellow role. Mark Graduated is offered to
+any athlete not yet Graduated or Drafted, naming the school when nothing
+else does. The Targets board shows a placed athlete's Committed target
+only; their other targets live in Recruiting History. In the installed
+app the tab bar keeps at least 24px clear of the bottom edge.
+
+**Reason.** Dave, 2026-09-27: Active "should be color coded to yellow";
+"no way for me to mark someone as graduated. They should not have to be
+left as inactive"; Derek, committed, still showed Yale and Bucknell under
+Not Interested; "The icons are too low", with the home indicator over
+the tab labels.
+
+**Consequences.** viewport-fit stays unset (the status bar fix of
+2026-09-21), so iOS reports no bottom inset in the installed app and the
+24px floor is what keeps the bar clear there.

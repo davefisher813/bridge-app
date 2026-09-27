@@ -312,7 +312,9 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     const active = await render(page, { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
     expect(active).toMatch(/Mark Enrolled/);
     expect(active).toMatch(/Mark Drafted/);
-    expect(active).not.toMatch(/Mark Graduated/);
+    // Any athlete not yet Graduated or Drafted can be marked Graduated,
+    // so an alumnus is never left Inactive (Dave, 2026-09-27).
+    expect(active).toMatch(/Mark Graduated/);
     const enrolled = await render(page, { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) });
     expect(enrolled).toMatch(/Mark Graduated/);
     expect(enrolled).toMatch(/Mark Drafted/);
@@ -320,6 +322,16 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     const drafted = await render(page, { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteDrafted }) });
     expect(drafted).not.toMatch(/Mark (Enrolled|Graduated|Drafted)/);
     expect(drafted).not.toMatch(/>Matches</);
+  });
+
+  it("the board shows a placed athlete's commitment and none of their other targets", async () => {
+    // Dave, 2026-09-27: Derek committed and still showed Yale and
+    // Bucknell under Not Interested. Once placed, the rest is recruiting
+    // history. The fixture's committed athlete still has an open target
+    // (IDS.targetToClose, In Contact): it must not be on the board.
+    const board = await render("@/app/org/[slug]/board/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) });
+    expect(board).not.toContain(`/board/${IDS.targetToClose}"`);
+    expect(board).toMatch(/Fixture Committed/);
   });
 
   it("the athlete's schools are called Targets, the same as the board they come from", async () => {

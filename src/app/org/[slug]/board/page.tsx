@@ -15,7 +15,7 @@ import {
 } from "@/lib/data/fitAdapters";
 import { loadFitsForPairs, rowToFit } from "@/lib/data/fits";
 import type { FitTag } from "@/lib/fit/types";
-import { isScoredStatus } from "@/lib/placement";
+import { isPlacedStatus, isScoredStatus } from "@/lib/placement";
 import { AddButton, EmptyState, Label, LinkButton, Row, Score, Screen, Section, TextLink } from "@/components/kit";
 import { SearchField } from "@/components/SearchField";
 import { StatusPill } from "@/components/StatusPill";
@@ -90,7 +90,15 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
   // a screen reads rows, it never scores.
   // A removed athlete (Remove Athlete, a soft delete) leaves the board
   // with them; their targets stay in the table for the record.
-  const targetRows = ((targets ?? []) as TargetRow[]).filter((t) => !unwrap(t.athletes)?.deleted_at);
+  // A placed athlete (Committed, Enrolled, Graduated, Drafted) shows only
+  // their commitment: every other target is recruiting history, on the
+  // athlete's Recruiting History screen, not work on the board (Dave,
+  // 2026-09-27, on Derek's Yale and Bucknell under Not Interested).
+  const targetRows = ((targets ?? []) as TargetRow[]).filter((t) => {
+    const a = unwrap(t.athletes);
+    if (!a || a.deleted_at) return false;
+    return !isPlacedStatus(a.status) || t.status === "Committed";
+  });
   const fits = await loadFitsForPairs(
     supabase,
     org.id,

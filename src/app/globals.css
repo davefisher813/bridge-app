@@ -233,4 +233,18 @@ html:not([data-theme="dark"]) .org-mark {
        last row of a screen scrolls clear of it. */
     padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   }
+  /* Installed to the home screen, the app is laid out without
+     viewport-fit=cover (see layout.tsx), so iOS reports a zero inset and
+     the home indicator sat on the tab labels (Dave, 2026-09-27: "The
+     icons are too low"). In the installed app the bar always keeps 24px
+     clear at the bottom, or the real inset when iOS reports a larger
+     one. */
+  @media (display-mode: standalone) {
+    .pb-safe {
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
+    }
+    .pb-bar {
+      padding-bottom: calc(56px + max(env(safe-area-inset-bottom, 0px), 24px));
+    }
+  }
 }

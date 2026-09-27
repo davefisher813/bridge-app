@@ -1777,16 +1777,26 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
     expect(writes).toEqual([]);
   });
 
-  it("Mark Graduated names the school they were enrolled at, and only follows Enrolled", async () => {
+  it("Mark Graduated names the school they were enrolled at, asks for one when nothing names it, and never repeats", async () => {
     // Dave's pick, 2026-09-26: Graduated means graduated from college.
     const { markGraduated } = await import("@/lib/actions/enrollment");
     const r = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {} }, form({ graduatedOn: "2026-09-15" })));
     expect(decodeURIComponent(r.redirect!)).toMatch(/notice=Graduated from Fixture State University\.$/);
     expect(writes.find((w) => w.table === "athletes" && w.op === "update")?.rows[0]).toMatchObject({ status: "Graduated", graduated_on: "2026-09-15" });
 
+    // An athlete never marked Enrolled can be marked Graduated too (Dave,
+    // 2026-09-27: an alumnus should not be left Inactive), but only
+    // naming a school, and nothing is written until one is named.
     writes.length = 0;
-    const early = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ graduatedOn: "2026-09-15" })));
-    expect(early.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}`);
+    const noSchool = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ graduatedOn: "2026-09-15" })));
+    expect(noSchool.redirect).toBeNull();
+    expect((noSchool.state as { errors: Record<string, string> }).errors.schoolId).toMatch(/school they graduated from/);
+    expect(writes).toEqual([]);
+
+    // Graduated twice is not a thing.
+    writes.length = 0;
+    const again = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athleteGraduated, { errors: {} }, form({ graduatedOn: "2026-09-15" })));
+    expect(again.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athleteGraduated}`);
     expect(writes).toEqual([]);
   });
 

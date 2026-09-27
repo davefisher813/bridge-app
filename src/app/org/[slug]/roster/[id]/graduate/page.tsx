@@ -9,8 +9,10 @@ import { statusRole } from "@/components/statusHue";
 import { currentSchoolOf, nextOutcomes } from "@/lib/placement";
 import { Row, Screen } from "@/components/kit";
 
-// Graduated from college (Dave, 2026-09-26): only after Enrolled, named
-// by the school they were at. Asks for one only when nothing names it.
+// Graduated from college (Dave, 2026-09-26), named by the school they
+// were at. Asks for one only when nothing names it. Open to any status
+// but Graduated and Drafted since 2026-09-27, so an alumnus left
+// Inactive can be marked Graduated.
 export default async function GraduateAthletePage({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);

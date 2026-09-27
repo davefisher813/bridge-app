@@ -168,7 +168,11 @@ export function nextOutcomes(status: string): Outcome[] {
   if (status === "Drafted") return [];
   if (status === "Graduated") return ["draft"];
   if (status === "Enrolled") return ["graduate", "draft"];
-  return ["enroll", "draft"];
+  // An alumnus who was never marked Enrolled (an Inactive athlete who
+  // went on to college) can still be marked Graduated, naming the
+  // school (Dave, 2026-09-27: "They should not have to be left as
+  // inactive").
+  return ["enroll", "graduate", "draft"];
 }
 
 // The athlete columns placementAthlete() reads. Select lists are written
