@@ -519,14 +519,14 @@ describe("LAW: the awkward rows render too", () => {
     expect(html).not.toMatch(/Sits on a board/);
   });
 
-  it("the approved-list form 404s with no school named", async () => {
-    // Not a workaround for the test: a list belongs to one school, and a
-    // form with no school is a form that cannot be saved. Pinned because
-    // the alternative (rendering an empty form) is the kind of thing that
-    // gets "fixed" by somebody who does not know why the check is there.
-    await expect(
-      render("@/app/org/[slug]/approved-courses/new/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }),
-    ).rejects.toThrow(NOT_FOUND);
+  it("the approved-list form with no school named asks Which School", async () => {
+    // It used to 404: a list belongs to one school, and a form with no
+    // school cannot be saved. Stage 4 (2026-09-27, lead decision B6)
+    // turned that dead end into a step: pick the school, then the form.
+    // Still pinned so nobody "fixes" it back into an empty course form.
+    const html = await render("@/app/org/[slug]/approved-courses/new/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) });
+    expect(html).toMatch(/Which School/);
+    expect(html).not.toMatch(/Paste the List/);
   });
 
   it("a board seat with no donor record says so rather than reporting zero", async () => {
@@ -1060,4 +1060,179 @@ describe("LAW: an advisor and the family share one thread, the member never sees
       expect(hrefs(html).filter((l) => /checkin/i.test(l))).toEqual([]);
     });
   }
+});
+
+describe("LAW: every record can be corrected and removed by the people who may, and by nobody else", () => {
+  // Stage 4 and the audit fixes, 2026-09-27. Dave: "everything should be
+  // very easy for anyone to edit anything... add and delete and all that
+  // good stuff." The actions check the role on the server (the crud law
+  // files prove that); this proves the screens a person actually sees:
+  // staff get Remove where staff may remove, the owner alone gets the
+  // shared directory and the org's settings, an edit screen opens on the
+  // record it edits, and a family or member screen carries no note, no
+  // coach control and no Remove at all. Each assertion was proven to bite
+  // by a plant in the page it names (see src/laws/README.md).
+  const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+  const asStaff = () => {
+    // The fixture's Bridge member, made a Coordinator for the test. No
+    // other row changes, so what differs from the owner is the role.
+    data.org_members.find((m) => m.id === "m2")!.role = "staff";
+    currentUser = MEMBER_ID;
+  };
+  const params = (o: Record<string, string>) => ({ params: p({ slug: ORG_WITH_MODULES, ...o }), searchParams: p({}) });
+
+  it("staff see Remove on an athlete, a target, a message, a course and a finished document, each behind a confirm", async () => {
+    asStaff();
+    const screens: Array<[string, Record<string, string>, RegExp]> = [
+      ["@/app/org/[slug]/roster/[id]/page", { id: IDS.athlete }, /<button type="button"[^>]*>Remove Athlete<\/button>/],
+      ["@/app/org/[slug]/board/[id]/edit/page", { id: IDS.target }, /<button type="button"[^>]*>Remove Target<\/button>/],
+      ["@/app/org/[slug]/roster/[id]/messages/page", { id: IDS.athlete }, /<button type="button"[^>]*>Remove<\/button>/],
+      ["@/app/org/[slug]/roster/[id]/transcript/[courseId]/page", { id: IDS.athlete, courseId: "ac1" }, /<button type="button"[^>]*>Remove Course<\/button>/],
+      ["@/app/org/[slug]/documents/[id]/page", { id: "doc-failed" }, /<button type="button"[^>]*>Delete for Good<\/button>/],
+    ];
+    // type="button" is the ConfirmButton: it opens the question first. A
+    // bare destructive Button inside the Form would be a submit.
+    for (const [path, o, want] of screens) {
+      const html = await render(path, params(o));
+      expect(html, path).toMatch(want);
+    }
+  });
+
+  it("staff read and add the athlete's notes on the athlete page", async () => {
+    asStaff();
+    const html = await render("@/app/org/[slug]/roster/[id]/page", params({ id: IDS.athlete }));
+    expect(html).toMatch(/Notes[\s\S]*Fixture note\.[\s\S]*Add Note/);
+  });
+
+  it("the owner alone removes or merges a school and manages its coaches", async () => {
+    const edit = await render("@/app/org/[slug]/schools/[id]/edit/page", params({ id: IDS.school }));
+    expect(edit).toMatch(/Merge Into[\s\S]*Remove School/);
+    const school = await render("@/app/org/[slug]/schools/[id]/page", params({ id: IDS.school }));
+    expect(hrefs(school)).toContain(`/org/${ORG_WITH_MODULES}/schools/${IDS.school}/coaches`);
+    const coach = await render("@/app/org/[slug]/schools/[id]/coaches/[coachId]/page", params({ id: IDS.school, coachId: "cc1" }));
+    expect(coach).toMatch(/Remove Coach/);
+
+    asStaff();
+    const staffSchool = await render("@/app/org/[slug]/schools/[id]/page", params({ id: IDS.school }));
+    expect(staffSchool).toMatch(/Fixture Head/);
+    expect(hrefs(staffSchool).filter((l) => /\/coaches(\/|$)|\/schools\/[^/]+\/edit$/.test(l))).toEqual([]);
+    for (const [path, o] of [
+      ["@/app/org/[slug]/schools/[id]/edit/page", { id: IDS.school }],
+      ["@/app/org/[slug]/schools/[id]/coaches/page", { id: IDS.school }],
+      ["@/app/org/[slug]/schools/[id]/coaches/new/page", { id: IDS.school }],
+      ["@/app/org/[slug]/schools/[id]/coaches/[coachId]/page", { id: IDS.school, coachId: "cc1" }],
+    ] as Array<[string, Record<string, string>]>) {
+      await expect(render(path, params(o)), path).rejects.toThrow(REDIRECT + "/unauthorized");
+    }
+  });
+
+  it("Organization Settings is the owner's alone, on More and at its address", async () => {
+    const more = await render("@/app/org/[slug]/more/page", params({}));
+    expect(hrefs(more)).toContain(`/org/${ORG_WITH_MODULES}/settings`);
+    const settings = await render("@/app/org/[slug]/settings/page", params({}));
+    expect(settings).toMatch(/value="Fixture Foundation"|value="[^"]*Fixture[^"]*"/);
+
+    asStaff();
+    const staffMore = await render("@/app/org/[slug]/more/page", params({}));
+    expect(hrefs(staffMore).filter((l) => l.endsWith("/settings"))).toEqual([]);
+    expect(staffMore).not.toMatch(/Organization Settings/);
+    await expect(render("@/app/org/[slug]/settings/page", params({}))).rejects.toThrow(REDIRECT + "/unauthorized");
+
+    data.org_members.find((m) => m.id === "m2")!.role = "member";
+    for (const who of [MEMBER_ID, FAMILY_ID]) {
+      currentUser = who;
+      await expect(render("@/app/org/[slug]/settings/page", params({})), who).rejects.toThrow(REDIRECT + "/unauthorized");
+    }
+  });
+
+  it("each edit screen opens filled in with the record it edits", async () => {
+    const screens: Array<[string, Record<string, string>, RegExp]> = [
+      ["@/app/org/[slug]/roster/[id]/edit/page", { id: IDS.athlete }, /value="Fixture Athlete"[\s\S]*value="Fixture High School"/],
+      ["@/app/org/[slug]/roster/[id]/contacts/[contactId]/edit/page", { id: IDS.athlete, contactId: "ct1" }, /value="Fixture Parent"/],
+      ["@/app/org/[slug]/roster/[id]/metrics/[metricId]/edit/page", { id: IDS.athlete, metricId: "mx1" }, /value="86"[\s\S]*value="2026-08-15"/],
+      ["@/app/org/[slug]/roster/[id]/checkins/[checkinId]/edit/page", { id: IDS.athlete, checkinId: "ck1" }, /<textarea[^>]*>Fixture check-in note\.<\/textarea>/],
+      ["@/app/org/[slug]/roster/[id]/transcript/[courseId]/page", { id: IDS.athlete, courseId: "ac1" }, /value="English 11"/],
+      ["@/app/org/[slug]/board/[id]/communications/[entryId]/page", { id: IDS.target, entryId: "tc1" }, /<textarea[^>]*>Fixture note\.<\/textarea>/],
+      ["@/app/org/[slug]/schools/[id]/edit/page", { id: IDS.school }, /value="Fixture State University"/],
+      ["@/app/org/[slug]/schools/[id]/coaches/[coachId]/page", { id: IDS.school, coachId: "cc1" }, /value="Fixture Assistant"[\s\S]*value="assistant@fixture\.example"/],
+      ["@/app/org/[slug]/transfer-windows/[id]/edit/page", { id: "tw1" }, /value="Fixture window"[\s\S]*<textarea[^>]*>Fixture window note\.<\/textarea>/],
+      ["@/app/org/[slug]/fundraising/donors/[id]/edit/page", { id: IDS.donor }, /value="Fixture Donor"/],
+      ["@/app/org/[slug]/fundraising/gifts/[id]/edit/page", { id: "gf1" }, /value="5000\.00"[\s\S]*value="2026-03-01"/],
+      ["@/app/org/[slug]/fundraising/grants/[id]/edit/page", { id: "gr1" }, /value="Fixture Trust"[\s\S]*value="15000\.00"/],
+      ["@/app/org/[slug]/board/[id]/visits/[visitId]/page", { id: IDS.target, visitId: "tv1" }, /value="2026-07-04"/],
+      ["@/app/org/[slug]/board-governance/[id]/edit/page", { id: IDS.board }, /value="Fixture Executive Board"/],
+      ["@/app/org/[slug]/board-governance/[id]/seats/[memberId]/edit/page", { id: IDS.board, memberId: IDS.boardMember }, /value="Fixture Chair"/],
+      ["@/app/org/[slug]/fundraising/campaigns/[id]/edit/page", { id: IDS.campaign }, /value="Fixture Campaign"[\s\S]*value="2026-12-31"/],
+      ["@/app/org/[slug]/fundraising/pledges/[id]/edit/page", { id: "pl1" }, /value="10000\.00"[\s\S]*value="2026-06-30"/],
+    ];
+    for (const [path, o, want] of screens) {
+      const html = await render(path, params(o));
+      expect(html, path).toMatch(want);
+    }
+  });
+
+  // Every family and member screen, and the athlete screens a family
+  // shares with staff, rendered as that login. The athlete notes are
+  // given a body nothing else in the fixture carries, so a screen that
+  // read the table would have something to show.
+  const PRIVATE = "Private staff note for the law";
+  const SHARED = /\/roster\/\[id\]\/(eligibility|eligibility\/approvals|eligibility\/caveats|transcript|metrics)\/page$/;
+  const outside = [
+    ...PAGES.filter((x) => x.as === FAMILY_ID || x.as === MEMBER_ID),
+    ...PAGES.filter((x) => !x.as && SHARED.test(x.path) && x.name !== "transcript-transfer" && x.name !== "eligibility-transfer").map((x) => ({ ...x, name: `${x.name} (as family)`, as: FAMILY_ID })),
+  ];
+  it("there are family and member screens to check", () => {
+    expect(outside.filter((x) => x.as === FAMILY_ID).length).toBeGreaterThan(20);
+    expect(outside.filter((x) => x.as === MEMBER_ID).length).toBeGreaterThan(8);
+  });
+  for (const page of outside) {
+    it(`${page.name} shows no note, no coach control and no Remove`, async () => {
+      for (const n of data.athlete_notes) n.body = PRIVATE;
+      currentUser = page.as!;
+      const html = await render(page.path, page.props);
+      expect(html).not.toContain(PRIVATE);
+      expect(html).not.toMatch(/Add Note|Add a Note|Remove|Delete for Good|Merge Into|Edit Course|Correct the Reading|Add a Coach/);
+      expect(hrefs(html).filter((l) => /\/coaches(\/|$)|\/edit$|\/transcript\/new$|\/settings$|\/contacts\//.test(l))).toEqual([]);
+    });
+  }
+
+  it("a removed athlete leaves the board, Today and the school page, and their targets stay on file", async () => {
+    // Remove Athlete is a soft delete (audit crud F1): the row keeps
+    // deleted_at, its targets stay in the table for the record, and every
+    // screen that lists targets has to skip them. Proven to bite by
+    // dropping each page's filter in turn.
+    const screens = ["@/app/org/[slug]/board/page", "@/app/org/[slug]/page", "@/app/org/[slug]/schools/[id]/page"];
+    for (const path of screens) {
+      expect(await render(path, params({ id: IDS.school })), path).toMatch(/Fixture Athlete/);
+    }
+    data.athletes.find((a) => a.id === IDS.athlete)!.deleted_at = "2026-09-27T12:00:00.000Z";
+    expect(data.recruiting_targets.some((t) => t.athlete_id === IDS.athlete)).toBe(true);
+    for (const path of screens) {
+      expect(await render(path, params({ id: IDS.school })), path).not.toMatch(/Fixture Athlete/);
+    }
+  });
+
+  it("a removed athlete leaves the Schools list's You Are Recruiting Here and a family member's Sees list", async () => {
+    // Every athlete removed: no target counts for a school any more, and
+    // the family member's links stay on file but list nobody.
+    const family = () => render("@/app/org/[slug]/members/[userId]/page", { params: p({ slug: ORG_WITH_MODULES, userId: FAMILY_ID }), searchParams: p({}) });
+    expect(await render("@/app/org/[slug]/schools/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) })).toMatch(/You Are Recruiting Here/);
+    expect(await family()).toMatch(/Unlink/);
+    for (const a of data.athletes) a.deleted_at = "2026-09-27T12:00:00.000Z";
+    expect(data.athlete_guardians.length).toBeGreaterThan(0);
+    expect(await render("@/app/org/[slug]/schools/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) })).not.toMatch(/You Are Recruiting Here/);
+    expect(await family()).not.toMatch(/Unlink/);
+  });
+
+  it("a family login and a member are turned away from every staff edit screen", async () => {
+    const staffOnly = PAGES.filter((x) => !x.as && /\/(edit|new|\[courseId\]|\[entryId\]|\[visitId\]|\[coachId\]|family\/\[userId\]|coaches|settings)\/page$/.test(x.path) && x.path.startsWith("@/app/org/"));
+    expect(staffOnly.length).toBeGreaterThan(30);
+    data.org_members.find((m) => m.id === "m2")!.role = "member";
+    for (const who of [FAMILY_ID, MEMBER_ID]) {
+      for (const page of staffOnly) {
+        currentUser = who;
+        await expect(render(page.path, page.props), `${page.name} as ${who === FAMILY_ID ? "family" : "member"}`).rejects.toThrow(/NEXT_REDIRECT:\/unauthorized|NEXT_NOT_FOUND/);
+      }
+    }
+  });
 });

@@ -14,7 +14,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { AddButton, Chip, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
+import { AddButton, Chip, EmptyState, LinkButton, Notice, Row, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
 import { formatMoneyShort } from "@/lib/fundraising/rollup";
@@ -103,8 +103,9 @@ function detailFor(g: GrantRow): string {
   return bits.join(" · ");
 }
 
-export default async function GrantsPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function GrantsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ notice?: string; error?: string }> }) {
   const { slug } = await params;
+  const { notice, error } = searchParams ? await searchParams : {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
@@ -134,6 +135,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
       back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
       action={canEdit ? <AddButton href={`/org/${slug}/fundraising/grants/new`} label="Add" /> : undefined}
     >
+      {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       {grants.length === 0 ? (
         <>
           <EmptyState kind="grant" title="No Grants Tracked Yet">
@@ -147,6 +149,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
               {soon.map((g) => (
                 <Row
                   key={g.id}
+                  href={canEdit ? `/org/${slug}/fundraising/grants/${g.id}/edit` : undefined}
                   kind="grant"
                   role="offer"
                   title={g.funder_name}
@@ -169,6 +172,7 @@ export default async function GrantsPage({ params }: { params: Promise<{ slug: s
               return (
                 <Row
                   key={g.id}
+                  href={canEdit ? `/org/${slug}/fundraising/grants/${g.id}/edit` : undefined}
                   kind="grant"
                   role={STATUS_ROLE[g.status] === "high" ? "committed" : "contact"}
                   title={g.funder_name}

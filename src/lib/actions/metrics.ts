@@ -54,6 +54,50 @@ export async function createMetric(slug: string, athleteId: string, _prevState: 
   redirect(`/org/${slug}/roster/${athleteId}/metrics`);
 }
 
+function revalidateMetrics(slug: string, athleteId: string) {
+  revalidatePath(`/org/${slug}/roster/${athleteId}`);
+  revalidatePath(`/org/${slug}/roster/${athleteId}/metrics`);
+  revalidatePath(`/org/${slug}/roster/${athleteId}/matches`);
+  revalidatePath(`/org/${slug}/board`);
+}
+
+// Fix one logged entry in place (audit crud F20): the value, the date,
+// the source and the detail, without removing it and retyping. Scoped to
+// the org and the athlete, so another org's or another athlete's entry
+// id changes nothing; a zero-row update says so. The stored matches
+// recompute, since the number that scores may have changed.
+export async function updateMetric(slug: string, athleteId: string, metricId: string, _prevState: MetricActionState, formData: FormData): Promise<MetricActionState> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireRole(org.id, STAFF_ROLES);
+
+  const parsed = parseMetricForm(formData);
+  if (!parsed.ok || !parsed.values) return { errors: parsed.errors };
+  if (!(await assertAthleteInOrg(org.id, athleteId))) return { errors: { form: "That athlete is not on this org's roster." } };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("athlete_metrics")
+    .update({
+      metric: parsed.values.metric,
+      value: parsed.values.value,
+      measured_on: parsed.values.measuredOn,
+      source: parsed.values.source,
+      source_detail: parsed.values.sourceDetail ?? null,
+    })
+    .eq("id", metricId)
+    .eq("athlete_id", athleteId)
+    .eq("org_id", org.id)
+    .select("id");
+  if (error) return { errors: { form: error.message } };
+  if (!data || data.length === 0) return { errors: { form: "That entry is not on this athlete's log any more." } };
+
+  await recomputeFitsForAthlete(supabase, org.id, athleteId);
+
+  revalidateMetrics(slug, athleteId);
+  redirect(`/org/${slug}/roster/${athleteId}/metrics`);
+}
+
 export async function deleteMetric(slug: string, athleteId: string, metricId: string): Promise<void> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");

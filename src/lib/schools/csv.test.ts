@@ -84,7 +84,7 @@ describe("parseSchoolsCsv: the template", () => {
       { position: "RHP", gradYear: 2027 },
       { position: "C" },
     ]);
-    expect(d2.overlay.notes).toContain("Coach visited the Bridge showcase in June,");
+    expect(d2.overlay.notes).toContain("Coach saw him at a June showcase,");
   });
 
   it("D3 example has program_tier null and notes kept", () => {

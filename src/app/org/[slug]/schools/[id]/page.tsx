@@ -13,9 +13,9 @@
 
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
+import { isDirectoryEditor, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { EmptyState, Label, LinkButton, Row, Score, Screen, Section, TextLink } from "@/components/kit";
+import { EmptyState, Label, LinkButton, Notice, Row, Score, Screen, Section, TextLink } from "@/components/kit";
 import { OrgSchoolNoteForm } from "@/components/OrgSchoolNoteForm";
 import { saveOrgSchoolNote } from "@/lib/actions/schools";
 import { formatPositionsOfNeed, type PositionOfNeed } from "@/lib/validation/orgSchoolNote";
@@ -31,24 +31,28 @@ import { isScoredStatus } from "@/lib/placement";
 
 export const dynamic = "force-dynamic";
 
-export default async function SchoolPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
+export default async function SchoolPage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ notice?: string }> }) {
   const { slug, id } = await params;
+  const { notice } = (await searchParams) ?? {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
-  const isOwner = user.role === "owner";
-  const viewer = user.role;
-  // Only an owner may change a school, so only an owner gets a tile
-  // that opens the form. For everybody else the number is just a number.
-  const editHref = isOwner ? `/org/${slug}/schools/${id}/edit` : undefined;
+  // Only a directory editor (an owner of an org with
+  // orgs.edits_shared_directory on, migration 0040) may change a school
+  // or its coaches, so only they get a tile that opens the form. For
+  // everybody else, an owner of any other org included, the number is
+  // just a number and the profile reads as it does for staff.
+  const canEditDirectory = await isDirectoryEditor(user);
+  const viewer = canEditDirectory ? "owner" : user.role === "owner" ? "staff" : user.role;
+  const editHref = canEditDirectory ? `/org/${slug}/schools/${id}/edit` : undefined;
 
   const supabase = await createClient();
   const [facts, { data: targetRows }, { data: noteRow }, coaches] = await Promise.all([
     loadSchoolFacts(supabase, id),
     supabase
       .from("recruiting_targets")
-      .select("id, status, athletes(id, name, position, status)")
+      .select("id, status, athletes(id, name, position, status, deleted_at)")
       .eq("school_id", id)
       .eq("org_id", org.id),
     supabase.from("org_school_notes").select("coach_name, coach_email, positions_of_need, notes").eq("org_id", org.id).eq("school_id", id).maybeSingle(),
@@ -58,11 +62,13 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
   if (!facts) notFound();
   const { school, location } = facts;
 
-  const targets = (targetRows ?? []) as Array<{
+  type TargetAthlete = { id: string; name: string; position: string | null; status: string; deleted_at?: string | null };
+  // A removed athlete (a soft delete) is no longer one of Your Athletes Here.
+  const targets = ((targetRows ?? []) as Array<{
     id: string;
     status: string;
-    athletes: { id: string; name: string; position: string | null; status: string } | Array<{ id: string; name: string; position: string | null; status: string }> | null;
-  }>;
+    athletes: TargetAthlete | TargetAthlete[] | null;
+  }>).filter((t) => !(Array.isArray(t.athletes) ? t.athletes[0] : t.athletes)?.deleted_at);
 
   // Each target's score comes from loadTarget, the same call the target
   // page makes. Scoring them inline here with a second set of adapters is
@@ -90,12 +96,19 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
       title={school.name}
       back={{ href: `/org/${slug}/schools`, label: "Schools" }}
       lede={schoolLede(school, location)}
-      action={isOwner ? <TextLink href={`/org/${slug}/schools/${id}/edit`}>Edit</TextLink> : undefined}
+      action={canEditDirectory ? <TextLink href={`/org/${slug}/schools/${id}/edit`}>Edit</TextLink> : undefined}
     >
+      {/* First, so a merge landing here says so above the fold. */}
+      {notice && (
+        <Notice tone="success" title="Done">
+          {notice}
+        </Notice>
+      )}
+
       {/* The numbers the score is built on, and the way to correct one. */}
       <SchoolAcademics school={school} viewer={viewer} editHref={editHref} />
 
-      <CoachRows coaches={coaches} />
+      <CoachRows coaches={coaches} manageHref={canEditDirectory ? `/org/${slug}/schools/${id}` : undefined} />
 
       {/* This org's private overlay: the coach relationship and the
           positions the program needs. Positions of need move the score
@@ -114,6 +127,7 @@ export default async function SchoolPage({ params }: { params: Promise<{ slug: s
         {canEdit && (
           <OrgSchoolNoteForm
             action={noteAction}
+            coaches={coaches.map((c) => ({ value: c.name, label: c.title ?? undefined, email: c.email }))}
             initialValues={{ coachName: note?.coach_name ?? undefined, coachEmail: note?.coach_email ?? undefined, positionsOfNeed: needs || undefined, notes: note?.notes ?? undefined }}
           />
         )}

@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
+import { isDirectoryEditor, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createTarget } from "@/lib/actions/targets";
+import { loadCoachSuggestionsBySchool } from "@/lib/data/coaches";
 import { TargetForm } from "@/components/TargetForm";
 import { EmptyState, LinkButton, Screen, TextLink } from "@/components/kit";
 
@@ -11,7 +12,9 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   const user = await requireRole(org.id, STAFF_ROLES);
-  const isOwner = user.role === "owner";
+  // New School writes the shared directory, so it is offered only to a
+  // directory editor (migration 0040), never to every owner.
+  const canEditDirectory = await isDirectoryEditor(user);
 
   const supabase = await createClient();
   const [{ data: athleteRows }, { data: schoolRows }] = await Promise.all([
@@ -21,6 +24,9 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
 
   const athletes = (athleteRows ?? []).map((a) => ({ id: a.id, label: a.name }));
   const schools = (schoolRows ?? []).map((s) => ({ id: s.id, label: `${s.name} (${s.division})` }));
+  // The directory's coaches at every school, so Coach suggests the
+  // picked school's staff without a round trip (Stage 4, B1).
+  const coaches = await loadCoachSuggestionsBySchool(supabase);
 
   const action = createTarget.bind(null, slug);
 
@@ -28,7 +34,7 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
     <Screen
       title="Add Target"
       back={{ href: `/org/${slug}/board`, label: "Targets" }}
-      action={isOwner ? <TextLink href={`/org/${slug}/schools/new`}>New School</TextLink> : undefined}
+      action={canEditDirectory ? <TextLink href={`/org/${slug}/schools/new`}>New School</TextLink> : undefined}
     >
       {athletes.length === 0 ? (
         <>
@@ -37,12 +43,12 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
         </>
       ) : schools.length === 0 ? (
         <>
-          <EmptyState kind="school" title="No Schools on File Yet" action={isOwner && <LinkButton href={`/org/${slug}/schools/new`}>Add the First School</LinkButton>}>
-            {isOwner ? "Schools are shared across every org." : "Ask an owner to add one."}
+          <EmptyState kind="school" title="No Schools on File Yet" action={canEditDirectory && <LinkButton href={`/org/${slug}/schools/new`}>Add the First School</LinkButton>}>
+            {canEditDirectory ? "Schools are shared across every org." : "Schools are shared across every org and added by the organization that keeps the list."}
           </EmptyState>
         </>
       ) : (
-        <TargetForm action={action} athletes={athletes} schools={schools} submitLabel="Add Target" />
+        <TargetForm action={action} athletes={athletes} schools={schools} coaches={coaches} submitLabel="Add Target" />
       )}
     </Screen>
   );

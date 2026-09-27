@@ -42,7 +42,7 @@ export function SchoolDirectory({
       {children}
       {shown === 0 && listedAbove ? null : shown === 0 ? (
         <EmptyState kind="school" title={filtering ? "No School Matches" : "No Schools Yet"}>
-          {filtering ? "Try part of the name, or clear the search and the filters." : viewer === "owner" ? "Add the first one below." : viewer === "staff" ? "An owner adds schools, because the list is shared across every organization." : "The list fills in as schools are added."}
+          {filtering ? "Try part of the name, or clear the search and the filters." : viewer === "owner" ? "Add the first one below." : viewer === "staff" ? "The organization that keeps the shared directory adds schools, because the list is shared across every organization." : "The list fills in as schools are added."}
         </EmptyState>
       ) : (
         groups.map((g) => (

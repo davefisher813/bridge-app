@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth/guard";
+import { getCurrentUser, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireFamilyAthlete } from "@/lib/data/family";
 import { markThreadRead } from "@/lib/data/messages";
@@ -29,6 +29,15 @@ async function athleteInOrg(orgId: string, athleteId: string): Promise<boolean> 
   const supabase = await createClient();
   const { data } = await supabase.from("athletes").select("id").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).maybeSingle();
   return !!data;
+}
+
+function revalidateThread(slug: string, athleteId: string) {
+  revalidatePath(`/org/${slug}/roster/${athleteId}/messages`);
+  revalidatePath(`/org/${slug}/roster/${athleteId}`);
+  revalidatePath(`/org/${slug}/family/${athleteId}/messages`);
+  revalidatePath(`/org/${slug}/family/${athleteId}`);
+  revalidatePath(`/org/${slug}/mine`);
+  revalidatePath(`/org/${slug}`);
 }
 
 export async function sendMessage(slug: string, athleteId: string, _prevState: MessageActionState, formData: FormData): Promise<MessageActionState> {
@@ -62,11 +71,23 @@ export async function sendMessage(slug: string, athleteId: string, _prevState: M
   // Whoever wrote the last message has read the thread.
   await markThreadRead(supabase, org.id, athleteId, user.id);
 
-  revalidatePath(`/org/${slug}/roster/${athleteId}/messages`);
-  revalidatePath(`/org/${slug}/roster/${athleteId}`);
-  revalidatePath(`/org/${slug}/family/${athleteId}/messages`);
-  revalidatePath(`/org/${slug}/family/${athleteId}`);
-  revalidatePath(`/org/${slug}/mine`);
-  revalidatePath(`/org/${slug}`);
+  revalidateThread(slug, athleteId);
   return { errors: {} };
+}
+
+// Remove a message from a thread (audit crud F9): one sent to the wrong
+// family, or one that should not stay in front of a minor's family.
+// Owner and staff only; a family login and a member are sent away, and
+// the database refuses them too (migration 0039). Scoped to the org and
+// the athlete, so another org's or another thread's message id removes
+// nothing. Posted by the Remove button on a message, behind a confirm.
+export async function deleteMessage(slug: string, athleteId: string, messageId: string): Promise<void> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireRole(org.id, STAFF_ROLES);
+
+  const supabase = await createClient();
+  await supabase.from("athlete_messages").delete().eq("id", messageId).eq("org_id", org.id).eq("athlete_id", athleteId);
+
+  revalidateThread(slug, athleteId);
 }

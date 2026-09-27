@@ -26,6 +26,39 @@ grant select on storage.buckets to app_user;
 -- so it joins the role rather than being granted each function by name.
 grant authenticated to app_user;
 
+-- ── The first org of a fresh install (migration 0040) ──────────────
+-- Before anything is seeded, so orgs is truly empty: the first
+-- create_org on an install with no org turns on edits_shared_directory
+-- for that org, and every later one (the same owner's second org
+-- included) leaves it off. Cleaned up again before the seed below.
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f1', 'first@fresh.example');
+insert into users (id, email, full_name) values ('00000000-0000-0000-0000-0000000000f1', 'first@fresh.example', 'First Installer')
+on conflict (id) do update set full_name = excluded.full_name;
+do $$
+declare n int;
+begin
+  select count(*) into n from orgs;
+  if n <> 0 then raise exception 'FAIL: the fresh-install probe found % orgs already', n; end if;
+end $$;
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-0000000000f1');
+select create_org('First Install Org', 'first-install-org');
+select create_org('Second Install Org', 'second-install-org');
+select set_test_user(null);
+reset role;
+do $$
+declare first_flag boolean; second_flag boolean;
+begin
+  select edits_shared_directory into first_flag from orgs where slug = 'first-install-org';
+  select edits_shared_directory into second_flag from orgs where slug = 'second-install-org';
+  if first_flag is distinct from true then raise exception 'FAIL: the first org of a fresh install does not edit the shared directory (%)', first_flag; end if;
+  if second_flag is distinct from false then raise exception 'FAIL: a second org edits the shared directory (%)', second_flag; end if;
+  raise notice 'PASS: only the first org of a fresh install edits the shared directory';
+end $$;
+delete from orgs where slug in ('first-install-org', 'second-install-org');
+delete from users where id = '00000000-0000-0000-0000-0000000000f1';
+delete from auth.users where id = '00000000-0000-0000-0000-0000000000f1';
+
 -- ── Seed: two orgs, two users, one membership each, athletes in both,
 -- one shared school, one global benchmark set, one org1-owned set. ──
 insert into auth.users (id, email) values
@@ -2343,3 +2376,476 @@ begin
   if not has_function_privilege('authenticated', 'public.member_program(uuid)', 'execute') then raise exception 'FAIL: 0038 dropped the signed-in grant on member_program'; end if;
   raise notice 'PASS: the replaced member_program keeps its grants';
 end $$;
+
+-- ── The high school directory (migration 0040) ──────────────────────
+-- Shared, public, read by any signed-in user, written by nobody but the
+-- service role (the NCES loader). It carries no org_id, so the coverage
+-- checks above never look at it. Seeded here as the superuser, the way
+-- the loader writes through the service role.
+reset role;
+insert into high_schools (name, city, state, nces_id, ceeb_code, source) values
+  ('Probe High School', 'Hartford', 'CT', '090000000001', '070001', 'nces_ccd_probe'),
+  ('  Second Probe HS ', 'Newark', 'NJ', 'P0000001', null, 'nces_pss_probe');
+set role app_user;
+do $$
+declare n int; who text;
+begin
+  -- Bridge owner, Bridge member / Elite staff, a family login, a member.
+  foreach who in array array['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000006'] loop
+    perform set_test_user(who::uuid);
+    select count(*) into n from high_schools;
+    if n <> 2 then raise exception 'FAIL: user % read % high schools, expected 2', who, n; end if;
+    begin
+      insert into high_schools (name, city, state) values ('Typed By A User', 'Anywhere', 'CT');
+      raise exception 'FAIL: user % added a high school to the shared directory', who;
+    exception when insufficient_privilege then null;
+    end;
+    update high_schools set name = 'Renamed By A User';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: user % renamed % high schools', who, n; end if;
+    delete from high_schools;
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: user % deleted % high schools', who, n; end if;
+  end loop;
+  raise notice 'PASS: every signed-in role reads the high school directory and none of them writes it';
+end $$;
+reset role;
+do $$
+declare n int; k text;
+begin
+  select count(*) into n from high_schools where name in ('Probe High School', '  Second Probe HS ');
+  if n <> 2 then raise exception 'FAIL: the high school directory changed under user writes (% of 2 rows left as seeded)', n; end if;
+  select name_key into k from high_schools where nces_id = 'P0000001';
+  if k is distinct from 'second probe hs' then raise exception 'FAIL: name_key is %, expected lower(btrim(name))', k; end if;
+  if exists (select 1 from high_schools where name_key <> lower(btrim(name))) then raise exception 'FAIL: a name_key differs from lower(btrim(name))'; end if;
+  begin
+    insert into high_schools (name, city, state) values (' PROBE high school', 'Hartford', 'CT');
+    raise exception 'FAIL: the same high school in the same town was accepted twice in a different case';
+  exception when unique_violation then null;
+  end;
+  begin
+    insert into high_schools (name, city, state, nces_id) values ('Another Probe', 'Hartford', 'CT', '090000000001');
+    raise exception 'FAIL: a duplicate NCES id was accepted';
+  exception when unique_violation then null;
+  end;
+  insert into high_schools (name) values ('No Town Probe');
+  begin
+    insert into high_schools (name) values ('no town probe');
+    raise exception 'FAIL: the same school with no town and no state was accepted twice';
+  exception when unique_violation then null;
+  end;
+  delete from high_schools where name_key = 'no town probe';
+  begin
+    insert into high_schools (name, state) values ('Bad State Probe', 'Connecticut');
+    raise exception 'FAIL: a state that is not two capital letters was accepted';
+  exception when check_violation then null;
+  end;
+  if has_table_privilege('anon', 'public.high_schools', 'select') then raise exception 'FAIL: anon holds select on high_schools'; end if;
+  raise notice 'PASS: one row per school per town, one per NCES id, name_key is lower(btrim(name)), and anon holds no grant';
+end $$;
+
+-- ── Staff notes on an athlete (migration 0040) ──────────────────────
+-- Owner and staff of the athlete's org, and nobody else: not a member,
+-- not the athlete's own family login, not someone from another org.
+-- user3 is a Bridge MEMBER and Elite STAFF, which is what proves the
+-- member exclusion is per org. user5 is by now family in Elite only,
+-- linked to Elite's athlete (120).
+reset role;
+insert into athlete_notes (org_id, athlete_id, author_id, body) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000001', 'Bridge staff note'),
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000002', 'Elite staff note');
+set role app_user;
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  select count(*) into n from athlete_notes;
+  if n <> 1 then raise exception 'FAIL: Bridge''s owner read % notes, expected 1', n; end if;
+  select count(*) into n from athlete_notes where body = 'Bridge staff note';
+  if n <> 1 then raise exception 'FAIL: Bridge''s owner cannot read Bridge''s note'; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000002');
+  select count(*) into n from athlete_notes;
+  if n <> 1 then raise exception 'FAIL: Elite''s owner read % notes, expected 1', n; end if;
+  select count(*) into n from athlete_notes where body = 'Elite staff note';
+  if n <> 1 then raise exception 'FAIL: Elite''s owner cannot read Elite''s note'; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000003');
+  select count(*) into n from athlete_notes where body = 'Elite staff note';
+  if n <> 1 then raise exception 'FAIL: Elite staff cannot read Elite''s note'; end if;
+  select count(*) into n from athlete_notes where body = 'Bridge staff note';
+  if n <> 0 then raise exception 'FAIL: a Bridge MEMBER read Bridge''s staff note through their Elite staff role'; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  select count(*) into n from athlete_notes;
+  if n <> 0 then raise exception 'FAIL: a family login read % staff notes, including on their own athlete', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000006');
+  select count(*) into n from athlete_notes;
+  if n <> 0 then raise exception 'FAIL: a member read % staff notes', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000007');
+  select count(*) into n from athlete_notes;
+  if n <> 0 then raise exception 'FAIL: a user in no org read % staff notes', n; end if;
+
+  perform set_test_user(null);
+  select count(*) into n from athlete_notes;
+  if n <> 0 then raise exception 'FAIL: a signed-out caller read % staff notes', n; end if;
+  raise notice 'PASS: staff notes are read by owner and staff of the athlete''s org and by nobody else';
+end $$;
+
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  begin
+    insert into athlete_notes (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000005', 'family wrote a staff note');
+    raise exception 'FAIL: a family login wrote a staff note on their own athlete';
+  exception when insufficient_privilege then null;
+  end;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000006');
+  begin
+    insert into athlete_notes (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000006', 'member wrote a staff note');
+    raise exception 'FAIL: a member wrote a staff note';
+  exception when insufficient_privilege then null;
+  end;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000003');
+  begin
+    insert into athlete_notes (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000003', 'Bridge member wrote a staff note');
+    raise exception 'FAIL: a Bridge member wrote a Bridge staff note through their Elite staff role';
+  exception when insufficient_privilege then null;
+  end;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  begin
+    insert into athlete_notes (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000002', 'signed as someone else');
+    raise exception 'FAIL: staff filed a note in someone else''s name';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into athlete_notes (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000001', 'Elite athlete under Bridge');
+    raise exception 'FAIL: a note about Elite''s athlete was filed under Bridge';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into athlete_notes (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000001', '   ');
+    raise exception 'FAIL: a blank note was accepted';
+  exception when check_violation then null;
+  end;
+  insert into athlete_notes (org_id, athlete_id, author_id, context, body) values
+    ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000001', 'enrolled', 'Bridge owner note on enroll');
+  select count(*) into n from athlete_notes where body = 'Bridge owner note on enroll' and context = 'enrolled';
+  if n <> 1 then raise exception 'FAIL: staff could not add their own note'; end if;
+  update athlete_notes set body = 'rewritten';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: staff edited % notes; notes are not edited', n; end if;
+  raise notice 'PASS: only owner and staff add notes, only as themselves, only on their own org''s athlete, and nobody edits one';
+end $$;
+
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000006');
+  delete from athlete_notes;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member deleted % notes', n; end if;
+  perform set_test_user('00000000-0000-0000-0000-000000000003');
+  delete from athlete_notes where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a Bridge member deleted % Bridge notes through their Elite staff role', n; end if;
+  perform set_test_user('00000000-0000-0000-0000-000000000002');
+  delete from athlete_notes where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: Elite''s owner deleted % Bridge notes', n; end if;
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  delete from athlete_notes where body = 'Bridge owner note on enroll';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: Bridge''s owner could not delete Bridge''s note (% rows)', n; end if;
+  raise notice 'PASS: staff delete their own org''s notes, and a member or another org deletes none';
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_notes where body in ('Bridge staff note', 'Elite staff note');
+  if n <> 2 then raise exception 'FAIL: % of the 2 seeded notes survived the refused deletes', n; end if;
+  if has_table_privilege('anon', 'public.athlete_notes', 'select') then raise exception 'FAIL: anon holds select on athlete_notes'; end if;
+  raise notice 'PASS: the seeded notes are intact and anon holds no grant on athlete_notes';
+end $$;
+
+-- ── Transfer window notes (migration 0040) ──────────────────────────
+-- Shared reference data: written by the service role (the owner's
+-- action goes through it), never by an ordinary signed-in client.
+reset role;
+insert into transfer_windows (sport, division, season_year, window_label, opens_on, closes_on, source_url, notes)
+values ('baseball', 'D1', '2099-01', 'notes probe', '2099-12-01', '2099-12-15', 'https://example.test/notes-probe', 'Seeded note');
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000001');
+do $$
+declare n int; t text;
+begin
+  select notes into t from transfer_windows where season_year = '2099-01';
+  if t is distinct from 'Seeded note' then raise exception 'FAIL: an owner read the transfer window note as %', t; end if;
+  update transfer_windows set notes = 'Changed by a client' where season_year = '2099-01';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an owner changed % transfer window notes through the ordinary client', n; end if;
+  raise notice 'PASS: transfer window notes are readable and not writable through the ordinary client';
+end $$;
+reset role;
+delete from transfer_windows where season_year = '2099-01';
+
+-- ── Which model read a document (migration 0040) ────────────────────
+-- A stub reading is invented data. Once a row says 'stub' it says
+-- 'stub' for good: not staff, not even the superuser, can relabel it as
+-- a real model's reading and make it appliable.
+reset role;
+update documents set read_by = 'stub' where file_name = 'bridge-transcript.pdf';
+set role app_user;
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  select count(*) into n from documents where read_by = 'stub';
+  if n <> 1 then raise exception 'FAIL: Bridge''s owner saw % stub-read documents, expected 1', n; end if;
+  begin
+    update documents set read_by = 'claude-opus-5' where file_name = 'bridge-transcript.pdf';
+    raise exception 'FAIL: staff relabelled a stub reading as a real model''s';
+  exception when check_violation then null;
+  end;
+  begin
+    update documents set read_by = null where file_name = 'bridge-transcript.pdf';
+    raise exception 'FAIL: staff cleared the stub mark off a document';
+  exception when check_violation then null;
+  end;
+  update documents set read_by = 'claude-opus-5' where file_name = 'athlete-a-transcript.pdf';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: staff could not record the model on an unread document'; end if;
+  perform set_test_user('00000000-0000-0000-0000-000000000006');
+  update documents set read_by = 'claude-opus-5' where file_name = 'athlete-b-transcript.pdf';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member marked % documents as read', n; end if;
+  raise notice 'PASS: a stub reading stays marked, staff record the model on their own documents, a member records nothing';
+end $$;
+reset role;
+do $$
+declare rb text;
+begin
+  begin
+    update documents set read_by = 'claude-opus-5' where file_name = 'bridge-transcript.pdf';
+    raise exception 'FAIL: the superuser relabelled a stub reading';
+  exception when check_violation then null;
+  end;
+  select read_by into rb from documents where file_name = 'bridge-transcript.pdf';
+  if rb is distinct from 'stub' then raise exception 'FAIL: the stub mark reads %', rb; end if;
+  begin
+    update documents set read_by = '   ' where file_name = 'athlete-b-transcript.pdf';
+    raise exception 'FAIL: a blank read_by was accepted';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS: the stub mark holds for every role, and read_by is never blank';
+end $$;
+
+-- ── Creating an organization (migration 0040) ───────────────────────
+-- A signed-in user with no org creates one and is its owner; a taken
+-- address, a blank name and a malformed address are refused; a
+-- signed-out caller cannot run it. Last in the file, because user7
+-- stops being "in no org" here.
+reset role;
+do $$
+begin
+  if has_function_privilege('anon', 'public.create_org(text, text)', 'execute') then raise exception 'FAIL: anon can execute create_org'; end if;
+  if not has_function_privilege('authenticated', 'public.create_org(text, text)', 'execute') then raise exception 'FAIL: a signed-in caller cannot execute create_org'; end if;
+  if has_function_privilege('public', 'public.create_org(text, text)', 'execute') then raise exception 'FAIL: create_org is still granted to PUBLIC'; end if;
+  raise notice 'PASS: create_org is granted to signed-in callers and to nobody else';
+end $$;
+set role app_user;
+do $$
+declare n int; new_id uuid; r text; nm text; sl text;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000007');
+  select count(*) into n from orgs;
+  if n <> 0 then raise exception 'FAIL: a user in no org read % orgs before creating one', n; end if;
+
+  new_id := create_org('  Probe Organization ', ' Probe-Org ');
+  select name, slug into nm, sl from orgs where id = new_id;
+  if nm is distinct from 'Probe Organization' or sl is distinct from 'probe-org' then
+    raise exception 'FAIL: create_org stored name % and slug %', nm, sl;
+  end if;
+  select role::text into r from org_members where org_id = new_id and user_id = '00000000-0000-0000-0000-000000000007';
+  if r is distinct from 'owner' then raise exception 'FAIL: the creator is % of the new org, expected owner', r; end if;
+  select count(*) into n from org_members where org_id = new_id;
+  if n <> 1 then raise exception 'FAIL: the new org has % members, expected only its creator', n; end if;
+  -- An owner in fact, not only in name: they can add to their own org.
+  insert into athletes (org_id, recruit_type, name, sport) values (new_id, 'hs', 'Probe Org Athlete', 'baseball');
+  select count(*) into n from athletes;
+  if n <> 1 then raise exception 'FAIL: the new owner sees % athletes, expected only their own', n; end if;
+  raise notice 'PASS: a signed-in user creates an organization and becomes its owner';
+end $$;
+do $$
+declare before_count int; after_count int;
+begin
+  -- user4 has a profile and no org. Every refusal below must leave them
+  -- with no org at all.
+  perform set_test_user('00000000-0000-0000-0000-000000000004');
+  select count(*) into before_count from org_members where user_id = '00000000-0000-0000-0000-000000000004';
+  begin
+    perform create_org('Taken Address', 'bridge');
+    raise exception 'FAIL: create_org took another org''s address';
+  exception when unique_violation then null;
+  end;
+  begin
+    perform create_org('Taken Again', 'PROBE-ORG');
+    raise exception 'FAIL: create_org took an address in a different case';
+  exception when unique_violation then null;
+  end;
+  begin
+    perform create_org('   ', 'blank-name-probe');
+    raise exception 'FAIL: create_org accepted a blank name';
+  exception when check_violation then null;
+  end;
+  begin
+    perform create_org(null, 'null-name-probe');
+    raise exception 'FAIL: create_org accepted a null name';
+  exception when check_violation then null;
+  end;
+  begin
+    perform create_org('Bad Address', 'bad address!');
+    raise exception 'FAIL: create_org accepted a malformed address';
+  exception when check_violation then null;
+  end;
+  select count(*) into after_count from org_members where user_id = '00000000-0000-0000-0000-000000000004';
+  if after_count <> before_count then raise exception 'FAIL: a refused create_org still made the caller a member'; end if;
+
+  perform set_test_user(null);
+  begin
+    perform create_org('Signed Out Org', 'signed-out-probe');
+    raise exception 'FAIL: a signed-out caller created an org';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: create_org refuses a taken or malformed address, a blank name and a signed-out caller';
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from orgs where slug in ('blank-name-probe', 'null-name-probe', 'signed-out-probe') or name in ('Taken Address', 'Taken Again', 'Bad Address');
+  if n <> 0 then raise exception 'FAIL: % refused create_org calls left an org behind', n; end if;
+  select count(*) into n from orgs where slug = 'bridge' and name = 'Bridge';
+  if n <> 1 then raise exception 'FAIL: the existing org changed under a create_org with its address'; end if;
+  raise notice 'PASS: refused create_org calls leave nothing behind';
+end $$;
+
+-- ── Who may create an organization, and the directory flag (0040) ───
+-- Anyone who holds a membership that is not owner (staff, member or
+-- family, in any org) is refused with 42501 and nothing is written. A
+-- person in no org, or one who owns an org, may create one, and on an
+-- install that already has orgs the new org never edits the shared
+-- directory. user8 is staff in Elite Squad and nothing else; user9 owns
+-- Elite Squad and is staff in Bridge, to prove one non-owner row
+-- anywhere is enough to refuse even an owner.
+reset role;
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-000000000008', 'user8@elitesquad.example'),
+  ('00000000-0000-0000-0000-000000000009', 'user9@both.example');
+insert into users (id, email, full_name) values
+  ('00000000-0000-0000-0000-000000000008', 'user8@elitesquad.example', 'User Eight'),
+  ('00000000-0000-0000-0000-000000000009', 'user9@both.example', 'User Nine')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-000000000020', 'staff'),
+  ('00000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-000000000020', 'owner'),
+  ('00000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-000000000010', 'staff');
+do $$
+declare r text;
+begin
+  select string_agg(role::text, ',' order by role::text) into r from org_members where user_id = '00000000-0000-0000-0000-000000000005';
+  if r is distinct from 'family' then raise exception 'FAIL: the family probe expected user5 to be family only, found %', r; end if;
+  select string_agg(role::text, ',' order by role::text) into r from org_members where user_id = '00000000-0000-0000-0000-000000000006';
+  if r is distinct from 'member' then raise exception 'FAIL: the member probe expected user6 to be a member only, found %', r; end if;
+end $$;
+set role app_user;
+do $$
+declare
+  who uuid;
+  label text;
+  before_rows int;
+  after_rows int;
+begin
+  foreach who in array array[
+    '00000000-0000-0000-0000-000000000008',  -- staff only
+    '00000000-0000-0000-0000-000000000006',  -- member only
+    '00000000-0000-0000-0000-000000000005',  -- a family login
+    '00000000-0000-0000-0000-000000000003',  -- member in one org, staff in the other
+    '00000000-0000-0000-0000-000000000009'   -- owner in one org, staff in the other
+  ]::uuid[] loop
+    perform set_test_user(who);
+    select count(*) into before_rows from org_members where user_id = who;
+    label := 'refused-probe-' || right(who::text, 1);
+    begin
+      perform create_org('Refused Probe', label);
+      raise exception 'FAIL: % (a non-owner membership) created an org', who;
+    exception when insufficient_privilege then null;
+    end;
+    select count(*) into after_rows from org_members where user_id = who;
+    if after_rows <> before_rows then raise exception 'FAIL: a refused create_org gave % a new membership', who; end if;
+  end loop;
+  raise notice 'PASS: create_org refuses staff, a member, a family login, and anyone with one non-owner membership, with 42501';
+end $$;
+do $$
+declare new_id uuid; r text;
+begin
+  -- An owner of an existing org (user2, Elite Squad) may start another.
+  perform set_test_user('00000000-0000-0000-0000-000000000002');
+  new_id := create_org('Owner Second Org', 'owner-second-org');
+  select role::text into r from org_members where org_id = new_id and user_id = '00000000-0000-0000-0000-000000000002';
+  if r is distinct from 'owner' then raise exception 'FAIL: an owner starting a second org is % of it', r; end if;
+  -- user7 already owns the probe org from above; a second is allowed.
+  perform set_test_user('00000000-0000-0000-0000-000000000007');
+  perform create_org('Probe Owner Again', 'probe-owner-again');
+  raise notice 'PASS: an owner, and someone in no org, may create an org';
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from orgs where slug like 'refused-probe-%' or name = 'Refused Probe';
+  if n <> 0 then raise exception 'FAIL: % refused create_org calls left an org behind', n; end if;
+  select count(*) into n from orgs where slug in ('probe-org', 'owner-second-org', 'probe-owner-again') and edits_shared_directory;
+  if n <> 0 then raise exception 'FAIL: % orgs created on an install that already had orgs edit the shared directory', n; end if;
+  select count(*) into n from orgs where slug in ('probe-org', 'owner-second-org', 'probe-owner-again');
+  if n <> 3 then raise exception 'FAIL: expected the three allowed orgs, found %', n; end if;
+  -- The seeded orgs were inserted directly, not through create_org, and
+  -- keep the default.
+  select count(*) into n from orgs where edits_shared_directory;
+  if n <> 0 then raise exception 'FAIL: % orgs edit the shared directory without anyone turning it on', n; end if;
+  raise notice 'PASS: no org created on a populated install edits the shared directory';
+end $$;
+-- The flag is not the org's to set: orgs has no update policy, so an
+-- owner's own session cannot switch it on.
+set role app_user;
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  update orgs set edits_shared_directory = true where id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an owner switched on edits_shared_directory for their own org'; end if;
+  raise notice 'PASS: an owner cannot switch on the shared directory flag for their own org';
+end $$;
+reset role;
+do $$
+declare flag boolean;
+begin
+  select edits_shared_directory into flag from orgs where id = '00000000-0000-0000-0000-000000000010';
+  if flag then raise exception 'FAIL: the directory flag changed under an owner''s update'; end if;
+end $$;
+
+\echo 'ALL 0040 ASSERTIONS PASSED'

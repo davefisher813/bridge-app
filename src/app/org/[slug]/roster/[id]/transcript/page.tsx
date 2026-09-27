@@ -4,13 +4,17 @@
 // This is where "why is my core GPA lower than my transcript GPA" gets
 // answered. The eligibility screen gives the verdict and the subject
 // totals; this is the row-by-row working behind them.
+//
+// Staff open a row to correct it and add a row by hand (audit crud F5):
+// a misread grade no longer means discarding the whole document. A
+// family login reads the same list and changes nothing.
 
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { athleteHome, requireRole } from "@/lib/auth/guard";
 import { assertMayViewAthlete } from "@/lib/data/family";
 import { loadEligibility } from "@/lib/data/loadEligibility";
-import { Body, EmptyState, Label, LinkButton, Row, Screen, Section } from "@/components/kit";
+import { AddButton, Body, EmptyState, Label, LinkButton, Row, Screen, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +35,8 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
   const user = await requireRole(org.id, ["owner", "staff", "family"]);
   await assertMayViewAthlete(org.id, user, id);
   const home = athleteHome(slug, id, user.role);
+  const isStaff = user.role === "owner" || user.role === "staff";
+  const addHref = `/org/${slug}/roster/${id}/transcript/new`;
 
   const bundle = await loadEligibility(org.id, id, new Date().toISOString().slice(0, 10));
   if (!bundle) notFound();
@@ -55,12 +61,22 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
       title="Transcript"
       back={{ href: home, label: athlete.name }}
       lede={`${courses.length} courses · ${core?.counted.length ?? 0} counted by the NCAA`}
+      action={isStaff ? <AddButton href={addHref} label="Add" /> : undefined}
     >
       {courses.length === 0 ? (
         <EmptyState
           kind="course"
           title="No Courses on File"
-          action={user.role === "family" ? undefined : <LinkButton href={`/org/${slug}/documents/new`}>Upload a Transcript</LinkButton>}
+          action={
+            isStaff ? (
+              <Stack gap={2}>
+                <LinkButton href={`/org/${slug}/documents/new`}>Upload a Transcript</LinkButton>
+                <LinkButton href={addHref} variant="secondary">
+                  Type a Course In
+                </LinkButton>
+              </Stack>
+            ) : undefined
+          }
         />
       ) : (
         terms.map((term) => (
@@ -77,7 +93,7 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
               return (
                 <Row
                   key={c.id}
-                  href={`${home}/eligibility/approvals`}
+                  href={isStaff ? `/org/${slug}/roster/${id}/transcript/${c.id}` : `${home}/eligibility/approvals`}
                   kind={miss ? "blocked" : "course"}
                   role={role}
                   title={c.title}
@@ -111,6 +127,11 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
       <LinkButton href={`${home}/eligibility`} variant="secondary">
         NCAA Eligibility
       </LinkButton>
+      {isStaff && courses.length > 0 && (
+        <LinkButton href={`${home}/eligibility/approvals`} variant="secondary">
+          Course Approvals
+        </LinkButton>
+      )}
     </Screen>
   );
 }

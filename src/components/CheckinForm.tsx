@@ -12,24 +12,32 @@ type ServerAction = (prevState: CheckinActionState, formData: FormData) => Promi
 
 const EMPTY_STATE: CheckinActionState = { errors: {} };
 
-export function CheckinForm({ action }: { action: ServerAction }) {
+// `initial` is the Edit screen for one entry (audit crud F21): the same
+// form, prefilled.
+export interface CheckinFormInitial {
+  kind: string;
+  occurredOn: string;
+  notes: string | null;
+}
+
+export function CheckinForm({ action, initial, submitLabel = "Log Check-In" }: { action: ServerAction; initial?: CheckinFormInitial; submitLabel?: string }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
 
   return (
     <Form action={formAction} error={state.errors.form}>
       <Grid2>
-        <SelectField name="kind" label="Type" defaultValue="call" error={state.errors.kind}>
+        <SelectField name="kind" label="Type" defaultValue={initial?.kind ?? "call"} error={state.errors.kind}>
           {CHECKIN_KINDS.map((k) => (
             <option key={k} value={k}>
               {CHECKIN_KIND_LABEL[k]}
             </option>
           ))}
         </SelectField>
-        <Field name="occurredOn" label="Date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} error={state.errors.occurredOn} />
+        <Field name="occurredOn" label="Date" type="date" defaultValue={initial?.occurredOn ?? new Date().toISOString().slice(0, 10)} error={state.errors.occurredOn} />
       </Grid2>
-      <TextAreaField name="notes" label="Notes" hint="Staff only." maxLength={2000} error={state.errors.notes} />
+      <TextAreaField name="notes" label="Notes" hint="Staff only." maxLength={2000} defaultValue={initial?.notes ?? undefined} error={state.errors.notes} />
       <Button variant="secondary" disabled={pending}>
-        {pending ? "Logging..." : "Log Check-In"}
+        {pending ? "Saving..." : submitLabel}
       </Button>
     </Form>
   );

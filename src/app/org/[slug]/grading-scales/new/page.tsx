@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { saveGradingScale } from "@/lib/actions/gradingScales";
+import { createClient } from "@/lib/supabase/server";
+import { loadHighSchoolOptions } from "@/lib/data/lookups";
 import { GradingScaleForm } from "@/components/GradingScaleForm";
 import { bandsToRows } from "@/lib/validation/gradingScale";
 import { TEN_POINT_STARTING_POINT } from "@/lib/fit/ncaa/gradingScale";
@@ -25,6 +27,8 @@ export default async function NewGradingScalePage({
   await requireRole(org.id, STAFF_ROLES);
 
   const action = saveGradingScale.bind(null, slug, null);
+  const supabase = await createClient();
+  const schools = (await loadHighSchoolOptions(supabase, org.id)).map((o) => ({ value: o.value, label: o.label }));
 
   return (
     <Screen
@@ -35,6 +39,7 @@ export default async function NewGradingScalePage({
         action={action}
         submitLabel="Save and Recalculate"
         returnTo={returnTo}
+        schools={schools}
         defaults={{
           schoolName: school ?? "",
           // Prefilled with the common ten-point table as a starting point

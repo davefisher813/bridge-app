@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { loadThread, markThreadRead } from "@/lib/data/messages";
-import { sendMessage } from "@/lib/actions/messages";
+import { deleteMessage, sendMessage } from "@/lib/actions/messages";
 import { MessageForm } from "@/components/MessageForm";
 import { MessageThread } from "@/components/MessageThread";
 import { EmptyState, Notice, Screen, Section, TextLink } from "@/components/kit";
@@ -14,7 +14,8 @@ import { EmptyState, Notice, Screen, Section, TextLink } from "@/components/kit"
 // the "new" count on the athlete page and My Athletes clears.
 //
 // Each message is a static card: it is prose, not a record to open, and
-// the composer under the thread is the action.
+// the composer under the thread is the action. Staff can remove one,
+// behind a confirm (audit crud F9).
 export default async function AthleteMessagesPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
@@ -50,7 +51,7 @@ export default async function AthleteMessagesPage({ params }: { params: Promise<
             The first message starts the thread.
           </EmptyState>
         ) : (
-          <MessageThread messages={messages} meId={user.id} />
+          <MessageThread messages={messages} meId={user.id} remove={deleteMessage.bind(null, slug, id)} />
         )}
       </Section>
 

@@ -7,6 +7,10 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { parseTargetForm } from "@/lib/validation/target";
 import { syncCommitment } from "@/lib/data/commitment";
+import { recomputeFitsForAthlete } from "@/lib/data/fits";
+import { aidFromRow, parseTargetAidForm } from "@/lib/validation/targetAid";
+import { loadLiveTarget } from "@/lib/data/loadTarget";
+import { isClosedStatus } from "@/lib/placement";
 
 export interface TargetActionState {
   errors: Record<string, string>;
@@ -84,7 +88,16 @@ export async function updateTarget(slug: string, targetId: string, _prevState: T
   }
 
   const supabase = await createClient();
-  const { data: before } = await supabase.from("recruiting_targets").select("status, athlete_id").eq("id", targetId).eq("org_id", org.id).maybeSingle();
+  // A removed athlete's target is not edited, or moved to someone else.
+  const live = await loadLiveTarget(supabase, org.id, targetId);
+  if (!live) return { errors: { form: "That target isn't on this org's board." } };
+  // The same rule as deleteTarget: a placed athlete's commitment names
+  // the school the placement reads, so it is not moved off Committed or
+  // handed to another athlete here. Reopen Recruiting first.
+  if (live.status === "Committed" && isClosedStatus(live.athleteStatus) && (parsed.values.status !== "Committed" || parsed.values.athleteId !== live.athleteId)) {
+    return { errors: { form: "This commitment is where the athlete was placed. Reopen Recruiting first, then change it." } };
+  }
+  const before = { status: live.status, athlete_id: live.athleteId };
   const { error } = await supabase
     .from("recruiting_targets")
     .update({
@@ -107,11 +120,11 @@ export async function updateTarget(slug: string, targetId: string, _prevState: T
   }
 
   // A target moved to another athlete leaves Committed for the old one.
-  if (before && before.athlete_id !== parsed.values.athleteId) {
+  if (before.athlete_id !== parsed.values.athleteId) {
     await syncCommitment(supabase, org.id, before.athlete_id, { before: before.status, after: null });
     await syncCommitment(supabase, org.id, parsed.values.athleteId, { before: null, after: parsed.values.status });
   } else {
-    await syncCommitment(supabase, org.id, parsed.values.athleteId, { before: before?.status ?? null, after: parsed.values.status });
+    await syncCommitment(supabase, org.id, parsed.values.athleteId, { before: before.status, after: parsed.values.status });
   }
 
   revalidatePath(`/org/${slug}/board`);
@@ -120,4 +133,101 @@ export async function updateTarget(slug: string, targetId: string, _prevState: T
   revalidatePath(`/org/${slug}/roster`);
   revalidatePath(`/org/${slug}/roster/${parsed.values.athleteId}`);
   redirect(`/org/${slug}/board/${targetId}`);
+}
+
+function revalidateTargetScreens(slug: string, targetId: string, athleteId: string | null) {
+  revalidatePath(`/org/${slug}/board`);
+  revalidatePath(`/org/${slug}`);
+  revalidatePath(`/org/${slug}/board/${targetId}`);
+  revalidatePath(`/org/${slug}/board/${targetId}/edit`);
+  revalidatePath(`/org/${slug}/roster`);
+  if (athleteId) revalidatePath(`/org/${slug}/roster/${athleteId}`);
+}
+
+// Removing a target outright (crud F15): a duplicate, or one added by
+// mistake, otherwise sits in Recruiting History and the school's Your
+// Athletes Here list for good. Staff, like every other target write.
+// The row is read first, scoped by id and org, so a foreign id deletes
+// nothing and the commitment chain knows what left: a Committed target
+// removed reopens the athlete exactly as a withdrawn commitment does.
+// Its communications and visits go with it (the foreign keys cascade;
+// they are deleted here first so the intent is explicit and scoped).
+//
+// Refused for the Committed target of an athlete already placed
+// (Enrolled, Graduated, Drafted): that target names the school the
+// placement reads, and removing it would leave an Enrolled athlete with
+// no school and nothing for Reopen Recruiting to restore. Reopen first.
+// A removed athlete's target is not touched at all.
+const PLACED_COMMITMENT_REFUSAL = "Reopen Recruiting first, then remove it.";
+
+export async function deleteTarget(slug: string, targetId: string): Promise<void> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireRole(org.id, STAFF_ROLES);
+
+  const supabase = await createClient();
+  const live = await loadLiveTarget(supabase, org.id, targetId);
+  if (!live) redirect(`/org/${slug}/board`);
+  if (live.status === "Committed" && isClosedStatus(live.athleteStatus)) {
+    redirect(`/org/${slug}/board/${targetId}/edit?error=${encodeURIComponent(PLACED_COMMITMENT_REFUSAL)}`);
+  }
+  const row = { status: live.status, athlete_id: live.athleteId };
+
+  await supabase.from("target_communications").delete().eq("target_id", targetId).eq("org_id", org.id);
+  await supabase.from("target_visits").delete().eq("target_id", targetId).eq("org_id", org.id);
+  const { error } = await supabase.from("recruiting_targets").delete().eq("id", targetId).eq("org_id", org.id);
+  if (error) redirect(`/org/${slug}/board/${targetId}/edit?error=${encodeURIComponent(error.message)}`);
+
+  await syncCommitment(supabase, org.id, row.athlete_id, { before: row.status, after: null });
+  await recomputeFitsForAthlete(supabase, org.id, row.athlete_id);
+
+  revalidateTargetScreens(slug, targetId, row.athlete_id);
+  redirect(`/org/${slug}/roster/${row.athlete_id}`);
+}
+
+export interface TargetAidActionState {
+  errors: Record<string, string>;
+}
+
+// The award on a target, typed or corrected by hand (crud F14). Staff,
+// scoped by id and org. When the award came from an applied award
+// letter the document id is kept, so the document screen still knows
+// what it wrote. The athlete's matches are recomputed: a net cost is
+// the best money evidence the fit engine has.
+export async function saveTargetAid(slug: string, targetId: string, _prevState: TargetAidActionState, formData: FormData): Promise<TargetAidActionState> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireRole(org.id, STAFF_ROLES);
+
+  const supabase = await createClient();
+  const live = await loadLiveTarget(supabase, org.id, targetId);
+  if (!live) return { errors: { form: "That target isn't on this org's board." } };
+  const row = { id: live.id, athlete_id: live.athleteId, aid: live.aid };
+
+  const parsed = parseTargetAidForm(formData, aidFromRow(row.aid)?.documentId ?? null);
+  if (!parsed.ok || !parsed.aid) return { errors: parsed.errors };
+
+  const { error } = await supabase.from("recruiting_targets").update({ aid: parsed.aid, updated_at: new Date().toISOString() }).eq("id", targetId).eq("org_id", org.id);
+  if (error) return { errors: { form: error.message } };
+
+  await recomputeFitsForAthlete(supabase, org.id, row.athlete_id);
+  revalidateTargetScreens(slug, targetId, row.athlete_id);
+  redirect(`/org/${slug}/board/${targetId}`);
+}
+
+// Clear Award: the target goes back to scoring on the school's averages.
+export async function clearTargetAid(slug: string, targetId: string): Promise<void> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireRole(org.id, STAFF_ROLES);
+
+  const supabase = await createClient();
+  const live = await loadLiveTarget(supabase, org.id, targetId);
+  if (!live) redirect(`/org/${slug}/board`);
+  const row = { id: live.id, athlete_id: live.athleteId };
+
+  await supabase.from("recruiting_targets").update({ aid: null, updated_at: new Date().toISOString() }).eq("id", targetId).eq("org_id", org.id);
+  await recomputeFitsForAthlete(supabase, org.id, row.athlete_id);
+  revalidateTargetScreens(slug, targetId, row.athlete_id);
+  redirect(`/org/${slug}/board/${targetId}/edit`);
 }

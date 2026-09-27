@@ -11,14 +11,15 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { donorTotals, formatMoney, formatMoneyShort, outstandingOn, CATEGORY_LABEL, type GiftCategory } from "@/lib/fundraising/rollup";
-import { Body, Chevron, EmptyState, LinkButton, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
+import { Body, Chevron, EmptyState, LinkButton, Notice, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
 const TYPE_LABEL: Record<string, string> = { individual: "Individual", corporate: "Corporate", foundation: "Foundation", board_member: "Board Member", other: "Other" };
 
-export default async function DonorPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
+export default async function DonorPage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ notice?: string; error?: string }> }) {
   const { slug, id } = await params;
+  const { notice, error } = searchParams ? await searchParams : {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
@@ -28,7 +29,9 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
   const fiscalYear = Number(new Date().toISOString().slice(0, 4));
   const supabase = await createClient();
   const [{ data: donor }, { data: giftRows }, { data: pledgeRows }, { data: seatRows }] = await Promise.all([
-    supabase.from("donors").select("id, name, donor_type, email, phone").eq("id", id).eq("org_id", org.id).single(),
+    // A removed donor is out of the address book (audit crud F10); their
+    // gifts still count, and still show on the gift ledger.
+    supabase.from("donors").select("id, name, donor_type, email, phone").eq("id", id).eq("org_id", org.id).is("deleted_at", null).maybeSingle(),
     supabase
       .from("gifts")
       .select("id, amount, received_on, category, method, donor_id, campaign_id, pledge_id")
@@ -54,6 +57,8 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
       back={{ href: `/org/${slug}/fundraising/donors`, label: "Donors" }}
       lede={`${TYPE_LABEL[d.donor_type] ?? d.donor_type.replace(/_/g, " ")}${d.email ? ` · ${d.email}` : ""}`}
     >
+      {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
+
       <StatRow>
         <Stat value={formatMoneyShort(totals.lifetimeCashCents)} label="Lifetime" role="committed" href={`/org/${slug}/fundraising/gifts`} />
         <Stat value={formatMoneyShort(totals.thisYearCashCents)} label="This Year" role="contact" href={`/org/${slug}/fundraising/gifts`} />
@@ -86,7 +91,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
             return (
               <Row
                 key={p.id}
-                href={`/org/${slug}/fundraising/pledges`}
+                href={canEdit ? `/org/${slug}/fundraising/pledges/${p.id}/edit` : `/org/${slug}/fundraising/pledges`}
                 kind="pledge"
                 role={out > 0 ? "offer" : "committed"}
                 title={`${formatMoney(p.amountCents)} Promised`}
@@ -110,7 +115,7 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
           gifts.map((g) => (
             <Row
               key={g.id}
-              href={`/org/${slug}/fundraising/gifts?category=${g.category}`}
+              href={canEdit ? `/org/${slug}/fundraising/gifts/${g.id}/edit` : `/org/${slug}/fundraising/gifts?category=${g.category}`}
               kind={g.method === "in_kind" ? "grant" : "money"}
               role={g.method === "in_kind" ? "place" : "committed"}
               title={CATEGORY_LABEL[g.category as GiftCategory] ?? g.category}
@@ -124,6 +129,12 @@ export default async function DonorPage({ params }: { params: Promise<{ slug: st
           ))
         )}
       </Section>
+
+      {canEdit && (
+        <LinkButton href={`/org/${slug}/fundraising/donors/${id}/edit`} variant="secondary">
+          Edit Donor
+        </LinkButton>
+      )}
     </Screen>
   );
 }

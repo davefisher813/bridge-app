@@ -42,6 +42,9 @@ export type TransferKind = "transfer_4to4" | "transfer_juco" | "transfer_grad";
 export interface ReopenInput {
   transferKind?: TransferKind;
   currentSchool?: string;
+  // The schools row the school they are leaving matched exactly, when
+  // it did (Stage 4). Kept on the transfer detail.
+  currentSchoolId?: string;
   currentDivision?: string;
   eligibilityYearsRemaining?: number;
   transferCount?: number;
@@ -67,6 +70,7 @@ interface CommittedRow {
   id: string;
   offer_type: string | null;
   notes: string | null;
+  school_id: string | null;
   schools: { name: string; division: string | null } | { name: string; division: string | null }[] | null;
 }
 
@@ -90,7 +94,7 @@ export async function applyReopen(supabase: Client, orgId: string, athleteId: st
 
   const { data: committedRow } = await supabase
     .from("recruiting_targets")
-    .select("id, offer_type, notes, schools(name, division)")
+    .select("id, offer_type, notes, school_id, schools(name, division)")
     .eq("org_id", orgId)
     .eq("athlete_id", athleteId)
     .eq("status", "Committed")
@@ -119,6 +123,15 @@ export async function applyReopen(supabase: Client, orgId: string, athleteId: st
     const transferKind: TransferKind = input.transferKind ?? (athlete.status === "Graduated" ? "transfer_grad" : "transfer_4to4");
     const currentSchool = input.currentSchool?.trim() || committedSchool?.name || currentSchoolOf(athlete.detail) || "";
     const currentDivision = input.currentDivision?.trim() || committedSchool?.division || (typeof prior.currentDivision === "string" ? prior.currentDivision : undefined) || undefined;
+    // Which school row that is, when known: the one the form matched,
+    // else the committed target's school when it is the one named, else
+    // the id already on the record when the name has not changed. A
+    // rebuilt detail that dropped it would lose it on every reopen.
+    const sameName = (a: string | null | undefined) => !!a && a.trim().toLowerCase() === currentSchool.trim().toLowerCase();
+    const currentSchoolId =
+      input.currentSchoolId ||
+      (committed?.school_id && sameName(committedSchool?.name) ? committed.school_id : undefined) ||
+      (typeof prior.currentSchoolId === "string" && sameName(typeof prior.currentSchool === "string" ? prior.currentSchool : null) ? prior.currentSchoolId : undefined);
     patch.recruit_type = transferKind;
     patch.detail = parseAthleteDetail({
       kind: "transfer",
@@ -131,6 +144,7 @@ export async function applyReopen(supabase: Client, orgId: string, athleteId: st
       transferCount: input.transferCount ?? 1,
       degreeCompleted: athlete.status === "Graduated" || transferKind === "transfer_grad",
       desiredMajor: typeof prior.desiredMajor === "string" && prior.desiredMajor ? prior.desiredMajor : undefined,
+      currentSchoolId: currentSchoolId || undefined,
     });
   }
   await supabase.from("athletes").update(patch).eq("id", athleteId).eq("org_id", orgId);

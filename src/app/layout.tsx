@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { cssToken } from "@/lib/theme/cssTokens";
+import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/product";
 import "./globals.css";
 
 // Dave's call on the ChatGPT redesign conflict: Inter, heavy weight, for
@@ -18,12 +19,12 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "BFFSA",
+  title: PRODUCT_NAME,
   description: "Rosters, recruiting targets, fit scoring and document intake.",
   manifest: "/manifest.webmanifest",
   // Installed from Safari's share sheet, the app runs without browser
   // chrome and with a status bar that sits over the dark org screens.
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "BFFSA" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: PRODUCT_SHORT_NAME },
 };
 
 // The colour behind the status bar and the browser's own chrome. Sign-in

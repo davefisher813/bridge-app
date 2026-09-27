@@ -47,6 +47,11 @@ export const IDS = {
   board: "00000000-0000-0000-0000-000000000101",
   boardMember: "00000000-0000-0000-0000-000000000102",
   document: "00000000-0000-0000-0000-000000000111",
+  // Read while no AI key was set (documents.read_by = 'stub'): never
+  // appliable, and the review screen says why.
+  documentStub: "00000000-0000-0000-0000-000000000112",
+  highSchool: "00000000-0000-0000-0000-000000000141",
+  highSchoolUnscaled: "00000000-0000-0000-0000-000000000142",
   orgScale: "00000000-0000-0000-0000-000000000121",
   orgList: "00000000-0000-0000-0000-000000000131",
   athleteTransfer: "00000000-0000-0000-0000-0000000000c3",
@@ -100,6 +105,10 @@ export function buildFixture(): Dataset {
         branding: { logo: "/logos/bridge-mark.png", lockup: "/logos/bridge-lockup.png" },
         scoring_preset: "money_first",
         docai_budget_cents: 2000,
+        // The org whose owner edits the shared directory (schools,
+        // coaches, transfer windows; migration 0040). Elite does not, so
+        // an owner who is not a directory editor has a fixture too.
+        edits_shared_directory: true,
       },
       {
         id: ELITE,
@@ -110,6 +119,7 @@ export function buildFixture(): Dataset {
         branding: {},
         scoring_preset: "balanced",
         docai_budget_cents: 0,
+        edits_shared_directory: false,
       },
     ],
     org_members: [
@@ -182,7 +192,9 @@ export function buildFixture(): Dataset {
         date_of_birth: "2009-04-02",
         first_full_time_enrollment: null,
         intended_enrollment: "2027-08-20",
-        detail: { kind: "hs", apCount: 2 },
+        // The high school as picked from the directory (Stage 4), so Edit
+        // has a value to show and keep.
+        detail: { kind: "hs", apCount: 2, highSchool: "Fixture High School", highSchoolId: IDS.highSchool },
         measurables: { fbVelo: 86 },
         is_international: false,
         toefl_score: null,
@@ -568,7 +580,23 @@ export function buildFixture(): Dataset {
     athlete_message_reads: [],
     contacts: [{ id: "ct1", org_id: BRIDGE, athlete_id: IDS.athlete, name: "Fixture Parent", role: "parent_guardian", email: null, phone: null, school_id: null, notes: null }],
     transfer_windows: [
-      { id: "tw1", sport: "baseball", division: "D2", season_year: "2026", window_label: "Fixture window", opens_on: "2026-12-01", closes_on: "2026-12-15", source_url: "https://example.test/fixture-window" },
+      { id: "tw1", sport: "baseball", division: "D2", season_year: "2026", window_label: "Fixture window", opens_on: "2026-12-01", closes_on: "2026-12-15", source_url: "https://example.test/fixture-window", notes: "Fixture window note." },
+    ],
+    // The shared high school directory (migration 0040). Invented schools,
+    // standing in for rows the NCES loader writes. The fake client does
+    // not compute generated columns, so name_key is written by hand, the
+    // way Postgres would: lower(btrim(name)). The second carries the CEEB
+    // code the approved-list form defaults to.
+    high_schools: [
+      { id: IDS.highSchool, name: "Fixture High School", city: "Fixture City", state: "CT", country: "US", nces_id: "fixture-nces-1", ceeb_code: null, source: "manual", created_at: "2026-09-27T12:00:00.000Z", name_key: "fixture high school" },
+      { id: IDS.highSchoolUnscaled, name: "Unscaled High School", city: "Fixture Town", state: "NY", country: "US", nces_id: "fixture-nces-2", ceeb_code: "123456", source: "manual", created_at: "2026-09-27T12:00:00.000Z", name_key: "unscaled high school" },
+    ],
+    // Staff notes (migration 0040): one per org, so a leak across orgs
+    // would show up as a note on the wrong screen rather than an empty
+    // one. Staff only: no family or member page reads this table.
+    athlete_notes: [
+      { id: "an1", org_id: BRIDGE, athlete_id: IDS.athlete, author_id: OWNER, context: "general", body: "Fixture note.", created_at: "2026-09-24T15:00:00.000Z" },
+      { id: "an2", org_id: ELITE, athlete_id: IDS.athleteElite, author_id: OWNER, context: "general", body: "Fixture squad note.", created_at: "2026-09-25T15:00:00.000Z" },
     ],
     athlete_courses: [
       { id: "ac1", org_id: BRIDGE, athlete_id: IDS.athlete, title: "English 11", subject: "english", credit: 1, grade: "B", term: "25-26 S1", school_name: "Fixture High School", weighted: false, ncaa_approved: null, duplicate_of: null, approval_source: null },
@@ -652,7 +680,35 @@ export function buildFixture(): Dataset {
         issues: null,
         applied_at: null,
         undone_at: null,
+        // Which model read it (migration 0040). A real model, so it can
+        // be applied.
+        read_by: "claude-opus-5",
         created_at: "2026-06-01",
+      },
+      // Read by the stub model because no AI key was set: its numbers are
+      // invented, so it can never be applied, and the review screen says
+      // so instead of offering Apply.
+      {
+        id: IDS.documentStub,
+        org_id: BRIDGE,
+        athlete_id: IDS.athlete,
+        file_name: "stub-read.pdf",
+        file_size: 1000,
+        media_type: "application/pdf",
+        source_role: "coordinator",
+        status: "pending",
+        route: "review",
+        category: "transcript",
+        provenance: "model",
+        extracted: { gpa: 3.9, warnings: [] },
+        confidence: { score: 0.9, reasons: ["fixture"] },
+        candidates: [],
+        failure_reason: null,
+        issues: null,
+        applied_at: null,
+        undone_at: null,
+        read_by: "stub",
+        created_at: "2026-06-04",
       },
       // A failed document, because the queue has a third section for
       // them and an unrendered branch is an untested one.
@@ -675,6 +731,7 @@ export function buildFixture(): Dataset {
         issues: null,
         applied_at: null,
         undone_at: null,
+        read_by: null,
         created_at: "2026-06-02",
       },
       // A reading that never came back: the row was written, the
@@ -699,6 +756,7 @@ export function buildFixture(): Dataset {
         issues: null,
         applied_at: null,
         undone_at: null,
+        read_by: null,
         created_at: "2026-06-03T10:00:00.000Z",
       },
     ],

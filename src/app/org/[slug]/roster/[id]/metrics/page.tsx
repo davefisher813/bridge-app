@@ -15,7 +15,8 @@ import { MetricForm } from "@/components/MetricForm";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
 import { formatMetricValue, metricsFor, positionGroupOf, selectScoringMetrics } from "@/lib/fit";
 import { METRICS, metricSpec, sourceSpec } from "@/lib/fit/contract";
-import { Body, Card, ConfirmButton, EmptyState, Form, Label, Notice, Screen, Section, Sparkline, Stack } from "@/components/kit";
+import { loadPastSourceDetails } from "@/lib/data/lookups";
+import { Body, Card, ConfirmButton, EmptyState, Form, Label, Notice, Screen, Section, Sparkline, Stack, TextLink } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -32,9 +33,12 @@ export default async function MetricsPage({ params }: { params: Promise<{ slug: 
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
-  const [{ data: athlete }, { data: metricRows }] = await Promise.all([
+  const [{ data: athlete }, { data: metricRows }, sourceDetails] = await Promise.all([
     supabase.from("athletes").select("id, name, sport, position").eq("id", id).eq("org_id", org.id).is("deleted_at", null).single(),
     supabase.from("athlete_metrics").select("id, metric, value, measured_on, source, source_detail").eq("athlete_id", id).eq("org_id", org.id).order("measured_on", { ascending: false }),
+    // The events this org has logged at before, suggested while typing
+    // (Stage 4). Staff only: a family login never sees the form.
+    canEdit ? loadPastSourceDetails(supabase, org.id) : Promise.resolve([] as string[]),
   ]);
   if (!athlete) notFound();
 
@@ -110,7 +114,7 @@ export default async function MetricsPage({ params }: { params: Promise<{ slug: 
 
       {canEdit && (
         <Section label="Log a Metric" role="accent" kind="note">
-          <MetricForm action={createAction} first={first} more={more} today={today} />
+          <MetricForm action={createAction} first={first} more={more} today={today} sourceDetails={sourceDetails} />
         </Section>
       )}
 
@@ -133,11 +137,14 @@ export default async function MetricsPage({ params }: { params: Promise<{ slug: 
                     {scores && <Label tone="committed">Scores</Label>}
                   </div>
                   {canEdit && (
-                    <Form action={deleteAction.bind(null, r.id)}>
-                      <ConfirmButton inline title={`Remove This ${label} Entry?`} body="It comes off the log and the athlete's matches recompute." confirmLabel="Remove">
-                        Remove
-                      </ConfirmButton>
-                    </Form>
+                    <div className="flex flex-col items-end gap-1">
+                      <TextLink href={`/org/${slug}/roster/${id}/metrics/${r.id}/edit`}>Edit</TextLink>
+                      <Form action={deleteAction.bind(null, r.id)}>
+                        <ConfirmButton inline title={`Remove This ${label} Entry?`} body="It comes off the log and the athlete's matches recompute." confirmLabel="Remove">
+                          Remove
+                        </ConfirmButton>
+                      </Form>
+                    </div>
                   )}
                 </div>
               </Card>

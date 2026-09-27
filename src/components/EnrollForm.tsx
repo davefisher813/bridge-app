@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import type { EnrollActionState } from "@/lib/actions/enrollment";
-import { Button, Field, Form, SelectField } from "@/components/kit";
+import { Button, Field, Form, SelectField, TextAreaField } from "@/components/kit";
 
 type ServerAction = (prevState: EnrollActionState, formData: FormData) => Promise<EnrollActionState>;
 
@@ -14,10 +14,13 @@ const EMPTY_STATE: EnrollActionState = { errors: {} };
 export interface EnrollSchoolChoice {
   currentSchool: string | null;
   schools: { id: string; label: string }[];
+  // The schools row the athlete's Current School was matched to, when
+  // it was (Stage 4): picked already, so the enrollment names that row.
+  selectedId?: string | null;
 }
 
 // Mark Enrolled and Mark Graduated: a school when nothing on file names
-// one, and a date.
+// one, a date, and an optional note for the athlete's staff log.
 export function EnrollForm({
   action,
   today,
@@ -42,7 +45,7 @@ export function EnrollForm({
   return (
     <Form action={formAction} error={state.errors.form}>
       {schoolChoice && (
-        <SelectField name="schoolId" label={schoolLabel} defaultValue={value("schoolId")} error={err("schoolId")} required={!schoolChoice.currentSchool}>
+        <SelectField name="schoolId" label={schoolLabel} defaultValue={value("schoolId") || (schoolChoice.selectedId && schoolChoice.schools.some((s) => s.id === schoolChoice.selectedId) ? schoolChoice.selectedId : "")} error={err("schoolId")} required={!schoolChoice.currentSchool}>
           <option value="">{schoolChoice.currentSchool ?? "Pick a School"}</option>
           {schoolChoice.schools.map((s) => (
             <option key={s.id} value={s.id}>
@@ -52,6 +55,7 @@ export function EnrollForm({
         </SelectField>
       )}
       <Field name={dateName} label={dateLabel} type="date" defaultValue={value(dateName) || today} error={err(dateName)} required />
+      <TextAreaField name="note" label="Note" hint="Optional. Staff only, filed on the athlete's notes." maxLength={4000} defaultValue={value("note")} error={err("note")} />
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );

@@ -48,6 +48,13 @@ const numOrUndef = (v: FormDataEntryValue | null) => {
 
 const strOrUndef = (v: FormDataEntryValue | null) => (v === null || v === "" ? undefined : String(v));
 
+// A row id the form carries in a hidden field, set on the client when a
+// suggestion is picked. Anything that is not a uuid is dropped rather
+// than failing the save over a field nobody can see; the server resolves
+// the name again anyway.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const idOrUndef = (v: FormDataEntryValue | null) => (v !== null && UUID.test(String(v).trim()) ? String(v).trim() : undefined);
+
 export const athleteBaseSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
   sport: z.string().trim().min(1, "Sport is required"),
@@ -76,6 +83,14 @@ export const athleteBaseSchema = z.object({
   skill: gradeSchema,
   iq: gradeSchema,
   competitiveness: gradeSchema,
+  // A staff note filed with the save (Stage 4): "Notes" on Add, "Add a
+  // Note" on Edit. Blank adds nothing. Written to athlete_notes, never to
+  // a column on athletes, which a linked family login can read.
+  notes: z.string().trim().max(4000, "A note is 4000 characters or fewer").optional(),
+  // Corrections to a date already set by Mark Enrolled or Mark Graduated
+  // (audit crud F8). Blank leaves the date as it is.
+  enrollmentDate: z.string().date("Pick a date").optional(),
+  graduatedOn: z.string().date("Pick a date").optional(),
 });
 
 export type AthleteFormValues = z.infer<typeof athleteBaseSchema>;
@@ -116,6 +131,9 @@ export function parseAthleteForm(formData: FormData): AthleteFormResult {
     skill: numOrUndef(formData.get("skill")),
     iq: numOrUndef(formData.get("iq")),
     competitiveness: numOrUndef(formData.get("competitiveness")),
+    notes: strOrUndef(formData.get("notes")),
+    enrollmentDate: strOrUndef(formData.get("enrollmentDate")),
+    graduatedOn: strOrUndef(formData.get("graduatedOn")),
   };
 
   const baseResult = athleteBaseSchema.safeParse(baseInput);
@@ -139,6 +157,8 @@ export function parseAthleteForm(formData: FormData): AthleteFormResult {
           satTotal: numOrUndef(formData.get("satTotal")),
           actComposite: numOrUndef(formData.get("actComposite")),
           desiredMajor: strOrUndef(formData.get("desiredMajor")),
+          highSchool: strOrUndef(formData.get("highSchool")),
+          highSchoolId: idOrUndef(formData.get("highSchoolId")),
         }
       : {
           kind: "transfer" as const,
@@ -151,6 +171,7 @@ export function parseAthleteForm(formData: FormData): AthleteFormResult {
           transferCount: numOrUndef(formData.get("transferCount")) ?? 0,
           degreeCompleted: recruitType === "transfer_grad" ? formData.get("degreeCompleted") === "on" : undefined,
           desiredMajor: strOrUndef(formData.get("desiredMajor")),
+          currentSchoolId: idOrUndef(formData.get("currentSchoolId")),
         };
 
   const detailResult = athleteDetailSchema.safeParse(detailInput);

@@ -11,7 +11,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { EmptyState, Label, Row, Screen, Section } from "@/components/kit";
+import { AddButton, EmptyState, Label, Notice, Row, Screen, Section } from "@/components/kit";
 import { normalizeSchoolKey } from "@/lib/fit/ncaa/approvedCourses";
 
 export const dynamic = "force-dynamic";
@@ -26,8 +26,9 @@ interface ListRow {
   org_approved_courses?: { count: number }[];
 }
 
-export default async function ApprovedCoursesPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ApprovedCoursesPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ notice?: string }> }) {
   const { slug } = await params;
+  const { notice } = (await searchParams) ?? {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -78,7 +79,17 @@ export default async function ApprovedCoursesPage({ params }: { params: Promise<
   const countOf = (r: ListRow) => r.org_approved_courses?.[0]?.count ?? r.ncaa_approved_courses?.[0]?.count ?? 0;
 
   return (
-    <Screen title="Approved Lists" back={{ href: `/org/${slug}/more`, label: "More" }} lede={`${onFile.length} on file`}>
+    <Screen
+      title="Approved Lists"
+      back={{ href: `/org/${slug}/more`, label: "More" }}
+      lede={`${onFile.length} on file`}
+      action={canEdit ? <AddButton href={`/org/${slug}/approved-courses/new`} label="Add a List" /> : undefined}
+    >
+      {notice && (
+        <Notice tone="success" title="Done">
+          {notice}
+        </Notice>
+      )}
       {missing.length > 0 && (
         <Section label="Needed Now" count={missing.length} role="offer" kind="warning">
           {missing.map(([key, name]) => (

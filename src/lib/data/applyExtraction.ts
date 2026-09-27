@@ -18,6 +18,7 @@ import { parseAthleteDetail } from "@/lib/fit/schema";
 import { METRICS, normalizeSport } from "@/lib/fit/contract";
 import { metricPlausible } from "@/lib/docai/plausibility";
 import { daysAhead, isRealDate } from "@/lib/docai/lenient";
+import { resolveHighSchool } from "@/lib/data/lookups";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = SupabaseClient<any, any, any>;
@@ -37,7 +38,8 @@ export interface TargetChange {
 
 export interface ApplyPart {
   warnings: string[];
-  // athletes.detail keys this apply wrote (satTotal, actComposite).
+  // athletes.detail keys this apply wrote (satTotal, actComposite, and a
+  // transcript's highSchool and highSchoolId).
   detail?: Record<string, FieldChange>;
   // The recruiting target an offer letter or an award letter touched.
   target?: TargetChange;
@@ -136,7 +138,24 @@ export async function applyTestScores(client: Client, orgId: string, athleteId: 
   return { warnings, detail: changes, recompute: true };
 }
 
-export async function undoTestScores(client: Client, orgId: string, athleteId: string, changes: Record<string, FieldChange>): Promise<string[]> {
+// What each athletes.detail key an apply can write is called on screen.
+// Every key gets its own label: until Stage 4 anything that was not
+// satTotal read back as "ACT", which was wrong the moment a transcript
+// could fill the high school.
+export const DETAIL_LABEL: Record<string, string> = {
+  satTotal: "SAT",
+  actComposite: "ACT",
+  highSchool: "high school",
+  highSchoolId: "high school directory link",
+};
+
+function detailLabel(key: string): string {
+  return DETAIL_LABEL[key] ?? key.replace(/([A-Z])/g, " $1").toLowerCase();
+}
+
+// Puts back the detail keys an apply wrote, each only while it still
+// holds what the document put there.
+export async function undoDetail(client: Client, orgId: string, athleteId: string, changes: Record<string, FieldChange>): Promise<string[]> {
   const done: string[] = [];
   const { data: row } = await client.from("athletes").select("detail").eq("id", athleteId).eq("org_id", orgId).single();
   const detail = ((row as { detail?: unknown } | null)?.detail ?? {}) as Record<string, unknown>;
@@ -147,9 +166,9 @@ export async function undoTestScores(client: Client, orgId: string, athleteId: s
     if (detail[key] === change.after) {
       if (change.before === null || change.before === undefined) delete next[key];
       else next[key] = change.before;
-      restored.push(key === "satTotal" ? "SAT" : "ACT");
+      restored.push(detailLabel(key));
     } else {
-      kept.push(key === "satTotal" ? "SAT" : "ACT");
+      kept.push(detailLabel(key));
     }
   }
   if (restored.length) {
@@ -159,6 +178,48 @@ export async function undoTestScores(client: Client, orgId: string, athleteId: s
   }
   if (kept.length) done.push(`Left the ${kept.join(" and ")} alone, because it has been changed since this was applied.`);
   return done;
+}
+
+// The old name, kept for callers written before the labels were general.
+export const undoTestScores = undoDetail;
+
+// ── Transcript: the high school ──────────────────────────────────────
+// A high school transcript prints its school in the header. When a high
+// school athlete's High School is blank, that fills it, and the
+// directory row it names (migration 0040) when exactly one matches in
+// the athlete's home state. Never overwrites a school somebody typed, and
+// records what it wrote so a discard takes it back off.
+export async function fillHighSchoolFromTranscript(client: Client, orgId: string, athleteId: string, extracted: Record<string, unknown>): Promise<ApplyPart> {
+  const warnings: string[] = [];
+  const school = typeof extracted.school === "string" ? extracted.school.trim().slice(0, 200) : "";
+  if (!school) return { warnings };
+  const { data: row } = await client.from("athletes").select("detail, home_state").eq("id", athleteId).eq("org_id", orgId).single();
+  const athlete = (row ?? {}) as { detail?: unknown; home_state?: string | null };
+  const detail = (athlete.detail ?? {}) as Record<string, unknown>;
+  if (detail.kind !== "hs") return { warnings };
+  if (typeof detail.highSchool === "string" && detail.highSchool.trim() !== "") return { warnings };
+
+  const next: Record<string, unknown> = { ...detail, highSchool: school };
+  const changes: Record<string, FieldChange> = { highSchool: { before: detail.highSchool ?? null, after: school } };
+  if (!detail.highSchoolId) {
+    const hit = await resolveHighSchool(client, school, athlete.home_state ?? null);
+    if (hit) {
+      next.highSchoolId = hit.id;
+      changes.highSchoolId = { before: null, after: hit.id };
+    }
+  }
+  try {
+    parseAthleteDetail(next);
+  } catch (e) {
+    warnings.push(`The high school read off this could not be placed on the record: ${(e as Error).message}`);
+    return { warnings };
+  }
+  const { error } = await client.from("athletes").update({ detail: next }).eq("id", athleteId).eq("org_id", orgId);
+  if (error) {
+    warnings.push(`Could not fill in the athlete's high school: ${error.message}`);
+    return { warnings };
+  }
+  return { warnings, detail: changes };
 }
 
 // ── Offer letter ─────────────────────────────────────────────────────

@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { GIFT_CATEGORIES, CATEGORY_LABEL, formatMoney, toCents } from "@/lib/fundraising/rollup";
 import type { FundraisingActionState } from "@/lib/actions/fundraising";
-import { Body, Button, Field, Form, Grid2, Prose, Row, Section, SelectField, Stack, TextAreaField } from "@/components/kit";
+import { Body, Button, Field, Form, Grid2, Prose, Row, Section, SelectField, Stack, SuggestField, TextAreaField } from "@/components/kit";
 
 type ServerAction = (prevState: FundraisingActionState, formData: FormData) => Promise<FundraisingActionState>;
 
@@ -75,15 +75,25 @@ const CAMPAIGN_KINDS = [
   { value: "other", label: "Other" },
 ];
 
-export function CampaignForm({ action }: { action: ServerAction }) {
+// What a campaign already says, for Edit Campaign.
+export interface CampaignInitial {
+  name: string;
+  kind: string;
+  startsOn: string | null;
+  endsOn: string | null;
+  goalAmount: string | null;
+  notes: string | null;
+}
+
+export function CampaignForm({ action, initial, submitLabel = "Create Campaign" }: { action: ServerAction; initial?: CampaignInitial; submitLabel?: string }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const err = (key: string) => state.errors[key];
 
   return (
     <Form action={formAction} error={state.errors.form}>
-      <Field name="name" label="Name" error={err("name")} required />
+      <Field name="name" label="Name" error={err("name")} defaultValue={initial?.name ?? ""} required />
 
-      <SelectField name="kind" label="Kind" error={err("kind")} defaultValue="event">
+      <SelectField name="kind" label="Kind" error={err("kind")} defaultValue={initial?.kind ?? "event"}>
         {CAMPAIGN_KINDS.map((k) => (
           <option key={k.value} value={k.value}>
             {k.label}
@@ -92,8 +102,8 @@ export function CampaignForm({ action }: { action: ServerAction }) {
       </SelectField>
 
       <Grid2>
-        <Field name="startsOn" label="Starts" type="date" />
-        <Field name="endsOn" label="Ends" type="date" error={err("endsOn")} />
+        <Field name="startsOn" label="Starts" type="date" defaultValue={initial?.startsOn ?? ""} />
+        <Field name="endsOn" label="Ends" type="date" error={err("endsOn")} defaultValue={initial?.endsOn ?? ""} />
       </Grid2>
 
       <Field
@@ -101,27 +111,44 @@ export function CampaignForm({ action }: { action: ServerAction }) {
         label="Goal"
         error={err("goalAmount")}
         inputMode="decimal"
+        defaultValue={initial?.goalAmount ?? ""}
         hint="Measured against cash raised, not pledges."
       />
 
-      <TextAreaField name="notes" label="Notes" rows={2} />
+      <TextAreaField name="notes" label="Notes" rows={2} defaultValue={initial?.notes ?? ""} />
 
-      <Button disabled={pending}>{pending ? "Creating..." : "Create Campaign"}</Button>
+      <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );
 }
 
 // ── Pledge ───────────────────────────────────────────────────────────
+// What a pledge already says, for Edit Pledge. Status is open or written
+// off; fulfilled follows from the payments and is not picked.
+export interface PledgeInitial {
+  donorId: string;
+  amount: string;
+  promisedOn: string;
+  dueOn: string | null;
+  campaignId: string | null;
+  notes: string | null;
+  status: string;
+}
+
 export function PledgeForm({
   action,
   donors,
   campaigns,
   today,
+  initial,
+  submitLabel = "Record the Pledge",
 }: {
   action: ServerAction;
   donors: Array<{ id: string; name: string }>;
   campaigns: Array<{ id: string; name: string }>;
   today: string;
+  initial?: PledgeInitial;
+  submitLabel?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const err = (key: string) => state.errors[key];
@@ -132,7 +159,7 @@ export function PledgeForm({
         name="donorId"
         label="Who Promised It"
         error={err("donorId")}
-        defaultValue=""
+        defaultValue={initial?.donorId ?? ""}
         required
         hint="Required, unlike a gift."
       >
@@ -146,17 +173,17 @@ export function PledgeForm({
         ))}
       </SelectField>
 
-      <Field name="amount" label="Amount" error={err("amount")} inputMode="decimal" required />
+      <Field name="amount" label="Amount" error={err("amount")} inputMode="decimal" defaultValue={initial?.amount ?? ""} required />
 
       <Grid2>
-        <Field name="promisedOn" label="Promised" type="date" error={err("promisedOn")} defaultValue={today} required />
-        <Field name="dueOn" label="Due" type="date" error={err("dueOn")} />
+        <Field name="promisedOn" label="Promised" type="date" error={err("promisedOn")} defaultValue={initial?.promisedOn ?? today} required />
+        <Field name="dueOn" label="Due" type="date" error={err("dueOn")} defaultValue={initial?.dueOn ?? ""} />
       </Grid2>
 
       <Prose>Leave the due date blank if none was given. It will show as outstanding and never as overdue, which is the honest reading.</Prose>
 
       {campaigns.length > 0 && (
-        <SelectField name="campaignId" label="Campaign" defaultValue="">
+        <SelectField name="campaignId" label="Campaign" defaultValue={initial?.campaignId ?? ""}>
           <option value="">None</option>
           {campaigns.map((c) => (
             <option key={c.id} value={c.id}>
@@ -166,9 +193,16 @@ export function PledgeForm({
         </SelectField>
       )}
 
-      <TextAreaField name="notes" label="Notes" rows={2} />
+      {initial && (
+        <SelectField name="status" label="Still Expected" defaultValue={initial.status === "written_off" ? "written_off" : "open"} hint="Paid in full is worked out from the payments, not picked here.">
+          <option value="open">Yes, keep following up</option>
+          <option value="written_off">No, write it off</option>
+        </SelectField>
+      )}
 
-      <Button disabled={pending}>{pending ? "Recording..." : "Record the Pledge"}</Button>
+      <TextAreaField name="notes" label="Notes" rows={2} defaultValue={initial?.notes ?? ""} />
+
+      <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );
 }
@@ -183,14 +217,30 @@ const GRANT_STATUSES = [
   { value: "closed", label: "Closed" },
 ];
 
-export function GrantForm({ action }: { action: ServerAction }) {
+// What a grant already says, for Edit Grant. Money comes in as the text
+// the field shows.
+export interface GrantInitial {
+  funderName: string;
+  status: string;
+  amountRequested: string | null;
+  amountAwarded: string | null;
+  deadlineOn: string | null;
+  appliedOn: string | null;
+  decisionExpectedOn: string | null;
+  reportDueOn: string | null;
+  notes: string | null;
+}
+
+export function GrantForm({ action, funders = [], initial, submitLabel = "Track It" }: { action: ServerAction; funders?: string[]; initial?: GrantInitial; submitLabel?: string }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
-  const [status, setStatus] = useState("researching");
+  const [status, setStatus] = useState(initial?.status ?? "researching");
   const err = (key: string) => state.errors[key];
 
   return (
     <Form action={formAction} error={state.errors.form}>
-      <Field name="funderName" label="Funder" error={err("funderName")} required />
+      {/* The donor names on file, so a foundation already in the address
+          book is one tap, and saving links the grant to that donor. */}
+      <SuggestField name="funderName" label="Funder" error={err("funderName")} suggestions={funders} defaultValue={initial?.funderName ?? ""} required />
 
       <SelectField name="status" label="Where It Stands" error={err("status")} value={status} onChange={(e) => setStatus(e.target.value)}>
         {GRANT_STATUSES.map((s) => (
@@ -201,8 +251,8 @@ export function GrantForm({ action }: { action: ServerAction }) {
       </SelectField>
 
       <Grid2>
-        <Field name="amountRequested" label="Requesting" inputMode="decimal" />
-        <Field name="deadlineOn" label="Deadline" type="date" />
+        <Field name="amountRequested" label="Requesting" inputMode="decimal" defaultValue={initial?.amountRequested ?? ""} />
+        <Field name="deadlineOn" label="Deadline" type="date" defaultValue={initial?.deadlineOn ?? ""} />
       </Grid2>
 
       {/* Only once it has been awarded, because until then there is no
@@ -213,6 +263,7 @@ export function GrantForm({ action }: { action: ServerAction }) {
           label="Amount Awarded"
           error={err("amountAwarded")}
           inputMode="decimal"
+          defaultValue={initial?.amountAwarded ?? ""}
           hint="The money itself is recorded separately, as a gift in Foundation Grants."
         />
       )}
@@ -220,15 +271,15 @@ export function GrantForm({ action }: { action: ServerAction }) {
       <Section label="Dates That Bite Later" role="time" kind="clock">
         <Prose>Most of a grant&apos;s life happens before any money exists, and these are the ones that get missed.</Prose>
         <Grid2>
-          <Field name="appliedOn" label="Submitted" type="date" />
-          <Field name="decisionExpectedOn" label="Decision Expected" type="date" />
+          <Field name="appliedOn" label="Submitted" type="date" defaultValue={initial?.appliedOn ?? ""} />
+          <Field name="decisionExpectedOn" label="Decision Expected" type="date" defaultValue={initial?.decisionExpectedOn ?? ""} />
         </Grid2>
-        <Field name="reportDueOn" label="Report Due" type="date" />
+        <Field name="reportDueOn" label="Report Due" type="date" defaultValue={initial?.reportDueOn ?? ""} />
       </Section>
 
-      <TextAreaField name="notes" label="Notes" rows={2} />
+      <TextAreaField name="notes" label="Notes" rows={2} defaultValue={initial?.notes ?? ""} />
 
-      <Button disabled={pending}>{pending ? "Saving..." : "Track It"}</Button>
+      <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );
 }

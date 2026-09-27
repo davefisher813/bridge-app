@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
-import { AddButton, Avatar, Body, EmptyState, LinkButton, Row, Screen, Section, TextLink } from "@/components/kit";
+import { AddButton, Avatar, Body, EmptyState, LinkButton, Notice, Row, Screen, Section, TextLink } from "@/components/kit";
 import { SearchField } from "@/components/SearchField";
 import { effectiveStatus, placementAthlete, placementLine, placementOf } from "@/lib/placement";
 import { ATHLETE_STATUSES } from "@/lib/validation/athlete";
@@ -38,7 +38,7 @@ const RECRUIT_TYPE_LABEL: Record<string, string> = {
 };
 
 // The roster. Staff and owners add and edit; members read.
-export default async function RosterPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string; status?: string; advisor?: string }> }) {
+export default async function RosterPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string; status?: string; advisor?: string; notice?: string }> }) {
   const { slug } = await params;
   const sp = searchParams ? await searchParams : {};
   const q = sp.q?.trim().toLowerCase() ?? "";
@@ -83,6 +83,12 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
 
   return (
     <Screen title="Athletes" lede={lede || undefined} action={canEdit ? <AddButton href={`/org/${slug}/roster/new`} label="Add" /> : undefined}>
+      {sp.notice && (
+        // Remove Athlete lands here (audit crud F1).
+        <Notice tone="success" title="Done">
+          {sp.notice}
+        </Notice>
+      )}
       {(status || mine) && <TextLink href={`/org/${slug}/roster`}>Show Every Athlete</TextLink>}
       {mine ? <TextLink href={`/org/${slug}/mine`}>My Athletes</TextLink> : advisesAnyone && <TextLink href={`/org/${slug}/roster?advisor=me${status ? `&status=${encodeURIComponent(status)}` : ""}`}>Just Mine</TextLink>}
       {(all.length > 5 || q) && <SearchField initial={q} placeholder="A name, a sport or a position" />}

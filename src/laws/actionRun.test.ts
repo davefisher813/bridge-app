@@ -106,6 +106,21 @@ function form(values: Record<string, string>): FormData {
 
 const inserts = (table: string) => writes.filter((w) => w.op === "insert" && w.table === table);
 
+// Applying is refused while no AI key is set, and for any document the
+// stand-in read (audit wired F1). The apply laws below are about what an
+// apply writes, so they run as a real model's reading with a key set;
+// src/laws/documentLaws.test.ts holds the refusals.
+async function asRealModel<T>(fn: () => Promise<T>): Promise<T> {
+  const had = process.env.ANTHROPIC_API_KEY;
+  process.env.ANTHROPIC_API_KEY = "test-only";
+  try {
+    return await fn();
+  } finally {
+    if (had === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = had;
+  }
+}
+
 describe("LAW: a created row carries the org that created it", () => {
   // The single highest-consequence field in a multi-tenant app, and the
   // one nothing was checking. A missing org_id is not a crash, it is a
@@ -630,7 +645,7 @@ describe("LAW: membership is written by the service role, only by an owner, and 
     expect(writes).toEqual([]);
   });
 
-  it("a role cannot be changed to or from family", async () => {
+  it("a switch to or from family needs its athlete or a confirm", async () => {
     withKey();
     const { changeMemberRole } = await import("@/lib/actions/members");
     const toFamily = await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "family");
@@ -938,6 +953,7 @@ describe("LAW: every document type applies to the record and every apply can be 
     applied_at: null,
     applied_changes: null,
     undo_note: null,
+    read_by: "claude-opus-5",
     created_at: "2026-09-21",
   });
   const applied = () => writes.find((w) => w.table === "documents" && w.op === "update" && w.rows[0]?.status === "applied");
@@ -948,7 +964,7 @@ describe("LAW: every document type applies to the record and every apply can be 
   it("test scores land on the athlete's detail as the best SAT and ACT, and come back off", async () => {
     data.documents!.push(pendingDoc("doc-scores", "test_scores", { studentName: "Fixture Athlete", tests: [{ type: "SAT", testDate: "2026-03-01", totalScore: 1180 }, { type: "SAT", testDate: "2026-06-01", totalScore: 1250 }, { type: "ACT", testDate: "2026-04-01", totalScore: 27 }] }));
     const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-scores", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-scores", IDS.athlete));
     expect(r.ok).toBe(true);
     const detail = writes.find((w) => w.table === "athletes" && w.op === "update")!.rows[0]!.detail as Record<string, unknown>;
     expect(detail).toMatchObject({ kind: "hs", satTotal: 1250, actComposite: 27 });
@@ -971,7 +987,7 @@ describe("LAW: every document type applies to the record and every apply can be 
   it("test scores for a transfer stay on the document", async () => {
     data.documents!.push(pendingDoc("doc-scores-t", "test_scores", { studentName: "Fixture Transfer", tests: [{ type: "SAT", testDate: "2026-03-01", totalScore: 1250 }] }));
     const { applyDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-scores-t", IDS.athleteTransfer);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-scores-t", IDS.athleteTransfer));
     expect(r.ok).toBe(true);
     expect(r.error).toMatch(/transfer/);
     expect(writes.find((w) => w.table === "athletes" && w.op === "update")).toBeUndefined();
@@ -981,7 +997,7 @@ describe("LAW: every document type applies to the record and every apply can be 
     const schoolD3 = data.schools!.find((s) => s.id === IDS.schoolD3)!;
     data.documents!.push(pendingDoc("doc-offer", "offer_letter", { studentName: "Fixture Athlete", college: String(schoolD3.name), offerType: "scholarship", scholarshipPercent: 40, offerDate: "2026-09-01", coachName: "Coach Fixture", isOfficial: true }));
     const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-offer", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-offer", IDS.athlete));
     expect(r.ok).toBe(true);
     const insert = writes.find((w) => w.table === "recruiting_targets" && w.op === "insert")!;
     expect(insert.rows[0]).toMatchObject({ org_id: orgId(), athlete_id: IDS.athlete, school_id: IDS.schoolD3, status: "Offer", offer_type: "scholarship", offer_scholarship_percent: 40, coach_name: "Coach Fixture" });
@@ -1004,7 +1020,7 @@ describe("LAW: every document type applies to the record and every apply can be 
     (target as Record<string, unknown>).offer_type = null;
     data.documents!.push(pendingDoc("doc-offer2", "offer_letter", { studentName: "Fixture Athlete", college: String(schoolName), offerType: "verbal", offerDate: "2026-09-01", isOfficial: false }));
     const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-offer2", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-offer2", IDS.athlete));
     expect(r.ok).toBe(true);
     const update = writes.find((w) => w.table === "recruiting_targets" && w.op === "update")!;
     expect(update.rows[0]).toMatchObject({ status: "Offer", offer_type: "verbal" });
@@ -1025,7 +1041,7 @@ describe("LAW: every document type applies to the record and every apply can be 
   it("an offer letter naming a school not on file applies nothing and says so", async () => {
     data.documents!.push(pendingDoc("doc-offer3", "offer_letter", { studentName: "Fixture Athlete", college: "Nowhere Tech", offerType: "verbal", offerDate: "2026-09-01", isOfficial: false }));
     const { applyDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-offer3", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-offer3", IDS.athlete));
     expect(r.ok).toBe(true);
     expect(r.error).toMatch(/No school on file named "Nowhere Tech"/);
     expect(writes.find((w) => w.table === "recruiting_targets")).toBeUndefined();
@@ -1036,7 +1052,7 @@ describe("LAW: every document type applies to the record and every apply can be 
     const schoolName = data.schools!.find((s) => s.id === target.school_id)!.name;
     data.documents!.push(pendingDoc("doc-aid", "financial_aid", { documentType: "award_letter", college: String(schoolName), academicYear: "2027-28", totalCostOfAttendance: 52000, awards: [{ type: "grant", name: "Fixture Grant", amount: 30000 }, { type: "unsubsidized_loan", name: "Loan", amount: 5000 }] }));
     const { applyDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-aid", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-aid", IDS.athlete));
     expect(r.ok).toBe(true);
     const update = writes.find((w) => w.table === "recruiting_targets" && w.op === "update")!;
     const aid = update.rows[0]!.aid as { netCost: number; academicYear: string; documentId: string };
@@ -1056,7 +1072,7 @@ describe("LAW: every document type applies to the record and every apply can be 
   it("a FAFSA report is kept on file and changes nothing", async () => {
     data.documents!.push(pendingDoc("doc-fafsa", "financial_aid", { documentType: "fafsa_sar", academicYear: "2027-28", sai: 4200, awards: [] }));
     const { applyDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-fafsa", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-fafsa", IDS.athlete));
     expect(r.ok).toBe(true);
     expect(r.error).toMatch(/FAFSA report is kept on file/);
     expect(writes.find((w) => w.table === "recruiting_targets")).toBeUndefined();
@@ -1065,7 +1081,7 @@ describe("LAW: every document type applies to the record and every apply can be 
   it("a recommendation letter becomes a contact, once, and the undo removes it", async () => {
     data.documents!.push(pendingDoc("doc-rec", "recommendation", { studentName: "Fixture Athlete", recommenderName: "Fixture Teacher", recommenderTitle: "Counselor", recommenderOrg: "Fixture High School", recType: "academic", letterDate: "2026-05-01", tone: "strong", themes: ["work ethic"], summary: "A strong student." }));
     const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-rec", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-rec", IDS.athlete));
     expect(r.ok).toBe(true);
     const insert = writes.find((w) => w.table === "contacts" && w.op === "insert")!;
     expect(insert.rows[0]).toMatchObject({ org_id: orgId(), athlete_id: IDS.athlete, name: "Fixture Teacher", role: "advisor" });
@@ -1077,7 +1093,7 @@ describe("LAW: every document type applies to the record and every apply can be 
     // The same letter again: the person is already a contact.
     data.documents!.push(pendingDoc("doc-rec2", "recommendation", { studentName: "Fixture Athlete", recommenderName: "fixture teacher", recommenderTitle: "Counselor", recType: "academic", letterDate: "2026-05-01", tone: "strong", themes: [], summary: "Again." }));
     writes.length = 0;
-    const again = await applyDocument(ORG_WITH_MODULES, "doc-rec2", IDS.athlete);
+    const again = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-rec2", IDS.athlete));
     expect(again.error).toMatch(/already one of the athlete's contacts/);
     expect(writes.find((w) => w.table === "contacts")).toBeUndefined();
 
@@ -1118,10 +1134,10 @@ describe("LAW: metrics are logged from the Add form and from a metrics report, a
     data.documents!.push({
       id: "doc-metrics", org_id: data.orgs[0]!.id, athlete_id: null, file_name: "showcase.pdf", file_size: 1000, media_type: "application/pdf", source_role: "coordinator", status: "pending", route: "review", category: "metrics", provenance: null,
       extracted: { studentName: "Fixture Athlete", sport: "Baseball", source: "perfect_game", eventName: "PG Northeast", measuredOn: "2026-07", metrics: [{ key: "fbVelo", value: 88 }, { key: "sixty", value: 6.85 }, { key: "verticalJump", value: 30 }] },
-      candidates: [], failure_reason: null, applied_at: null, applied_changes: null, undo_note: null, created_at: "2026-09-21",
+      candidates: [], failure_reason: null, applied_at: null, applied_changes: null, undo_note: null, read_by: "claude-opus-5", created_at: "2026-09-21",
     });
     const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-metrics", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-metrics", IDS.athlete));
     expect(r.ok).toBe(true);
     const logged = writes.find((w) => w.table === "athlete_metrics" && w.op === "insert")!;
     // The unknown key is dropped; a month-only date lands on the first.
@@ -1211,17 +1227,17 @@ describe("LAW: a document is read once, applied once, and a reading that stops l
 
   const pending = (id: string, category: string, extracted: Record<string, unknown>) => ({
     id, org_id: data.orgs[0]!.id, athlete_id: null, file_name: "x.pdf", file_size: 1, media_type: "application/pdf", source_role: "coordinator", status: "pending", route: "review", category, provenance: null,
-    extracted, candidates: [], failure_reason: null, applied_at: null, applied_changes: null, undo_note: null, created_at: "2026-09-21",
+    extracted, candidates: [], failure_reason: null, applied_at: null, applied_changes: null, undo_note: null, read_by: "claude-opus-5", created_at: "2026-09-21",
   });
 
   it("a second Apply on an applied document is refused and touches nothing", async () => {
     data.documents!.push(pending("doc-once", "metrics", { studentName: "Fixture Athlete", source: "pbr", measuredOn: "2026-07-04", metrics: [{ key: "fbVelo", value: 84 }] }));
     const { applyDocument } = await import("@/lib/actions/documents");
-    const first = await applyDocument(ORG_WITH_MODULES, "doc-once", IDS.athlete);
+    const first = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-once", IDS.athlete));
     expect(first.ok).toBe(true);
     expect(writes.filter((w) => w.table === "athlete_metrics" && w.op === "insert")).toHaveLength(1);
     writes.length = 0;
-    const second = await applyDocument(ORG_WITH_MODULES, "doc-once", IDS.athlete);
+    const second = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-once", IDS.athlete));
     expect(second.ok).toBe(false);
     expect(second.error).toMatch(/already been applied/);
     expect(writes.filter((w) => w.table === "athlete_metrics")).toEqual([]);
@@ -1231,7 +1247,7 @@ describe("LAW: a document is read once, applied once, and a reading that stops l
     data.documents!.push(pending("doc-claim", "metrics", { studentName: "Fixture Athlete", source: "pbr", measuredOn: "2026-07-04", metrics: [{ key: "fbVelo", value: 84 }] }));
     failOn = (table, op) => (table === "documents" && op === "update" ? "row locked" : null);
     const { applyDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-claim", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-claim", IDS.athlete));
     expect(r.ok).toBe(false);
     expect(writes.filter((w) => w.table === "athlete_metrics")).toEqual([]);
   });
@@ -1248,7 +1264,7 @@ describe("LAW: a document is read once, applied once, and a reading that stops l
   it("a metrics report dated in the future logs nothing and says why", async () => {
     data.documents!.push(pending("doc-future", "metrics", { studentName: "Fixture Athlete", source: "pbr", measuredOn: "2099-01-01", metrics: [{ key: "fbVelo", value: 84 }] }));
     const { applyDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-future", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-future", IDS.athlete));
     expect(r.ok).toBe(true);
     expect(r.error).toMatch(/in the future/);
     expect(writes.filter((w) => w.table === "athlete_metrics")).toEqual([]);
@@ -1257,7 +1273,7 @@ describe("LAW: a document is read once, applied once, and a reading that stops l
   it("a metric that is not a plausible reading is left out at apply time too", async () => {
     data.documents!.push(pending("doc-slip", "metrics", { studentName: "Fixture Athlete", source: "pbr", measuredOn: "2026-07-04", metrics: [{ key: "fbVelo", value: 8.4 }, { key: "sixty", value: 6.9 }] }));
     const { applyDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-slip", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-slip", IDS.athlete));
     expect(r.ok).toBe(true);
     expect(r.error).toMatch(/fbVelo 8.4/);
     const logged = writes.find((w) => w.table === "athlete_metrics" && w.op === "insert")!;
@@ -1267,7 +1283,7 @@ describe("LAW: a document is read once, applied once, and a reading that stops l
   it("an SAT whose total did not read is still scored from its sections", async () => {
     data.documents!.push(pending("doc-sections", "test_scores", { studentName: "Fixture Athlete", tests: [{ type: "SAT", testDate: "2026-03-01", totalScore: null, breakdown: { math: 640, ebrw: 610 } }] }));
     const { applyDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-sections", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-sections", IDS.athlete));
     expect(r.ok).toBe(true);
     const detail = writes.find((w) => w.table === "athletes" && w.op === "update")!.rows[0]!.detail as Record<string, unknown>;
     expect(detail.satTotal).toBe(1250);
@@ -1276,7 +1292,7 @@ describe("LAW: a document is read once, applied once, and a reading that stops l
   it("a transcript that changes the GPA rescores the athlete's matches, and the undo rescores again", async () => {
     data.documents!.push(pending("doc-gpa", "transcript", { studentName: "Fixture Athlete", school: "Fixture High", gradYear: 2027, gpa: 3.9, gpaScale: "4.0", gpaVerified: true, courseLoad: "Regular", courses: [] }));
     const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-gpa", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-gpa", IDS.athlete));
     expect(r.ok).toBe(true);
     expect(writes.find((w) => w.table === "athlete_school_fits")).toBeTruthy();
     const changes = writes.find((w) => w.table === "documents" && w.op === "update" && w.rows[0]?.applied_changes !== undefined)!.rows[0]!.applied_changes as Record<string, unknown>;
@@ -1305,7 +1321,7 @@ describe("LAW: the same file is read once, a stuck reading can be cleared, and a
   const bridgePath = () => `${data.orgs[0]!.id as string}/req_fixture/1-transcript.pdf`;
   const pending = (id: string, category: string, extracted: Record<string, unknown>, over: Record<string, unknown> = {}) => ({
     id, org_id: data.orgs[0]!.id, athlete_id: null, file_name: "x.pdf", file_size: 1, media_type: "application/pdf", source_role: "coordinator", status: "pending", route: "review", category, provenance: null,
-    extracted, candidates: [], failure_reason: null, applied_at: null, applied_changes: null, undo_note: null, created_at: "2026-09-21", ...over,
+    extracted, candidates: [], failure_reason: null, applied_at: null, applied_changes: null, undo_note: null, read_by: "claude-opus-5", created_at: "2026-09-21", ...over,
   });
 
   it("the second upload of the same bytes is refused, pointing at the first, and its file is dropped", async () => {
@@ -1345,7 +1361,7 @@ describe("LAW: the same file is read once, a stuck reading can be cleared, and a
   it("a college transcript keeps its GPA and leaves its courses on the document", async () => {
     data.documents!.push(pending("doc-college", "transcript", { studentName: "Fixture Athlete", school: "Sample College", level: "college", gpa: 3.2, gpaScale: "4.0", courses: [{ title: "Calculus I", subject: "math", credit: 4, grade: "B" }] }));
     const { applyDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-college", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-college", IDS.athlete));
     expect(r.ok).toBe(true);
     expect(r.error).toMatch(/College courses were left on the document/);
     expect(writes.find((w) => w.table === "athletes" && w.op === "update")!.rows[0]!.gpa).toBe(3.2);
@@ -1355,7 +1371,7 @@ describe("LAW: the same file is read once, a stuck reading can be cleared, and a
   it("a middle school transcript changes nothing", async () => {
     data.documents!.push(pending("doc-ms", "transcript", { studentName: "Fixture Athlete", school: "Sample Middle", level: "middle_school", gpa: 3.9, gpaScale: "4.0", courses: [] }));
     const { applyDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-ms", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-ms", IDS.athlete));
     expect(r.ok).toBe(true);
     expect(r.error).toMatch(/middle school/);
     expect(writes.filter((w) => w.table === "athletes")).toEqual([]);
@@ -1364,7 +1380,7 @@ describe("LAW: the same file is read once, a stuck reading can be cleared, and a
   it("a metric from another sport is left out and named", async () => {
     data.documents!.push(pending("doc-hoops", "metrics", { studentName: "Fixture Athlete", source: "event", measuredOn: "2026-07-04", metrics: [{ key: "ppg", value: 18 }, { key: "fbVelo", value: 84 }] }));
     const { applyDocument } = await import("@/lib/actions/documents");
-    const r = await applyDocument(ORG_WITH_MODULES, "doc-hoops", IDS.athlete);
+    const r = await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-hoops", IDS.athlete));
     expect(r.ok).toBe(true);
     expect(r.error).toMatch(/Points per Game 18: not a baseball metric/);
     const logged = writes.find((w) => w.table === "athlete_metrics" && w.op === "insert")!;
@@ -1764,12 +1780,12 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
   it("Mark Graduated names the school they were enrolled at, and only follows Enrolled", async () => {
     // Dave's pick, 2026-09-26: Graduated means graduated from college.
     const { markGraduated } = await import("@/lib/actions/enrollment");
-    const r = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {} }, form({ graduatedOn: "2030-05-15" })));
+    const r = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athleteEnrolled, { errors: {} }, form({ graduatedOn: "2026-09-15" })));
     expect(decodeURIComponent(r.redirect!)).toMatch(/notice=Graduated from Fixture State University\.$/);
-    expect(writes.find((w) => w.table === "athletes" && w.op === "update")?.rows[0]).toMatchObject({ status: "Graduated", graduated_on: "2030-05-15" });
+    expect(writes.find((w) => w.table === "athletes" && w.op === "update")?.rows[0]).toMatchObject({ status: "Graduated", graduated_on: "2026-09-15" });
 
     writes.length = 0;
-    const early = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ graduatedOn: "2030-05-15" })));
+    const early = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ graduatedOn: "2026-09-15" })));
     expect(early.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}`);
     expect(writes).toEqual([]);
   });
@@ -1846,14 +1862,17 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
     expect(data.athletes.find((a) => a.id === IDS.athleteTransfer)?.first_full_time_enrollment).toBe("2024-08-26");
   });
 
-  it("a plain Edit save that flips the dropdown to Enrolled cascades the same way", async () => {
+  it("a plain Edit save that flips the dropdown to Enrolled is refused and points to Mark Enrolled", async () => {
+    // Audit crud F8, 2026-09-27: a hand change to Enrolled used to stamp
+    // today's date on the NCAA clock. It now goes through Mark Enrolled,
+    // which asks for the date; Edit only corrects a date already set.
     const { updateAthlete } = await import("@/lib/actions/athletes");
     const r = await run(() =>
       updateAthlete(ORG_WITH_MODULES, IDS.athleteCommitted, { errors: {}, values: {} }, form({ name: "Fixture Committed", sport: "baseball", recruitType: "hs", status: "Enrolled" })),
     );
-    expect(decodeURIComponent(r.redirect!)).toMatch(/Enrolled at Fixture State University\. 1 other target closed\./);
-    const closed = writes.find((w) => w.table === "recruiting_targets" && w.op === "update" && w.filters.some((f) => f.column === "id" && f.value === IDS.targetToClose));
-    expect(closed?.rows[0]).toMatchObject({ status: "Not Interested" });
+    expect(r.redirect).toBeNull();
+    expect((r.state as MemberState).errors.status).toMatch(/Mark Enrolled/);
+    expect(writes).toEqual([]);
   });
 
   it("an ordinary save on an already-Enrolled athlete does not re-run the close-out", async () => {

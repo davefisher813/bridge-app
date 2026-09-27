@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { SCALE_LETTERS } from "@/lib/fit/ncaa/gradingScale";
 import type { GradingScaleActionState } from "@/lib/actions/gradingScales";
-import { Body, Button, CheckField, Field, Form, Hidden, Label, Prose, Stack, TextAreaField } from "@/components/kit";
+import { Body, Button, CheckField, Field, Form, Hidden, Label, Prose, Stack, SuggestField, TextAreaField, type Suggestion } from "@/components/kit";
 
 type ServerAction = (prevState: GradingScaleActionState, formData: FormData) => Promise<GradingScaleActionState>;
 
@@ -23,11 +23,16 @@ export function GradingScaleForm({
   defaults,
   returnTo,
   submitLabel,
+  schools = [],
 }: {
   action: ServerAction;
   defaults: GradingScaleDefaults;
   returnTo?: string;
   submitLabel: string;
+  // High schools this org deals with and the public directory's
+  // (loadHighSchoolOptions): picking one spells the name the way the
+  // courses already on file do, which is what makes the scale apply.
+  schools?: Suggestion[];
 }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const err = (key: string) => state.errors[key];
@@ -36,14 +41,7 @@ export function GradingScaleForm({
     <Form action={formAction} error={state.errors.form}>
       {returnTo && <Hidden name="returnTo" value={returnTo} />}
 
-      <Field
-        name="schoolName"
-        label="School"
-        error={err("schoolName")}
-        defaultValue={defaults.schoolName}
-        required
-        hint="Spell it the way the transcript does."
-      />
+      <SuggestField id="scale-school" name="schoolName" label="School" suggestions={schools} error={err("schoolName")} defaultValue={defaults.schoolName} required />
 
       <Stack gap={2}>
         <Label caps>The table</Label>

@@ -8,7 +8,7 @@
 // without anybody deciding what its arguments are, which is the same as
 // not testing it. The render law checks the list against the filesystem.
 
-import { FAMILY_ID, IDS, LONG_INVITE_ID, MEMBER_ID, ORG_WITH_MODULES, ORG_WITHOUT_MODULES } from "@/testing/fixture";
+import { FAMILY_ID, IDS, LONG_INVITE_ID, MEMBER_ID, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID } from "@/testing/fixture";
 
 export const p = (o: Record<string, string>) => Promise.resolve(o);
 
@@ -31,7 +31,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // wider than the screen. The edge-spill audit watches this one.
   // A family login: the page names the one athlete they see instead of
   // offering a role switch.
-  { name: "member-family", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: FAMILY_ID }), searchParams: p({}) }, expect: /Fixture Parent[\s\S]*Sees[\s\S]*Fixture Athlete/ },
+  { name: "member-family", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: FAMILY_ID }), searchParams: p({}) }, expect: /Fixture Parent[\s\S]*Sees[\s\S]*Fixture Athlete[\s\S]*Unlink[\s\S]*Change Role/ },
   // The family screens, as the family login. Two athletes are linked, so
   // home is the picker and Colleges groups by athlete.
   { name: "family", path: "@/app/org/[slug]/family/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Your Athletes[\s\S]*Fixture Athlete[\s\S]*Fixture Unknown/, as: FAMILY_ID },
@@ -81,7 +81,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "roster-search", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "transfer" }) }, expect: /Fixture Transfer/ },
   { name: "roster-search-empty", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "zzzz" }) }, expect: /Nobody Matches/ },
   { name: "roster-mine", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ advisor: "me" }) }, expect: /2 of \d+, yours/ },
-  { name: "athlete", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete/ },
+  { name: "athlete", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Notes[\s\S]*Fixture note[\s\S]*Add Note[\s\S]*contacts\/ct1\/edit[\s\S]*Remove Athlete/ },
   { name: "athlete-transfer", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /Fixture Transfer/ },
   { name: "athlete-committed", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteCommitted }) }, expect: /Fixture Committed[\s\S]*Mark Enrolled/ },
   { name: "athlete-enrolled", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) }, expect: /Enrolled[\s\S]*Fixture State University/ },
@@ -97,7 +97,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // meta (the note) renders before the trailing pill on a Row.
   { name: "history", path: "@/app/org/[slug]/roster/[id]/history/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) }, expect: /Closed automatically[\s\S]*Not Interested/ },
   { name: "history-empty", path: "@/app/org/[slug]/roster/[id]/history/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteGraduated }) }, expect: /No Recruiting History Yet/ },
-  { name: "reopen-enrolled", path: "@/app/org/[slug]/roster/[id]/reopen/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) }, expect: /Will Reopen[\s\S]*Fixture College[\s\S]*Eligibility Years/ },
+  { name: "reopen-enrolled", path: "@/app/org/[slug]/roster/[id]/reopen/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) }, expect: /Will Reopen[\s\S]*Fixture College[\s\S]*Eligibility Years[\s\S]*Note/ },
   { name: "athlete-transferring", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransferring }) }, expect: /Fixture Transferring[\s\S]*Matches[\s\S]*Targets/ },
   { name: "roster-status", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ status: "Enrolled" }) }, expect: /Fixture Enrolled/ },
   { name: "target-enrolled", path: "@/app/org/[slug]/board/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.targetEnrolledCommitted }) }, expect: /Fixture State University[\s\S]*Recruiting ended/ },
@@ -105,11 +105,11 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "family-matches-enrolled", path: "@/app/org/[slug]/family/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) }, expect: /Enrolled/, as: FAMILY_ID },
   { name: "eligibility-transfer", path: "@/app/org/[slug]/roster/[id]/eligibility/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /Fixture Transfer|transfer/i },
   { name: "transcript-transfer", path: "@/app/org/[slug]/roster/[id]/transcript/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /Fixture Transfer|transcript/i },
-  { name: "edit-athlete-transfer", path: "@/app/org/[slug]/roster/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /Fixture Transfer/ },
+  { name: "edit-athlete-transfer", path: "@/app/org/[slug]/roster/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /Fixture Transfer[\s\S]*Enrollment Date/ },
   { name: "eligibility", path: "@/app/org/[slug]/roster/[id]/eligibility/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /core/i },
   { name: "caveats", path: "@/app/org/[slug]/roster/[id]/eligibility/caveats/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Things to Know/i },
   { name: "approvals", path: "@/app/org/[slug]/roster/[id]/eligibility/approvals/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /approv/i },
-  { name: "transcript", path: "@/app/org/[slug]/roster/[id]/transcript/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /English 11/ },
+  { name: "transcript", path: "@/app/org/[slug]/roster/[id]/transcript/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /English 11[\s\S]*Course Approvals/ },
   { name: "board", path: "@/app/org/[slug]/board/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture State University/ },
   { name: "targets-search", path: "@/app/org/[slug]/board/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "state" }) }, expect: /Fixture State University/ },
   { name: "target", path: "@/app/org/[slug]/board/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) }, expect: /Fixture State University/ },
@@ -117,20 +117,20 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "communications", path: "@/app/org/[slug]/board/[id]/communications/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) }, expect: /Fixture note/ },
   // Stage 3: the athlete's thread and check-in log on the staff side,
   // each with an athlete that has nothing on it yet.
-  { name: "messages", path: "@/app/org/[slug]/roster/[id]/messages/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture message from staff[\s\S]*Fixture reply from the family[\s\S]*Send/ },
+  { name: "messages", path: "@/app/org/[slug]/roster/[id]/messages/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture message from staff[\s\S]*Remove[\s\S]*Fixture reply from the family[\s\S]*Send/ },
   { name: "messages-empty", path: "@/app/org/[slug]/roster/[id]/messages/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /Nothing Sent Yet/ },
-  { name: "checkins", path: "@/app/org/[slug]/roster/[id]/checkins/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture check-in note[\s\S]*Log Check-In/ },
+  { name: "checkins", path: "@/app/org/[slug]/roster/[id]/checkins/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /^(?=[\s\S]*checkins\/ck1\/edit)[\s\S]*Fixture check-in note[\s\S]*Log Check-In/ },
   { name: "checkins-empty", path: "@/app/org/[slug]/roster/[id]/checkins/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteNoGpa }) }, expect: /No Check-Ins Yet/ },
   { name: "schools", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture State University/ },
   { name: "schools-search", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "state" }) }, expect: /Fixture State University/ },
   { name: "schools-imported", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ imported: "3" }) }, expect: /3 Schools Imported/ },
   { name: "schools-filtered", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ division: "D3" }) }, expect: /Fixture College/ },
-  { name: "metrics", path: "@/app/org/[slug]/roster/[id]/metrics/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /FB Velo[\s\S]*86 mph[\s\S]*Premier/ },
+  { name: "metrics", path: "@/app/org/[slug]/roster/[id]/metrics/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /^(?=[\s\S]*metrics\/mx1\/edit)[\s\S]*FB Velo[\s\S]*86 mph[\s\S]*Premier/ },
   { name: "metrics-empty", path: "@/app/org/[slug]/roster/[id]/metrics/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteNoGpa }) }, expect: /Nothing Logged Yet/ },
   { name: "matches", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({}) }, expect: /Fixture State University[\s\S]*Fixture College/ },
   { name: "matches-filtered", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({ division: "D3" }) }, expect: /Fixture College/ },
   { name: "matches-partial", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteNoGpa }), searchParams: p({}) }, expect: /Scored on financial only/ },
-  { name: "edit-school", path: "@/app/org/[slug]/schools/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Fixture State University/ },
+  { name: "edit-school", path: "@/app/org/[slug]/schools/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Fixture State University[\s\S]*Merge Into[\s\S]*Remove School/ },
   { name: "import-schools", path: "@/app/org/[slug]/schools/import/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Download the Template/ },
   { name: "school", path: "@/app/org/[slug]/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Fixture Athlete/ },
   { name: "schoolD3", path: "@/app/org/[slug]/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) }, expect: /Fixture College/ },
@@ -164,13 +164,13 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // form that has to be posted", which is true of the posting and false
   // of everything else. A form that throws while listing the athletes to
   // choose from never gets as far as being posted.
-  { name: "new-athlete", path: "@/app/org/[slug]/roster/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /form|input/i },
-  { name: "edit-athlete", path: "@/app/org/[slug]/roster/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete/ },
+  { name: "new-athlete", path: "@/app/org/[slug]/roster/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /High School[\s\S]*Notes/ },
+  { name: "edit-athlete", path: "@/app/org/[slug]/roster/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Fixture High School[\s\S]*Add a Note/ },
   { name: "new-target", path: "@/app/org/[slug]/board/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture Athlete/ },
-  { name: "edit-target", path: "@/app/org/[slug]/board/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) }, expect: /Fixture/ },
-  { name: "transfer-windows", path: "@/app/org/[slug]/transfer-windows/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture window[\s\S]*Remove/ },
+  { name: "edit-target", path: "@/app/org/[slug]/board/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) }, expect: /Fixture[\s\S]*Award[\s\S]*Remove Target/ },
+  { name: "transfer-windows", path: "@/app/org/[slug]/transfer-windows/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture window[\s\S]*Fixture window note[\s\S]*Remove/ },
   { name: "new-transfer-window", path: "@/app/org/[slug]/transfer-windows/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Source/ },
-  { name: "invite-family", path: "@/app/org/[slug]/roster/[id]/family/new/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Who They Are/ },
+  { name: "invite-family", path: "@/app/org/[slug]/roster/[id]/family/new/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Who They Are[\s\S]*value="Fixture Parent"/ },
   { name: "new-school", path: "@/app/org/[slug]/schools/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /form|input/i },
   { name: "new-gift", path: "@/app/org/[slug]/fundraising/gifts/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Donor/ },
   { name: "new-pledge", path: "@/app/org/[slug]/fundraising/pledges/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Donor/ },
@@ -180,8 +180,40 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "new-board", path: "@/app/org/[slug]/board-governance/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /form|input/i },
   { name: "new-seat", path: "@/app/org/[slug]/board-governance/[id]/seats/new/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.board }) }, expect: /form|input/i },
   { name: "new-scale", path: "@/app/org/[slug]/grading-scales/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /form|input/i },
-  { name: "new-approved-list", path: "@/app/org/[slug]/approved-courses/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ school: "Unscaled High School" }) }, expect: /Unscaled High School/ },
+  { name: "new-approved-list", path: "@/app/org/[slug]/approved-courses/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ school: "Unscaled High School" }) }, expect: /Unscaled High School[\s\S]*123456/ },
   { name: "new-document", path: "@/app/org/[slug]/documents/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /form|input|upload/i },
+  // Stage 4 and the audit fixes, 2026-09-27: every record can be
+  // corrected and removed where it was made, and a school, a coach and
+  // an org can be set up without a developer. One entry per new screen.
+  { name: "roster-removed", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ notice: "Fixture Gone was removed from the roster." }) }, expect: /Done[\s\S]*Fixture Gone was removed from the roster\./ },
+  { name: "schools-removed", path: "@/app/org/[slug]/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ notice: "Fixture Gone removed." }) }, expect: /Done[\s\S]*Fixture Gone removed\./ },
+  { name: "edit-athlete-graduated", path: "@/app/org/[slug]/roster/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteGraduated }) }, expect: /Enrollment Date[\s\S]*Graduated On[\s\S]*2026-05-15/ },
+  { name: "edit-contact", path: "@/app/org/[slug]/roster/[id]/contacts/[contactId]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, contactId: "ct1" }) }, expect: /Edit Contact[\s\S]*Fixture Parent[\s\S]*Save Changes/ },
+  { name: "edit-metric", path: "@/app/org/[slug]/roster/[id]/metrics/[metricId]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, metricId: "mx1" }) }, expect: /Edit FB Velo[\s\S]*2026-08-15[\s\S]*Save Changes/ },
+  { name: "edit-checkin", path: "@/app/org/[slug]/roster/[id]/checkins/[checkinId]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, checkinId: "ck1" }) }, expect: /Edit Check-In[\s\S]*Fixture check-in note[\s\S]*Save Changes/ },
+  { name: "family-link", path: "@/app/org/[slug]/roster/[id]/family/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, userId: FAMILY_ID }), searchParams: p({}) }, expect: /Fixture Parent[\s\S]*Who They Are[\s\S]*Also Sees[\s\S]*Fixture Unknown[\s\S]*Link Another Athlete[\s\S]*Unlink from Fixture Athlete/ },
+  { name: "new-course", path: "@/app/org/[slug]/roster/[id]/transcript/new/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Add a Course[\s\S]*Fixture High School/ },
+  { name: "course", path: "@/app/org/[slug]/roster/[id]/transcript/[courseId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, courseId: "ac1" }) }, expect: /Edit Course[\s\S]*English 11[\s\S]*Remove Course/ },
+  { name: "communication", path: "@/app/org/[slug]/board/[id]/communications/[entryId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target, entryId: "tc1" }) }, expect: /Edit Communication[\s\S]*Fixture note\.[\s\S]*Remove Entry/ },
+  { name: "visit", path: "@/app/org/[slug]/board/[id]/visits/[visitId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target, visitId: "tv1" }) }, expect: /Edit Visit[\s\S]*Fixture impression\.[\s\S]*Remove Visit/ },
+  { name: "school-coaches", path: "@/app/org/[slug]/schools/[id]/coaches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Coaches[\s\S]*Fixture Head[\s\S]*Fixture Assistant/ },
+  { name: "new-coach", path: "@/app/org/[slug]/schools/[id]/coaches/new/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Add a Coach[\s\S]*Add Coach/ },
+  { name: "coach", path: "@/app/org/[slug]/schools/[id]/coaches/[coachId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school, coachId: "cc1" }) }, expect: /Fixture Assistant[\s\S]*Remove Coach/ },
+  { name: "edit-approved-list", path: "@/app/org/[slug]/approved-courses/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.orgList }) }, expect: /Edit Unscaled High School[\s\S]*Algebra II/ },
+  { name: "new-approved-list-pick", path: "@/app/org/[slug]/approved-courses/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Which School/ },
+  { name: "edit-transfer-window", path: "@/app/org/[slug]/transfer-windows/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "tw1" }) }, expect: /Edit Transfer Window[\s\S]*Fixture window note/ },
+  { name: "document-stub", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.documentStub }) }, expect: /stub-read\.pdf[\s\S]*This Reading Can(&#x27;|')t Be Applied/ },
+  { name: "document-correct", path: "@/app/org/[slug]/documents/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.document }) }, expect: /Correct the Reading/ },
+  { name: "new-org", path: "@/app/orgs/new/page", props: { params: p({}), searchParams: p({}) }, expect: /Create an Organization[\s\S]*Web Address/ },
+  { name: "org-settings", path: "@/app/org/[slug]/settings/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Organization Settings[\s\S]*Executive Director[\s\S]*Fundraising/ },
+  { name: "member-owner", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: OWNER_ID }), searchParams: p({}) }, expect: /Athletes They Advise[\s\S]*Fixture Athlete/ },
+  { name: "edit-board", path: "@/app/org/[slug]/board-governance/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.board }) }, expect: /Edit Board[\s\S]*Fixture Executive Board/ },
+  { name: "edit-seat", path: "@/app/org/[slug]/board-governance/[id]/seats/[memberId]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.board, memberId: IDS.boardMember }) }, expect: /Edit Seat[\s\S]*Fixture Chair[\s\S]*Remove Seat/ },
+  { name: "edit-donor", path: "@/app/org/[slug]/fundraising/donors/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.donor }), searchParams: p({}) }, expect: /Edit Donor[\s\S]*Fixture Donor[\s\S]*Remove Donor/ },
+  { name: "edit-campaign", path: "@/app/org/[slug]/fundraising/campaigns/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.campaign }), searchParams: p({}) }, expect: /Edit Campaign[\s\S]*Remove Campaign/ },
+  { name: "edit-gift", path: "@/app/org/[slug]/fundraising/gifts/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "gf1" }), searchParams: p({}) }, expect: /Edit Gift[\s\S]*Remove Gift/ },
+  { name: "edit-pledge", path: "@/app/org/[slug]/fundraising/pledges/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "pl1" }), searchParams: p({}) }, expect: /Edit Pledge[\s\S]*Fixture Donor[\s\S]*Remove Pledge/ },
+  { name: "edit-grant", path: "@/app/org/[slug]/fundraising/grants/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "gr1" }), searchParams: p({}) }, expect: /Edit Grant[\s\S]*Fixture Trust[\s\S]*Remove Grant/ },
 ];
 
 // The URL a page entry answers to, for the preview's link routing.

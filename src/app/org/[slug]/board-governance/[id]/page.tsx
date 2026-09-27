@@ -34,10 +34,10 @@ export default async function BoardPage({
   searchParams,
 }: {
   params: Promise<{ slug: string; id: string }>;
-  searchParams: Promise<{ year?: string }>;
+  searchParams: Promise<{ year?: string; notice?: string; error?: string }>;
 }) {
   const { slug, id } = await params;
-  const { year } = await searchParams;
+  const { year, notice, error } = await searchParams;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.board_governance) notFound();
@@ -84,6 +84,8 @@ export default async function BoardPage({
           <Meter parts={[{ role, fraction: (summary.percent ?? 0) / 100 }]} />
         </Stack>
       </Card>
+
+      {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
 
       {summary.belowMinimum && <Notice tone="warning" title={`Below the Floor of ${board.minSeats} ${board.minSeats === 1 ? "Seat" : "Seats"}`} />}
 
@@ -132,8 +134,13 @@ export default async function BoardPage({
         })}
       </Section>
 
-
       {canEdit && !summary.atCapacity && <LinkButton href={`/org/${slug}/board-governance/${board.id}/seats/new`}>Add a Seat</LinkButton>}
+
+      {canEdit && (
+        <LinkButton href={`/org/${slug}/board-governance/${board.id}/edit`} variant="secondary">
+          Edit Board
+        </LinkButton>
+      )}
 
       {canEdit && summary.atCapacity && (
         <Notice tone="info" title={`This board is full at ${board.maxSeats} active seats`}>

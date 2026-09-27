@@ -11,7 +11,7 @@
     "member-school": 3,
     "member-schoolD3": 3,
     "member-more-lite": 1,
-    "family-athlete": 2,
+    "family-athlete": 3,
     "family-eligibility": 2,
     "family-approvals": 2,
     "family-metrics": 6,
@@ -32,6 +32,8 @@
     "seat": 2,
     "more": 1,
     "approved-list": 1,
-    "document": 1
+    "document": 1,
+    "document-stub": 1,
+    "member-owner": 2
   }
 }

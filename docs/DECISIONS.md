@@ -3103,3 +3103,139 @@ and watched to fail. The thread page is the first page that writes on
 render (idempotent). Until Dave picks advisors, My Athletes is empty and
 Today shows no check-in reminders. Message notifications are Stage 3b
 on the roadmap; a Spanish body column waits for Stage 5.
+
+
+## 2026-09-27: Stage 4 (autofill and the high school directory) and the add, edit and delete audit
+
+**Decision.** One build, migration 0040, covering the Stage 4 autofill
+design and every confirmed finding of the 2026-09-27 audit (eleven
+"wired" findings about data wired into the app, twenty-three "crud"
+findings about records that could not be edited or removed). The lead
+decisions, each final:
+- **The high school directory ships empty.** 0040 creates
+  `high_schools` with no rows; `scripts/load_high_schools.ts` fills it
+  from the public NCES CCD and PSS files, run by hand with the service
+  role key, never as a migration. Suggestions put the org's own high
+  school names first (athletes, transcripts, grading scales, approved
+  lists), then directory rows in the states its athletes live in.
+- **Fills only when blank.** Picking a high school fills Home State,
+  picking a college fills Current Division, picking a coach fills email
+  and phone, picking a donor fills a seat's contact details, each only
+  when the field is empty. A typed value always wins. The server
+  resolves the pick itself and never trusts an id sent by the browser.
+- **Athlete notes are a staff-only table, never a column.**
+  `athlete_notes`, read and written by owner and staff only, filed with
+  the step that wrote it (general, enrolled, graduated, drafted,
+  reopened), deletable by staff and never edited. RLS hides rows, not
+  columns, so a note column on `athletes` would reach a family.
+- **Nothing the stand-in read is ever applied** (wired F1).
+  `documents.read_by` records 'stub' or the model id at processing
+  time; a trigger makes 'stub' permanent. Apply and auto-apply refuse a
+  stub reading forever, refuse everything while no key is set, and
+  refuse a pre-0040 document (read_by null) unless `docai_usage` shows
+  a real model call for it. The review screen hides Apply and says why.
+- **Branding left as is** (wired F2). Dave asked for the Bridge mark as
+  the app icon. The name now lives in one constant, `src/lib/product.ts`,
+  still "BFFSA"; nothing that shows changed.
+- **No data in migrations from 0040 on** (wired F3), enforced by
+  `migrationLaws.test.ts`. 0019 and 0020 stay as applied.
+- **Organizations are made and set up in the app** (wired F4). An owner
+  edits the name, the role labels and the two optional modules under
+  Organization Settings; anyone signed in creates an org through
+  `public.create_org(name, slug)`, a security-definer function that
+  inserts the org and the caller as owner. The web address is fixed
+  once made. Logo upload and deleting an org are not built.
+- **Shared schools, coaches and windows stay shared** (wired F6), with
+  owner-only writes as before. The coach directory is now editable by
+  an owner through the service role.
+- **A fixture build can never reach Vercel** (wired F7): `next.config.ts`
+  and the fixture client both throw when FIXTURE_MODE meets VERCEL.
+- **Production backup tables are not touched by code** (wired F9).
+- **Remove Athlete is a staff soft delete** (crud F1), behind a
+  confirm. The row keeps `deleted_at`, stored matches are cleared, the
+  targets stay on file, and every screen that lists athletes or targets
+  skips it. No Restore yet.
+- **A school is removed only when nothing points at it; a duplicate is
+  merged** (crud F3). Removal is refused while any org's target, note,
+  coach or contact references it, wider than targets alone so another
+  org's private rows are never cascaded away. Merge moves targets
+  (joining two targets for one athlete into one), notes where the kept
+  school has none, coaches, contacts and a transfer's current school,
+  recomputes fits and deletes the duplicate. An org with notes on both
+  keeps the kept school's note; the duplicate's text is lost.
+- **Enrolled and Graduated only through Mark Enrolled and Mark
+  Graduated** (crud F8). Edit refuses a hand change to either and no
+  longer stamps today's date on the NCAA clock; it corrects an
+  Enrollment Date or Graduated On already set.
+- **Names are edited in place** (crud F17): an owner renames any member
+  on their page; owner and staff rename themselves on More. The admin
+  client writes only after the target is checked. The family and member
+  More screens do not have it yet (their render laws say those screens
+  change nothing; a product call for Dave).
+- **Advisors are assigned from the member page** (crud F18), several
+  athletes at once, and taken off one at a time.
+- **Role changes to and from family happen in place** (crud F23): to
+  family needs an athlete, from family needs a confirm, and the links
+  follow.
+- **Everything else** in the audit was built as its FIX or BETTER:
+  edit and remove for contacts, metrics, check-ins, messages, the
+  contact log, visits, targets (with the award), coaches, grading
+  scales, approved lists (edited in place instead of re-pasted),
+  transfer windows (with notes), transcript courses, a pending reading,
+  documents (only discarded or failed, files first), family links,
+  boards, seats, donors (a soft delete), gifts, pledges, campaigns and
+  grants. A board with seats cannot be removed. A pledge's Fulfilled is
+  worked out from its payments; Written Off is a choice.
+
+**Reason.** Dave, 2026-09-27: "everything should be very easy for
+anyone to edit anything... add and delete and all that good stuff...
+There shouldn't be data like student athlete data wired into the
+app... if somebody used this as a new app, there shouldn't be
+pre-existing data in it." And "more buttons, less typing". The stub
+reader was the one path that could write an invented GPA and birth date
+onto a real athlete, and production has never had a key, so it was
+first. School names are unique by name key in the app only (Add School,
+Edit and the CSV import check it); there is no database index.
+
+**Alternatives considered.** Seeding the directory in a migration
+(rejected: data in the schema history, the thing wired F3 bans). A hard
+delete for athletes (rejected: messages, check-ins and history hang off
+the row, and a mistaken tap would take them with it). Letting Edit set
+Enrolled with today's date (rejected: it starts the five-year clock on
+the wrong day). Appending the duplicate's note on a merge (possible;
+Dave's call). Moving schools and coaches to per-org rows (rejected for
+now, wired F6).
+
+**Consequences.** Every document already in production was read by the
+stand-in, so none of them can ever be applied: once the key is set they
+are discarded, deleted for good and uploaded again. The directory is
+empty until someone runs the loader on a machine that can reach
+nces.ed.gov (this session's proxy refused it). `scripts/run_rls_test.sh`
+now copies Supabase's default grants to anon and authenticated before
+the first migration, so an anon revoke that is missing fails locally
+the way it would matter in production. `scripts/seed_two_orgs.sql` sets
+profile names with `on conflict` since 0017's trigger makes the rows.
+Eight new law files (205 tests) and a new render-law block, each
+planted and reverted; the render laws prove the screens show each
+control only to the people allowed it.
+
+## 2026-09-27: shared-directory editors and who may create an organization
+
+**Decision.** Writes to the shared schools, coaches and transfer windows
+need an owner of an organization flagged `edits_shared_directory`.
+create_org refuses any caller with a non-owner membership, and flags
+only the first organization of a fresh install. Bridge is flagged in
+production by a one-off statement.
+
+**Reason.** The review of the Stage 4 build found that create_org let
+any signed-in person, a parent included, become an owner, and owning
+any organization unlocked service-role writes every organization reads.
+
+**Alternatives considered.** A platform admin table (rejected: another
+table for one flag). Org-scoped copies of the directory (rejected for
+now: Dave wants one shared school database).
+
+**Consequences.** A new organization reads the directory but cannot
+change it until flagged. Doc AI's grading-scale writes to the shared
+scale table are still gated by staff, with first-writer-wins checks.
+

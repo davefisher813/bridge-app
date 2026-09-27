@@ -18,6 +18,11 @@ const hsDetailSchema = z.object({
   satTotal: z.number().int().min(400).max(1600).optional(),
   actComposite: z.number().int().min(1).max(36).optional(),
   desiredMajor: z.string().optional(),
+  // The high school as typed or picked (Stage 4). The id is set only
+  // when the name matched exactly one row of the shared high_schools
+  // directory; a name not in the directory stays text.
+  highSchool: z.string().trim().max(200).optional(),
+  highSchoolId: z.string().uuid().optional(),
 });
 
 const transferDetailSchema = z.object({
@@ -31,6 +36,8 @@ const transferDetailSchema = z.object({
   transferCount: z.number().int().min(0),
   degreeCompleted: z.boolean().optional(),
   desiredMajor: z.string().optional(),
+  // The schools row Current School matched exactly, when it did.
+  currentSchoolId: z.string().uuid().optional(),
 });
 
 export const athleteDetailSchema = z.discriminatedUnion("kind", [hsDetailSchema, transferDetailSchema]);

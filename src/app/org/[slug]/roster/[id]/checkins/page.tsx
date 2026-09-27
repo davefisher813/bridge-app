@@ -14,7 +14,7 @@ import { Body, Card, ConfirmButton, EmptyState, Form, Label, Notice, Screen, Sec
 // a family login, so there is no family version of this screen. The gap
 // since the last one is said first, because it is the reason to open it.
 //
-// Each entry carries its own Remove button, the Contacts pattern on the
+// Each entry carries its own Edit and Remove, the Contacts pattern on the
 // athlete page, so a card is never a surface that goes nowhere.
 
 interface CheckinRow {
@@ -78,11 +78,14 @@ export default async function CheckinsPage({ params }: { params: Promise<{ slug:
                   <Label>{`By ${c.by}`}</Label>
                   {c.notes && <Label>{c.notes}</Label>}
                 </div>
-                <Form action={removeCheckin.bind(null, slug, id, c.id)}>
-                  <ConfirmButton inline title="Remove This Check-In?" body="It comes off the log. Nothing else changes." confirmLabel="Remove">
-                    Remove
-                  </ConfirmButton>
-                </Form>
+                <div className="flex flex-col items-end gap-1">
+                  <TextLink href={`/org/${slug}/roster/${id}/checkins/${c.id}/edit`}>Edit</TextLink>
+                  <Form action={removeCheckin.bind(null, slug, id, c.id)}>
+                    <ConfirmButton inline title="Remove This Check-In?" body="It comes off the log. Nothing else changes." confirmLabel="Remove">
+                      Remove
+                    </ConfirmButton>
+                  </Form>
+                </div>
               </div>
             </Card>
           ))

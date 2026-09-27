@@ -244,6 +244,56 @@ asserts each of these.
 - The due rule and the reminder order are pure (`src/lib/checkins.ts`),
   so Today, My Athletes and the check-in log read the same arithmetic.
 
+### Notes, the high school directory, the reader and new orgs (migration 0040)
+
+- **`athlete_notes`**: staff only, the same shape as the check-in log.
+  Read is `_member_org_ids()` with no family clause; insert is staff
+  orgs and `author_id = auth.uid()`; delete is staff; there is no
+  update policy, so a note is never rewritten. The 0039 coherence
+  trigger refuses a note filed under another org. `context` is an enum
+  naming the step that wrote it. `src/lib/data/athleteNotes.ts` is the
+  only reader and writer, and `autofillLaws` fails any family or member
+  file that names the table.
+- **`high_schools`**: the public directory, no `org_id`, readable by any
+  signed-in caller and writable by nobody but the service role.
+  `name_key` is generated as `lower(btrim(name))`, unique with state and
+  town; `nces_id` is unique so the loader upserts on it. It ships empty.
+  `scripts/load_high_schools.ts` (bundled with esbuild and run with
+  node) reads the NCES CCD and PSS CSVs through the pure parser in
+  `src/lib/lookup/ncesParse.ts` and upserts in batches of 500. Neither
+  may read an org table (`autofillLaws` L5).
+- **`documents.read_by`**: 'stub' or the model id, written once at
+  processing time. `private.document_stub_is_forever` refuses any change
+  away from 'stub', even by the service role. The apply decision is one
+  pure function, `applyRefusal()` in `src/lib/data/readBy.ts`, called
+  in `applyGuarded` (where auto-apply and the Apply button meet) and
+  before `applyDocument` claims the row, and by the review screen to
+  hide Apply.
+- **`public.create_org(name, slug)`**: `security definer`, empty
+  `search_path`, execute granted to `authenticated` only. It trims and
+  checks the name and slug (23514), refuses a taken slug (23505) and a
+  signed-out caller (42501), inserts the org and makes the caller its
+  owner, so `orgs` and `org_members` keep no client insert policy.
+- **`transfer_windows.notes`**, 4,000 characters.
+- `scripts/run_rls_test.sh` now copies Supabase's default privileges
+  (every table and function in `public` granted to anon and
+  authenticated) before the first migration, so a missing anon revoke
+  fails locally the way it would matter in production.
+
+### Lookups and autofill
+
+`SuggestField` in the kit is the one way a screen offers suggestions:
+an input wired to a `<datalist>`, deduplicated by name key and capped
+at 2,000. `src/lib/lookup/` is pure (name keys, escaped `ilike`, the
+state list, picklists, the NCES parser); `src/lib/data/lookups.ts`
+loads options per org (its own high school names first, then the
+directory in its athletes' states; colleges; coaches by school; past
+metric sources) and resolves a typed name back to exactly one row or
+none. A server action resolves the pick again itself and fills a
+neighbouring field only when it is blank. Removed athletes
+(`deleted_at`) are skipped by every screen that lists athletes or
+their targets.
+
 ## Testing a Supabase-flavored migration without Docker or a live project
 
 `migrations/0001_core_schema.sql` was tested against a real local

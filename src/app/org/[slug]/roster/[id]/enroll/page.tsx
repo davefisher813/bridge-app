@@ -45,9 +45,13 @@ export default async function EnrollAthletePage({ params }: { params: Promise<{ 
   let schoolChoice = null;
   if (!committed) {
     const { data: schoolRows } = await supabase.from("schools").select("id, name, division").order("name");
+    // A transfer whose Current School matched a school on file
+    // (Stage 4) has that row picked already.
+    const detail = athlete.detail as { kind?: string; currentSchoolId?: unknown } | null;
     schoolChoice = {
       currentSchool: currentSchoolOf(athlete.detail),
       schools: ((schoolRows ?? []) as { id: string; name: string; division: string }[]).map((s) => ({ id: s.id, label: `${s.name} (${s.division})` })),
+      selectedId: detail?.kind === "transfer" && typeof detail.currentSchoolId === "string" ? detail.currentSchoolId : null,
     };
   }
 

@@ -119,3 +119,57 @@ and every number read from `src/lib/fit/contract.ts`:
     History keeps every school with its own messages and visits, and
     the profile shows only what is live. `pageRender.test.ts`.
 
+
+## Added 2026-09-27: Stage 4 (autofill, notes, the high school directory) and the audit fixes
+
+Every law below was planted, seen to fail, and reverted in the session
+it was written; each file's comments name the plant.
+
+18. **Autofill goes through the kit, fills only what is blank, and the
+    directory comes from public files only.** No raw `<datalist>`
+    outside the kit; `SuggestField` wires its list; no note column on
+    `athletes`; no family or member file names `athlete_notes`; the
+    NCES loader and parser never touch org data; every athlete detail
+    key survives an edit; name matching is `lower(btrim())` with
+    wildcards escaped. `autofillLaws.test.ts`.
+19. **A migration from 0040 on carries no data.** No org slug, no uuid
+    literal, no insert into orgs, members, athletes, schools, coaches,
+    windows, high schools, benchmarks, donors or users.
+    `migrationLaws.test.ts`.
+20. **An athlete record can be corrected, noted and removed, and only
+    inside its own org.** Duplicate names are caught on this roster
+    only; a picked school fills Home State or Current Division only when
+    blank and never trusts an id from the browser; notes are filed with
+    their step; Edit cannot move an athlete to Enrolled or Graduated;
+    Remove Athlete is a scoped soft delete; contacts, metrics, check-ins,
+    messages and family links are edited and removed by id, org and
+    athlete together. `athleteAutofillLaws.test.ts`,
+    `athleteCrudLaws.test.ts`.
+21. **Targets, the contact log, visits, schools, coaches, grading
+    scales, approved lists and transfer windows can each be edited and
+    removed, scoped the same way.** A school is refused removal while
+    anything points at it and is merged instead; the coach directory is
+    the owner's; a typed coach email always wins over the directory.
+    `referenceCrudLaws.test.ts`, `referenceAutofillLaws.test.ts`.
+22. **Nothing the stand-in reader read is ever applied.** A document
+    records who read it; 'stub' is refused forever, no key refuses
+    everything, and an older document with no reader on record is
+    refused unless the usage log shows a real model call. Transcript
+    rows and a pending reading can be corrected; only a discarded or
+    failed document can be deleted for good, files first.
+    `documentLaws.test.ts`.
+23. **The org, its people, its board and its money can all be edited in
+    place.** Settings are the owner's; a new org comes from
+    `create_org`; role changes to and from family carry their links;
+    advisors are assigned from the member page; every governance and
+    fundraising record has an update and a remove behind a confirm; a
+    donor removal is a soft delete; a pledge's Fulfilled comes from its
+    payments. `orgCrudLaws.test.ts`.
+24. **The screens show it to the right people.** Staff see Remove on an
+    athlete, a target, a message, a course and a finished document, each
+    behind a ConfirmButton; the owner alone sees Merge, Remove School,
+    the coach list and Organization Settings; each edit screen opens on
+    its record; no family or member screen shows a note, a coach
+    control or a Remove; both are turned away from every staff edit
+    screen; a removed athlete leaves the board, Today and the school
+    page. `pageRender.test.ts`, the last describe block.

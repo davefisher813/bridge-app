@@ -91,6 +91,39 @@ export async function requireOwner(activeOrgId: string): Promise<CurrentUser> {
   return requireRole(activeOrgId, OWNER_ROLES);
 }
 
+// The shared directory (schools, college coaches, transfer windows) is
+// read by every org, so a write to it is a write for everybody. Owning
+// an org is not enough: the org must also be one whose
+// orgs.edits_shared_directory is on (migration 0040). Only create_org's
+// first org on a fresh install gets it; any other is set by hand.
+//
+// The flag is read through the caller's own session, where RLS shows
+// an org to its members only. A missing row or a missing column reads
+// as off, so the door fails closed.
+export async function orgEditsSharedDirectory(orgId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("orgs").select("edits_shared_directory").eq("id", orgId).maybeSingle();
+  if (error || !data) return false;
+  return (data as { edits_shared_directory?: unknown }).edits_shared_directory === true;
+}
+
+// For a screen deciding whether to show Add, Edit, Merge or Remove on
+// the shared directory. Everyone else keeps read access.
+export async function isDirectoryEditor(user: Pick<CurrentUser, "org_id" | "role">): Promise<boolean> {
+  return user.role === "owner" && (await orgEditsSharedDirectory(user.org_id));
+}
+
+// Every service-role write to schools, college_coaches and
+// transfer_windows starts here. The admin client bypasses RLS, so this
+// is the whole authorization for those writes: an owner of this org,
+// and the org edits the shared directory. Anyone else lands on Not
+// Authorized before the admin client is created.
+export async function requireDirectoryEditor(activeOrgId: string): Promise<CurrentUser> {
+  const user = await requireOwner(activeOrgId);
+  if (!(await orgEditsSharedDirectory(activeOrgId))) redirect("/unauthorized");
+  return user;
+}
+
 // Where one athlete's screens live for this role. Staff open an athlete
 // under the roster; a family opens the same screens under /family, with
 // the family tab bar and no way into the rest of the org. The

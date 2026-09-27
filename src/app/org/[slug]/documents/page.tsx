@@ -6,11 +6,14 @@ import { AddButton, Body, EmptyState, LinkButton, Notice, Row, Screen, Section }
 import type { Role } from "@/components/statusHue";
 import { isStubbedModel } from "@/lib/actions/documents";
 import { SearchField } from "@/components/SearchField";
+import { isStubReading } from "@/lib/data/readBy";
 
 // The review queue. A document routed to "review" has to live somewhere or
 // that route is a dead end, which is what this screen is for. Applied and
 // refused documents stay listed too, so "what did the reader do to my
-// roster" is answerable.
+// roster" is answerable. Discarded ones are listed last, so their files
+// can be deleted for good (audit crud F19) instead of staying in the
+// bucket indefinitely.
 
 interface DocRow {
   id: string;
@@ -21,8 +24,9 @@ interface DocRow {
   provenance: { confidence?: number } | null;
   extracted: { studentName?: string } | null;
   athlete_id: string | null;
-  athletes: { name: string } | { name: string }[] | null;
+  athletes: { name: string; deleted_at?: string | null } | { name: string; deleted_at?: string | null }[] | null;
   failure_reason: string | null;
+  read_by: string | null;
   created_at: string;
 }
 
@@ -40,6 +44,17 @@ function unwrap<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
+// Who the document is about, as the list may say it. An athlete who was
+// removed from the roster is not named here, not even by the name read
+// off the page, and nothing links to them: "Removed Athlete".
+const REMOVED_ATHLETE = "Removed Athlete";
+
+function athleteLabel(doc: DocRow): string | null {
+  const a = unwrap(doc.athletes);
+  if (doc.athlete_id && (!a || a.deleted_at)) return REMOVED_ATHLETE;
+  return a?.name ?? doc.extracted?.studentName ?? null;
+}
+
 function ago(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   if (days <= 0) return "today";
@@ -54,7 +69,7 @@ function confidenceRole(pct: number): Role {
 }
 
 function DocumentRow({ slug, doc, role }: { slug: string; doc: DocRow; role: Role }) {
-  const athlete = unwrap(doc.athletes)?.name ?? doc.extracted?.studentName ?? null;
+  const athlete = athleteLabel(doc);
   const pct = doc.provenance?.confidence != null ? Math.round(doc.provenance.confidence * 100) : null;
   return (
     <Row
@@ -62,7 +77,7 @@ function DocumentRow({ slug, doc, role }: { slug: string; doc: DocRow; role: Rol
       kind="document"
       role={role}
       title={`${doc.category ? (CATEGORY_LABEL[doc.category] ?? doc.category) : "Unrecognized"}${athlete ? ` · ${athlete}` : " · no match"}`}
-      meta={`${doc.status === "failed" && doc.failure_reason ? doc.failure_reason : doc.file_name} · ${ago(doc.created_at)}`}
+      meta={`${doc.status === "failed" && doc.failure_reason ? doc.failure_reason : doc.file_name}${isStubReading(doc.read_by) ? " · made up by the stand-in" : ""} · ${ago(doc.created_at)}`}
       wrap
       trailing={
         pct !== null ? (
@@ -85,7 +100,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select("id, file_name, category, status, route, provenance, extracted, athlete_id, athletes(name), failure_reason, created_at")
+    .select("id, file_name, category, status, route, provenance, extracted, athlete_id, athletes(name, deleted_at), failure_reason, read_by, created_at")
     .eq("org_id", org.id)
     .order("created_at", { ascending: false })
     .limit(60);
@@ -95,7 +110,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   // so the sections, the counts and the empty state agree.
   const rows = q
     ? all.filter((r) => {
-        const athlete = unwrap(r.athletes)?.name ?? r.extracted?.studentName ?? null;
+        const athlete = athleteLabel(r);
         return `${r.file_name} ${r.category ?? ""} ${athlete ?? ""}`.toLowerCase().includes(q);
       })
     : all;
@@ -103,6 +118,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const pending = rows.filter((r) => r.status === "pending");
   const applied = rows.filter((r) => r.status === "applied");
   const problems = rows.filter((r) => r.status === "failed");
+  const discarded = rows.filter((r) => r.status === "discarded");
   const stubbed = await isStubbedModel();
 
   return (
@@ -148,6 +164,13 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
             <Section label="Applied" count={applied.length} role="committed" kind="check">
               {applied.map((d) => (
                 <DocumentRow key={d.id} slug={slug} doc={d} role="committed" />
+              ))}
+            </Section>
+          )}
+          {discarded.length > 0 && (
+            <Section label="Discarded" count={discarded.length} role="contact" kind="document">
+              {discarded.map((d) => (
+                <DocumentRow key={d.id} slug={slug} doc={d} role="contact" />
               ))}
             </Section>
           )}

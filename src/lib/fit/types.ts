@@ -44,7 +44,19 @@ export interface Athlete {
 
 // Shape of athletes.detail, validated by src/lib/fit/schema.ts, not by Postgres.
 export type AthleteDetail =
-  | { kind: "hs"; gradYear?: number; apCount?: number; ibCount?: number; honorsCount?: number; dualCount?: number; satTotal?: number; actComposite?: number; desiredMajor?: string }
+  | {
+      kind: "hs";
+      gradYear?: number;
+      apCount?: number;
+      ibCount?: number;
+      honorsCount?: number;
+      dualCount?: number;
+      satTotal?: number;
+      actComposite?: number;
+      desiredMajor?: string;
+      highSchool?: string; // as typed or picked
+      highSchoolId?: string; // high_schools.id, only on an exact single match
+    }
   | {
       kind: "transfer";
       currentSchool: string;
@@ -56,6 +68,7 @@ export type AthleteDetail =
       transferCount: number; // how many times this athlete has already transferred
       degreeCompleted?: boolean; // relevant for transfer_grad only
       desiredMajor?: string;
+      currentSchoolId?: string; // schools.id, only on an exact single match
     };
 
 export interface School {

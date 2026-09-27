@@ -428,6 +428,28 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
    own, and Supabase Auth only sends sign-in mail, so a family hears of
    a message only by opening the app. Resend, or an Edge Function on
    insert into `athlete_messages`.
-5. **Stage 4:** autofill and a high school database, notes fields.
+5. ~~Stage 4: autofill and a high school database, notes fields~~ Done
+   locally (migration 0040) together with the 2026-09-27 add, edit and
+   delete audit, ships when Dave says go. Still open from it: load the
+   NCES directory with `scripts/load_high_schools.ts` from a machine
+   that can reach nces.ed.gov (this sandbox cannot); discard, delete
+   and re-upload every production document once the AI key is set.
 6. **Stage 5:** Spanish mode and translated messages. The thread has
    no `body_es` column yet; it is added then, not guessed now.
+
+## Left open by Stage 4 and the audit, 2026-09-27
+
+- **Restore a removed athlete.** Remove Athlete is a soft delete; an
+  owner-only Restore was not needed now.
+- **Logo upload and deleting an org.** Organization Settings covers the
+  name, role labels and modules only.
+- **Your Name on the family and member More screens.** Owner and staff
+  rename themselves on More; the family and member screens keep their
+  "changes nothing" rule until Dave decides.
+- **Correcting individual course rows on a pending transcript** before
+  apply. Courses are corrected on the transcript after apply.
+- **A merge keeps one org note.** When an org has notes on both schools
+  the duplicate's text is dropped; appending the two is Dave's call.
+- **The product name.** Still "BFFSA", now in one constant,
+  `src/lib/product.ts`.
+- **Per-org schools, coaches and windows** (audit wired F6), not now.

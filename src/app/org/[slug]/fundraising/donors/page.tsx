@@ -10,7 +10,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { AddButton, Body, EmptyState, Label, LinkButton, Row, Screen, Section } from "@/components/kit";
+import { AddButton, Body, EmptyState, Label, LinkButton, Notice, Row, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { SearchField } from "@/components/SearchField";
 import { donorTotals, formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
@@ -32,9 +32,11 @@ function shortDate(iso: string | null): string {
   return d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
 }
 
-export default async function DonorsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string }> }) {
+export default async function DonorsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string; notice?: string; error?: string }> }) {
   const { slug } = await params;
-  const q = (searchParams ? (await searchParams).q : "")?.trim().toLowerCase() ?? "";
+  const sp = searchParams ? await searchParams : {};
+  const { notice, error } = sp;
+  const q = sp.q?.trim().toLowerCase() ?? "";
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
@@ -75,6 +77,7 @@ export default async function DonorsPage({ params, searchParams }: { params: Pro
       back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }} lede={`${donors.length} ${donors.length === 1 ? "supporter" : "supporters"}`}
       action={canEdit ? <AddButton href={`/org/${slug}/fundraising/donors/new`} label="Add" /> : undefined}
     >
+      {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       {owing.length > 0 && (
         <Section label="Owes a Pledge" count={owing.length} role="offer" kind="pledge">
           {owing.map(({ donor, totals }) => (

@@ -12,16 +12,18 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { campaignProgress, formatMoney, formatMoneyShort, toCents } from "@/lib/fundraising/rollup";
-import { Body, Card, EmptyState, Label, Meter, Row, Screen, Section, Stack } from "@/components/kit";
+import { Body, Card, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
-export default async function CampaignPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
+export default async function CampaignPage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ notice?: string; error?: string }> }) {
   const { slug, id } = await params;
+  const { notice, error } = searchParams ? await searchParams : {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
+  const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
   const [{ data: campaign }, { data: giftRows }, { data: pledgeRows }, { data: donorRows }] = await Promise.all([
@@ -48,6 +50,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
 
   return (
     <Screen title={c.name} back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }} lede={`${c.kind.charAt(0).toUpperCase()}${c.kind.slice(1)}${c.ends_on ? ` · ends ${longDate(c.ends_on)}` : ""}`}>
+      {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       <Card>
         <Stack gap={2}>
           <div className="flex items-start justify-between gap-3">
@@ -89,6 +92,12 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
           ))
         )}
       </Section>
+
+      {canEdit && (
+        <LinkButton href={`/org/${slug}/fundraising/campaigns/${id}/edit`} variant="secondary">
+          Edit Campaign
+        </LinkButton>
+      )}
     </Screen>
   );
 }

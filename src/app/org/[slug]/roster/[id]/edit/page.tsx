@@ -6,6 +6,7 @@ import { updateAthlete } from "@/lib/actions/athletes";
 import { AthleteForm, type AthleteFormInitialValues } from "@/components/AthleteForm";
 import { safeParseAthleteDetail } from "@/lib/fit/schema";
 import { loadStaff } from "@/lib/data/staff";
+import { loadAthleteFormOptions } from "@/lib/data/athleteFormOptions";
 import type { RecruitType } from "@/lib/fit/types";
 import { Screen } from "@/components/kit";
 
@@ -29,6 +30,8 @@ interface AthleteEditRow {
   family_budget_cents: number | null;
   home_state: string | null;
   grades: Record<string, number> | null;
+  first_full_time_enrollment: string | null;
+  graduated_on: string | null;
 }
 
 export default async function EditAthletePage({ params }: { params: Promise<{ slug: string; id: string }> }) {
@@ -38,17 +41,18 @@ export default async function EditAthletePage({ params }: { params: Promise<{ sl
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const [{ data }, staff] = await Promise.all([
+  const [{ data }, staff, options] = await Promise.all([
     supabase
       .from("athletes")
       .select(
-        "id, name, sport, position, recruit_type, gpa, gpa_verified, status, advisor_id, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status, detail, goal, family_budget_cents, home_state, grades"
+        "id, name, sport, position, recruit_type, gpa, gpa_verified, status, advisor_id, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status, detail, goal, family_budget_cents, home_state, grades, first_full_time_enrollment, graduated_on"
       )
       .eq("id", id)
       .eq("org_id", org.id)
       .is("deleted_at", null)
       .single(),
     loadStaff(supabase, org.id),
+    loadAthleteFormOptions(supabase, org.id),
   ]);
 
   if (!data) notFound();
@@ -89,6 +93,8 @@ export default async function EditAthletePage({ params }: { params: Promise<{ sl
           satTotal: detail.satTotal,
           actComposite: detail.actComposite,
           desiredMajor: detail.desiredMajor,
+          highSchool: detail.highSchool,
+          highSchoolId: detail.highSchoolId,
         }
       : {}),
     ...(detail?.kind === "transfer"
@@ -102,15 +108,25 @@ export default async function EditAthletePage({ params }: { params: Promise<{ sl
           transferCount: detail.transferCount,
           degreeCompleted: detail.degreeCompleted,
           desiredMajor: detail.desiredMajor,
+          currentSchoolId: detail.currentSchoolId,
         }
       : {}),
+    enrollmentDate: athlete.first_full_time_enrollment ?? undefined,
+    graduatedOn: athlete.graduated_on ?? undefined,
   };
+
+  // The NCAA clock dates that may be corrected here (audit crud F8): the
+  // enrollment date once it is set, or on a transfer, whose clock started
+  // at another school; Graduated On once Mark Graduated set it. The same
+  // rule as updateAthlete. Setting one the first time is the job of Mark
+  // Enrolled and Mark Graduated, which also close out recruiting.
+  const dates = { enrollment: !!athlete.first_full_time_enrollment || athlete.recruit_type !== "hs", graduated: !!athlete.graduated_on };
 
   const action = updateAthlete.bind(null, slug, athlete.id);
 
   return (
     <Screen title={`Edit ${athlete.name}`} back={{ href: `/org/${slug}/roster/${athlete.id}`, label: athlete.name }}>
-      <AthleteForm action={action} initialValues={initialValues} submitLabel="Save Changes" advisors={staff.map((s) => ({ id: s.id, name: s.name }))} />
+      <AthleteForm action={action} initialValues={initialValues} submitLabel="Save Changes" advisors={staff.map((s) => ({ id: s.id, name: s.name }))} options={options} editing dates={dates} />
     </Screen>
   );
 }

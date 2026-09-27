@@ -130,12 +130,22 @@ interface Filter {
   value: unknown;
 }
 
-// PostgREST's ilike: % is any run of characters, _ is one, and the
-// comparison ignores case. Anything else in the pattern is literal.
+// PostgREST's ilike: % is any run of characters, _ is one, a backslash
+// makes the next character literal (Postgres's default LIKE escape, which
+// escapeIlike in src/lib/lookup/nameKey.ts relies on), and the comparison
+// ignores case. Anything else in the pattern is literal.
 function ilikeMatches(value: unknown, pattern: string): boolean {
   if (value === null || value === undefined) return false;
-  const rx = new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, "[\\s\\S]*").replace(/_/g, "[\\s\\S]")}$`, "i");
-  return rx.test(String(value));
+  let rx = "";
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === "\\" && i + 1 < pattern.length) {
+      rx += pattern[++i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    } else if (ch === "%") rx += "[\\s\\S]*";
+    else if (ch === "_") rx += "[\\s\\S]";
+    else rx += ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${rx}$`, "i").test(String(value));
 }
 
 // One branch of an .or() expression, in PostgREST's own spelling:
@@ -408,6 +418,46 @@ export interface FakeClientOptions {
   failOn?: (table: string, op: string) => string | null;
 }
 
+// public.create_org(name, slug), migration 0040, with the same refusals
+// and the same Postgres error codes, so an action's error branches are
+// reachable here: sign in first, or a caller holding any membership
+// that is not owner (both 42501), a blank or long name or a malformed
+// address (23514), a taken address (23505). On success the org row and
+// the caller's owner row are written and recorded, and the new org's id
+// comes back, as the real function returns it. The new org edits the
+// shared directory only when no org existed before the call.
+const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+function fakeCreateOrg(
+  data: Dataset,
+  userId: string | null,
+  args: Record<string, unknown>,
+  recorded: RecordedWrite[],
+  failOn: (table: string, op: string) => string | null,
+): { data: string | null; error: { message: string; code: string } | null } {
+  const refuse = (code: string, message: string) => ({ data: null, error: { code, message: `create_org: ${message}` } });
+  if (!userId || !(data.users ?? []).some((u) => u.id === userId)) return refuse("42501", "sign in first");
+  if ((data.org_members ?? []).some((m) => m.user_id === userId && m.role !== "owner")) return refuse("42501", "only an owner, or someone in no organization yet, can start one");
+  const name = String(args.name ?? "").trim();
+  const slug = String(args.slug ?? "").trim().toLowerCase();
+  if (!name) return refuse("23514", "a name is required");
+  if (name.length > 120) return refuse("23514", "a name is 120 characters or fewer");
+  if (!SLUG.test(slug) || slug.length < 2 || slug.length > 48) return refuse("23514", "a web address is 2 to 48 lowercase letters, numbers and single hyphens");
+  const orgs = data.orgs ?? (data.orgs = []);
+  if (orgs.some((o) => o.slug === slug)) return refuse("23505", "that web address is taken");
+  const forced = failOn("orgs", "insert");
+  if (forced) return { data: null, error: { code: "XX000", message: forced } };
+
+  const id = `fake-org-${orgs.length + 1}`;
+  const org: Row = { id, name, slug, role_labels: {}, modules: { recruiting: true, doc_ai: true, board_governance: false, donor_fundraising: false }, branding: {}, edits_shared_directory: orgs.length === 0, created_at: new Date().toISOString() };
+  const member: Row = { user_id: userId, org_id: id, role: "owner" };
+  orgs.push(org);
+  (data.org_members ?? (data.org_members = [])).push(member);
+  recorded.push({ op: "insert", table: "orgs", rows: [org], filters: [] });
+  recorded.push({ op: "insert", table: "org_members", rows: [member], filters: [] });
+  return { data: id, error: null };
+}
+
 export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
   const unsupported = (what: string): never => {
     // Loud rather than empty. An unimplemented builder method returning
@@ -425,7 +475,10 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
     },
     // The summary functions of migration 0031, mirrored in fakeRpc.ts.
     // Awaitable like a query, so a page writes `await supabase.rpc(...)`.
+    // create_org (migration 0040) writes, so it lives here, next to the
+    // write log, rather than in the read-only mirror.
     async rpc(name: string, args: Record<string, unknown> = {}) {
+      if (name === "create_org") return fakeCreateOrg(data, opts.userId, args, recorded, failOn);
       return fakeRpc(data, opts.userId, name, args);
     },
     auth: {

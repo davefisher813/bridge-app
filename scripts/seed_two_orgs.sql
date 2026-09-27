@@ -8,7 +8,7 @@
 -- Coaches. Same schema, same permissions, different words and different
 -- modules, with no code branching on which org it is.
 --
--- Run against a throwaway database (scripts/seed_smoke_test.sh), never
+-- Run against a throwaway database (scripts/run_two_org_test.sh), never
 -- against anything real. Contains no actual athlete, donor or member
 -- data: every name here is invented, because real student and donor
 -- records do not belong in a repo.
@@ -25,7 +25,10 @@ insert into users (id, email, full_name) values
   ('00000000-0000-0000-0000-0000000000a1', 'ed@bridge.example', 'Example Director'),
   ('00000000-0000-0000-0000-0000000000a2', 'coordinator@bridge.example', 'Example Coordinator'),
   ('00000000-0000-0000-0000-0000000000b1', 'owner@elitesquad.example', 'Example Owner'),
-  ('00000000-0000-0000-0000-0000000000b2', 'coach@elitesquad.example', 'Example Coach');
+  ('00000000-0000-0000-0000-0000000000b2', 'coach@elitesquad.example', 'Example Coach')
+-- Since 0017 the auth.users insert above already made each profile
+-- row, so this only sets the names.
+on conflict (id) do update set full_name = excluded.full_name;
 
 -- The two orgs differ in exactly three jsonb columns and nowhere else.
 -- If anything other than role_labels, modules and branding has to differ

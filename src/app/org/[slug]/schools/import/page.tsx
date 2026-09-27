@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireOwner } from "@/lib/auth/guard";
+import { requireDirectoryEditor } from "@/lib/auth/guard";
 import { importSchools } from "@/lib/actions/schools";
 import { SchoolImportForm } from "@/components/SchoolImportForm";
 import { SCHOOL_CSV_REQUIRED_COLUMNS } from "@/lib/schools/csv";
 import { Label, LinkButton, Notice, Screen, Section, Stack } from "@/components/kit";
 
-// The CSV door into the shared schools table. Owner-only, like every
+// The CSV door into the shared schools table. Directory editors only,
+// like every
 // other write to it. docs/MATCHING_CONTRACT.md section 4: a template,
 // required columns, problems listed by row, nothing half-imports; the
 // coach columns land on this org's private overlay, not the shared row.
@@ -14,7 +15,7 @@ export default async function ImportSchoolsPage({ params }: { params: Promise<{ 
   const { slug } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireOwner(org.id);
+  await requireDirectoryEditor(org.id);
 
   const action = importSchools.bind(null, slug);
 

@@ -15,7 +15,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { Body, Card, Chevron, EmptyState, Label, LinkButton, Meter, Row, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { Body, Card, Chevron, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { campaignProgress, formatMoney, formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
@@ -35,10 +35,10 @@ export default async function FundraisingPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ year?: string }>;
+  searchParams: Promise<{ year?: string; notice?: string; error?: string }>;
 }) {
   const { slug } = await params;
-  const { year } = await searchParams;
+  const { year, notice, error } = await searchParams;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   // Not a 403: an org without the module has no fundraising screen at
@@ -73,6 +73,7 @@ export default async function FundraisingPage({
   if (gifts.length === 0 && pledges.length === 0) {
     return (
       <Screen title="Fundraising">
+        {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
         <EmptyState kind="money" title="Nothing Recorded Yet">
           Every total here is calculated from the gifts themselves.
         </EmptyState>
@@ -93,6 +94,7 @@ export default async function FundraisingPage({
 
   return (
     <Screen title="Fundraising" lede={`${fiscalYear}, against the board budget`}>
+      {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       <Stack gap={2}>
         <StatRow>
           <Stat value={formatMoneyShort(s.totalCashCents)} label="Raised" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts`} />

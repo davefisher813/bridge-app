@@ -7,10 +7,40 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { applyCloseOut, applyEnrollment, closeOutNotice, enrollmentNotice } from "@/lib/data/enrollment";
 import { currentSchoolOf, nextOutcomes } from "@/lib/placement";
+import { addAthleteNote, NOTE_MAX_LENGTH, type AthleteNoteContext } from "@/lib/data/athleteNotes";
 
 export interface EnrollActionState {
   errors: Record<string, string>;
   values?: Record<string, FormDataEntryValue>;
+}
+
+// The optional note each of these screens takes (Stage 4), filed on the
+// athlete's staff log under the step it was typed on.
+function noteOf(formData: FormData): string {
+  return String(formData.get("note") ?? "").trim();
+}
+
+const NOTE_TOO_LONG = `A note is ${NOTE_MAX_LENGTH} characters or fewer.`;
+
+// A date that has not happened yet is not an enrollment or a graduation:
+// it would start the NCAA clock early or close out an athlete who is
+// still in school. One day of slack past today in UTC, so a phone a day
+// ahead of UTC (east of it, late in the evening) can still pick its own
+// today. The same rule updateAthlete applies to a correction.
+function dayOf(value: string): string {
+  return new Date(Date.parse(value)).toISOString().slice(0, 10);
+}
+
+function isAfterTomorrowUtc(value: string): boolean {
+  return dayOf(value) > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+}
+
+// Files the note and says, in the notice, if it could not be saved: the
+// close-out itself has already happened by then and is not undone.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fileNote(supabase: any, orgId: string, athleteId: string, authorId: string, context: AthleteNoteContext, body: string, notice: string): Promise<string> {
+  const error = await addAthleteNote(supabase, { orgId, athleteId, authorId, context, body });
+  return error ? `${notice} ${error}` : notice;
 }
 
 // The deliberate path onto Enrolled. The school comes from a Committed
@@ -21,12 +51,17 @@ export interface EnrollActionState {
 export async function markEnrolled(slug: string, athleteId: string, _prev: EnrollActionState, formData: FormData): Promise<EnrollActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const enrolledOn = String(formData.get("enrolledOn") ?? "").trim();
   if (!enrolledOn || Number.isNaN(Date.parse(enrolledOn))) {
     return { errors: { enrolledOn: "Pick the date they enrolled." }, values: Object.fromEntries(formData.entries()) };
   }
+  if (isAfterTomorrowUtc(enrolledOn)) {
+    return { errors: { enrolledOn: "The enrollment date can't be in the future." }, values: Object.fromEntries(formData.entries()) };
+  }
+  const note = noteOf(formData);
+  if (note.length > NOTE_MAX_LENGTH) return { errors: { note: NOTE_TOO_LONG }, values: Object.fromEntries(formData.entries()) };
 
   const supabase = await createClient();
   const { data: athlete } = await supabase.from("athletes").select("id, status, detail").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
@@ -37,12 +72,13 @@ export async function markEnrolled(slug: string, athleteId: string, _prev: Enrol
   if (schoolError) return { errors: { schoolId: schoolError }, values: Object.fromEntries(formData.entries()) };
 
   const { schoolName, closedCount } = await applyEnrollment(supabase, org.id, athleteId, enrolledOn);
+  const notice = await fileNote(supabase, org.id, athleteId, user.id, "enrolled", note, enrollmentNotice(schoolName, closedCount));
 
   revalidatePath(`/org/${slug}/roster/${athleteId}`);
   revalidatePath(`/org/${slug}/roster`);
   revalidatePath(`/org/${slug}/board`);
   revalidatePath(`/org/${slug}`);
-  redirect(`/org/${slug}/roster/${athleteId}?notice=${encodeURIComponent(enrollmentNotice(schoolName, closedCount))}`);
+  redirect(`/org/${slug}/roster/${athleteId}?notice=${encodeURIComponent(notice)}`);
 }
 
 // Which school. A Committed target already says; otherwise the form
@@ -79,24 +115,36 @@ function revalidateAthlete(slug: string, athleteId: string) {
 export async function markGraduated(slug: string, athleteId: string, _prev: EnrollActionState, formData: FormData): Promise<EnrollActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const graduatedOn = String(formData.get("graduatedOn") ?? "").trim();
   if (!graduatedOn || Number.isNaN(Date.parse(graduatedOn))) {
     return { errors: { graduatedOn: "Pick the date they graduated." }, values: Object.fromEntries(formData.entries()) };
   }
+  if (isAfterTomorrowUtc(graduatedOn)) {
+    return { errors: { graduatedOn: "The graduation date can't be in the future." }, values: Object.fromEntries(formData.entries()) };
+  }
+  const note = noteOf(formData);
+  if (note.length > NOTE_MAX_LENGTH) return { errors: { note: NOTE_TOO_LONG }, values: Object.fromEntries(formData.entries()) };
 
   const supabase = await createClient();
-  const { data: athlete } = await supabase.from("athletes").select("id, status, detail").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
+  const { data: athlete } = await supabase.from("athletes").select("id, status, detail, first_full_time_enrollment").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
   if (!athlete) redirect("/unauthorized");
   if (!nextOutcomes(athlete.status).includes("graduate")) redirect(`/org/${slug}/roster/${athleteId}`);
+  // Never before they enrolled: the same rule, and the same words, as a
+  // correction on Edit (updateAthlete).
+  const enrolledOn = (athlete as { first_full_time_enrollment?: string | null }).first_full_time_enrollment;
+  if (enrolledOn && dayOf(graduatedOn) < dayOf(enrolledOn)) {
+    return { errors: { graduatedOn: "Graduated On comes after the Enrollment Date." }, values: Object.fromEntries(formData.entries()) };
+  }
 
   const schoolError = await ensureSchool(supabase, org.id, athleteId, athlete.detail, formData, "Pick the school they graduated from.");
   if (schoolError) return { errors: { schoolId: schoolError }, values: Object.fromEntries(formData.entries()) };
 
   const { name, closedCount } = await applyCloseOut(supabase, org.id, athleteId, { status: "Graduated", on: graduatedOn });
+  const notice = await fileNote(supabase, org.id, athleteId, user.id, "graduated", note, closeOutNotice({ state: "Graduated", name }, closedCount));
   revalidateAthlete(slug, athleteId);
-  redirect(`/org/${slug}/roster/${athleteId}?notice=${encodeURIComponent(closeOutNotice({ state: "Graduated", name }, closedCount))}`);
+  redirect(`/org/${slug}/roster/${athleteId}?notice=${encodeURIComponent(notice)}`);
 }
 
 // Drafted: the team, and the round and year when known. Can follow any
@@ -105,7 +153,7 @@ export async function markGraduated(slug: string, athleteId: string, _prev: Enro
 export async function markDrafted(slug: string, athleteId: string, _prev: EnrollActionState, formData: FormData): Promise<EnrollActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const values = Object.fromEntries(formData.entries());
   const team = String(formData.get("draftTeam") ?? "").trim();
@@ -118,6 +166,8 @@ export async function markDrafted(slug: string, athleteId: string, _prev: Enroll
   if (team.length > 80) errors.draftTeam = "Keep the team name under 80 characters.";
   if (round !== null && (!Number.isInteger(round) || round < 1 || round > 99)) errors.draftRound = "A round from 1 to 99.";
   if (year !== null && (!Number.isInteger(year) || year < 1900 || year > 2200)) errors.draftYear = "A four digit year.";
+  const note = noteOf(formData);
+  if (note.length > NOTE_MAX_LENGTH) errors.note = NOTE_TOO_LONG;
   if (Object.keys(errors).length) return { errors, values };
 
   const supabase = await createClient();
@@ -126,11 +176,13 @@ export async function markDrafted(slug: string, athleteId: string, _prev: Enroll
 
   if (athlete.status === "Drafted") {
     await supabase.from("athletes").update({ draft_team: team, draft_round: round, draft_year: year, updated_at: new Date().toISOString() }).eq("id", athleteId).eq("org_id", org.id);
+    const noteError = await addAthleteNote(supabase, { orgId: org.id, athleteId, authorId: user.id, context: "drafted", body: note });
     revalidateAthlete(slug, athleteId);
-    redirect(`/org/${slug}/roster/${athleteId}`);
+    redirect(noteError ? `/org/${slug}/roster/${athleteId}?notice=${encodeURIComponent(`Saved. ${noteError}`)}` : `/org/${slug}/roster/${athleteId}`);
   }
 
   const { name, closedCount } = await applyCloseOut(supabase, org.id, athleteId, { status: "Drafted", team, round, year });
+  const notice = await fileNote(supabase, org.id, athleteId, user.id, "drafted", note, closeOutNotice({ state: "Drafted", name, draftRound: round, draftYear: year }, closedCount));
   revalidateAthlete(slug, athleteId);
-  redirect(`/org/${slug}/roster/${athleteId}?notice=${encodeURIComponent(closeOutNotice({ state: "Drafted", name, draftRound: round, draftYear: year }, closedCount))}`);
+  redirect(`/org/${slug}/roster/${athleteId}?notice=${encodeURIComponent(notice)}`);
 }

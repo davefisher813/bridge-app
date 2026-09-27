@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
-import { getOrgBySlug } from "@/lib/org/membership";
+import { getOrgBySlug, getOrgMemberships } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { signout } from "@/lib/auth/actions";
 import { labelForRole } from "@/lib/org/roleLabels";
 import { Button, ConfirmButton, Form, Label, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 import { PresetForm } from "@/components/PresetForm";
+import { YourNameForm } from "@/components/YourNameForm";
 import { DocaiBudgetForm } from "@/components/DocaiBudgetForm";
 import { setDocaiBudget } from "@/lib/actions/docaiBudget";
 import { isStubbedModel } from "@/lib/actions/documents";
@@ -28,7 +29,11 @@ export default async function MorePage({ params, searchParams }: { params: Promi
   // What reading documents has cost this month, against the cap. Staff
   // see the numbers; an owner sets the cap.
   const supabase = await createClient();
-  const [spend, stubbed] = await Promise.all([loadMonthSpend(supabase, org.id), isStubbedModel()]);
+  const [spend, stubbed, memberships] = await Promise.all([loadMonthSpend(supabase, org.id), isStubbedModel(), getOrgMemberships()]);
+  // create_org (migration 0040) refuses anyone who is staff, a member or
+  // a family login anywhere, so an owner who is also one of those
+  // somewhere else is not offered a door that would refuse them.
+  const canStartOrg = user.role === "owner" && memberships.every((m) => m.role === "owner");
 
   return (
     <Screen title="More">
@@ -101,7 +106,10 @@ export default async function MorePage({ params, searchParams }: { params: Promi
 
       <Section label="Organization" role="people" kind="people">
         {user.role === "owner" && <Row href={`/org/${slug}/members`} kind="people" role="people" title="Members" meta="Who can sign in, and what each person can do" wrap />}
+        {user.role === "owner" && <Row href={`/org/${slug}/settings`} kind="settings" role="people" title="Organization Settings" meta="The name, what you call each role, and which modules are on" wrap />}
+        {canStartOrg && <Row href="/orgs/new" kind="org" role="place" title="Start Another Organization" meta="A separate organization with its own people and records" wrap />}
         <Row kind="settings" role="people" title={user.full_name || user.email} meta={`${labelForRole(org.roleLabels, user.role)} at ${org.name}`} wrap />
+        <YourNameForm slug={slug} returnTo={`/org/${slug}/more`} fullName={user.full_name} />
         <Form action={signout}>
           <Stack gap={2}>
             <Button variant="destructive">Sign Out</Button>

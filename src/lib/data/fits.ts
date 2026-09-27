@@ -216,8 +216,9 @@ export async function recomputeFitsForAthlete(client: Client, orgId: string, ath
 // Also the self-heal: any stored row left on an athlete who is not scored
 // any more is deleted first.
 export async function recomputeFitsForOrg(client: Client, orgId: string, now = new Date()): Promise<{ error: string | null; count: number }> {
-  const { data: statusRows } = await client.from("athletes").select("id, status").eq("org_id", orgId);
-  const stale = ((statusRows ?? []) as { id: string; status: string }[]).filter((a) => !isScoredStatus(a.status)).map((a) => a.id);
+  const { data: statusRows } = await client.from("athletes").select("id, status, deleted_at").eq("org_id", orgId);
+  // A removed athlete is never scored either (loadAthletes skips them).
+  const stale = ((statusRows ?? []) as { id: string; status: string; deleted_at?: string | null }[]).filter((a) => a.deleted_at || !isScoredStatus(a.status)).map((a) => a.id);
   if (stale.length > 0) {
     const { error } = await client.from("athlete_school_fits").delete().eq("org_id", orgId).in("athlete_id", stale);
     if (error) return { error: error.message, count: 0 };

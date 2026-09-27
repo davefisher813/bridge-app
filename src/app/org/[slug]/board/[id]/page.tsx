@@ -73,7 +73,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
     supabase
       .from("recruiting_targets")
       .select(
-        "id, status, coach_name, offer_type, offer_scholarship_percent, athletes(id, org_id, recruit_type, name, sport, position, status, draft_team, draft_round, draft_year, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)",
+        "id, status, coach_name, offer_type, offer_scholarship_percent, athletes(id, org_id, recruit_type, name, sport, position, status, deleted_at, draft_team, draft_round, draft_year, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)",
       )
       .eq("id", id)
       .eq("org_id", org.id)
@@ -85,10 +85,11 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
 
   if (!target) notFound();
 
-  type PlacedAthleteRow = AthleteRow & { status: string; draft_team: string | null; draft_round: number | null; draft_year: number | null };
+  type PlacedAthleteRow = AthleteRow & { status: string; deleted_at?: string | null; draft_team: string | null; draft_round: number | null; draft_year: number | null };
   const athleteRow = unwrap((target as { athletes: PlacedAthleteRow | PlacedAthleteRow[] | null }).athletes);
   const schoolRow = unwrap((target as { schools: SchoolRow | SchoolRow[] | null }).schools);
-  if (!athleteRow || !schoolRow) notFound();
+  // A removed athlete's targets went with them (loadTarget says the same).
+  if (!athleteRow || athleteRow.deleted_at || !schoolRow) notFound();
 
   const athlete = athleteRowToFitAthlete(athleteRow);
   const school = schoolRowToFitSchool(schoolRow);

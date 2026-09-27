@@ -11,7 +11,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { EmptyState, Label, LinkButton, Prose, Row, Screen, Section } from "@/components/kit";
+import { EmptyState, Label, LinkButton, Notice, Prose, Row, Screen, Section } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { parseBands } from "@/lib/data/ncaaAdapters";
 import type { GradingBand } from "@/lib/fit/ncaa/gradingScale";
@@ -35,8 +35,9 @@ interface ScaleRow {
   source_note: string | null;
 }
 
-export default async function GradingScalesPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function GradingScalesPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ notice?: string }> }) {
   const { slug } = await params;
+  const { notice } = (await searchParams) ?? {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -97,6 +98,11 @@ export default async function GradingScalesPage({ params }: { params: Promise<{ 
       title="Grading Scales"
       back={{ href: `/org/${slug}/more`, label: "More" }}
     >
+      {notice && (
+        <Notice tone="success" title="Done">
+          {notice}
+        </Notice>
+      )}
       {blockedList.length > 0 && (
         <Section label="Needed Now" count={blockedList.length} role="offer" kind="warning">
           <Label>

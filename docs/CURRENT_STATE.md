@@ -1,7 +1,9 @@
 # Current state
 
-Last updated: 2026-09-26, after advisors, the family thread and staff
-check-ins (Stage 3), written and tested locally, not yet deployed.
+Last updated: 2026-09-27, after Stage 4 (autofill, the high school
+directory, athlete notes) and the add, edit and delete audit, written
+and tested locally, not yet committed or deployed. Stage 3 (0039) is
+not deployed either.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three logins, each with their own app on the same
@@ -14,8 +16,11 @@ against misreads; every list over five rows has a search; matches
 filter by region as well as state; an owner enters the NCAA transfer
 windows as data; enrolling an athlete closes their recruiting out for
 good, everywhere it shows; every athlete can have an advisor on staff
-who logs check-ins and talks with the family in the app. Ninety screens
-on one kit, 1,385 tests green, the app itself driven in a browser at
+who logs check-ins and talks with the family in the app; every record
+can be corrected and removed where it lives, a pick fills what is
+blank, staff keep notes on an athlete, an owner sets up the org and
+anyone signed in can start one, and nothing the stand-in reader read
+can ever be applied. 113 screens on one kit, 1,735 tests green, the app itself driven in a browser at
 320, 375 and 390 in both themes with nothing past the edge, no row or
 tile that goes nowhere, and every link followed to a real screen.
 
@@ -31,16 +36,18 @@ tile that goes nowhere, and every link followed to a real screen.
   own. Vercel Authentication is off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
   us-west-2). 38 migrations applied, the last 0038 (Transferring and
-  `closed_from`) on 2026-09-26. 0039 (advisors, messages, check-ins) is
-  tested locally and not applied yet. RLS on every table.
+  `closed_from`) on 2026-09-26. 0039 (advisors, messages, check-ins)
+  and 0040 (high schools, athlete notes, window notes,
+  `documents.read_by`, `create_org`) are tested locally and not applied
+  yet. RLS on every table.
 - **Accounts:** dave@bffsa.org and davefisher813@gmail.com, both owners
   of both orgs, both with the same password. Password is the first
   screen; the magic link sits behind "Email me a link instead".
 
 ## What exists
 
-**90 pages**, 39 migrations, 1,385 tests in 55 files, 14 law files,
-191 PASS lines in the row-level-security suite.
+**113 pages**, 40 migrations, 1,735 tests in 65 files, 22 law files,
+205 PASS lines in the row-level-security suite.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
@@ -64,8 +71,9 @@ veto overrides the blend rather than averaging into it.
 
 Screens: roster and athlete profile, the board grouped by stage, a target
 read view with its score broken down, one dimension in full, the contact
-log, the school list and a school profile. Add and edit for athletes,
-targets and schools.
+log, the school list and a school profile. Add, edit and remove for
+athletes, targets, the contact log, visits, schools and coaches (see
+Stage 4 below).
 
 ### Matching and metrics, 2026-09-20
 
@@ -135,7 +143,9 @@ monthly cap in cents on its row, $20 by default, set by an owner under
 More; the upload action refuses to start once the calendar month's
 ledger reaches it, and the More screen shows the month against the cap.
 The action picks the real caller the moment `ANTHROPIC_API_KEY` is set
-on the server; nothing else changes. No key is set on Vercel yet.
+on the server; nothing else changes. No key is set on Vercel yet. Since
+2026-09-27 a document records who read it (`documents.read_by`), and a
+stand-in reading can never be applied, even after the key is set.
 
 Hardened against misreads (2026-09-21, later the same day): every
 schema field reads what a model actually sends (quoted numbers, slashed
@@ -178,8 +188,9 @@ generated at build from the stylesheet's own tokens. `src/proxy.ts`
 ### Membership
 
 Owner-only, under More. The members list, an invite form, and a
-one-person screen to change a role or remove access. An org can never
-be left without an owner. "Invited" is read off a mirror of
+one-person screen to rename them, change a role (to and from family in
+place, links and all), assign the athletes they advise, or remove
+access. An org can never be left without an owner. "Invited" is read off a mirror of
 `auth.users.last_sign_in_at` kept by the profile trigger.
 
 ### The family role, 2026-09-21
@@ -507,6 +518,59 @@ it needs to make sense" ruled out reusing `recruit_type` for this, which
 describes what KIND of recruit someone is, never whether they still
 are one.
 
+### Stage 4 and the add, edit and delete audit, 2026-09-27
+
+Shared schools, coaches and transfer windows are edited only by an owner
+of a directory-editor organization (Bridge in production). A staff,
+member or family login cannot create an organization.
+
+Dave: "everything should be very easy for anyone to edit anything...
+add and delete and all that good stuff", "more buttons, less typing",
+and no data wired into the app. Migration 0040; the rules are in
+docs/BUSINESS_RULES.md ("Adding, editing and removing" and "Autofill"),
+the reasons in DECISIONS.md.
+
+- **Autofill.** Every free-text field with a known answer suggests it
+  (`SuggestField` in the kit): position by sport, high school, major,
+  college, F-1 and NCAA statuses, metric source, conference, coach,
+  grading-scale and approved-list school, board role, grant funder.
+  Home State and State are a list. A pick fills Home State, Current
+  Division, a coach's email and phone or a donor's details only when
+  blank, checked again on the server.
+- **The high school directory** (`high_schools`) exists and is empty.
+  `scripts/load_high_schools.ts` fills it from the public NCES files;
+  this sandbox's proxy refused nces.ed.gov, so nothing is loaded and the
+  parser has been checked only against the published layouts. Until it
+  runs, suggestions are the org's own high school names.
+- **Athlete notes**, staff only: added from Add Athlete, Edit, the
+  athlete page, and filed by Mark Enrolled, Mark Graduated, Mark
+  Drafted and Reopen with the step's name. Removed, never edited.
+- **Edit and remove everywhere.** Athletes (Remove Athlete, a soft
+  delete), contacts, metrics, check-ins, messages, family links (one
+  athlete at a time, from the athlete page or the member page),
+  targets with their award, the contact log, visits, schools (removal
+  refused while anything points at one; Merge Into for a duplicate),
+  the coach directory (owner), grading scales, approved lists (edited
+  in place), transfer windows (with notes), transcript courses, a
+  pending reading, documents (discarded or failed, for good), boards,
+  seats, donors, gifts, pledges, campaigns and grants. Every removal
+  asks first. Duplicate athlete and school names are caught.
+- **Enrolled and Graduated** only through Mark Enrolled and Mark
+  Graduated; Edit corrects a date already set.
+- **The org.** Organization Settings (owner): name, role labels,
+  fundraising and board on or off. Create an Organization for anyone
+  signed in, from the start screen and More. Owners and staff rename
+  themselves on More.
+- **The stand-in reader can never write onto an athlete.** Every
+  document records who read it; a stand-in reading, any reading while
+  no key is set, and an older document with no real model call on
+  record are refused, and the review screen says why instead of
+  offering Apply.
+- **No data wired in.** The schools template no longer names Bridge, a
+  law bans data in any migration from 0040 on, and a fixture build
+  refuses to build on Vercel. The Bridge mark stays the app icon, as
+  Dave asked; the name is one constant, `src/lib/product.ts`.
+
 ### Less text on every screen, 2026-09-25
 
 Dave: "eliminate as much instructional subtext as possible. Leave only
@@ -527,7 +591,7 @@ Format examples stay, because they are the part a person acts on.
 ## How it is verified
 
 1. **Unit tests** over the pure modules.
-2. **Laws** (`src/laws/`, 13 files) encode the rules from CLAUDE.md,
+2. **Laws** (`src/laws/`, 22 files) encode the rules from CLAUDE.md,
    BUSINESS_RULES.md, STYLING_CATALOG.md and MATCHING_CONTRACT.md as
    executable checks, each planted, watched to fail, and reverted
    before it counts.
@@ -586,7 +650,13 @@ Format examples stay, because they are the part a person acts on.
   row title to nothing, stat tiles that broke a word or a figure, and
   the stepper's last label at 320, but nothing past the edge at 375 or
   390. One screenshot from his phone is the missing input.
-- **No API key for Doc AI.** The model caller is a stand-in.
+- **No API key for Doc AI.** The model caller is a stand-in, and since
+  2026-09-27 nothing it reads can be applied. Every document already in
+  production was read by it, so once the key is set each one is
+  discarded, deleted for good and uploaded again.
+- **The high school directory is empty.** Run
+  `scripts/load_high_schools.ts` with the service role key from a
+  machine that can reach nces.ed.gov (steps in scripts/README.md).
 - **The name.** "BFFSA" is what the app calls itself for now.
 - **Who advises whom.** Every production athlete's advisor is null
   until Dave picks one on the Edit screen; the notes name Dave, Mike
@@ -603,7 +673,11 @@ Format examples stay, because they are the part a person acts on.
   0033), is that they were callable without signing in at all.
 
 - **`org_members` has no write policy.** Every membership write goes
-  through the service role behind `requireOwner()`.
+  through the service role behind `requireOwner()`, except the first
+  owner of a new org, which `create_org` writes as a security-definer
+  function any signed-in person may call.
+- **School names are unique by name key in the app only.** There is no
+  database index; Add School, Edit and the CSV import check.
 - **`schools` is writable only by the service role**, with
   `requireOwner()` as the actual gate.
 - **The preview shows fixture data and does not post forms.** What a
@@ -635,20 +709,25 @@ Format examples stay, because they are the part a person acts on.
 
 ## Immediate next steps
 
-1. Stage 3 ships when Dave says "go": apply 0039 to production, deploy,
-   then Dave picks an advisor on each athlete's Edit screen.
-2. Dave exports his school sheet to the template and imports it, then
+1. Stages 3 and 4 ship when Dave says "go": commit, apply 0039 and
+   0040 to production, deploy, then Dave picks advisors (several at once
+   from each staff member's page now) and walks the new edit and remove
+   screens on his phone. The new screens were built without a preview,
+   per the lead's call for this build.
+2. Load the high school directory (above), then set the AI key and
+   discard, delete and re-upload the production documents.
+3. Dave exports his school sheet to the template and imports it, then
    logs a first metric and reads a real match. The three interpreted
    numbers (strike target, grade weights, preset weights) get revisited
    on what he sees. Nothing else in the app is waiting on code: every
    screen it needs exists and is verified against the fixture.
-3. Dave's page-by-page audit of the new screens on his phone.
-4. The first real family (the athlete first, then a parent or legal
+4. Dave's page-by-page audit of the new screens on his phone.
+5. The first real family (the athlete first, then a parent or legal
    guardian) and the first real board login, each from the athlete's
    page and the seat's page respectively.
-5. The current NCAA transfer windows, entered from an NCAA-published
+6. The current NCAA transfer windows, entered from an NCAA-published
    page, so transfer timing stops reading as unverified.
-6. Cleanup pass: one page loader, `cache()` on the org and user lookups,
+7. Cleanup pass: one page loader, `cache()` on the org and user lookups,
    split `documents.ts`, then the `@supabase/ssr` and `zod` bumps.
 
 See docs/ROADMAP.md for the rest.

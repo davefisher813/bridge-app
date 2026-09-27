@@ -239,8 +239,9 @@ Committed, Enrolled, Transferring, Graduated, Drafted, Inactive.
 - **Scored** (Active, Transferring): the only two the fit engine scores.
   Inactive is not scored either; a kid who is not recruiting has nothing
   to rank.
-- **A close-out** (Mark Enrolled, Graduated, Drafted, or the Edit
-  dropdown) closes every open target to Not Interested and records the
+- **A close-out** (Mark Enrolled, Mark Graduated or Mark Drafted, each
+  of which asks for its date or team; since 2026-09-27 the Edit dropdown
+  refuses all three and points at the button) closes every open target to Not Interested and records the
   status it replaced in `recruiting_targets.closed_from`, so nothing is
   lost and a reopen knows exactly what to restore. The Committed target
   stays as history.
@@ -284,6 +285,92 @@ Committed, Enrolled, Transferring, Graduated, Drafted, Inactive.
   file a message under another org.
 - **No email yet.** A new message is signalled only by the unread count
   in the app.
+
+## Adding, editing and removing (2026-09-27)
+
+Dave: "everything should be very easy for anyone to edit anything...
+add and delete and all that good stuff." Every record a person can add
+they can now correct and remove where it lives, and every removal asks
+first (a ConfirmButton inside the form). Every write checks the role on
+the server and is scoped by org, and by athlete or target as well where
+the row belongs to one.
+
+| Record | Add | Edit | Remove |
+|---|---|---|---|
+| Athlete | owner, staff | owner, staff | owner, staff (a soft delete: off every list, targets kept on file) |
+| Athlete note | owner, staff | nobody | owner, staff |
+| Contact, metric, check-in, transcript course | owner, staff | owner, staff | owner, staff |
+| Message | owner, staff, a linked family | nobody | owner, staff |
+| Family link | owner, staff (invite, link another athlete) | owner, staff (relationship) | owner, staff (one athlete at a time) |
+| Target, contact log entry, visit, award | owner, staff | owner, staff | owner, staff |
+| Document | owner, staff | owner, staff (correct a pending reading) | owner, staff (discarded or failed only) |
+| Grading scale, approved list | owner, staff | owner, staff | owner, staff |
+| School | owner | owner | owner (refused while anything points at it; merge instead) |
+| Coach (the shared directory) | owner | owner | owner |
+| Transfer window | owner | owner | owner |
+| Org name, role labels, modules | anyone signed in (a new org) | owner | nobody (not built) |
+| Member role | owner (invite) | owner | owner |
+| Advisor assignment | owner (several at once, on the member page), owner and staff (on an athlete's Edit) | same | same |
+| A person's name | | owner (anyone in the org), owner and staff (their own) | |
+| Board, seat, donor, gift, pledge, campaign, grant (modules on) | owner, staff | owner, staff | owner, staff (a board with seats cannot be removed; a donor is a soft delete) |
+
+A family login and a member add, edit and remove nothing except a
+family's own messages on its own athlete's thread.
+
+- **Enrolled and Graduated are set by Mark Enrolled and Mark Graduated,
+  never by Edit.** Edit corrects an Enrollment Date or Graduated On
+  already set (the enrollment date also for a transfer, whose clock
+  started elsewhere). Graduated On can never be before the enrollment.
+- **A pledge's Fulfilled is worked out from its payments.** Editing or
+  removing a gift re-settles its pledge both ways. Written Off is a
+  choice and is left alone.
+- **Duplicates are caught by name key** (`lower(btrim(name))`): an
+  athlete on this roster (Add Anyway goes past it), a school anywhere.
+- **Athlete notes are staff only.** Owner and staff read and write them;
+  a family login or a member never reads one, enforced in the database
+  (`athlete_notes`, never a column on `athletes`). A note is written
+  once and removed, never edited. Mark Enrolled, Mark Graduated, Mark
+  Drafted and Reopen Recruiting each file theirs with the step's name.
+
+## Who edits the shared directory (2026-09-27)
+
+- Schools, college coaches and transfer windows are shared by every
+  organization. Only an owner of an organization marked
+  `orgs.edits_shared_directory` can add, edit, import, merge or remove
+  them. Being an owner of some organization is not enough.
+- The first organization created on a fresh install is marked
+  automatically. On this deployment Bridge is marked by a one-off
+  statement, never by a migration. Nothing in the app can set the flag.
+- Anyone signed in with no organization, or who only owns
+  organizations, can create one and becomes its owner. A staff, member
+  or family login cannot, so a parent can never make themselves an
+  owner.
+- Merging two schools never deletes another organization's notes or
+  targets: notes are joined under "Merged from ...", and the more
+  advanced stage of two targets for one athlete is kept.
+
+## Autofill (2026-09-27)
+
+"More buttons, less typing." A field suggests what the org already has
+and what the public directory has, and a pick fills its neighbours.
+
+- **A fill happens only when the field is blank.** Picking a high school
+  fills Home State, a college fills Current Division, a coach fills
+  email and phone, a donor fills a board seat's contact details, a
+  transcript's header fills a blank High School. A typed value always
+  wins, on the client and again on the server, and the server looks
+  the pick up itself rather than trusting an id from the browser.
+- **The high school directory is seeded from public files only**: the
+  NCES Common Core of Data (public schools) and Private School Survey,
+  grade 12 schools, loaded by `scripts/load_high_schools.ts`. Nothing an
+  org entered ever goes into it, and it never ships in a migration.
+  Until it is loaded, suggestions come from the org's own names.
+- **The org's own names come first**: the high schools on its athletes,
+  transcripts, grading scales and approved lists, then the directory in
+  the states its athletes live in.
+- **No data in a migration** from 0040 on: no org, athlete, school,
+  coach, window, high school, donor or user row. A new install starts
+  empty; data comes in through the app or a one-off script.
 
 ## Fit-scoring model
 

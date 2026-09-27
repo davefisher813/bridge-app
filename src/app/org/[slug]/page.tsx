@@ -138,7 +138,10 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
     }
   }
 
-  const rows = (targets ?? []) as TargetRow[];
+  // Only athletes still on the roster: a removed athlete's targets stay
+  // in the table for the record and leave every count here.
+  const onRoster = new Set(((athleteRows ?? []) as AthleteRow[]).map((a) => a.id));
+  const rows = ((targets ?? []) as TargetRow[]).filter((r) => onRoster.has(r.athlete_id));
   const inContactCount = rows.filter((r) => r.status === "In Contact").length;
   const committedCount = rows.filter((r) => r.status === "Committed").length;
   const totalTargets = rows.length;
@@ -215,7 +218,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   const onBoard = new Set(rows.map((r) => `${r.athlete_id}:${r.school_id}`));
   const since = Date.now() - STRONG_MATCH_DAYS * 24 * 60 * 60 * 1000;
   const strongByAthlete = new Map<string, { athleteId: string; athleteName: string; schoolName: string; score: number; tag: string; more: number }>();
-  for (const f of ((strongRows ?? []) as StrongFitRow[]).filter((f) => new Date(f.computed_at).getTime() >= since && !onBoard.has(`${f.athlete_id}:${f.school_id}`))) {
+  for (const f of ((strongRows ?? []) as StrongFitRow[]).filter((f) => onRoster.has(f.athlete_id) && new Date(f.computed_at).getTime() >= since && !onBoard.has(`${f.athlete_id}:${f.school_id}`))) {
     const existing = strongByAthlete.get(f.athlete_id);
     if (existing) existing.more += 1;
     else strongByAthlete.set(f.athlete_id, { athleteId: f.athlete_id, athleteName: unwrap(f.athletes)?.name ?? "Unknown athlete", schoolName: unwrap(f.schools)?.name ?? "Unknown school", score: f.score, tag: f.tag, more: 0 });

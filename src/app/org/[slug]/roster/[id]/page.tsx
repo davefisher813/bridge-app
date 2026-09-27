@@ -10,6 +10,10 @@ import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
 import { canReopen, isScoredStatus, nextOutcomes, placementAthlete, placementMeta, placementOf, type Outcome } from "@/lib/placement";
 import { reopenRecruiting } from "@/lib/actions/reopen";
+import { addNote, removeAthlete, removeNote } from "@/lib/actions/athletes";
+import { AthleteNoteForm } from "@/components/AthleteNoteForm";
+import { loadAthleteNotes, NOTE_CONTEXT_LABEL } from "@/lib/data/athleteNotes";
+import { loadCoachOptions } from "@/lib/data/lookups";
 import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Grid2, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { relationshipLabel } from "@/lib/copy/relationships";
 import { statusRole, stageKind } from "@/components/statusHue";
@@ -95,7 +99,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
-  const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits, staff, { data: lastCheckinRows }, threads] = await Promise.all([
+  const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits, staff, { data: lastCheckinRows }, threads, notes] = await Promise.all([
     supabase
       .from("athletes")
       .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment, advisor_id")
@@ -119,6 +123,11 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
     loadStaff(supabase, org.id),
     supabase.from("athlete_checkins").select("occurred_on").eq("org_id", org.id).eq("athlete_id", id).order("occurred_on", { ascending: false }).limit(1),
     threadSummaryByAthlete(supabase, org.id, user.id, [id]),
+    // Staff notes (migration 0040), all of them: this is the only screen
+    // that lists them, so a cut-off would hide a note nobody could then
+    // read or delete. Behind the staff guard above; no family or member
+    // screen reads this table.
+    loadAthleteNotes(supabase, org.id, id),
   ]);
 
   if (!athlete) notFound();
@@ -190,8 +199,12 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
   const contacts = contactRows ?? [];
   const schools = (schoolRows ?? []).map((s) => ({ id: s.id, label: `${s.name} (${s.division})` }));
+  // Each college's coaches, so a contact form that picks a school can
+  // suggest them by name and fill the email and phone (Stage 4).
+  const coaches = canEdit ? await loadCoachOptions(supabase, schools.map((s) => s.id)) : {};
   const contactAction = createContact.bind(null, slug, id);
   const deleteContactAction = deleteContact.bind(null, slug, id);
+  const noteAction = addNote.bind(null, slug, id);
 
   return (
     <Screen
@@ -408,6 +421,36 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         />
       </Section>
 
+      {/* Staff only (migration 0040): a dated log, newest first. Notes
+          are deleted, never edited, and no family or member screen reads
+          them. */}
+      <Section label="Notes" count={notes.length} role="accent" kind="note">
+        {notes.length === 0 ? (
+          <EmptyState kind="note" title="No Notes Yet">
+            Staff only. The family never sees them.
+          </EmptyState>
+        ) : (
+          notes.map((n) => (
+            <Card key={n.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <Label>{[NOTE_CONTEXT_LABEL[n.context] ?? "Note", n.createdAt ? longDate(n.createdAt.slice(0, 10)) : null, n.authorName].filter(Boolean).join(" · ")}</Label>
+                  <Body>{n.body}</Body>
+                </div>
+                {canEdit && (
+                  <Form action={removeNote.bind(null, slug, id, n.id)}>
+                    <ConfirmButton inline title="Delete This Note?" body="It comes off the log for good. Nothing else changes." confirmLabel="Delete">
+                      Delete
+                    </ConfirmButton>
+                  </Form>
+                )}
+              </div>
+            </Card>
+          ))
+        )}
+        {canEdit && <AthleteNoteForm action={noteAction} />}
+      </Section>
+
       <Section label="Contacts" count={contacts.length} role="people" kind="people">
         {contacts.length === 0 ? (
           <EmptyState kind="people" title="No Contacts Yet">
@@ -430,11 +473,14 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
                   {c.notes && <Label>{c.notes}</Label>}
                 </div>
                 {canEdit && (
-                  <Form action={deleteContactAction.bind(null, c.id)}>
-                    <ConfirmButton inline title={`Remove ${c.name}?`} body="They come off this athlete's contacts. Nothing else changes." confirmLabel="Remove">
-                      Remove
-                    </ConfirmButton>
-                  </Form>
+                  <div className="flex flex-col items-end gap-1">
+                    <TextLink href={`/org/${slug}/roster/${id}/contacts/${c.id}/edit`}>Edit</TextLink>
+                    <Form action={deleteContactAction.bind(null, c.id)}>
+                      <ConfirmButton inline title={`Remove ${c.name}?`} body="They come off this athlete's contacts. Nothing else changes." confirmLabel="Remove">
+                        Remove
+                      </ConfirmButton>
+                    </Form>
+                  </div>
                 )}
               </div>
             </Card>
@@ -442,7 +488,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         )}
         {canEdit && (
           <div>
-            <ContactForm action={contactAction} schools={schools} />
+            <ContactForm action={contactAction} schools={schools} coaches={coaches} />
           </div>
         )}
       </Section>
@@ -454,13 +500,15 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           </EmptyState>
         ) : (
           family.map((g) => (
+            // Opens the link itself: who they are to this athlete, Unlink,
+            // and linking them to another athlete (audit crud F7).
             <Row
               key={g.userId}
-              href={user.role === "owner" ? `/org/${slug}/members/${g.userId}` : undefined}
+              href={canEdit ? `/org/${slug}/roster/${id}/family/${g.userId}` : undefined}
               leading={<Avatar name={g.person!.full_name || g.person!.email} />}
               title={g.person!.full_name || g.person!.email}
               meta={`${relationshipLabel(g.relationship)} · ${g.person!.email}`}
-              trailing={user.role === "owner" ? <Chevron /> : undefined}
+              trailing={canEdit ? <Chevron /> : undefined}
               wrap
             />
           ))
@@ -471,6 +519,16 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           </LinkButton>
         )}
       </Section>
+
+      {canEdit && (
+        // Audit crud F1: a test record, a duplicate, or a family that asks
+        // for the record to go. It leaves every list at once.
+        <Form action={removeAthlete.bind(null, slug, id)}>
+          <ConfirmButton title={`Remove ${athlete.name}?`} body="They come off the roster, Today, the Targets board and the family's view, and their matches are cleared." confirmLabel="Remove Athlete">
+            Remove Athlete
+          </ConfirmButton>
+        </Form>
+      )}
     </Screen>
   );
 }

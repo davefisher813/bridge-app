@@ -19,6 +19,7 @@ import Link from "next/link";
 import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 import { DOT, TEXT_ON, scoreRole, type Role } from "@/components/statusHue";
 import { TabBar, type TabBarVariant } from "@/components/kit/TabBar";
+import { nameKey } from "@/lib/lookup/nameKey";
 
 export type { Role, RowKind };
 
@@ -415,7 +416,7 @@ export function TextLink({ href, children }: { href: string; children: ReactNode
 // 16px, 48px tall, filled paper on the page (or the page colour when the
 // form itself sits on paper), a red ring for focus and for an error.
 // The label sits above, the error under. Every input in the app is one
-// of these three; a raw <input> anywhere else fails the build.
+// of these; a raw <input> anywhere else fails the build.
 const FIELD_BASE = "w-full rounded border-0 px-4 text-body text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent";
 
 function fieldSurface(onPaper: boolean, error?: string): string {
@@ -459,6 +460,48 @@ export function TextAreaField({ id, name, label, hint, error, onPaper = false, .
   return (
     <FieldFrame id={fieldId} label={label} hint={hint} error={error}>
       <textarea id={fieldId} name={name} aria-invalid={error ? true : undefined} rows={4} {...rest} className={`${FIELD_BASE} min-h-24 resize-y py-3 ${fieldSurface(onPaper, error)}`} />
+    </FieldFrame>
+  );
+}
+
+// A text field that suggests while you type: pick from the list or keep
+// typing, and whatever is typed is kept (Stage 4, "more buttons, less
+// typing"). It is the same 48px field with a native suggestion list, so
+// iPhone Safari shows its own picker and nothing new has to be styled.
+// Duplicate names (by the same key the database uses) are listed once,
+// and the list stops at 2000, past which it helps nobody on a phone.
+// The list's id comes from the field's, so pass an explicit `id` when
+// the same name could appear twice on one page.
+export type Suggestion = string | { value: string; label?: string };
+
+export const SUGGESTION_CAP = 2000;
+
+function suggestionList(suggestions: readonly Suggestion[]): { value: string; label?: string }[] {
+  const seen = new Set<string>();
+  const out: { value: string; label?: string }[] = [];
+  for (const s of suggestions) {
+    const o = typeof s === "string" ? { value: s } : { value: s.value, label: s.label };
+    const key = nameKey(o.value);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(o);
+    if (out.length >= SUGGESTION_CAP) break;
+  }
+  return out;
+}
+
+export function SuggestField({ id, name, label, hint, error, onPaper = false, labelHidden = false, suggestions, className = "", ...rest }: Omit<InputHTMLAttributes<HTMLInputElement>, "list"> & { name: string; label: ReactNode; hint?: ReactNode; error?: string; onPaper?: boolean; labelHidden?: boolean; suggestions: readonly Suggestion[] }) {
+  const fieldId = id ?? name;
+  const listId = `${fieldId}-options`;
+  const options = suggestionList(suggestions);
+  return (
+    <FieldFrame id={fieldId} label={label} hint={hint} error={error} labelHidden={labelHidden}>
+      <input id={fieldId} name={name} list={listId} autoComplete="off" aria-invalid={error ? true : undefined} {...rest} className={`${FIELD_BASE} min-h-12 ${fieldSurface(onPaper, error)} ${className}`} />
+      <datalist id={listId}>
+        {options.map((o) => (
+          <option key={nameKey(o.value)} value={o.value} label={o.label} />
+        ))}
+      </datalist>
     </FieldFrame>
   );
 }

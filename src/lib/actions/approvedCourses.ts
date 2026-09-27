@@ -121,3 +121,35 @@ export async function saveApprovedList(
 export async function previewApprovedListPaste(text: string) {
   return parseApprovedListPaste(text);
 }
+
+// The Which School step on Add a List: the school is picked (or typed)
+// first, then the entry screen opens for it. A redirect rather than
+// client state, so the entry screen is the same one every other link
+// into it opens.
+export async function pickApprovedListSchool(slug: string, formData: FormData): Promise<void> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireRole(org.id, STAFF_ROLES);
+
+  const school = String(formData.get("school") ?? "").trim().slice(0, 200);
+  if (!school) redirect(`/org/${slug}/approved-courses/new`);
+  redirect(`/org/${slug}/approved-courses/new?school=${encodeURIComponent(school)}`);
+}
+
+// Remove List (crud F13): the org's own list and its courses, scoped by
+// id and org. A portal list is shared and never reaches this. Courses at
+// the school stop being confirmed by it at once.
+export async function deleteApprovedList(slug: string, listId: string): Promise<void> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireRole(org.id, STAFF_ROLES);
+
+  const supabase = await createClient();
+  const { error: coursesError } = await supabase.from("org_approved_courses").delete().eq("list_id", listId).eq("org_id", org.id);
+  const { error } = coursesError ? { error: coursesError } : await supabase.from("org_approved_course_lists").delete().eq("id", listId).eq("org_id", org.id);
+
+  revalidatePath(`/org/${slug}/approved-courses`);
+  revalidatePath(`/org/${slug}/roster`);
+  if (error) redirect(`/org/${slug}/approved-courses/${listId}?error=${encodeURIComponent(error.message)}`);
+  redirect(`/org/${slug}/approved-courses?notice=${encodeURIComponent("List removed.")}`);
+}

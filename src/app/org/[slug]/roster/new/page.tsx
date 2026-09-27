@@ -3,6 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { loadStaff } from "@/lib/data/staff";
+import { loadAthleteFormOptions } from "@/lib/data/athleteFormOptions";
 import { createAthlete } from "@/lib/actions/athletes";
 import { AthleteForm } from "@/components/AthleteForm";
 import { Screen } from "@/components/kit";
@@ -14,12 +15,13 @@ export default async function NewAthletePage({ params }: { params: Promise<{ slu
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const advisors = (await loadStaff(supabase, org.id)).map((s) => ({ id: s.id, name: s.name }));
+  const [staff, options] = await Promise.all([loadStaff(supabase, org.id), loadAthleteFormOptions(supabase, org.id)]);
+  const advisors = staff.map((s) => ({ id: s.id, name: s.name }));
   const action = createAthlete.bind(null, slug);
 
   return (
     <Screen title="Add Athlete" back={{ href: `/org/${slug}/roster`, label: "Athletes" }}>
-      <AthleteForm action={action} submitLabel="Add Athlete" firstMetrics advisors={advisors} />
+      <AthleteForm action={action} submitLabel="Add Athlete" firstMetrics advisors={advisors} options={options} />
     </Screen>
   );
 }

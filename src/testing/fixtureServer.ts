@@ -5,7 +5,9 @@
 // real fonts, hydration and chrome, runs on the same fixture the render
 // law and the preview use. That is the honest way to look at the app
 // from here: not a string render, the app itself in a browser, at every
-// phone width. Never built for production: Vercel does not set the flag.
+// phone width. Never built for production: next.config.ts refuses a
+// fixture build on Vercel, and createClient below refuses to run there
+// too, in case the alias ever reaches a deployment another way.
 //
 // Who is signed in is the fixture owner unless a `fixture_user` cookie
 // names another fixture id: that is how the live driver opens the family
@@ -19,6 +21,7 @@ import { createFakeClient } from "@/testing/fakeSupabase";
 const KNOWN = new Set([OWNER_ID, FAMILY_ID, MEMBER_ID]);
 
 export const createClient = cache(async () => {
+  if (process.env.VERCEL === "1" || process.env.VERCEL_ENV) throw new Error("The fixture client must never run on Vercel");
   let userId = OWNER_ID;
   try {
     const picked = (await cookies()).get("fixture_user")?.value;

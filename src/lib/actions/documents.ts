@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createHash } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -27,8 +28,12 @@ import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
 import { isRealDate } from "@/lib/docai/lenient";
 import { isStaleProcessing } from "@/lib/data/documentState";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
-import { applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, undoContact, undoMetrics, undoTarget, undoTestScores, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
+import { applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, fillHighSchoolFromTranscript, undoContact, undoDetail, undoMetrics, undoTarget, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
+import { applyRefusal, isStubReading, readerFor } from "@/lib/data/readBy";
+import { applyExtractedEdits } from "@/lib/data/extractedEdit";
+import { clampCredit, COURSE_SUBJECTS, MAX_COURSE_GRADE, MAX_COURSE_SCHOOL, MAX_COURSE_TERM, MAX_COURSE_TITLE } from "@/lib/validation/course";
+import { CATEGORY_SCHEMAS } from "@/lib/docai/categories";
 import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole, StoredRecord, TriageResult } from "@/lib/docai/types";
 
 // The caller side of src/lib/docai. The pipeline deliberately returns a
@@ -47,6 +52,31 @@ import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole, Stored
 // environment and framework specifics per CLAUDE.md.
 export async function isStubbedModel(): Promise<boolean> {
   return !process.env.ANTHROPIC_API_KEY;
+}
+
+// The model that reads a document when a key is set. Named here, and
+// handed to the pipeline, so documents.read_by records the model that
+// actually did the reading.
+const EXTRACTION_MODEL = "claude-opus-5";
+
+// Whether this document's reading may be written onto an athlete, and if
+// not, why (audit wired F1). The one gate for both ways a reading lands:
+// the Apply button and the pipeline's own auto-apply. A document the
+// stand-in read is refused forever, anything is refused while no key is
+// set, and a document read before read_by existed needs the model ledger
+// to show a real call for it. See src/lib/data/readBy.ts.
+async function applyGate(orgId: string, documentId: string | null): Promise<string | null> {
+  const stubbed = await isStubbedModel();
+  if (!documentId) return applyRefusal({ readBy: null, stubbed, ledgerShowsRealRead: false });
+  const supabase = await createClient();
+  const { data } = await supabase.from("documents").select("read_by").eq("id", documentId).eq("org_id", orgId).maybeSingle();
+  const readBy = ((data as { read_by?: string | null } | null)?.read_by ?? null) || null;
+  let ledgerShowsRealRead = false;
+  if (readBy === null && !stubbed) {
+    const { data: calls } = await supabase.from("docai_usage").select("id").eq("org_id", orgId).eq("document_id", documentId).limit(1);
+    ledgerShowsRealRead = ((calls ?? []) as unknown[]).length > 0;
+  }
+  return applyRefusal({ readBy, stubbed, ledgerShowsRealRead });
 }
 
 // The model that reads a document. With no API key on the server, the
@@ -113,6 +143,8 @@ interface AppliedChanges {
 interface ApplyOutcome {
   warnings: string[];
   changes: AppliedChanges;
+  // True when the gate refused the reading and nothing was written.
+  refused?: boolean;
 }
 
 // Returns the reason to refuse, or null to proceed. Decoding happens
@@ -217,7 +249,9 @@ async function loadRoster(orgId: string): Promise<{ roster: ResolverAthlete[]; c
     roster: rows.map((a) => ({
       id: a.id,
       name: a.name,
-      school: (a.detail as { currentSchool?: string } | null)?.currentSchool ?? undefined,
+      // The school the resolver weighs a name against: a transfer's
+      // current college, or a high school athlete's high school.
+      school: (a.detail as { currentSchool?: string } | null)?.currentSchool || (a.detail as { highSchool?: string } | null)?.highSchool || undefined,
       gradYear: (a.detail as { gradYear?: number } | null)?.gradYear ?? undefined,
     })),
     context: rows.map((a) => ({ id: a.id, name: a.name, sport: a.sport, position: a.position })),
@@ -254,10 +288,11 @@ export async function processDocument(
   }
 
   const supabase = await createClient();
+  const stubbed = await isStubbedModel();
 
   // The month's cap, before a row is written or a byte is read. Only
   // the real model spends money; the stub is free and never capped.
-  if (!(await isStubbedModel())) {
+  if (!stubbed) {
     const spend = await loadMonthSpend(supabase, org.id);
     if (spend.exhausted) {
       return {
@@ -339,6 +374,10 @@ export async function processDocument(
       request_id: first.requestId,
       storage_paths: input.records.map((r) => r.storagePath),
       content_hash: hash,
+      // Which model reads it, written once, before the reading starts.
+      // 'stub' is permanent (a trigger in migration 0040), so a reading
+      // the stand-in invented can never be relabelled and applied.
+      read_by: readerFor(stubbed, EXTRACTION_MODEL),
     })
     .select("id")
     .single();
@@ -495,6 +534,7 @@ async function readAndFile(
     // prompt uses it, but the routing decision below does not depend on
     // it: a pinned upload resolves by ID.
     override: pinnedAthlete?.name,
+    extractionModel: EXTRACTION_MODEL,
   });
 
   if (!result.ok) {
@@ -519,8 +559,11 @@ async function readAndFile(
   const topCandidate = result.candidates[0] ?? null;
   // auto_apply is the pipeline's call, but it still needs somebody to
   // apply it TO. A confident extraction that matched nobody is a review,
-  // not an application.
-  const canAutoApply = result.route === "auto_apply" && topCandidate != null;
+  // not an application. And a reading the gate refuses (the stand-in's,
+  // or anything while no key is set) is never applied on its own: it
+  // waits in review, where the screen says why it can not be applied.
+  const wantsAutoApply = result.route === "auto_apply" && topCandidate != null;
+  const canAutoApply = wantsAutoApply && (await applyGate(org.id, documentId)) === null;
 
   await supabase
     .from("documents")
@@ -548,6 +591,17 @@ async function readAndFile(
 
   if (canAutoApply) {
     const outcome = await applyGuarded(org.id, topCandidate!.athlete.id, categoryId, result.extracted, documentId, null);
+    if (outcome.refused) {
+      // Refused between the check and the write. Nothing was written, so
+      // the document goes back to review rather than saying applied.
+      await supabase
+        .from("documents")
+        .update({ status: "pending", athlete_id: null, applied_at: null, updated_at: new Date().toISOString() })
+        .eq("id", documentId)
+        .eq("org_id", org.id);
+      revalidatePath(`/org/${slug}/documents`);
+      return { ok: true, documentId };
+    }
     // applied_changes is written whether or not there were warnings. An
     // apply that half succeeded is exactly the one somebody will want to
     // undo, so it must not be the one with nothing recorded.
@@ -580,6 +634,10 @@ async function applyGuarded(
   appliedBy: string | null
 ): Promise<ApplyOutcome> {
   const changes: AppliedChanges = { athleteId, athleteFields: {}, gradingScaleId: null, coursesSuperseded: 0 };
+  // Checked here, where both paths meet, not only behind the button: a
+  // server action is a public endpoint and auto-apply has no button.
+  const refusal = await applyGate(orgId, documentId);
+  if (refusal) return { warnings: [refusal], changes, refused: true };
   try {
     return await applyExtractionToAthlete(orgId, athleteId, categoryId, extracted, documentId, appliedBy, changes);
   } catch (e) {
@@ -622,11 +680,12 @@ async function applyExtractionToAthlete(
   // used to run its own query for exactly this.
   const { data: currentAthlete } = await supabase
     .from("athletes")
-    .select("gpa, gpa_verified, date_of_birth")
+    .select("gpa, gpa_verified, date_of_birth, home_state, detail")
     .eq("id", athleteId)
     .eq("org_id", orgId)
     .single();
   const before = (currentAthlete ?? {}) as Record<string, unknown>;
+  const currentDetail = (before.detail ?? null) as { kind?: string; highSchool?: string } | null;
 
   // A college transcript (a transfer athlete's) carries a GPA worth
   // keeping and a course list that is not the high school core list
@@ -667,13 +726,24 @@ async function applyExtractionToAthlete(
     if (level === "college") {
       warnings.push("College courses were left on the document: they are not the high school core list the eligibility screen reads.");
     } else {
-      const courseOutcome = await replaceCoursesFromDocument(orgId, athleteId, documentId, extracted);
+      // A high school athlete's own high school stands in for a header
+      // the reading could not make out, so the course rows still name
+      // the school whose grading scale converts them.
+      const fallbackSchool = currentDetail?.kind === "hs" ? currentDetail.highSchool?.trim() || null : null;
+      const courseOutcome = await replaceCoursesFromDocument(orgId, athleteId, documentId, extracted, fallbackSchool);
       warnings.push(...courseOutcome.warnings);
       changes.coursesSuperseded = courseOutcome.superseded;
 
       const scaleOutcome = await recordGradingScale(extracted, documentId);
       warnings.push(...scaleOutcome.warnings);
       changes.gradingScaleId = scaleOutcome.createdId;
+
+      // The header school fills a blank High School on a high school
+      // athlete, and is recorded so a discard takes it back off. Never
+      // overwrites one somebody typed.
+      const filled = await fillHighSchoolFromTranscript(supabase, orgId, athleteId, extracted);
+      warnings.push(...filled.warnings);
+      if (filled.detail) changes.detail = { ...(changes.detail ?? {}), ...filled.detail };
     }
   }
 
@@ -752,7 +822,9 @@ async function replaceCoursesFromDocument(
   orgId: string,
   athleteId: string,
   documentId: string | null,
-  extracted: Record<string, unknown>
+  extracted: Record<string, unknown>,
+  // The athlete's own high school, used when the header could not be read.
+  fallbackSchool: string | null = null
 ): Promise<{ warnings: string[]; superseded: number }> {
   const warnings: string[] = [];
   const raw = extracted.courses;
@@ -762,7 +834,8 @@ async function replaceCoursesFromDocument(
   // The school printed in the transcript header. Used for any course
   // row that does not name its own, which is every row on the ordinary
   // single-school transcript.
-  const headerSchool = typeof extracted.school === "string" ? extracted.school.trim().slice(0, 200) : null;
+  const printed = typeof extracted.school === "string" ? extracted.school.trim().slice(0, MAX_COURSE_SCHOOL) : "";
+  const headerSchool = printed || (fallbackSchool ? fallbackSchool.slice(0, MAX_COURSE_SCHOOL) : null);
   // Every value is clamped to what its column can hold. credit is
   // numeric(4,2), so anything at or above 100 raised a numeric overflow
   // that rejected the WHOLE batch after the delete had already
@@ -770,7 +843,9 @@ async function replaceCoursesFromDocument(
   // reported success. The schema has no upper bound on credit, and a
   // transcript that prints cumulative hours rather than per-course units
   // is enough to trigger it without any bad intent.
-  const SUBJECTS = new Set(["english", "math", "science", "social_science", "other_academic", "non_academic"]);
+  // The same limits a course typed by hand is held to
+  // (src/lib/validation/course.ts), so the two can never disagree.
+  const SUBJECTS = new Set<string>(COURSE_SUBJECTS);
   const rows = (raw as ExtractedCourse[])
     .filter((c) => c && typeof c.title === "string" && c.title.trim() !== "")
     .filter((c) => SUBJECTS.has(String(c.subject)))
@@ -779,18 +854,18 @@ async function replaceCoursesFromDocument(
       org_id: orgId,
       athlete_id: athleteId,
       document_id: documentId,
-      title: String(c.title).slice(0, 200),
+      title: String(c.title).slice(0, MAX_COURSE_TITLE),
       subject: c.subject,
-      credit: Number.isFinite(c.credit) ? Math.max(0, Math.min(99.99, Number(c.credit))) : 0,
-      grade: String(c.grade ?? "").slice(0, 20),
-      term: c.term ? String(c.term).slice(0, 40) : null,
+      credit: clampCredit(c.credit),
+      grade: String(c.grade ?? "").slice(0, MAX_COURSE_GRADE),
+      term: c.term ? String(c.term).slice(0, MAX_COURSE_TERM) : null,
       // Per course, falling back to the header. A transfer student's
       // transcript covers two schools that convert numeric grades
       // differently, so one school's 85 is a B and another's is a C.
       // Until the extraction schema carried this, every row took the
       // header school and half a transfer transcript converted through
       // the wrong table.
-      school_name: (typeof c.school === "string" && c.school.trim() !== "" ? c.school.trim().slice(0, 200) : null) ?? headerSchool,
+      school_name: (typeof c.school === "string" && c.school.trim() !== "" ? c.school.trim().slice(0, MAX_COURSE_SCHOOL) : null) ?? headerSchool,
       weighted: c.weighted === true,
       // Deliberately left null: nobody has checked this course against
       // the school's NCAA-approved list, and the engine reports unchecked
@@ -922,12 +997,12 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select("id, category, extracted, status")
+    .select("id, category, extracted, status, read_by")
     .eq("id", documentId)
     .eq("org_id", org.id)
     .single();
 
-  const doc = data as { id: string; category: DocCategoryId | null; extracted: Record<string, unknown> | null; status: string } | null;
+  const doc = data as { id: string; category: DocCategoryId | null; extracted: Record<string, unknown> | null; status: string; read_by?: string | null } | null;
   if (!doc) return { ok: false, error: "Document not found." };
   if (!doc.category || !doc.extracted) return { ok: false, error: "There is nothing extracted to apply." };
 
@@ -942,6 +1017,10 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
   if (doc.status === "discarded") return { ok: false, error: "That document was discarded. Process it again if you want to use it." };
   if (doc.status === "failed") return { ok: false, error: "That document did not pass extraction, so there is nothing safe to apply from it." };
   if (doc.status === "processing") return { ok: false, error: "That document is still being read." };
+
+  // Before the claim, so a refused reading never even moves to applied.
+  const refusal = await applyGate(org.id, doc.id);
+  if (refusal) return { ok: false, error: refusal };
 
   // Same cross-org check the other actions make: RLS proves the document
   // belongs to this org, not that the athlete does.
@@ -975,6 +1054,18 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
   if (!claimed || (claimed as unknown[]).length === 0) return { ok: false, error: "That document was just applied or discarded by someone else." };
 
   const outcome = await applyGuarded(org.id, athleteId, doc.category, doc.extracted, doc.id, user.id);
+  if (outcome.refused) {
+    // Refused after the claim. Nothing was written onto the athlete, so
+    // the claim is let go and the document goes back to review.
+    await supabase
+      .from("documents")
+      .update({ status: "pending", athlete_id: null, applied_at: null, applied_by: null, updated_at: new Date().toISOString() })
+      .eq("id", documentId)
+      .eq("org_id", org.id)
+      .eq("status", "applied");
+    revalidatePath(`/org/${slug}/documents`);
+    return { ok: false, error: outcome.warnings.join(" ") };
+  }
   const applyWarnings = outcome.warnings;
 
   const { error: statusError } = await supabase
@@ -1099,7 +1190,7 @@ async function undoApply(orgId: string, documentId: string, changes: AppliedChan
     return done;
   }
 
-  if (changes.detail && changes.athleteId) done.push(...(await undoTestScores(supabase, orgId, changes.athleteId, changes.detail)));
+  if (changes.detail && changes.athleteId) done.push(...(await undoDetail(supabase, orgId, changes.athleteId, changes.detail)));
   if (changes.target) done.push(...(await undoTarget(supabase, orgId, changes.target)));
   if (changes.contactId) done.push(...(await undoContact(supabase, orgId, changes.contactId)));
   if (changes.metricIds?.length) done.push(...(await undoMetrics(supabase, orgId, changes.metricIds)));
@@ -1166,4 +1257,107 @@ async function undoApply(orgId: string, documentId: string, changes: AppliedChan
   }
 
   return done;
+}
+
+// Deleting a document for good (audit crud F19): the stored file (a
+// minor's transcript, a test report, a passport), the extracted reading
+// and the row. Discard alone left all three in place indefinitely.
+//
+// Staff, matching the storage and table delete policies. Only a document
+// that is discarded or failed: a discard has already undone anything an
+// apply wrote, so deleting can never strand a change on an athlete with
+// nothing left to undo it. The files go first, and the row only once
+// they are gone, so a row is never deleted while its file stays behind
+// with nothing pointing at it.
+export async function deleteDocument(slug: string, documentId: string): Promise<{ ok: boolean; error?: string }> {
+  const org = await getOrgBySlug(slug);
+  if (!org) return { ok: false, error: "Org not found." };
+  await requireRole(org.id, STAFF_ROLES);
+
+  const supabase = await createClient();
+  const { data } = await supabase.from("documents").select("id, status, storage_paths").eq("id", documentId).eq("org_id", org.id).maybeSingle();
+  const doc = data as { id: string; status: string; storage_paths: string[] | null } | null;
+  if (!doc) return { ok: false, error: "Document not found." };
+  if (doc.status !== "discarded" && doc.status !== "failed") {
+    return { ok: false, error: "Discard this document first. Discarding puts back anything it changed; then it can be deleted." };
+  }
+
+  // Only this org's own folder, the same check the upload makes.
+  const paths = (doc.storage_paths ?? []).filter((p) => typeof p === "string" && STORAGE_PATH.test(p) && p.startsWith(`${org.id}/`));
+  if (paths.length) {
+    const { error: removeError } = await supabase.storage.from("documents").remove(paths);
+    if (removeError) return { ok: false, error: `The file could not be removed, so the document was kept: ${removeError.message}` };
+  }
+
+  const { error } = await supabase.from("documents").delete().eq("id", documentId).eq("org_id", org.id).in("status", ["discarded", "failed"]);
+  if (error) return { ok: false, error: `The file was removed, but the document could not be deleted: ${error.message}` };
+  // Still there means its status moved between the read and the delete
+  // (someone reopened it), or a policy kept it. Say so rather than
+  // report a delete that did not happen.
+  const { data: still } = await supabase.from("documents").select("id").eq("id", documentId).eq("org_id", org.id).maybeSingle();
+  if (still) return { ok: false, error: "That document was just changed by someone else. Reload and look again." };
+
+  revalidatePath(`/org/${slug}/documents`);
+  return { ok: true };
+}
+
+// The form wrapper the review screen posts to: deletes, then goes back to
+// the list, since the page it was on no longer exists.
+export async function deleteDocumentAndLeave(slug: string, documentId: string): Promise<void> {
+  const result = await deleteDocument(slug, documentId);
+  if (result.ok) redirect(`/org/${slug}/documents`);
+}
+
+export interface ExtractedEditState {
+  errors: Record<string, string>;
+}
+
+// Correcting what was read before it is applied (audit crud F5): a
+// misread GPA, a wrong school, an SAT total off by a digit. Only while
+// the document waits in review, only staff, and never a reading the
+// stand-in invented: correcting invented data by hand does not make the
+// rest of it real. The corrected reading is checked against the
+// category's schema again before it is stored, the same check every
+// model reading passes (CLAUDE.md: never trust unvalidated extraction).
+export async function updateExtracted(slug: string, documentId: string, _prevState: ExtractedEditState, formData: FormData): Promise<ExtractedEditState> {
+  const org = await getOrgBySlug(slug);
+  if (!org) return { errors: { form: "Org not found." } };
+  await requireRole(org.id, STAFF_ROLES);
+
+  const supabase = await createClient();
+  const { data } = await supabase.from("documents").select("id, status, category, extracted, read_by").eq("id", documentId).eq("org_id", org.id).maybeSingle();
+  const doc = data as { id: string; status: string; category: DocCategoryId | null; extracted: Record<string, unknown> | null; read_by?: string | null } | null;
+  if (!doc) return { errors: { form: "Document not found." } };
+  if (doc.status !== "pending") return { errors: { form: "Only a document waiting in review can be corrected." } };
+  if (isStubReading(doc.read_by ?? null)) return { errors: { form: "This reading was made up by the stand-in, so correcting it would not make it real. Discard it and upload the file again once the AI key is set." } };
+  if (!doc.category || doc.category === "film" || !doc.extracted) return { errors: { form: "There is nothing read off this document to correct." } };
+
+  const edited = applyExtractedEdits(doc.category, doc.extracted, formData);
+  if (!edited.ok) return { errors: edited.errors };
+  const checked = CATEGORY_SCHEMAS[doc.category].safeParse(edited.extracted);
+  if (!checked.success) {
+    const errors: Record<string, string> = {};
+    for (const issue of checked.error.issues) {
+      const key = issue.path.join(".");
+      if (key && !errors[key]) errors[key] = issue.message;
+    }
+    return { errors: Object.keys(errors).length ? errors : { form: "That correction does not fit this kind of document." } };
+  }
+
+  // Warnings the reading raised stay with it: a correction answers them,
+  // it does not erase what the reader was unsure of.
+  const next = { ...(checked.data as Record<string, unknown>), warnings: doc.extracted.warnings ?? (checked.data as Record<string, unknown>).warnings };
+  const { data: saved, error } = await supabase
+    .from("documents")
+    .update({ extracted: next, updated_at: new Date().toISOString() })
+    .eq("id", documentId)
+    .eq("org_id", org.id)
+    .eq("status", "pending")
+    .select("id");
+  if (error) return { errors: { form: `Could not save the correction: ${error.message}` } };
+  if (!saved || (saved as unknown[]).length === 0) return { errors: { form: "That document was just applied or discarded by someone else." } };
+
+  revalidatePath(`/org/${slug}/documents`);
+  revalidatePath(`/org/${slug}/documents/${documentId}`);
+  redirect(`/org/${slug}/documents/${documentId}`);
 }

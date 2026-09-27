@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { parseContactForm } from "@/lib/validation/contact";
+import { parseContactForm, type ContactFormValues } from "@/lib/validation/contact";
+import { loadCoachOptions, matchCoach } from "@/lib/data/lookups";
 
 export interface ContactActionState {
   errors: Record<string, string>;
@@ -18,6 +20,23 @@ async function assertAthleteInOrg(orgId: string, athleteId: string): Promise<boo
   const supabase = await createClient();
   const { data } = await supabase.from("athletes").select("id").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).single();
   return !!data;
+}
+
+// A college coach picked by name fills a blank email and phone from the
+// shared coach directory (Stage 4). Never overwrites what was typed; a
+// name that matches nobody, or more than one coach, fills nothing.
+async function withCoachFill(supabase: Awaited<ReturnType<typeof createClient>>, values: ContactFormValues): Promise<{ email: string | null; phone: string | null }> {
+  let email = values.email || null;
+  let phone = values.phone || null;
+  if (values.schoolId && (!email || !phone)) {
+    const options = await loadCoachOptions(supabase, [values.schoolId]);
+    const coach = matchCoach(options[values.schoolId], values.name);
+    if (coach) {
+      email = email ?? coach.email;
+      phone = phone ?? coach.phone;
+    }
+  }
+  return { email, phone };
 }
 
 export async function createContact(
@@ -38,14 +57,15 @@ export async function createContact(
   }
 
   const supabase = await createClient();
+  const { email, phone } = await withCoachFill(supabase, parsed.values);
   const { error } = await supabase.from("contacts").insert({
     org_id: org.id,
     athlete_id: athleteId,
     name: parsed.values.name,
     role: parsed.values.role,
     school_id: parsed.values.schoolId ?? null,
-    email: parsed.values.email || null,
-    phone: parsed.values.phone ?? null,
+    email,
+    phone,
     notes: parsed.values.notes ?? null,
   });
 
@@ -55,13 +75,53 @@ export async function createContact(
   return { errors: {} };
 }
 
+// Edit one contact in place (audit crud F16): the same form, prefilled,
+// on its own screen. Scoped to the org and the athlete, so another org's
+// or another athlete's contact id changes nothing, and a zero-row update
+// says so rather than pretending it saved.
+export async function updateContact(slug: string, athleteId: string, contactId: string, _prevState: ContactActionState, formData: FormData): Promise<ContactActionState> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireRole(org.id, STAFF_ROLES);
+
+  const parsed = parseContactForm(formData);
+  if (!parsed.ok || !parsed.values) return { errors: parsed.errors };
+
+  if (!(await assertAthleteInOrg(org.id, athleteId))) {
+    return { errors: { form: "That athlete isn't on this org's roster." } };
+  }
+
+  const supabase = await createClient();
+  const { email, phone } = await withCoachFill(supabase, parsed.values);
+  const { data, error } = await supabase
+    .from("contacts")
+    .update({
+      name: parsed.values.name,
+      role: parsed.values.role,
+      school_id: parsed.values.schoolId ?? null,
+      email,
+      phone,
+      notes: parsed.values.notes ?? null,
+    })
+    .eq("id", contactId)
+    .eq("org_id", org.id)
+    .eq("athlete_id", athleteId)
+    .select("id");
+
+  if (error) return { errors: { form: error.message } };
+  if (!data || data.length === 0) return { errors: { form: "That contact is not on this athlete any more." } };
+
+  revalidatePath(`/org/${slug}/roster/${athleteId}`);
+  redirect(`/org/${slug}/roster/${athleteId}`);
+}
+
 export async function deleteContact(slug: string, athleteId: string, contactId: string): Promise<void> {
   const org = await getOrgBySlug(slug);
   if (!org) return;
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  await supabase.from("contacts").delete().eq("id", contactId).eq("org_id", org.id);
+  await supabase.from("contacts").delete().eq("id", contactId).eq("org_id", org.id).eq("athlete_id", athleteId);
 
   revalidatePath(`/org/${slug}/roster/${athleteId}`);
 }

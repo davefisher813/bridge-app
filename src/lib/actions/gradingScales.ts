@@ -77,15 +77,21 @@ export async function saveGradingScale(
   redirect(safeReturn);
 }
 
-export async function deleteGradingScale(slug: string, scaleId: string): Promise<{ ok: boolean; error?: string }> {
+// Posted by the Remove button on a scale, through a ConfirmButton (crud
+// F12). Scoped by id and org, and redirects like deleteTransferWindow so
+// a form can post it: back to the list on success, back to the scale
+// with the reason on failure. The eligibility screens read the scales
+// live, so an athlete at that school falls back to the shared scale, or
+// to the assumed ten-point one, straight away.
+export async function deleteGradingScale(slug: string, scaleId: string): Promise<void> {
   const org = await getOrgBySlug(slug);
-  if (!org) return { ok: false, error: "Org not found." };
+  if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
   const { error } = await supabase.from("org_grading_scales").delete().eq("id", scaleId).eq("org_id", org.id);
-  if (error) return { ok: false, error: error.message };
-
   revalidatePath(`/org/${slug}/grading-scales`);
-  return { ok: true };
+  revalidatePath(`/org/${slug}/roster`);
+  if (error) redirect(`/org/${slug}/grading-scales/${scaleId}?error=${encodeURIComponent(error.message)}`);
+  redirect(`/org/${slug}/grading-scales?notice=${encodeURIComponent("Scale removed.")}`);
 }

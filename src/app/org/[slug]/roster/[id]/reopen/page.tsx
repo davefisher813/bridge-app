@@ -8,6 +8,7 @@ import { StatusPill } from "@/components/StatusPill";
 import { statusRole, stageKind } from "@/components/statusHue";
 import { canReopen, currentSchoolOf } from "@/lib/placement";
 import { RECRUIT_TYPES } from "@/lib/validation/athlete";
+import { loadCollegeOptions } from "@/lib/data/lookups";
 import { Notice, Row, Screen, Section } from "@/components/kit";
 
 interface TargetRow {
@@ -38,7 +39,10 @@ export default async function ReopenRecruitingPage({ params }: { params: Promise
   if (!athlete) notFound();
   if (!canReopen(athlete.status) || athlete.status === "Committed") notFound();
 
-  const { data: targetRows } = await supabase.from("recruiting_targets").select("id, status, closed_from, schools(name, division)").eq("athlete_id", id).eq("org_id", org.id);
+  const [{ data: targetRows }, colleges] = await Promise.all([
+    supabase.from("recruiting_targets").select("id, status, closed_from, schools(name, division)").eq("athlete_id", id).eq("org_id", org.id),
+    loadCollegeOptions(supabase),
+  ]);
   const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ id: t.id, status: t.status, closedFrom: t.closed_from, school: unwrap(t.schools) }));
   const committed = targets.find((t) => t.status === "Committed");
   const reopening = targets.filter((t) => t.status === "Not Interested" && !!t.closedFrom);
@@ -99,6 +103,7 @@ export default async function ReopenRecruitingPage({ params }: { params: Promise
         action={reopenRecruiting.bind(null, slug, id)}
         kinds={kinds}
         defaults={{ transferKind: athlete.status === "Graduated" ? "transfer_grad" : "transfer_4to4", currentSchool, transferCount: 1 }}
+        colleges={colleges}
       />
     </Screen>
   );

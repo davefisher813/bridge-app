@@ -12,12 +12,13 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { formatMoney, outstandingOn } from "@/lib/fundraising/rollup";
-import { AddButton, Body, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
+import { AddButton, Body, EmptyState, LinkButton, Notice, Row, Screen, Section } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
-export default async function PledgesPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function PledgesPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ notice?: string; error?: string }> }) {
   const { slug } = await params;
+  const { notice, error } = searchParams ? await searchParams : {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
@@ -51,7 +52,7 @@ export default async function PledgesPage({ params }: { params: Promise<{ slug: 
   const row = (r: (typeof rows)[number], role: "offer" | "target" | "committed") => (
     <Row
       key={r.p.id}
-      href={r.p.donorId ? `/org/${slug}/fundraising/donors/${r.p.donorId}` : undefined}
+      href={canEdit ? `/org/${slug}/fundraising/pledges/${r.p.id}/edit` : r.p.donorId ? `/org/${slug}/fundraising/donors/${r.p.donorId}` : undefined}
       kind="pledge"
       role={role}
       title={r.p.donorId ? (donorName.get(r.p.donorId) ?? "Unknown donor") : "Anonymous"}
@@ -71,6 +72,7 @@ export default async function PledgesPage({ params }: { params: Promise<{ slug: 
       back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }} lede={`${formatMoney(totalOutstanding)} outstanding`}
       action={canEdit ? <AddButton href={`/org/${slug}/fundraising/pledges/new`} label="Add" /> : undefined}
     >
+      {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       {rows.length === 0 ? (
         <EmptyState kind="pledge" title="No Pledges">
           Nothing promised and unpaid.

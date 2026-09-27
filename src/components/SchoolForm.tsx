@@ -2,9 +2,10 @@
 
 import { useActionState } from "react";
 import { OUTLOOKS, SCHOLARSHIP_TYPES, SCHOOL_DIVISIONS } from "@/lib/validation/school";
-import { PROGRAM_TIERS } from "@/lib/fit/contract";
+import { PROGRAM_TIERS, SPORTS } from "@/lib/fit/contract";
+import { US_STATES } from "@/lib/lookup/states";
 import type { SchoolActionState } from "@/lib/actions/schools";
-import { Button, Field, Form, Grid2, Label, SelectField, Stack, TextAreaField } from "@/components/kit";
+import { Button, Field, Form, Grid2, Label, LinkButton, Notice, SelectField, Stack, SuggestField, TextAreaField } from "@/components/kit";
 
 type ServerAction = (prevState: SchoolActionState, formData: FormData) => Promise<SchoolActionState>;
 
@@ -19,6 +20,7 @@ export interface SchoolFormInitialValues {
   programTier?: string;
   conference?: string;
   state?: string;
+  location?: string;
   sportsSponsored?: string;
   gpaMin?: number;
   gpaAvg?: number;
@@ -40,7 +42,26 @@ export interface SchoolFormInitialValues {
 const AID_LABEL: Record<string, string> = { full: "Full Scholarships", partial: "Partial Scholarships", none: "No Athletic Aid" };
 const OUTLOOK_LABEL: Record<string, string> = { realistic: "Realistic", competitive: "Competitive", difficult: "Difficult" };
 
-export function SchoolForm({ action, initialValues = {}, submitLabel }: { action: ServerAction; initialValues?: SchoolFormInitialValues; submitLabel: string }) {
+// The sports the app scores, named in the hint so a sponsored sport is
+// typed the way the engine matches it.
+const SPORT_NAMES = SPORTS.map((s) => s.key).join(", ");
+
+export function SchoolForm({
+  action,
+  initialValues = {},
+  submitLabel,
+  slug,
+  conferences = [],
+}: {
+  action: ServerAction;
+  initialValues?: SchoolFormInitialValues;
+  submitLabel: string;
+  // For the link to a school already on file under the same name.
+  slug?: string;
+  // Every conference already on file, so a new school's conference is
+  // picked in the spelling the directory filter already uses.
+  conferences?: string[];
+}) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const err = (key: string) => state.errors[key];
   const v = (key: keyof SchoolFormInitialValues) => {
@@ -50,6 +71,16 @@ export function SchoolForm({ action, initialValues = {}, submitLabel }: { action
 
   return (
     <Form action={formAction} error={state.errors.form}>
+      {state.duplicateOf && (
+        <Notice tone="warning" title="Already on File">
+          {`${state.duplicateOf.name} is in the directory. Edit that one so every organization keeps one row for it.`}
+        </Notice>
+      )}
+      {state.duplicateOf && slug && (
+        <LinkButton href={`/org/${slug}/schools/${state.duplicateOf.id}`} variant="secondary">
+          Open the School on File
+        </LinkButton>
+      )}
       <Field name="name" label="School Name" hint="For example, Test University." defaultValue={v("name")} error={err("name")} required />
       <Grid2>
         <SelectField name="division" label="Division" error={err("division")} defaultValue={v("division") || "D1"}>
@@ -69,10 +100,22 @@ export function SchoolForm({ action, initialValues = {}, submitLabel }: { action
         </SelectField>
       </Grid2>
       <Grid2>
-        <Field name="conference" label="Conference" hint="For example, Ivy League." defaultValue={v("conference")} />
-        <Field name="state" label="State" hint="Two letters, like CT." maxLength={2} autoCapitalize="characters" defaultValue={v("state")} error={err("state")} />
+        <SuggestField id="school-conference" name="conference" label="Conference" suggestions={conferences} hint="Pick one on file or type a new one." defaultValue={v("conference")} />
+        <SelectField name="state" label="State" defaultValue={v("state")} error={err("state")}>
+          <option value="">Not Recorded</option>
+          {/* A code already on the row that is not a US state (a
+              Canadian province, say) stays selectable, so an edit never
+              drops it silently. */}
+          {v("state") && !US_STATES.some((s) => s.code === v("state").toUpperCase()) && <option value={v("state")}>{v("state")}</option>}
+          {US_STATES.map((s) => (
+            <option key={s.code} value={s.code}>
+              {s.name}
+            </option>
+          ))}
+        </SelectField>
       </Grid2>
-      <Field name="sportsSponsored" label="Sports Sponsored" hint="Comma separated." defaultValue={v("sportsSponsored")} />
+      <Field name="location" label="Town" hint="City and state, like Hartford, CT." defaultValue={v("location")} error={err("location")} />
+      <Field name="sportsSponsored" label="Sports Sponsored" hint={`Comma separated, in the app's words: ${SPORT_NAMES}.`} defaultValue={v("sportsSponsored")} />
       <Field name="majors" label="Majors Offered" hint="Comma separated." defaultValue={v("majors")} />
 
       <Stack gap={3}>

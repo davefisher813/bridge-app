@@ -170,7 +170,7 @@ export default async function SeatPage({
         </Notice>
       )}
       {error && (
-        <Notice tone="danger" title="Could Not Change the Sign-In">
+        <Notice tone="danger" title="Not Done">
           {error}
         </Notice>
       )}
@@ -261,6 +261,14 @@ export default async function SeatPage({
       {canEdit && member.donorId && (
         <LinkButton href={`/org/${slug}/fundraising/donors/${member.donorId}`} variant="secondary">
           Their Donor Record
+        </LinkButton>
+      )}
+
+      {/* Edit covers the name, role, status, term and commitment (audit
+          crud F11); Remove sits on that screen behind a confirm. */}
+      {canEdit && (
+        <LinkButton href={`/org/${slug}/board-governance/${board.id}/seats/${member.id}/edit`} variant="secondary">
+          Edit Seat
         </LinkButton>
       )}
     </Screen>

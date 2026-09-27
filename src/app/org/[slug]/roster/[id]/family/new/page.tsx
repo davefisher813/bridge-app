@@ -22,9 +22,19 @@ export default async function InviteFamilyPage({ params }: { params: Promise<{ s
   if (!athlete) notFound();
   const name = (athlete as { name: string }).name;
 
+  // The athlete's own parent and guardian contacts (Stage 4): their
+  // emails are suggested, and with exactly one the name is filled in.
+  // This athlete's rows only, in this org.
+  const { data: guardianContacts } = await supabase.from("contacts").select("name, email").eq("athlete_id", id).eq("org_id", org.id).eq("role", "parent_guardian");
+  const parents = (guardianContacts ?? []) as { name: string; email: string | null }[];
+  const suggest = {
+    emails: parents.map((p) => p.email?.trim() ?? "").filter(Boolean),
+    name: parents.length === 1 ? parents[0].name.trim() || undefined : undefined,
+  };
+
   return (
     <Screen title="Invite Family" back={{ href: `/org/${slug}/roster/${id}`, label: name }} lede={`A sign-in that sees ${name}'s record and nothing else.`}>
-      <InviteForm action={inviteMember.bind(null, slug)} roleLabels={org.roleLabels} pinned={{ athleteId: id, athleteName: name, returnTo: `/org/${slug}/roster/${id}` }} />
+      <InviteForm action={inviteMember.bind(null, slug)} roleLabels={org.roleLabels} pinned={{ athleteId: id, athleteName: name, returnTo: `/org/${slug}/roster/${id}` }} suggest={suggest} />
       <Prose>The link works for 24 hours.</Prose>
     </Screen>
   );

@@ -75,6 +75,8 @@ function unwrap<T>(value: T | T[] | null): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
+type LoadedAthleteRow = AthleteRow & { status: string; deleted_at?: string | null };
+
 export async function loadTarget(orgId: string, targetId: string): Promise<TargetBundle | null> {
   const supabase = await createClient();
 
@@ -82,7 +84,7 @@ export async function loadTarget(orgId: string, targetId: string): Promise<Targe
     supabase
       .from("recruiting_targets")
       .select(
-        "id, status, coach_name, offer_type, offer_scholarship_percent, athlete_id, school_id, athletes(id, org_id, recruit_type, name, sport, position, status, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)",
+        "id, status, coach_name, offer_type, offer_scholarship_percent, athlete_id, school_id, athletes(id, org_id, recruit_type, name, sport, position, status, deleted_at, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)",
       )
       .eq("id", targetId)
       .eq("org_id", orgId)
@@ -112,13 +114,15 @@ export async function loadTarget(orgId: string, targetId: string): Promise<Targe
     offer_scholarship_percent: number | null;
     athlete_id: string;
     school_id: string;
-    athletes: (AthleteRow & { status: string }) | (AthleteRow & { status: string })[] | null;
+    athletes: LoadedAthleteRow | LoadedAthleteRow[] | null;
     schools: SchoolRow | SchoolRow[] | null;
   };
 
+  // A removed athlete's targets are gone with them: every target screen
+  // is a 404, the same as a target that was never there.
   const athleteRow = unwrap(row.athletes);
   const schoolRow = unwrap(row.schools);
-  if (!athleteRow || !schoolRow) return null;
+  if (!athleteRow || athleteRow.deleted_at || !schoolRow) return null;
 
   const athlete = athleteRowToFitAthlete(athleteRow);
   const school = schoolRowToFitSchool(schoolRow);
@@ -160,4 +164,41 @@ export async function loadTarget(orgId: string, targetId: string): Promise<Targe
     communications,
     visits,
   };
+}
+
+// The check every target write and every target screen that does not go
+// through loadTarget makes first: the target is this org's, and its
+// athlete is still on the roster. A removed athlete (deleted_at set)
+// takes their targets with them, so a write aimed at one changes nothing
+// and a screen for one is a 404. The athlete's status comes along for
+// the writes that depend on it (deleteTarget and a placed athlete).
+export interface LiveTarget {
+  id: string;
+  status: string;
+  athleteId: string;
+  athleteStatus: string;
+  aid: unknown;
+}
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+export async function loadLiveTarget(supabase: Supabase, orgId: string, targetId: string): Promise<LiveTarget | null> {
+  const { data } = await supabase.from("recruiting_targets").select("id, status, athlete_id, aid, athletes(status, deleted_at)").eq("id", targetId).eq("org_id", orgId).maybeSingle();
+  const row = data as { id: string; status: string; athlete_id: string; aid: unknown; athletes: AthleteLife | AthleteLife[] | null } | null;
+  if (!row) return null;
+  const athlete = unwrap(row.athletes);
+  if (!athlete || athlete.deleted_at) return null;
+  return { id: row.id, status: row.status, athleteId: row.athlete_id, athleteStatus: athlete.status, aid: row.aid };
+}
+
+interface AthleteLife {
+  status: string;
+  deleted_at: string | null;
+}
+
+// For a screen that reads the target's embedded athlete itself: true
+// when that athlete has been removed.
+export function isRemovedAthlete(embed: { deleted_at?: string | null } | { deleted_at?: string | null }[] | null | undefined): boolean {
+  const a = Array.isArray(embed) ? (embed[0] ?? null) : (embed ?? null);
+  return !a || !!a.deleted_at;
 }

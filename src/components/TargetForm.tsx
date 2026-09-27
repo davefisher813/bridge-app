@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { OFFER_TYPES, TARGET_STATUSES } from "@/lib/validation/target";
 import type { TargetActionState } from "@/lib/actions/targets";
-import { Button, Field, Form, Grid2, SelectField, TextAreaField } from "@/components/kit";
+import { Button, Field, Form, Grid2, SelectField, SuggestField, TextAreaField, type Suggestion } from "@/components/kit";
 
 type ServerAction = (prevState: TargetActionState, formData: FormData) => Promise<TargetActionState>;
 
@@ -38,18 +38,25 @@ export function TargetForm({
   action,
   athletes,
   schools,
+  coaches = {},
   initialValues = {},
   submitLabel,
 }: {
   action: ServerAction;
   athletes: TargetFormOption[];
   schools: TargetFormOption[];
+  // The directory's coaches at each school, keyed by school id
+  // (loadCoachOptions). Coach suggests the picked school's staff; a
+  // name not on the list is kept as typed.
+  coaches?: Record<string, Suggestion[]>;
   initialValues?: TargetFormInitialValues;
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const err = (key: string) => state.errors[key];
   const [offerType, setOfferType] = useState<string>(initialValues.offerType ?? "");
+  const [schoolId, setSchoolId] = useState<string>(initialValues.schoolId ?? "");
+  const coachSuggestions = coaches[schoolId] ?? [];
 
   return (
     <Form action={formAction} error={state.errors.form}>
@@ -64,7 +71,7 @@ export function TargetForm({
         ))}
       </SelectField>
 
-      <SelectField name="schoolId" label="School" error={err("schoolId")} defaultValue={initialValues.schoolId ?? ""} required>
+      <SelectField name="schoolId" label="School" error={err("schoolId")} value={schoolId} onChange={(e) => setSchoolId(e.target.value)} required>
         <option value="" disabled>
           Select a school
         </option>
@@ -83,7 +90,14 @@ export function TargetForm({
             </option>
           ))}
         </SelectField>
-        <Field name="coachName" label="Coach" hint="For example, T. Reilly." defaultValue={initialValues.coachName ?? ""} />
+        <SuggestField
+          id="target-coach"
+          name="coachName"
+          label="Coach"
+          suggestions={coachSuggestions}
+          hint={coachSuggestions.length > 0 ? "Pick from the school's staff or type a name." : "For example, T. Reilly."}
+          defaultValue={initialValues.coachName ?? ""}
+        />
       </Grid2>
 
       <Field name="visitDate" label="Visit Date" type="date" defaultValue={initialValues.visitDate ?? ""} hint="Shows up on Today once set." />

@@ -2,8 +2,11 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { applyDocument, discardDocument, isStubbedModel } from "@/lib/actions/documents";
+import { applyDocument, deleteDocumentAndLeave, discardDocument, isStubbedModel } from "@/lib/actions/documents";
 import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
+import { applyRefusal, isStubReading } from "@/lib/data/readBy";
+import { editableFields } from "@/lib/data/extractedEdit";
+import type { DocCategoryId } from "@/lib/docai/types";
 import { Avatar, Body, Button, Chip, ConfirmButton, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { Role } from "@/components/statusHue";
@@ -31,8 +34,9 @@ interface DocDetail {
   triage: { legibilityScore?: number; issues?: string[]; reason?: string } | null;
   candidates: { athleteId: string; name: string; score: number; reasons: string[] }[] | null;
   athlete_id: string | null;
-  athletes: { name: string } | { name: string }[] | null;
+  athletes: { name: string; deleted_at?: string | null } | { name: string; deleted_at?: string | null }[] | null;
   undo_note: string | null;
+  read_by: string | null;
   created_at: string;
 }
 
@@ -45,6 +49,8 @@ const CATEGORY_LABEL: Record<string, string> = {
   metrics: "Metrics Report",
   film: "Film",
 };
+
+const REMOVED_ATHLETE = "Removed Athlete";
 
 const SOURCE_LABEL: Record<string, string> = {
   admin: "an owner",
@@ -105,8 +111,8 @@ const FIELD_LABEL: Record<string, string> = {
 // other applies (2026-09-21).
 const APPLY_COPY: Record<string, { applied: string; undo: string }> = {
   transcript: {
-    applied: "Discarding this now removes the courses it added and puts back the athlete's previous GPA and date of birth. Anything corrected by hand since is left alone.",
-    undo: "The courses it added come off and the previous GPA and date of birth go back.",
+    applied: "Discarding this now removes the courses it added and puts back the athlete's previous GPA, date of birth and any high school it filled in. Anything corrected by hand since is left alone.",
+    undo: "The courses it added come off and the previous GPA, date of birth and high school go back.",
   },
   test_scores: { applied: "Discarding this puts back the athlete's previous SAT and ACT. Anything corrected by hand since is left alone.", undo: "The previous SAT and ACT go back." },
   offer_letter: { applied: "Discarding this puts the college back the way it was as a target, or takes it off if this letter added it.", undo: "The college goes back the way it was as a target." },
@@ -165,7 +171,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   const { data } = await supabase
     .from("documents")
     .select(
-      "id, file_name, file_size, page_count, category, requested_category, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes(name), undo_note, created_at"
+      "id, file_name, file_size, page_count, category, requested_category, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes(name, deleted_at), undo_note, read_by, created_at"
     )
     .eq("id", id)
     .eq("org_id", org.id)
@@ -175,12 +181,32 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   const doc = data as DocDetail;
 
   const stubbed = await isStubbedModel();
-  const matched = unwrap(doc.athletes)?.name ?? null;
-  const fields = displayFields(doc.extracted);
+  // The same gate the actions use (audit wired F1): a reading the
+  // stand-in invented, or any reading while no AI key is set, is never
+  // offered for applying. A document read before read_by existed needs
+  // the model ledger to show a real call for it.
+  const stubRead = isStubReading(doc.read_by);
+  let ledgerShowsRealRead = false;
+  if (doc.read_by === null && !stubbed) {
+    const { data: calls } = await supabase.from("docai_usage").select("id").eq("org_id", org.id).eq("document_id", doc.id).limit(1);
+    ledgerShowsRealRead = ((calls ?? []) as unknown[]).length > 0;
+  }
+  const refusal = applyRefusal({ readBy: doc.read_by, stubbed, ledgerShowsRealRead });
+  // An athlete removed from the roster is never named or linked here:
+  // the match reads "Removed Athlete", the name read off the page is
+  // left out of What It Says, and a removed athlete is dropped from the
+  // candidates (applyDocument refuses them anyway).
+  const matchedRow = unwrap(doc.athletes);
+  const matchedRemoved = !!doc.athlete_id && (!matchedRow || !!matchedRow.deleted_at);
+  const matched = matchedRemoved ? REMOVED_ATHLETE : (matchedRow?.name ?? null);
+  const fields = displayFields(doc.extracted).filter((f) => !(matchedRemoved && f.label === FIELD_LABEL.studentName));
   const pct = doc.provenance?.confidence != null ? Math.round(doc.provenance.confidence * 100) : null;
   const legibility = doc.triage?.legibilityScore != null ? Math.round(doc.triage.legibilityScore * 100) : null;
   const modelPct = doc.provenance?.modelConfidence != null ? Math.round(doc.provenance.modelConfidence * 100) : null;
-  const candidates = doc.candidates ?? [];
+  const candidateIds = (doc.candidates ?? []).map((c) => c.athleteId);
+  const { data: liveRows } = candidateIds.length ? await supabase.from("athletes").select("id").eq("org_id", org.id).in("id", candidateIds).is("deleted_at", null) : { data: [] };
+  const live = new Set(((liveRows ?? []) as { id: string }[]).map((r) => r.id));
+  const candidates = (doc.candidates ?? []).filter((c) => live.has(c.athleteId));
   // Every doubt the reading raised: the model's own warnings, the
   // pipeline's checks (a number that is not a plausible reading, a date
   // in the future, a name that does not match the athlete it was pinned
@@ -210,6 +236,13 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
     "use server";
     await discardDocument(slug, doc.id);
   };
+  const deleteAction = async () => {
+    "use server";
+    await deleteDocumentAndLeave(slug, doc.id);
+  };
+  // What staff can correct before applying. None for a stand-in reading.
+  const correctable = isPending && !stubRead && doc.category && doc.category !== "film" && doc.extracted ? editableFields(doc.category as DocCategoryId, doc.extracted).length > 0 : false;
+  const deletable = isDiscarded || isFailed;
 
   const headline = isFailed
     ? "Could Not Use This"
@@ -240,10 +273,18 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
       lede={`${doc.file_name}${doc.page_count ? ` · ${doc.page_count} page${doc.page_count === 1 ? "" : "s"}` : ""} · from ${SOURCE_LABEL[doc.source_role] ?? doc.source_role}`}
       action={chip}
     >
-      {stubbed && (
-        <Notice tone="warning" title="Simulated Reading">
-          No AI model is connected yet. Nothing below was read off the page; it is made up by the stand-in so the flow can be used.
+      {isPending && refusal ? (
+        <Notice tone="warning" title={stubRead ? "This Reading Can't Be Applied" : stubbed ? "AI Key Not Set" : "Reader Not Recorded"}>
+          {refusal}
         </Notice>
+      ) : (
+        (stubbed || stubRead) && (
+          <Notice tone="warning" title="Simulated Reading">
+            {stubRead
+              ? "This was read while no AI key was set. Nothing below was read off the page; it was made up by the stand-in."
+              : "No AI model is connected yet. Nothing below was read off the page; it is made up by the stand-in so the flow can be used."}
+          </Notice>
+        )
       )}
 
       {doc.requested_category === null && doc.detected_type && (
@@ -284,6 +325,11 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
             Lay it flat, avoid a window behind you, and get the whole page in frame. Nothing was changed on any athlete.
           </Note>
           <LinkButton href={`/org/${slug}/documents/new`}>Add Another</LinkButton>
+          <Form action={deleteAction}>
+            <ConfirmButton title="Delete This Document for Good?" body="The file and what was read off it are removed. Nothing was applied, so nothing changes on any athlete. This can't be undone." confirmLabel="Delete for Good">
+              Delete for Good
+            </ConfirmButton>
+          </Form>
         </>
       )}
 
@@ -291,12 +337,28 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
         <>
           <Section label={matched ? "Matched to" : "Pick the athlete"} count={matched ? undefined : candidates.length} role={matched ? "people" : "offer"} kind="athlete">
             {matched ? (
-              <Row
-                href={doc.athlete_id ? `/org/${slug}/roster/${doc.athlete_id}` : undefined}
-                leading={<Avatar name={matched} />}
-                title={matched}
-                meta={candidates[0]?.reasons.join(" · ") || "Matched on the name"}
-              />
+              matchedRemoved ? (
+                <Row title={matched} meta="Taken off the roster. What was read stays here." />
+              ) : (
+                <Row
+                  href={doc.athlete_id ? `/org/${slug}/roster/${doc.athlete_id}` : undefined}
+                  leading={<Avatar name={matched} />}
+                  title={matched}
+                  meta={candidates[0]?.reasons.join(" · ") || "Matched on the name"}
+                />
+              )
+            ) : candidates.length && refusal ? (
+              // Who it looks like, without an Apply: the reading can not
+              // be put on anyone. Each row opens that athlete instead.
+              candidates.map((c) => (
+                <Row
+                  key={c.athleteId}
+                  href={`/org/${slug}/roster/${c.athleteId}`}
+                  leading={<Avatar name={c.name} />}
+                  title={c.name}
+                  meta={`${Math.round(c.score * 100)}% · ${c.reasons.join(" · ") || "Possible match"}`}
+                />
+              ))
             ) : candidates.length ? (
               <>
                 {candidates.map((c) => (
@@ -387,6 +449,11 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
 
           <Stack>
             <LinkButton href={`/org/${slug}/documents`}>Done</LinkButton>
+            {correctable && (
+              <LinkButton href={`/org/${slug}/documents/${doc.id}/edit`} variant="secondary">
+                Correct the Reading
+              </LinkButton>
+            )}
             {(isPending || isApplied) && (
               <Form action={discardAction}>
                 <ConfirmButton
@@ -395,6 +462,13 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
                   confirmLabel={isApplied ? "Undo and Discard" : "Discard"}
                 >
                   {isApplied ? "Undo and Discard" : "Discard"}
+                </ConfirmButton>
+              </Form>
+            )}
+            {deletable && (
+              <Form action={deleteAction}>
+                <ConfirmButton title="Delete This Document for Good?" body="The file and what was read off it are removed. Anything it applied was already put back when it was discarded. This can't be undone." confirmLabel="Delete for Good">
+                  Delete for Good
                 </ConfirmButton>
               </Form>
             )}

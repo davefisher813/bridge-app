@@ -3,23 +3,12 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { addBoardSeat } from "@/lib/actions/governance";
-import { BoardSeatForm } from "@/components/GovernanceForms";
+import { BoardSeatForm, type SeatDonor } from "@/components/GovernanceForms";
 import { Screen } from "@/components/kit";
 import { toBoard, type BoardRow } from "@/lib/data/governanceAdapters";
-import type { BoardKind } from "@/lib/governance/giveGet";
+import { SEAT_ROLE_SUGGESTIONS } from "@/lib/governance/seatRoles";
 
 export const dynamic = "force-dynamic";
-
-// The core roles each tier carries, from the governance document. Sport
-// boards name three explicitly; the others are an organization's own
-// officers, so nothing is suggested rather than inventing titles.
-const ROLE_SUGGESTIONS: Record<BoardKind, string[]> = {
-  sport: ["Sport Director", "Board Chair", "Recruiting Lead"],
-  executive: ["Chair", "Vice Chair", "Treasurer", "Secretary"],
-  general: [],
-  development: [],
-  junior: [],
-};
 
 export default async function NewSeatPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
@@ -36,7 +25,7 @@ export default async function NewSeatPage({ params }: { params: Promise<{ slug: 
       .eq("id", id)
       .eq("org_id", org.id)
       .maybeSingle(),
-    supabase.from("donors").select("id, name").eq("org_id", org.id).is("deleted_at", null).order("name"),
+    supabase.from("donors").select("id, name, email, phone").eq("org_id", org.id).is("deleted_at", null).order("name"),
   ]);
 
   if (!boardRow) notFound();
@@ -46,10 +35,10 @@ export default async function NewSeatPage({ params }: { params: Promise<{ slug: 
     <Screen title="Add Seat" back={{ href: `/org/${slug}/board-governance/${board.id}`, label: board.name }}>
       <BoardSeatForm
         action={addBoardSeat.bind(null, slug, board.id)}
-        donors={(donorRows ?? []) as Array<{ id: string; name: string }>}
+        donors={(donorRows ?? []) as SeatDonor[]}
         defaultCommitment={(board.giveGetCents / 100).toFixed(2)}
         today={new Date().toISOString().slice(0, 10)}
-        roleSuggestions={ROLE_SUGGESTIONS[board.kind]}
+        roleSuggestions={SEAT_ROLE_SUGGESTIONS[board.kind]}
       />
     </Screen>
   );

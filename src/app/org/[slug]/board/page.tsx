@@ -27,7 +27,7 @@ interface TargetRow {
   coach_name: string | null;
   offer_type: string | null;
   offer_scholarship_percent: number | null;
-  athletes: (AthleteRow & { status: string }) | (AthleteRow & { status: string })[] | null;
+  athletes: (AthleteRow & { status: string; deleted_at?: string | null }) | (AthleteRow & { status: string; deleted_at?: string | null })[] | null;
   schools: SchoolRow | SchoolRow[] | null;
 }
 
@@ -78,7 +78,7 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
     supabase
       .from("recruiting_targets")
       .select(
-        "id, status, coach_name, offer_type, offer_scholarship_percent, athletes(id, org_id, recruit_type, name, sport, position, status, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)"
+        "id, status, coach_name, offer_type, offer_scholarship_percent, athletes(id, org_id, recruit_type, name, sport, position, status, deleted_at, gpa, gpa_verified, detail, measurables, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status), schools(id, name, division, conference, sports_sponsored, academics, financials, athletics, conflicts, profile_date)"
       )
       .eq("org_id", org.id)
       .order("created_at", { ascending: false }),
@@ -88,7 +88,9 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
 
   // Stored fits, one read for the whole board. docs/MATCHING_CONTRACT.md:
   // a screen reads rows, it never scores.
-  const targetRows = (targets ?? []) as TargetRow[];
+  // A removed athlete (Remove Athlete, a soft delete) leaves the board
+  // with them; their targets stay in the table for the record.
+  const targetRows = ((targets ?? []) as TargetRow[]).filter((t) => !unwrap(t.athletes)?.deleted_at);
   const fits = await loadFitsForPairs(
     supabase,
     org.id,

@@ -16,7 +16,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, type GiftRow } from "@/lib/data/fundraisingAdapters";
 import { formatMoney, formatMoneyShort, CATEGORY_LABEL, METHOD_LABEL, type GiftCategory } from "@/lib/fundraising/rollup";
-import { Body, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
+import { Body, EmptyState, LinkButton, Notice, Row, Screen, Section } from "@/components/kit";
 import { SearchField } from "@/components/SearchField";
 
 export const dynamic = "force-dynamic";
@@ -26,15 +26,16 @@ export default async function GiftsPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ category?: string; method?: string; q?: string }>;
+  searchParams: Promise<{ category?: string; method?: string; q?: string; notice?: string; error?: string }>;
 }) {
   const { slug } = await params;
-  const { category, method, q: rawQuery } = await searchParams;
+  const { category, method, q: rawQuery, notice, error } = await searchParams;
   const q = rawQuery?.trim().toLowerCase() ?? "";
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.donor_fundraising) notFound();
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
+  const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
   const [{ data: giftRows }, { data: donorRows }, { data: campaignRows }] = await Promise.all([
@@ -70,6 +71,7 @@ export default async function GiftsPage({
       back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
       lede={`${gifts.length} ${gifts.length === 1 ? "gift" : "gifts"} · ${formatMoneyShort(cashCents)} cash${inKindCents > 0 ? ` · ${formatMoneyShort(inKindCents)} in kind` : ""}`}
     >
+      {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       {(all.length > 5 || q) && <SearchField initial={q} placeholder="A donor or a campaign" />}
 
       {gifts.length === 0 ? (
@@ -84,7 +86,9 @@ export default async function GiftsPage({
             return (
               <Row
                 key={g.id}
-                href={g.donorId ? `/org/${slug}/fundraising/donors/${g.donorId}` : undefined}
+                // Each gift opens its own edit screen (audit crud F10); the
+                // donor is one tap further, on their name in the form.
+                href={canEdit ? `/org/${slug}/fundraising/gifts/${g.id}/edit` : g.donorId ? `/org/${slug}/fundraising/donors/${g.donorId}` : undefined}
                 kind={inKind ? "grant" : "money"}
                 role={inKind ? "place" : "committed"}
                 title={name}

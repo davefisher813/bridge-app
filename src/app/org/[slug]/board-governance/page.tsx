@@ -11,7 +11,7 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
-import { AddButton, Body, Card, EmptyState, Label, LinkButton, Meter, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
+import { AddButton, Body, Card, EmptyState, Label, LinkButton, Meter, Notice, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { formatMoneyShort } from "@/lib/fundraising/rollup";
 import { BOARD_KIND_LABEL } from "@/lib/governance/giveGet";
@@ -31,10 +31,10 @@ export default async function BoardGovernancePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ year?: string }>;
+  searchParams: Promise<{ year?: string; notice?: string; error?: string }>;
 }) {
   const { slug } = await params;
-  const { year } = await searchParams;
+  const { year, notice, error } = await searchParams;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   if (!org.modules.board_governance) notFound();
@@ -65,6 +65,7 @@ export default async function BoardGovernancePage({
       title="Boards" lede={`${fiscalYear}`}
       action={canEdit && view.boards.length > 0 ? <AddButton href={`/org/${slug}/board-governance/new`} label="Add" /> : undefined}
     >
+      {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       {view.boards.length === 0 ? (
         <>
           <EmptyState kind="governance" title="No Boards Yet" action={canEdit && <LinkButton href={`/org/${slug}/board-governance/new`}>Add the First Board</LinkButton>}

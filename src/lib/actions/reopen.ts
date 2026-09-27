@@ -7,6 +7,8 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { applyReopen, reopenNotice, type ReopenInput, type TransferKind } from "@/lib/data/reopen";
 import { canReopen, currentSchoolOf } from "@/lib/placement";
+import { resolveCollege } from "@/lib/data/lookups";
+import { addAthleteNote } from "@/lib/data/athleteNotes";
 
 export interface ReopenActionState {
   errors: Record<string, string>;
@@ -30,7 +32,7 @@ export async function reopenRecruiting(slug: string, athleteId: string, prevOrFo
 
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
   const { data: athlete } = await supabase.from("athletes").select("id, status, detail").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
@@ -61,16 +63,33 @@ export async function reopenRecruiting(slug: string, athleteId: string, prevOrFo
     const portalRaw = String(formData.get("portalEntryDate") ?? "").trim();
     if (portalRaw && !/^\d{4}-\d{2}-\d{2}$/.test(portalRaw)) errors.portalEntryDate = "A date, or leave it blank.";
 
+    if (String(formData.get("note") ?? "").trim().length > 4000) errors.note = "A note is 4000 characters or fewer.";
+
     if (Object.keys(errors).length) return { errors, values };
-    input = { transferKind, currentSchool, eligibilityYearsRemaining: years, transferCount, portalEntryDate: portalRaw || undefined };
+    // The school they are leaving, when it names exactly one college on
+    // file: its id is remembered on the record (Stage 4), and its
+    // division fills in. Otherwise the name stays as typed.
+    const college = await resolveCollege(supabase, currentSchool);
+    input = {
+      transferKind,
+      currentSchool,
+      currentSchoolId: college?.id,
+      currentDivision: college?.division ?? undefined,
+      eligibilityYearsRemaining: years,
+      transferCount,
+      portalEntryDate: portalRaw || undefined,
+    };
   }
 
   const result = await applyReopen(supabase, org.id, athleteId, input);
   if (!result) redirect(profile);
 
+  // The optional note, filed under Reopened Recruiting. Blank adds none.
+  const noteError = await addAthleteNote(supabase, { orgId: org.id, athleteId, authorId: user.id, context: "reopened", body: String(formData.get("note") ?? "") });
+
   revalidatePath(profile);
   revalidatePath(`/org/${slug}/roster`);
   revalidatePath(`/org/${slug}/board`);
   revalidatePath(`/org/${slug}`);
-  redirect(`${profile}?notice=${encodeURIComponent(reopenNotice(result))}`);
+  redirect(`${profile}?notice=${encodeURIComponent(noteError ? `${reopenNotice(result)} ${noteError}` : reopenNotice(result))}`);
 }

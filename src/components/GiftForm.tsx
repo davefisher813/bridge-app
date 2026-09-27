@@ -23,6 +23,22 @@ export interface OpenPledge {
   outstandingCents: number;
 }
 
+// What a gift already says, for Edit Gift. The amount comes in as the
+// text the field shows.
+export interface GiftInitial {
+  amount: string;
+  receivedOn: string;
+  method: string;
+  donorId: string | null;
+  category: string;
+  campaignId: string | null;
+  pledgeId: string | null;
+  solicitedBy: string | null;
+  inKindDescription: string | null;
+  externalRef: string | null;
+  notes: string | null;
+}
+
 export function GiftForm({
   action,
   donors,
@@ -30,6 +46,8 @@ export function GiftForm({
   openPledges,
   boardMembers,
   today,
+  initial,
+  submitLabel = "Record Gift",
 }: {
   action: ServerAction;
   donors: Array<{ id: string; name: string }>;
@@ -39,6 +57,8 @@ export function GiftForm({
   // off the screen for an org that has no boards.
   boardMembers: BoardMemberOption[];
   today: string;
+  initial?: GiftInitial;
+  submitLabel?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const err = (key: string) => state.errors[key];
@@ -46,8 +66,8 @@ export function GiftForm({
   // The in-kind description is required only when the method is in
   // kind, so the field appears when it becomes required rather than
   // sitting there confusing everybody the rest of the time.
-  const [method, setMethod] = useState<string>("check");
-  const [donorId, setDonorId] = useState<string>("");
+  const [method, setMethod] = useState<string>(initial?.method ?? "check");
+  const [donorId, setDonorId] = useState<string>(initial?.donorId ?? "");
 
   const isInKind = method === "in_kind";
   // Only pledges belonging to the selected donor. A payment against
@@ -61,6 +81,7 @@ export function GiftForm({
         label="Amount"
         error={err("amount")}
         inputMode="decimal"
+        defaultValue={initial?.amount ?? ""}
         required
         hint="A negative amount records a refund or a correction."
       />
@@ -81,7 +102,7 @@ export function GiftForm({
       </SelectField>
 
       <Grid2>
-        <Field name="receivedOn" label="Received" type="date" error={err("receivedOn")} defaultValue={today} required />
+        <Field name="receivedOn" label="Received" type="date" error={err("receivedOn")} defaultValue={initial?.receivedOn ?? today} required />
         <SelectField name="method" label="How" error={err("method")} value={method} onChange={(e) => setMethod(e.target.value)}>
           {GIFT_METHODS.map((m) => (
             <option key={m} value={m}>
@@ -96,11 +117,12 @@ export function GiftForm({
           name="inKindDescription"
           label="What Was Given"
           error={err("inKindDescription")}
+          defaultValue={initial?.inKindDescription ?? ""}
           hint="Counted as support, never as cash. An in-kind amount with no description cannot be substantiated later."
         />
       )}
 
-      <SelectField name="category" label="Category" error={err("category")} defaultValue="individual" hint="The same five rows as the P&L the board already sees.">
+      <SelectField name="category" label="Category" error={err("category")} defaultValue={initial?.category ?? "individual"} hint="The same five rows as the P&L the board already sees.">
         {GIFT_CATEGORIES.map((c) => (
           <option key={c} value={c}>
             {CATEGORY_LABEL[c]}
@@ -109,7 +131,7 @@ export function GiftForm({
       </SelectField>
 
       {campaigns.length > 0 && (
-        <SelectField name="campaignId" label="Campaign" defaultValue="">
+        <SelectField name="campaignId" label="Campaign" defaultValue={initial?.campaignId ?? ""}>
           <option value="">None</option>
           {campaigns.map((c) => (
             <option key={c.id} value={c.id}>
@@ -123,7 +145,7 @@ export function GiftForm({
         <SelectField
           name="pledgeId"
           label="Pay Down a Pledge"
-          defaultValue=""
+          defaultValue={initial?.pledgeId ?? ""}
           hint="Linking it reduces what is outstanding instead of leaving the promise open alongside the payment."
         >
           <option value="">Not against a pledge</option>
@@ -139,7 +161,7 @@ export function GiftForm({
         <SelectField
           name="solicitedBy"
           label="Brought in By"
-          defaultValue=""
+          defaultValue={initial?.solicitedBy ?? ""}
           hint="Credits this toward their give/get. If they are also the donor, it still counts once."
         >
           <option value="">Nobody in particular</option>
@@ -155,12 +177,13 @@ export function GiftForm({
         name="externalRef"
         label="Reference"
         error={err("externalRef")}
+        defaultValue={initial?.externalRef ?? ""}
         hint="Optional, and the same reference can only be recorded once, so a payment cannot be entered twice by accident."
       />
 
-      <TextAreaField name="notes" label="Notes" rows={2} />
+      <TextAreaField name="notes" label="Notes" rows={2} defaultValue={initial?.notes ?? ""} />
 
-      <Button disabled={pending}>{pending ? "Recording..." : "Record Gift"}</Button>
+      <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );
 }

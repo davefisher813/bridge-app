@@ -23,6 +23,7 @@ export const schoolBaseSchema = z
     programTier: z.enum(PROGRAM_TIER_KEYS).optional(),
     conference: z.string().trim().optional(),
     state: z.string().trim().toUpperCase().length(2, "Two letters, like CT").optional(),
+    location: z.string().trim().max(120, "Keep it under 120 characters").optional(),
     sportsSponsored: z.string().trim().optional(),
     gpaMin: z.number().min(0).max(4, "GPA runs 0 to 4").optional(),
     gpaAvg: z.number().min(0).max(4, "GPA runs 0 to 4").optional(),
@@ -60,6 +61,7 @@ export function parseSchoolForm(formData: FormData): SchoolFormResult {
     programTier: strOrUndef(formData.get("programTier")),
     conference: strOrUndef(formData.get("conference")),
     state: strOrUndef(formData.get("state")),
+    location: strOrUndef(formData.get("location")),
     sportsSponsored: strOrUndef(formData.get("sportsSponsored")),
     gpaMin: numOrUndef(formData.get("gpaMin")),
     gpaAvg: numOrUndef(formData.get("gpaAvg")),
@@ -97,19 +99,49 @@ export function parseSportsSponsored(raw: string | undefined): string[] {
     .filter((s) => s.length > 0);
 }
 
-// The row the schools table takes, from parsed values.
-export function schoolColumnsFrom(v: SchoolFormValues) {
-  const drop = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, x]) => x !== undefined));
+// The keys inside each jsonb column that a surface owns. A save sets
+// the keys it owns and leaves every other key on the row alone, so a
+// fact written by something else (academics.majorAvailability, read by
+// src/lib/fit/academic.ts; anything a later loader adds) survives an
+// edit. A key the surface owns and was left blank is removed, so
+// clearing a field still clears it (crud F4).
+export const FORM_OWNED_KEYS = {
+  academics: ["gpaMin", "gpaAvg", "satRange", "actRange", "majorsNote"],
+  financials: ["athleticScholarship", "avgAthleticAid", "avgMeritAid", "avgNeedAid", "instateTotal", "outstateTotal", "rosterSpotsOpen"],
+  athletics: ["playingTimeOutlook", "positionDepth"],
+} as const;
+
+// The CSV template (public/templates/schools.csv) carries fewer: no
+// programs note and no depth chart.
+export const CSV_OWNED_KEYS = {
+  academics: ["gpaMin", "gpaAvg", "satRange", "actRange"],
+  financials: ["athleticScholarship", "avgAthleticAid", "avgMeritAid", "avgNeedAid", "instateTotal", "outstateTotal", "rosterSpotsOpen"],
+  athletics: ["playingTimeOutlook"],
+} as const;
+
+export type SchoolJsonbColumns = { academics?: unknown; financials?: unknown; athletics?: unknown };
+
+export function mergeOwned(existing: unknown, owned: readonly string[], values: Record<string, unknown>): Record<string, unknown> {
+  const base = existing && typeof existing === "object" && !Array.isArray(existing) ? { ...(existing as Record<string, unknown>) } : {};
+  for (const k of owned) delete base[k];
+  for (const [k, v] of Object.entries(values)) if (v !== undefined && owned.includes(k)) base[k] = v;
+  return base;
+}
+
+// The row the schools table takes, from parsed values. `existing` is
+// the row's current jsonb columns on an edit; a new school has none.
+export function schoolColumnsFrom(v: SchoolFormValues, existing?: SchoolJsonbColumns | null) {
   return {
     name: v.name,
     division: v.division,
     program_tier: v.programTier ?? null,
     conference: v.conference ?? null,
     state: v.state ?? null,
+    location: v.location ?? null,
     sports_sponsored: parseSportsSponsored(v.sportsSponsored),
     majors: parseSportsSponsored(v.majors),
-    academics: drop({ gpaMin: v.gpaMin, gpaAvg: v.gpaAvg, satRange: v.satRange, actRange: v.actRange, majorsNote: v.majorsNote }),
-    financials: drop({
+    academics: mergeOwned(existing?.academics, FORM_OWNED_KEYS.academics, { gpaMin: v.gpaMin, gpaAvg: v.gpaAvg, satRange: v.satRange, actRange: v.actRange, majorsNote: v.majorsNote }),
+    financials: mergeOwned(existing?.financials, FORM_OWNED_KEYS.financials, {
       athleticScholarship: v.athleticScholarship,
       avgAthleticAid: v.avgAthleticAid,
       avgMeritAid: v.avgMeritAid,
@@ -118,7 +150,7 @@ export function schoolColumnsFrom(v: SchoolFormValues) {
       outstateTotal: v.outstateTotal,
       rosterSpotsOpen: v.rosterSpotsOpen,
     }),
-    athletics: drop({ playingTimeOutlook: v.playingTimeOutlook, positionDepth: v.positionDepth }),
+    athletics: mergeOwned(existing?.athletics, FORM_OWNED_KEYS.athletics, { playingTimeOutlook: v.playingTimeOutlook, positionDepth: v.positionDepth }),
     profile_date: new Date().toISOString(),
   };
 }

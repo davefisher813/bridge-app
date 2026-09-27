@@ -16,6 +16,22 @@ su postgres -c "psql -c 'create database $DB;'"
 echo "==> Applying auth stub"
 su postgres -c "psql -d $DB -f scripts/local_auth_stub.sql"
 
+# Supabase's own default privileges: every table and function created in
+# public is granted to anon and authenticated unless a migration revokes
+# it. Without this, a local anon role holds no grant on anything and a
+# "revoke ... from anon" in a migration is untestable: the assertion
+# that anon cannot read a table would pass with the revoke deleted.
+echo "==> Mirroring Supabase's default grants to anon and authenticated"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1" <<'SQL'
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon; end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated; end if;
+end $$;
+alter default privileges in schema public grant all on tables to anon, authenticated;
+alter default privileges in schema public grant execute on functions to anon, authenticated;
+SQL
+
 echo "==> Applying schema migrations"
 su postgres -c "psql -d $DB -f migrations/0001_core_schema.sql"
 su postgres -c "psql -d $DB -f migrations/0002_athlete_intl_eligibility_fields.sql"
@@ -56,6 +72,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0036_college_coache
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0037_school_location.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0038_transferring_and_closed_from.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0039_advisors_messages_checkins.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0040_high_schools_and_notes.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

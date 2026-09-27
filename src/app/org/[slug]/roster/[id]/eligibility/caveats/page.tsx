@@ -90,26 +90,33 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
           it when they apply: "enter a grading scale" is advice, "enter
           one for Cardinal Ridge" is a task. */}
       <Section label="What to Do" role="contact" kind="info">
-        {view.schoolsMissingScale.length > 0 && orgSide && (
-          <Row
-            href={`/org/${slug}/grading-scales/new`}
-            kind="scale"
-            role="offer"
-            title="Enter a Grading Scale"
-            meta={`${view.schoolsMissingScale.join(", ")}. Until then the core GPA assumes a ten-point scale.`}
-            wrap
-          />
-        )}
-        {view.schoolsMissingApprovedList.length > 0 && orgSide && (
-          <Row
-            href={`/org/${slug}/approved-courses/new`}
-            kind="checklist"
-            role="offer"
-            title="Enter an Approved Course List"
-            meta={`${view.schoolsMissingApprovedList.join(", ")}. Without one, no course can be confirmed as counting.`}
-            wrap
-          />
-        )}
+        {/* One row per school, each opening the entry screen for that
+            school by name (Stage 4, B6), so nobody retypes a name the
+            transcript already spelled. */}
+        {orgSide &&
+          view.schoolsMissingScale.map((school) => (
+            <Row
+              key={`scale-${school}`}
+              href={`/org/${slug}/grading-scales/new?school=${encodeURIComponent(school)}`}
+              kind="scale"
+              role="offer"
+              title="Enter a Grading Scale"
+              meta={`${school}. Until then the core GPA assumes a ten-point scale.`}
+              wrap
+            />
+          ))}
+        {orgSide &&
+          view.schoolsMissingApprovedList.map((school) => (
+            <Row
+              key={`list-${school}`}
+              href={`/org/${slug}/approved-courses/new?school=${encodeURIComponent(school)}`}
+              kind="checklist"
+              role="offer"
+              title="Enter an Approved Course List"
+              meta={`${school}. Without one, no course can be confirmed as counting.`}
+              wrap
+            />
+          ))}
         <Row
           href={`${home}/transcript`}
           kind="course"

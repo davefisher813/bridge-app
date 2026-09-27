@@ -52,6 +52,53 @@ the profile trigger and the bucket policies alongside everything else.
 Add each new migration to `run_rls_test.sh` in order; the script is the
 list.
 
+### Supabase's default grants, mirrored (2026-09-27)
+
+A Supabase project grants every new table and function in `public` to
+`anon` and `authenticated` by default, which is why migrations revoke
+from `anon` (0033, 0036, 0040). A plain local Postgres grants nothing,
+so a missing revoke could never fail here. `run_rls_test.sh` now sets
+the same default privileges before the first migration, and the suite
+asserts the revokes by asking `has_table_privilege` and
+`has_function_privilege` as `anon`.
+
+## The high school directory loader
+
+`load_high_schools.ts` fills the shared `high_schools` table (migration
+0040) from the public NCES school files and nothing else. It is a
+one-off, run by hand; the app never runs it and no migration writes the
+table. The directory holds no org's data (Dave, 2026-09-27), and
+`src/laws/autofillLaws.test.ts` fails if the loader or its parser
+(`src/lib/lookup/ncesParse.ts`) so much as names an org table.
+
+The files, downloaded and unzipped by hand:
+
+- Public schools: the CCD school directory, "ccd_sch_029_<yyyy>_...csv",
+  from https://nces.ed.gov/ccd/files.asp (Nonfiscal, School, Directory).
+- Private schools: the PSS public-use file, "pss<yyyy>_pu.csv", from
+  https://nces.ed.gov/surveys/pss/pssdata.asp.
+
+Only schools that teach grade 12 in the states asked for are kept, and
+closed public schools are skipped. Rows upsert on `nces_id` in batches of
+500, tagged `nces_ccd_<year>` or `nces_pss_<year>`, so running it again
+updates rather than duplicates. Always dry-run first and read the per
+state counts: a count that is obviously wrong means the file's layout or
+codebook changed (the PSS grade column is a code, 17 for grade 12).
+
+```
+npx esbuild scripts/load_high_schools.ts --bundle --platform=node --log-level=warning \
+  | node - --states CT,NY,NJ --file ccd_sch_029_2324_w_1a_073124.csv --file pss2122_pu.csv --dry-run
+
+NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
+npx esbuild scripts/load_high_schools.ts --bundle --platform=node --log-level=warning \
+  | node - --states CT,NY,NJ --file ccd_sch_029_2324_w_1a_073124.csv --file pss2122_pu.csv
+```
+
+Until it runs, the directory is empty and the high school suggestions
+come from the org's own names only (its courses, grading scales,
+approved lists and athlete records). The service role key never goes in
+the repo.
+
 ## The preview and the bench
 
 `build_previews.sh` compiles the app's stylesheet, renders every page in

@@ -37,3 +37,18 @@ export async function loadCoachesForSchool(supabase: Client, schoolId: string): 
   }));
   return coaches.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
+
+// Every directory coach as a suggestion, grouped by school: what Coach
+// suggests on Add Target and Edit Target once a school is picked. One
+// read of the whole directory (a few hundred rows) rather than an .in()
+// of every school id, which would put hundreds of ids in one URL.
+export async function loadCoachSuggestionsBySchool(supabase: Client): Promise<Record<string, { value: string; label?: string }[]>> {
+  const { data } = await supabase.from("college_coaches").select("school_id, name, title");
+  const out: Record<string, { value: string; label?: string }[]> = {};
+  for (const r of (data ?? []) as { school_id: string | null; name: string; title: string | null }[]) {
+    if (!r.school_id || !r.name?.trim()) continue;
+    (out[r.school_id] ??= []).push({ value: r.name.trim(), label: r.title?.trim() || undefined });
+  }
+  for (const list of Object.values(out)) list.sort((a, b) => a.value.localeCompare(b.value));
+  return out;
+}

@@ -124,4 +124,43 @@ describe("first metrics on the Add form", async () => {
     const bad = parseFirstMetrics(fdm({ metric_fbVelo: "-4", metricsMeasuredOn: "2026-08-15", metricsSource: "pbr" }));
     expect((bad as { errors: Record<string, string> }).errors.metric_fbVelo).toBeTruthy();
   });
+
+  // Stage 4. Zod drops a key it does not know, and the form rebuilds
+  // detail key by key, so a key missed here is erased by every Edit save.
+  it("carries the high school and its directory id through", () => {
+    const id = "00000000-0000-4000-8000-000000000001";
+    const r = parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "hs", highSchool: "  Fixture High School ", highSchoolId: id }));
+    expect(r.ok).toBe(true);
+    expect(r.detail).toMatchObject({ kind: "hs", highSchool: "Fixture High School", highSchoolId: id });
+  });
+
+  it("carries a transfer's current school id through", () => {
+    const id = "00000000-0000-4000-8000-000000000002";
+    const r = parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "transfer_4to4", currentSchool: "Some U", eligibilityYearsRemaining: "2", transferCount: "0", currentSchoolId: id }));
+    expect(r.ok).toBe(true);
+    expect(r.detail).toMatchObject({ kind: "transfer", currentSchoolId: id });
+  });
+
+  it("drops a row id that is not a uuid instead of failing the save", () => {
+    const r = parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "hs", highSchool: "Somewhere HS", highSchoolId: "not-an-id" }));
+    expect(r.ok).toBe(true);
+    expect(r.detail).toEqual({ kind: "hs", highSchool: "Somewhere HS" });
+  });
+
+  it("reads a note, trimmed, and treats a blank one as none", () => {
+    expect(parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "hs", notes: "  Met the family.  " })).values.notes).toBe("Met the family.");
+    expect(parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "hs", notes: "" })).values.notes).toBeUndefined();
+    const long = parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "hs", notes: "x".repeat(4001) }));
+    expect(long.ok).toBe(false);
+    expect(long.errors.notes).toBeTruthy();
+  });
+
+  it("reads corrected enrollment and graduation dates, and refuses one that is not a date", () => {
+    const r = parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "hs", enrollmentDate: "2025-08-25", graduatedOn: "2029-05-15" }));
+    expect(r.ok).toBe(true);
+    expect(r.values).toMatchObject({ enrollmentDate: "2025-08-25", graduatedOn: "2029-05-15" });
+    const bad = parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "hs", enrollmentDate: "last fall" }));
+    expect(bad.ok).toBe(false);
+    expect(bad.errors.enrollmentDate).toBeTruthy();
+  });
 });

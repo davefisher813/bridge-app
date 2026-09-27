@@ -17,6 +17,7 @@ import { EmptyState, Label, LinkButton, Notice, Row, Screen, Section } from "@/c
 import type { RowKind } from "@/components/RowGlyph";
 import type { Role } from "@/components/statusHue";
 import { loadTarget } from "@/lib/data/loadTarget";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -63,14 +64,26 @@ export default async function CommunicationsPage({ params }: { params: Promise<{
   const bundle = await loadTarget(org.id, id);
   if (!bundle) notFound();
 
-  type Entry = { at: string | null; label: string; detail: string | null; kind: RowKind; role: Role };
+  type Entry = { key: string; href: string; at: string | null; label: string; detail: string | null; kind: RowKind; role: Role };
+
+  // The rows again with their ids, so each entry opens its own edit
+  // screen: a wrong date or an entry on the wrong target is corrected
+  // where it sits (crud F6). Scoped by target and org like the bundle.
+  const supabase = await createClient();
+  const [{ data: commRows }, { data: visitRows }] = await Promise.all([
+    supabase.from("target_communications").select("id, kind, occurred_on, notes").eq("target_id", id).eq("org_id", org.id),
+    supabase.from("target_visits").select("id, visit_type, visit_date, impression").eq("target_id", id).eq("org_id", org.id),
+  ]);
+  const base = `/org/${slug}/board/${id}`;
 
   const entries: Entry[] = [
-    ...bundle.communications.map((c) => {
+    ...((commRows ?? []) as { id: string; kind: string; occurred_on: string | null; notes: string | null }[]).map((c) => {
       const meta = KIND[c.kind] ?? KIND.other;
-      return { at: c.occurred_on, label: meta.label, detail: c.notes, kind: meta.kind, role: meta.role };
+      return { key: `c-${c.id}`, href: `${base}/communications/${c.id}`, at: c.occurred_on, label: meta.label, detail: c.notes, kind: meta.kind, role: meta.role };
     }),
-    ...bundle.visits.map((v) => ({
+    ...((visitRows ?? []) as { id: string; visit_type: string; visit_date: string | null; impression: string | null }[]).map((v) => ({
+      key: `v-${v.id}`,
+      href: `${base}/visits/${v.id}`,
       at: v.visit_date,
       label: VISIT_KIND[v.visit_type] ?? VISIT_KIND.other,
       detail: v.impression,
@@ -113,9 +126,10 @@ export default async function CommunicationsPage({ params }: { params: Promise<{
             Contact and a completed visit both move the fit score.
           </EmptyState>
         ) : (
-          [...dated, ...undated].map((e, i) => (
+          [...dated, ...undated].map((e) => (
             <Row
-              key={i}
+              key={e.key}
+              href={canEdit ? e.href : undefined}
               kind={e.kind}
               role={e.role}
               title={e.label}

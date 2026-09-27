@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -55,6 +56,38 @@ export async function logCheckin(slug: string, athleteId: string, _prevState: Ch
 
   revalidateCheckins(slug, athleteId);
   return { errors: {} };
+}
+
+// Fix one entry in place (audit crud F21): the type, the date and the
+// notes. Never who checked in: advisor_id records the person who logged
+// it and an edit does not move the credit. Scoped to the org and the
+// athlete, and a zero-row update says so rather than pretending it saved.
+export async function updateCheckin(slug: string, athleteId: string, checkinId: string, _prevState: CheckinActionState, formData: FormData): Promise<CheckinActionState> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireRole(org.id, STAFF_ROLES);
+
+  const parsed = parseCheckinForm(formData);
+  if (!parsed.ok || !parsed.values) return { errors: parsed.errors };
+  if (!parsed.values.occurredOn) return { errors: { occurredOn: "Pick the date it happened." } };
+
+  if (!(await assertAthleteInOrg(org.id, athleteId))) {
+    return { errors: { form: "That athlete isn't on this org's roster." } };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("athlete_checkins")
+    .update({ kind: parsed.values.kind, occurred_on: parsed.values.occurredOn, notes: parsed.values.notes ?? null })
+    .eq("id", checkinId)
+    .eq("org_id", org.id)
+    .eq("athlete_id", athleteId)
+    .select("id");
+  if (error) return { errors: { form: error.message } };
+  if (!data || data.length === 0) return { errors: { form: "That check-in is not on this athlete's log any more." } };
+
+  revalidateCheckins(slug, athleteId);
+  redirect(`/org/${slug}/roster/${athleteId}/checkins`);
 }
 
 // Posted by the Remove button on a log entry, the Contacts pattern:

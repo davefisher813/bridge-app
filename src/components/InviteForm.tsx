@@ -5,7 +5,7 @@ import type { MemberActionState } from "@/lib/actions/members";
 import type { RoleLabels } from "@/lib/org/roleLabels";
 import { labelForRole } from "@/lib/org/roleLabels";
 import { ORG_ROLES } from "@/lib/validation/member";
-import { Button, Field, Form, Hidden, SelectField } from "@/components/kit";
+import { Button, Field, Form, Hidden, SelectField, SuggestField } from "@/components/kit";
 import { RELATIONSHIPS } from "@/lib/copy/relationships";
 
 type ServerAction = (prevState: MemberActionState, formData: FormData) => Promise<MemberActionState>;
@@ -24,16 +24,22 @@ export interface InviteAthleteOption {
 // `pinned` is the Invite Family screen on an athlete's page (Dave's
 // pick, 2026-09-21): the role is family and the athlete is this one, so
 // neither is asked; what is asked is who this person is to the athlete.
+//
+// `suggest` is what the athlete's own parent and guardian contacts
+// already say (Stage 4): their emails are suggested, and the name is
+// filled in when there is exactly one of them.
 export function InviteForm({
   action,
   roleLabels,
   athletes = [],
   pinned,
+  suggest,
 }: {
   action: ServerAction;
   roleLabels: RoleLabels;
   athletes?: InviteAthleteOption[];
   pinned?: { athleteId: string; athleteName: string; returnTo: string };
+  suggest?: { emails: string[]; name?: string };
 }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const err = (key: string) => state.errors[key];
@@ -48,7 +54,17 @@ export function InviteForm({
         <Hidden name="role" value="family" />
         <Hidden name="athleteId" value={pinned.athleteId} />
         <Hidden name="returnTo" value={pinned.returnTo} />
-        <Field name="email" label="Email" type="email" autoComplete="off" inputMode="email" required defaultValue={value("email")} error={err("email")} />
+        <SuggestField
+          name="email"
+          label="Email"
+          type="email"
+          inputMode="email"
+          required
+          hint={suggest?.emails.length ? "The parent and guardian contacts on file are suggested." : undefined}
+          defaultValue={value("email")}
+          error={err("email")}
+          suggestions={suggest?.emails ?? []}
+        />
         <SelectField name="relationship" label="Who They Are" defaultValue={value("relationship") || "parent"} error={err("relationship")}>
           {RELATIONSHIPS.map((r) => (
             <option key={r.value} value={r.value}>
@@ -56,7 +72,7 @@ export function InviteForm({
             </option>
           ))}
         </SelectField>
-        <Field name="fullName" label="Name (optional)" autoComplete="off" defaultValue={value("fullName")} />
+        <Field name="fullName" label="Name (optional)" autoComplete="off" defaultValue={state.values?.fullName === undefined ? (suggest?.name ?? "") : value("fullName")} />
         <Button disabled={pending}>{pending ? "Sending..." : "Send Invite"}</Button>
       </Form>
     );

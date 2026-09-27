@@ -33,20 +33,35 @@ const SUBJECTS: Array<[SubjectArea, string]> = [
 
 type Row = ParsedRow & { id: number };
 
+export interface ApprovedListDefaults {
+  ceebCode?: string | null;
+  retrievedOn?: string | null;
+  sourceNote?: string | null;
+  isComplete?: boolean;
+}
+
 export function ApprovedListForm({
   action,
   schoolName,
   existing,
+  defaults = {},
 }: {
   action: (state: ApprovedListActionState, formData: FormData) => Promise<ApprovedListActionState>;
   schoolName: string;
+  // The list on file, when this is an edit: every course comes back as a
+  // row to keep, correct or remove, rather than an empty form to retype
+  // eighty rows into (crud F13).
   existing?: Array<{ title: string; subject: SubjectArea; maxCredit: number | null; weighted: boolean }>;
+  // The list's own fields on an edit; on a new list, the CEEB code on
+  // file for the school (the public directory, or the portal's list).
+  defaults?: ApprovedListDefaults;
 }) {
   const [state, formAction, pending] = useActionState(action, { errors: {} });
   const [paste, setPaste] = useState("");
   const [nextId, setNextId] = useState(1000);
   const [rows, setRows] = useState<Row[]>((existing ?? []).map((c, i) => ({ ...c, problem: null, raw: c.title, id: i })));
-  const [isComplete, setIsComplete] = useState(false);
+  const [isComplete, setIsComplete] = useState(defaults.isComplete ?? false);
+  const [editing, setEditing] = useState<number | null>(null);
 
   const parsed = useMemo(() => (paste.trim() ? parseApprovedListPaste(paste) : null), [paste]);
 
@@ -66,7 +81,12 @@ export function ApprovedListForm({
   }
   function addBlank() {
     setRows((rs) => [...rs, { id: nextId, title: "", subject: null, maxCredit: null, weighted: false, problem: null, raw: "" }]);
+    setEditing(nextId);
     setNextId((n) => n + 1);
+  }
+  // Correcting one course in place: its title, its credit cap, weighted.
+  function patch(id: number, change: Partial<Pick<Row, "title" | "maxCredit" | "weighted">>) {
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...change, problem: change.title !== undefined && r.problem?.startsWith("No title") ? null : r.problem } : r)));
   }
 
   const needAttention = rows.filter((r) => r.subject === null || r.problem !== null);
@@ -125,10 +145,32 @@ export function ApprovedListForm({
                           (bad ? "Needs a subject" : "Ready")}
                       </Label>
                     </div>
+                    <Button type="button" variant="quiet" inline onClick={() => setEditing(editing === r.id ? null : r.id)}>
+                      {editing === r.id ? "Done" : "Edit"}
+                    </Button>
                     <Button type="button" variant="quiet" inline onClick={() => remove(r.id)}>
                       Remove
                     </Button>
                   </Inline>
+                  {editing === r.id && (
+                    <Stack gap={3}>
+                      <Field id={`course-title-${r.id}`} name={`edit_title_${r.id}`} label="Course Title" value={r.title} onChange={(e) => patch(r.id, { title: e.target.value })} />
+                      <Field
+                        id={`course-credit-${r.id}`}
+                        name={`edit_credit_${r.id}`}
+                        label="Credit Cap"
+                        inputMode="decimal"
+                        hint="Blank for no cap."
+                        value={r.maxCredit === null ? "" : String(r.maxCredit)}
+                        onChange={(e) => {
+                          const v = e.target.value.trim();
+                          const n = Number(v);
+                          patch(r.id, { maxCredit: v === "" || !Number.isFinite(n) ? null : n });
+                        }}
+                      />
+                      <CheckField id={`course-weighted-${r.id}`} name={`edit_weighted_${r.id}`} label="Weighted" checked={r.weighted} onChange={(e) => patch(r.id, { weighted: e.target.checked })} />
+                    </Stack>
+                  )}
                   {r.problem && <Label tone="danger">{r.problem}</Label>}
                   <ChoiceRow>
                     {SUBJECTS.map(([value, label]) => (
@@ -148,11 +190,17 @@ export function ApprovedListForm({
       )}
 
       <Grid2>
-        <Field name="ceebCode" label="CEEB Code" hint="For example, 070415." inputMode="numeric" />
-        <Field name="retrievedOn" label="Read Off the Portal On" type="date" />
+        <Field name="ceebCode" label="CEEB Code" hint="For example, 070415." inputMode="numeric" defaultValue={defaults.ceebCode ?? ""} />
+        <Field name="retrievedOn" label="Read Off the Portal On" type="date" defaultValue={defaults.retrievedOn ?? ""} />
       </Grid2>
 
-      <Field name="sourceNote" label="Where This Came From" hint="For example, Transcribed from the NCAA portal." error={state.errors.sourceNote} />
+      <Field
+        name="sourceNote"
+        label="Where This Came From"
+        hint="For example, Transcribed from the NCAA portal."
+        defaultValue={defaults.sourceNote ?? ""}
+        error={state.errors.sourceNote}
+      />
 
       {/* The one field that changes what the engine is allowed to conclude. */}
       <CheckField
