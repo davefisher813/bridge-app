@@ -30,8 +30,8 @@ export default async function NewOrgPage() {
           <Heading>Create an Organization</Heading>
           <Prose>
             {canCreate
-              ? "You will be its owner. Invite everyone else once it exists."
-              : "Only an owner, or someone not yet in any organization, can start one. Ask your organization's owner."}
+              ? "You will be its Admin. Invite everyone else once it exists."
+              : "Only an Admin, or someone not yet in any organization, can start one. Ask your organization's Admin."}
           </Prose>
         </div>
         {canCreate && <CreateOrgForm action={createOrg} />}

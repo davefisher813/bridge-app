@@ -23,7 +23,7 @@ import { formatMetricValue, metricsFor, positionGroupOf, selectScoringMetrics } 
 import { loadStaff } from "@/lib/data/staff";
 import { threadSummaryByAthlete } from "@/lib/data/messages";
 import { checkinDue } from "@/lib/checkins";
-import { labelForRole } from "@/lib/org/roleLabels";
+import { personLabel } from "@/lib/org/roleLabels";
 import { GOAL_LABEL, type AthleteGoal } from "@/lib/fit/contract";
 import type { FitTag } from "@/lib/fit/types";
 
@@ -394,13 +394,13 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
             href={advisor.email ? `mailto:${advisor.email}` : undefined}
             leading={<Avatar name={advisor.name} />}
             title={advisor.name}
-            meta={`${labelForRole(org.roleLabels, advisor.role)}${advisor.email ? ` · ${advisor.email}` : ""}`}
+            meta={`${personLabel(advisor)}${advisor.email ? ` · ${advisor.email}` : ""}`}
             trailing={advisor.email ? <Chevron /> : undefined}
             wrap
           />
         ) : (
           <EmptyState kind="people" title="No Advisor Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/edit`}>Pick One</LinkButton> : undefined}>
-            The advisor checks in with this athlete and the family sees their name.
+            The advisor checks in with this athlete and the athlete login sees their name.
           </EmptyState>
         )}
         <Row
@@ -427,7 +427,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
       <Section label="Notes" count={notes.length} role="accent" kind="note">
         {notes.length === 0 ? (
           <EmptyState kind="note" title="No Notes Yet">
-            Staff only. The family never sees them.
+            Admins only. The athlete login never sees them.
           </EmptyState>
         ) : (
           notes.map((n) => (

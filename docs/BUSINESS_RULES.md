@@ -6,10 +6,17 @@
   core product.
 - `board_governance` and `donor_fundraising` are off by default. Bridge
   turns both on. Elite Squad turns neither on.
-- An org's role labels (what "owner" and "staff" are called for that
-  org) are display-only config in `orgs.role_labels`. They never affect
-  what a role can actually do - that's the fixed `org_role` enum plus
-  `requireRole()` / `requireOwner()` in `src/lib/auth/guard.ts`.
+- Three access levels, with fixed names in every org (Dave,
+  2026-09-27): Admin (`owner`), Viewer (`member`), Athlete (`family`).
+  `staff` is retired: migration 0041 moved every staff row to owner and
+  nothing offers it; a leftover row reads as Admin. What a role can do is
+  the `org_role` enum plus `requireRole()` / `requireOwner()` in
+  `src/lib/auth/guard.ts`, unchanged.
+- A person's Title (`org_members.title`, 1 to 80 characters or null) is
+  what they are called in that org: Head Coach, Board Chair. An Admin
+  sets it on the person's page under Members. It shows next to their
+  name in place of the access level and never grants anything.
+  `orgs.role_labels` is no longer read; the column keeps its data.
 
 ## Who sees a school (2026-09-26)
 

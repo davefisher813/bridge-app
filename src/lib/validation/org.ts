@@ -1,5 +1,8 @@
-// What an organization says about itself: its name, what it calls each
-// role, and which of the optional modules it runs (audit wired F4).
+// What an organization says about itself: its name and which of the
+// optional modules it runs (audit wired F4). What it calls each role
+// used to be here too; the access names are fixed now (Admin, Viewer,
+// Athlete, Dave 2026-09-27) and a person's Title is set per person under
+// Members.
 //
 // Pure, so the settings screen, the create screen and the laws all read
 // the same rules. The web address (slug) follows the same pattern
@@ -7,18 +10,12 @@
 // numbers and single hyphens. The database is the final word; this is
 // the message somebody can act on before it gets there.
 
-import { DEFAULT_ROLE_LABEL } from "@/lib/org/roleLabels";
 import type { OrgModules } from "@/lib/org/modules";
 
 export const ORG_NAME_MAX = 120;
-export const ROLE_LABEL_MAX = 40;
 export const SLUG_MIN = 2;
 export const SLUG_MAX = 48;
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-// The roles an org names. Family is included: Bridge might say Parent.
-export const LABELLED_ROLES = ["owner", "staff", "member", "family"] as const;
-export type LabelledRole = (typeof LABELLED_ROLES)[number];
 
 // Only the modules that are off by default can be switched. Recruiting
 // and document reading are the product; turning them off is not a
@@ -87,27 +84,12 @@ export function parseCreateOrgForm(formData: FormData): ParseResult<CreateOrgVal
 
 export interface OrgSettingsValues {
   name: string;
-  // Only the roles given a label. A blank means the default word.
-  roleLabels: Partial<Record<LabelledRole, string>>;
   modules: Record<OptionalModule, boolean>;
 }
 
 export function parseOrgSettingsForm(formData: FormData): ParseResult<OrgSettingsValues> {
   const errors: Record<string, string> = {};
   const name = checkName(formData.get("name"), errors);
-
-  const roleLabels: Partial<Record<LabelledRole, string>> = {};
-  for (const role of LABELLED_ROLES) {
-    const value = String(formData.get(`label_${role}`) ?? "").trim();
-    if (!value) continue;
-    if (value.length > ROLE_LABEL_MAX) {
-      errors[`label_${role}`] = `Keep it to ${ROLE_LABEL_MAX} characters.`;
-      continue;
-    }
-    // The default word stored as a label is the same as no label, and
-    // keeps the column saying only what the org actually chose.
-    if (value !== DEFAULT_ROLE_LABEL[role]) roleLabels[role] = value;
-  }
 
   const modules = {} as Record<OptionalModule, boolean>;
   for (const m of OPTIONAL_MODULES) {
@@ -116,7 +98,7 @@ export function parseOrgSettingsForm(formData: FormData): ParseResult<OrgSetting
   }
 
   if (Object.keys(errors).length > 0) return { ok: false, values: null, errors };
-  return { ok: true, values: { name, roleLabels, modules }, errors: {} };
+  return { ok: true, values: { name, modules }, errors: {} };
 }
 
 // The modules column after a settings save: the switches that were on

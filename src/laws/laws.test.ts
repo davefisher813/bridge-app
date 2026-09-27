@@ -26,11 +26,11 @@ const rel = (f: string) => f.slice(SRC.length + 1);
 describe("LAW: no em dashes, anywhere in source", () => {
   // Dave's rule, verbatim, across every repo of his this session read
   // (bffsa-site/CLAUDE.md, tucci-admin/CLAUDE.md): "No em dashes. Ever."
-  // Verified this law actually bites: added `const x = "a — b";` to a
+  // Verified this law actually bites: added `const x = "a \u2014 b";` to a
   // scratch file, ran `npx vitest run laws.test.ts`, watched it fail,
   // reverted.
   it("no literal em dash in any source file", () => {
-    const hits = SOURCES.filter((f) => read(f).includes("—")).map(rel);
+    const hits = SOURCES.filter((f) => read(f).includes("\u2014")).map(rel);
     expect(hits).toEqual([]);
   });
 
@@ -184,26 +184,22 @@ describe("LAW: discarding an applied document undoes what it wrote", () => {
   });
 });
 
-describe("LAW: an org's own words for its roles are actually used", () => {
-  // org_role is generic on purpose (owner | staff | member) and what a
-  // person is CALLED is org config. That has been in CLAUDE.md and in
-  // the schema since day one, and orgs.role_labels was never read
-  // anywhere until 2026-09-16: the query did not even select the column,
-  // so every screen showed the enum value or nothing. Standing up a
-  // second real organization is what surfaced it.
+describe("LAW: a role reaches the screen as its access name, never as the enum value", () => {
+  // org_role is generic on purpose (owner | staff | member | family).
+  // Until 2026-09-27 what a person was CALLED came from orgs.role_labels;
+  // Dave replaced that with three fixed access names (Admin, Viewer,
+  // Athlete) and a Title per person, so the column is no longer read.
+  // The fixed names are held by src/laws/accessLaws.test.ts; this keeps
+  // screens going through labelForRole rather than printing the enum.
 
-  it("getOrgBySlug selects and parses the column", () => {
+  it("getOrgBySlug no longer reads orgs.role_labels", () => {
     const source = readFileSync(join(SRC, "lib", "org", "membership.ts"), "utf8");
-    // The SELECT itself, not just a mention of the column elsewhere in
-    // the file: dropping it from the query while leaving `data.role_labels`
-    // in the return is exactly how this silently became undefined.
     const select = source.match(/from\("orgs"\)\s*\.select\("([^"]*)"\)/);
     expect(select).not.toBeNull();
-    expect(select![1]).toMatch(/role_labels/);
-    expect(source).toMatch(/parseRoleLabels\(/);
+    expect(select![1]).not.toMatch(/role_labels/);
   });
 
-  it("at least one screen renders the org's label rather than the enum value", () => {
+  it("at least one screen renders the access name rather than the enum value", () => {
     const files = walk(SRC).filter((f) => f.endsWith(".tsx"));
     const users = files.filter((f) => read(f).includes("labelForRole("));
     expect(users.length).toBeGreaterThan(0);

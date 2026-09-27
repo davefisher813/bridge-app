@@ -18,7 +18,7 @@ export function AthleteNoteForm({ action }: { action: ServerAction }) {
 
   return (
     <Form action={formAction} error={state.errors.form}>
-      <TextAreaField id="athleteNote" name="body" label="Add a Note" hint="Staff only, never shown on an athlete login." maxLength={4000} defaultValue={state.body ?? ""} error={state.errors.body} />
+      <TextAreaField id="athleteNote" name="body" label="Add a Note" hint="Admins only, never shown on an athlete login." maxLength={4000} defaultValue={state.body ?? ""} error={state.errors.body} />
       <Button variant="secondary" disabled={pending}>
         {pending ? "Saving..." : "Add Note"}
       </Button>

@@ -104,7 +104,7 @@ async function ensureSchool(supabase: any, orgId: string, athleteId: string, det
     } else {
       // Not on file: added to the shared directory, name and division,
       // only by someone who edits it (the same rule as Add School).
-      if (!canAdd) return "That school isn't on file yet. An owner can add it under Schools.";
+      if (!canAdd) return "That school isn't on file yet. An Admin can add it under Schools.";
       if (typed.length > 200) return "A school name is 200 characters or fewer.";
       const division = String(formData.get("division") ?? "").trim();
       if (!(SCHOOL_DIVISIONS as readonly string[]).includes(division)) return "Pick the new school's division.";

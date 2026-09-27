@@ -1,48 +1,38 @@
 import { describe, it, expect } from "vitest";
-import { parseRoleLabels, labelForRole, DEFAULT_ROLE_LABEL } from "./roleLabels";
+import { ACCESS_LEVEL, cleanTitle, labelForRole, personLabel } from "./roleLabels";
 
-describe("what an org calls its roles", () => {
-  it("uses the org's own words", () => {
-    const labels = parseRoleLabels({ owner: "Executive Director", staff: "Coordinator" });
-    expect(labelForRole(labels, "owner")).toBe("Executive Director");
-    expect(labelForRole(labels, "staff")).toBe("Coordinator");
+describe("access level names and what a person is shown as", () => {
+  it("names the three levels Admin, Viewer and Athlete", () => {
+    expect(labelForRole("owner")).toBe("Admin");
+    expect(labelForRole("member")).toBe("Viewer");
+    expect(labelForRole("family")).toBe("Athlete");
   });
 
-  it("falls back to plain English for a role the org did not name", () => {
-    const labels = parseRoleLabels({ owner: "Executive Director" });
-    expect(labelForRole(labels, "member")).toBe("Member");
+  it("reads a leftover staff row as Admin, never as the enum value", () => {
+    expect(labelForRole("staff")).toBe("Admin");
   });
 
-  it("falls back entirely when the org has said nothing", () => {
-    for (const role of ["owner", "staff", "member"] as const) {
-      expect(labelForRole(parseRoleLabels({}), role)).toBe(DEFAULT_ROLE_LABEL[role]);
-    }
+  it("reads anything unexpected as the level that changes nothing", () => {
+    expect(labelForRole("nonsense")).toBe("Viewer");
   });
 
-  it("treats a blank as nothing said, not as a label", () => {
-    // An empty string is not a title, and rendering one would leave a
-    // gap on screen where a role should be.
-    const labels = parseRoleLabels({ owner: "", staff: "   " });
-    expect(labelForRole(labels, "owner")).toBe("Owner");
-    expect(labelForRole(labels, "staff")).toBe("Staff");
+  it("offers exactly three distinct names", () => {
+    expect([...new Set(Object.values(ACCESS_LEVEL))].sort()).toEqual(["Admin", "Athlete", "Viewer"]);
   });
 
-  it("survives garbage without throwing, like every other jsonb column", () => {
-    expect(labelForRole(parseRoleLabels(null), "owner")).toBe("Owner");
-    expect(labelForRole(parseRoleLabels("nonsense"), "owner")).toBe("Owner");
-    expect(labelForRole(parseRoleLabels({ owner: 42 }), "owner")).toBe("Owner");
-    expect(labelForRole(parseRoleLabels({ unexpected: "x" }), "owner")).toBe("Owner");
+  it("shows a person's Title when set, their access level otherwise", () => {
+    expect(personLabel({ role: "owner", title: "Head Coach" })).toBe("Head Coach");
+    expect(personLabel({ role: "owner", title: null })).toBe("Admin");
+    expect(personLabel({ role: "member" })).toBe("Viewer");
+    expect(personLabel({ role: "owner", title: "   " })).toBe("Admin");
+    expect(personLabel({ role: "owner", title: "  Board Chair  " })).toBe("Board Chair");
   });
 
-  it("trims what the org typed", () => {
-    expect(labelForRole(parseRoleLabels({ staff: "  Coach  " }), "staff")).toBe("Coach");
-  });
-
-  it("two orgs describe the same permission differently", () => {
-    // The point of the whole thing: same enum, different word.
-    const bridge = parseRoleLabels({ owner: "Executive Director", staff: "Coordinator" });
-    const elite = parseRoleLabels({ owner: "Owner", staff: "Coach" });
-    expect(labelForRole(bridge, "staff")).toBe("Coordinator");
-    expect(labelForRole(elite, "staff")).toBe("Coach");
+  it("treats a blank or non-string Title as none", () => {
+    expect(cleanTitle("")).toBeNull();
+    expect(cleanTitle("  ")).toBeNull();
+    expect(cleanTitle(42)).toBeNull();
+    expect(cleanTitle(undefined)).toBeNull();
+    expect(cleanTitle(" Treasurer ")).toBe("Treasurer");
   });
 });

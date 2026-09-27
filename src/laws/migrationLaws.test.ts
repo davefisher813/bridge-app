@@ -120,3 +120,36 @@ describe("LAW: a migration from 0040 on is structure, never data", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+// Migration 0041 (Dave, 2026-09-27: "Admin, athlete, viewer") retires
+// the staff role by moving every staff membership to owner. That is the
+// one data change it is allowed: a generic statement that names no org,
+// no person and no id, and ships no rows. The law above already lets a
+// generic update through and still blocks inserts, slugs and id
+// literals; this pins 0041 to exactly that one update and nothing else,
+// and never backfills a Title.
+//
+// Verified this law bites: added
+// `update org_members set title = 'Chair' where role = 'owner';` to
+// 0041 (a Title backfill), then separately
+// `insert into org_members (user_id, org_id, role) select id, id, 'owner' from orgs;`,
+// ran `npx vitest run migrationLaws`, watched each fail, reverted.
+describe("LAW: 0041 changes data only by moving staff to owner", () => {
+  it("the checker lets a generic update through and still blocks one aimed at a row", () => {
+    expect(problemsIn("update org_members set role = 'owner' where role = 'staff';")).toEqual([]);
+    expect(problemsIn("update org_members set role = 'owner' where user_id = '00000000-0000-0000-0000-000000000001';")).not.toEqual([]);
+    expect(problemsIn("update org_members set role = 'owner' where org_id in (select id from orgs where slug = 'bridge');")).not.toEqual([]);
+    expect(problemsIn("insert into org_members (user_id, org_id, role) select id, id, 'owner' from users;")).not.toEqual([]);
+  });
+
+  it("its only top-level data statement is the staff to owner update", () => {
+    const file = readdirSync(MIGRATIONS).find((f) => f.startsWith("0041_"));
+    expect(file).toBeTruthy();
+    const sql = readFileSync(join(MIGRATIONS, file!), "utf8");
+    const top = stripBodies(stripComments(sql));
+    const updates = [...top.matchAll(/\bupdate\s+[\s\S]*?;/gi)].map((m) => m[0].replace(/\s+/g, " ").trim());
+    expect(updates).toEqual(["update org_members set role = 'owner' where role = 'staff';"]);
+    expect(top).not.toMatch(/\binsert\s+into\b|\bdelete\s+from\b|\btruncate\b|\bcopy\s/i);
+    expect(problemsIn(sql)).toEqual([]);
+  });
+});

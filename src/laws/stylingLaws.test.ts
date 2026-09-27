@@ -426,6 +426,10 @@ describe("LAW: a pill is a glyph and a label, never a coloured block", () => {
         // 2026-09-20 for the add action in a screen header. A control
         // shows an action; the pill this law is about shows a status.
         if (rel(f) === "components/kit/index.tsx" && lit.includes("h-11 w-11")) continue;
+        // The kit's Avatar is an identity disc, initials on a fill, not a
+        // status. It wears the contact pair because that blue is the
+        // contrast-checked one (Dave, 2026-09-27: no purple).
+        if (rel(f) === "components/kit/index.tsx" && lit.includes("rounded-full bg-solid-contact font-extrabold")) continue;
         if (/\bbg-(tint|solid)-[a-z]+\b/.test(lit)) {
           violations.push(`${rel(f)}: a rounded-full element with a fill: "${lit.slice(0, 60)}"`);
         }

@@ -2849,3 +2849,103 @@ begin
 end $$;
 
 \echo 'ALL 0040 ASSERTIONS PASSED'
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Migration 0041: staff becomes owner, and a Title per person.
+-- Dave, 2026-09-27: "Admin, athlete, viewer. I control access of all
+-- that. Within admin I can set board, title, role, whatever."
+-- ═══════════════════════════════════════════════════════════════════
+reset role;
+
+-- The staff to owner move, as the migration writes it, run against the
+-- seeded staff rows inside a subtransaction that is rolled back so the
+-- rest of this file still has its staff probes. The migration itself
+-- ran on an empty table above, which is what production looked like too.
+do $$
+declare staff_before int; staff_after int; owners_after int; owners_before int;
+begin
+  select count(*) into staff_before from org_members where role = 'staff';
+  select count(*) into owners_before from org_members where role = 'owner';
+  if staff_before = 0 then raise exception 'FAIL: the 0041 probe needs seeded staff rows to move'; end if;
+  begin
+    update org_members set role = 'owner' where role = 'staff';
+    select count(*) into staff_after from org_members where role = 'staff';
+    select count(*) into owners_after from org_members where role = 'owner';
+    if staff_after <> 0 then raise exception 'FAIL: % staff rows survived the 0041 update', staff_after; end if;
+    if owners_after <> owners_before + staff_before then raise exception 'FAIL: expected % owners after the move, found %', owners_before + staff_before, owners_after; end if;
+    raise exception using errcode = 'P0001', message = 'ROLLBACK_0041_PROBE';
+  exception when others then
+    if sqlerrm <> 'ROLLBACK_0041_PROBE' then raise; end if;
+  end;
+  select count(*) into staff_after from org_members where role = 'staff';
+  if staff_after <> staff_before then raise exception 'FAIL: the 0041 probe did not roll back'; end if;
+  raise notice 'PASS: 0041 moves every staff membership to owner and touches nothing else';
+end $$;
+
+-- The Title column and its length rule: null, or 1 to 80 characters
+-- once trimmed. Written here as the service role would (superuser),
+-- since org_members has no update policy for any session.
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'org_members' and column_name = 'title' and is_nullable = 'YES') then
+    raise exception 'FAIL: org_members.title is missing or not nullable';
+  end if;
+  update org_members set title = 'Board Chair' where user_id = '00000000-0000-0000-0000-000000000001' and org_id = '00000000-0000-0000-0000-000000000010';
+  update org_members set title = repeat('x', 80) where user_id = '00000000-0000-0000-0000-000000000002' and org_id = '00000000-0000-0000-0000-000000000020';
+  update org_members set title = null where user_id = '00000000-0000-0000-0000-000000000002' and org_id = '00000000-0000-0000-0000-000000000020';
+  begin
+    update org_members set title = '   ' where user_id = '00000000-0000-0000-0000-000000000001' and org_id = '00000000-0000-0000-0000-000000000010';
+    raise exception 'FAIL: a blank Title was accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    update org_members set title = repeat('x', 81) where user_id = '00000000-0000-0000-0000-000000000001' and org_id = '00000000-0000-0000-0000-000000000010';
+    raise exception 'FAIL: an 81 character Title was accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    update org_members set title = '' where user_id = '00000000-0000-0000-0000-000000000001' and org_id = '00000000-0000-0000-0000-000000000010';
+    raise exception 'FAIL: an empty Title was accepted';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS: org_members.title is null or 1 to 80 trimmed characters, and the database refuses the rest';
+end $$;
+
+-- No session sets a Title: not a Viewer (user3, a Bridge member), not an
+-- Athlete login (user5, Bridge family), not the org's own Admin (user1)
+-- and not the person on their own row. Every update matches 0 rows, and
+-- the Title an Admin set through the service role stays as it was.
+set role app_user;
+do $$
+declare who uuid; n int;
+begin
+  foreach who in array array['00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000001']::uuid[] loop
+    perform set_test_user(who);
+    update org_members set title = 'Self Appointed' where org_id = '00000000-0000-0000-0000-000000000010';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: % changed % org_members titles in their own org', who, n; end if;
+    update org_members set title = 'Self Appointed' where user_id = who;
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: % changed their own Title on % rows', who, n; end if;
+    update org_members set title = 'Self Appointed';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: % changed % org_members titles across the table', who, n; end if;
+  end loop;
+  -- The Title is still readable by a colleague, so the members list and
+  -- the Your Advisor row can show it.
+  perform set_test_user('00000000-0000-0000-0000-000000000003');
+  select count(*) into n from org_members where user_id = '00000000-0000-0000-0000-000000000001' and org_id = '00000000-0000-0000-0000-000000000010' and title = 'Board Chair';
+  if n <> 1 then raise exception 'FAIL: a Viewer cannot read their Admin''s Title (saw % rows)', n; end if;
+  perform set_test_user(null);
+  raise notice 'PASS: a Viewer, an Athlete login and an Admin session each update 0 org_members rows; the Title an Admin set stays';
+end $$;
+reset role;
+do $$
+declare t text;
+begin
+  select title into t from org_members where user_id = '00000000-0000-0000-0000-000000000001' and org_id = '00000000-0000-0000-0000-000000000010';
+  if t is distinct from 'Board Chair' then raise exception 'FAIL: the Title changed under a session''s update (now %)', t; end if;
+  if exists (select 1 from org_members where title = 'Self Appointed') then raise exception 'FAIL: a session wrote a Title'; end if;
+end $$;
+
+\echo 'ALL 0041 ASSERTIONS PASSED'

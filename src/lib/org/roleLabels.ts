@@ -1,54 +1,45 @@
-// What an org calls each of its four roles.
+// What each access level is called, and what a person is shown as.
 //
-// `org_role` is deliberately generic (owner | staff | member) so the
-// permission model stays one thing across every organization. What a
-// person is CALLED is org config, and it differs: Bridge says Executive
-// Director and Coordinator, Elite Squad says Owner and Coach. That
-// separation has been in CLAUDE.md and in the schema since day one, and
-// `orgs.role_labels` was never read anywhere, so every screen showed the
-// generic word or nothing at all. Onboarding a second org is what
-// surfaced it, which is the whole reason for onboarding a second org.
+// Dave, 2026-09-27: "Admin, athlete, viewer. I control access of all
+// that. Within admin I can set board, title, role, whatever." So there
+// are three access levels, with fixed names, the same in every
+// organization: owner is Admin, member is Viewer, family is Athlete. The
+// enum values stay as they are (no change to RLS or the guards); only
+// the words change. staff is retired (migration 0041 moved every staff
+// row to owner) and still reads as Admin if one ever turns up, so an old
+// row never renders as a database word or crashes a screen.
 //
-// Parsed the same way orgs.modules is: Postgres validates ownership,
-// this validates shape.
+// orgs.role_labels (Bridge's "Executive Director", Elite's "Coach") is
+// no longer read. The column and its data stay; what a person is called
+// inside an org is now their own Title (org_members.title, 0041), set
+// per person by an Admin, and it never grants anything.
 
-import { z } from "zod";
 import type { OrgRole } from "@/lib/auth/guard";
 
-const roleLabelsSchema = z
-  .object({
-    owner: z.string().trim().min(1).catch(""),
-    staff: z.string().trim().min(1).catch(""),
-    member: z.string().trim().min(1).catch(""),
-    family: z.string().trim().min(1).catch(""),
-  })
-  .partial()
-  .catch({});
-
-export type RoleLabels = z.infer<typeof roleLabelsSchema>;
-
-// The fallback when an org has said nothing. Plain English rather than
-// the enum value: "member" is a database word and "Owner" is not a title
-// anybody would object to.
-export const DEFAULT_ROLE_LABEL: Record<OrgRole, string> = {
-  owner: "Owner",
-  staff: "Staff",
-  member: "Member",
+export const ACCESS_LEVEL: Record<OrgRole, string> = {
+  owner: "Admin",
+  staff: "Admin",
+  member: "Viewer",
   family: "Athlete",
 };
 
-export function parseRoleLabels(raw: unknown): RoleLabels {
-  const parsed = roleLabelsSchema.parse(raw);
-  // An empty string means the org supplied a blank, which is not a
-  // label. Dropped here so callers only ever see a real one or nothing.
-  const out: RoleLabels = {};
-  for (const key of ["owner", "staff", "member", "family"] as const) {
-    const value = parsed[key];
-    if (typeof value === "string" && value.trim() !== "") out[key] = value.trim();
-  }
-  return out;
+// The access level name for a role. Anything unexpected reads as Viewer,
+// the level that can change nothing, rather than as the raw value.
+export function labelForRole(role: OrgRole | string): string {
+  return ACCESS_LEVEL[role as OrgRole] ?? ACCESS_LEVEL.member;
 }
 
-export function labelForRole(labels: RoleLabels, role: OrgRole): string {
-  return labels[role] ?? DEFAULT_ROLE_LABEL[role];
+export const TITLE_MAX = 80;
+
+// A person's Title, or null when they have none worth showing.
+export function cleanTitle(title: unknown): string | null {
+  if (typeof title !== "string") return null;
+  const t = title.trim();
+  return t ? t : null;
+}
+
+// What to show next to a person's name: their Title when an Admin has
+// set one, otherwise their access level.
+export function personLabel(person: { role: OrgRole | string; title?: string | null }): string {
+  return cleanTitle(person.title) ?? labelForRole(person.role);
 }

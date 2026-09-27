@@ -79,15 +79,14 @@ describe("LAW: a title is written in Title Case", () => {
 // Year" and "what the family pays" are about the household's money, not
 // the login, and are left alone.
 //
-// Verified this law bites: put `family: "Family"` back in
-// DEFAULT_ROLE_LABEL, then separately `title="Invite Family"` back on the
+// Verified this law bites: put `family: "Family"` back in the access
+// names (ACCESS_LEVEL in src/lib/org/roleLabels.ts), then separately `title="Invite Family"` back on the
 // athlete page, ran `npx vitest run copyLaws`, watched each fail, reverted.
 describe("LAW: the login tied to one athlete is called Athlete, not Family", () => {
   it("the default access name for the family role is Athlete", async () => {
-    const { DEFAULT_ROLE_LABEL, labelForRole, parseRoleLabels } = await import("@/lib/org/roleLabels");
-    expect(DEFAULT_ROLE_LABEL.family).toBe("Athlete");
-    expect(labelForRole(parseRoleLabels({}), "family")).toBe("Athlete");
-    expect(labelForRole(parseRoleLabels(null), "family")).toBe("Athlete");
+    const { ACCESS_LEVEL, labelForRole } = await import("@/lib/org/roleLabels");
+    expect(ACCESS_LEVEL.family).toBe("Athlete");
+    expect(labelForRole("family")).toBe("Athlete");
   });
 
   it("no screen, component or action names the login Family", () => {

@@ -7,10 +7,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOwner, requireRole, STAFF_ROLES, type OrgRole } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { siteOrigin } from "@/lib/auth/origin";
-import { parseInviteForm, parseRole } from "@/lib/validation/member";
+import { parseInviteForm, parseMemberTitle, parseRole } from "@/lib/validation/member";
 import { parsePersonName } from "@/lib/validation/org";
 import { RELATIONSHIPS } from "@/lib/copy/relationships";
-import { labelForRole } from "@/lib/org/roleLabels";
 
 // Who belongs to an org, and what they may do there. Owner only, and
 // every write goes through the service role on purpose: org_members has
@@ -54,7 +53,7 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   }
   const { email, role, fullName, athleteId, relationship } = parsed.values;
   if (role !== "family" && user.role !== "owner") {
-    return { errors: { role: "Only an owner can invite staff, members or owners. You can invite an athlete login from an athlete's page." }, values: Object.fromEntries(formData.entries()) };
+    return { errors: { role: "Only an Admin can invite an Admin or a Viewer. You can invite an Athlete login from an athlete's page." }, values: Object.fromEntries(formData.entries()) };
   }
 
   // Where to go afterwards: the athlete's page when the invite started
@@ -172,8 +171,11 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
   if (!org) return { ok: false, error: "Organization not found." };
   await requireOwner(org.id);
 
+  // staff is retired (migration 0041) and parses as nothing, so a
+  // stale form or a hand-built request for it is refused before any
+  // read or write.
   const nextRole = parseRole(role);
-  if (!nextRole) return { ok: false, error: "That is not a role." };
+  if (!nextRole) return { ok: false, error: "Pick Admin, Viewer or Athlete." };
 
   const supabase = await createClient();
   const { data: current } = await supabase.from("org_members").select("role").eq("user_id", userId).eq("org_id", org.id).maybeSingle();
@@ -205,7 +207,7 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
   if (nextRole !== "owner") {
     const owners = await ownersOf(org.id);
     if (owners.length === 1 && owners[0] === userId) {
-      return { ok: false, error: "This is the organization's only owner. Make someone else an owner first." };
+      return { ok: false, error: "This is the organization's only Admin. Make someone else an Admin first." };
     }
   }
 
@@ -261,7 +263,7 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
 
   const owners = await ownersOf(org.id);
   if (owners.length === 1 && owners[0] === userId) {
-    return { ok: false, error: "This is the organization's only owner. Make someone else an owner first." };
+    return { ok: false, error: "This is the organization's only Admin. Make someone else an Admin first." };
   }
 
   if (!serviceRoleConfigured()) return { ok: false, error: "Removing members is not set up on this server yet: the service role key is missing." };
@@ -409,6 +411,45 @@ export async function renameSelfForm(slug: string, formData: FormData): Promise<
   redirect(`${back}?notice=${q("Your name is saved.")}`);
 }
 
+// ── Titles (migration 0041) ─────────────────────────────────────────
+// Dave, 2026-09-27: "Within admin I can set board, title, role,
+// whatever." A Title is what a person is called here (Head Coach, Board
+// Chair), shown next to their name wherever the access level used to
+// be. Display only, never a permission. org_members has no update
+// policy, so the write is the service role's, behind the same Admin
+// gate as every other member action, scoped by org and person.
+export async function setMemberTitle(slug: string, userId: string, raw: unknown): Promise<{ ok: boolean; error?: string; title?: string | null }> {
+  const org = await getOrgBySlug(slug);
+  if (!org) return { ok: false, error: "Organization not found." };
+  await requireOwner(org.id);
+
+  const parsed = parseMemberTitle(raw);
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+
+  // The person is in this org, asked through the Admin's own client.
+  const supabase = await createClient();
+  const { data: membership } = await supabase.from("org_members").select("user_id").eq("org_id", org.id).eq("user_id", userId).maybeSingle();
+  if (!membership) return { ok: false, error: "That person is not in this organization." };
+
+  if (!serviceRoleConfigured()) return { ok: false, error: "Changing titles is not set up on this server yet: the service role key is missing." };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("org_members").update({ title: parsed.title }).eq("org_id", org.id).eq("user_id", userId).select("user_id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "That person is not in this organization." };
+
+  // The Title shows on the members list, their page, every athlete they
+  // advise and the athlete logins' screens, so the whole org refreshes.
+  revalidatePath(`/org/${slug}`, "layout");
+  return { ok: true, title: parsed.title };
+}
+
+export async function setMemberTitleForm(slug: string, userId: string, formData: FormData): Promise<void> {
+  const r = await setMemberTitle(slug, userId, formData.get("title"));
+  const back = `/org/${slug}/members/${userId}`;
+  redirect(`${back}?${r.ok ? `notice=${q(r.title ? "Title saved." : "Title cleared. Their access level shows instead.")}` : `error=${q(r.error ?? "Could not save the title.")}`}`);
+}
+
 // ── Advisors, from the advisor's side (audit crud F18) ───────────────
 // Connect several athletes to one advisor, or take one off, without
 // opening and re-saving each athlete's whole Edit form. Owner or staff,
@@ -433,7 +474,7 @@ export async function setAthleteAdvisor(
   const supabase = await createClient();
   if (advisorId) {
     const { data: advisor } = await supabase.from("org_members").select("user_id").eq("org_id", org.id).eq("user_id", advisorId).in("role", STAFF_ROLES).maybeSingle();
-    if (!advisor) return { ok: false, error: `Only an ${labelForRole(org.roleLabels, "owner")} or ${labelForRole(org.roleLabels, "staff")} can advise athletes.` };
+    if (!advisor) return { ok: false, error: "Only an Admin can advise athletes." };
   }
 
   const { data: found } = await supabase.from("athletes").select("id").eq("org_id", org.id).in("id", ids).is("deleted_at", null);

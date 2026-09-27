@@ -66,7 +66,7 @@ export const athleteBaseSchema = z.object({
   // The owner or staff member who checks in with this athlete (migration
   // 0039). Blank is nobody yet. The action checks the person is staff of
   // this org; the database trigger is the backstop.
-  advisorId: z.string().uuid("Pick someone on the staff.").optional(),
+  advisorId: z.string().uuid("Pick an Admin.").optional(),
   isInternational: z.boolean().default(false),
   toeflScore: z.number().int().min(0).max(120).optional(),
   ieltsScore: z.number().min(0).max(9).optional(),

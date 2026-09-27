@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { updateAthlete } from "@/lib/actions/athletes";
 import { AthleteForm, type AthleteFormInitialValues } from "@/components/AthleteForm";
 import { safeParseAthleteDetail } from "@/lib/fit/schema";
-import { loadStaff } from "@/lib/data/staff";
+import { advisorOptionLabel, loadStaff } from "@/lib/data/staff";
 import { loadAthleteFormOptions } from "@/lib/data/athleteFormOptions";
 import type { RecruitType } from "@/lib/fit/types";
 import { Screen } from "@/components/kit";
@@ -126,7 +126,7 @@ export default async function EditAthletePage({ params }: { params: Promise<{ sl
 
   return (
     <Screen title={`Edit ${athlete.name}`} back={{ href: `/org/${slug}/roster/${athlete.id}`, label: athlete.name }}>
-      <AthleteForm action={action} initialValues={initialValues} submitLabel="Save Changes" advisors={staff.map((s) => ({ id: s.id, name: s.name }))} options={options} editing dates={dates} />
+      <AthleteForm action={action} initialValues={initialValues} submitLabel="Save Changes" advisors={staff.map((s) => ({ id: s.id, name: advisorOptionLabel(s) }))} options={options} editing dates={dates} />
     </Screen>
   );
 }

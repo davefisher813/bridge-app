@@ -78,7 +78,7 @@ export default async function MorePage({ params, searchParams }: { params: Promi
             </Form>
           </Stack>
         ) : (
-          <Row kind="target" role="place" title="Scoring Preset" meta={`${presetLabel} · set by an owner`} wrap />
+          <Row kind="target" role="place" title="Scoring Preset" meta={`${presetLabel} · set by an Admin`} wrap />
         )}
       </Section>
 
@@ -99,7 +99,7 @@ export default async function MorePage({ params, searchParams }: { params: Promi
           {user.role === "owner" ? (
             <DocaiBudgetForm action={setDocaiBudget.bind(null, slug)} currentCents={org.docaiBudgetCents} />
           ) : (
-            <Label>{`Budget ${dollars(org.docaiBudgetCents)} a month · set by an owner`}</Label>
+            <Label>{`Budget ${dollars(org.docaiBudgetCents)} a month · set by an Admin`}</Label>
           )}
         </Section>
       )}
@@ -108,7 +108,7 @@ export default async function MorePage({ params, searchParams }: { params: Promi
         {user.role === "owner" && <Row href={`/org/${slug}/members`} kind="people" role="people" title="Members" meta="Who can sign in, and what each person can do" wrap />}
         {user.role === "owner" && <Row href={`/org/${slug}/settings`} kind="settings" role="people" title="Organization Settings" meta="The name, what you call each role, and which modules are on" wrap />}
         {canStartOrg && <Row href="/orgs/new" kind="org" role="place" title="Start Another Organization" meta="A separate organization with its own people and records" wrap />}
-        <Row kind="settings" role="people" title={user.full_name || user.email} meta={`${labelForRole(org.roleLabels, user.role)} at ${org.name}`} wrap />
+        <Row kind="settings" role="people" title={user.full_name || user.email} meta={`${labelForRole(user.role)} at ${org.name}`} wrap />
         <YourNameForm slug={slug} returnTo={`/org/${slug}/more`} fullName={user.full_name} />
         <Form action={signout}>
           <Stack gap={2}>

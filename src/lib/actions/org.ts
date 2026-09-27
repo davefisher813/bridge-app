@@ -33,7 +33,7 @@ const q = (s: string) => encodeURIComponent(s);
 
 // The rule create_org enforces (migration 0040), in the words the
 // Create an Organization screen shows before anyone fills the form.
-const NOT_ALLOWED = "Only an owner, or someone not yet in any organization, can start one. Ask your organization's owner.";
+const NOT_ALLOWED = "Only an Admin, or someone not yet in any organization, can start one. Ask your organization's Admin.";
 
 function echo(formData: FormData): Record<string, string> {
   const out: Record<string, string> = {};
@@ -91,9 +91,9 @@ export async function createOrg(_prev: OrgActionState, formData: FormData): Prom
   if (!created) return { errors: { slug: "Every address built from that name is taken. Type one of your own." }, values: echo(formData) };
 
   revalidatePath("/");
-  // Settings next: what the org calls each role and which modules it
-  // runs are the first things a new owner decides.
-  redirect(`/org/${created}/settings?notice=${q(`${name} is ready and you are its owner. Name your roles, then invite your people under Members.`)}`);
+  // Settings next: which modules it runs is the first thing a new
+  // Admin decides.
+  redirect(`/org/${created}/settings?notice=${q(`${name} is ready and you are its Admin. Pick your modules, then invite your people under Members.`)}`);
 }
 
 export async function updateOrgSettings(slug: string, _prev: OrgActionState, formData: FormData): Promise<OrgActionState> {
@@ -112,13 +112,15 @@ export async function updateOrgSettings(slug: string, _prev: OrgActionState, for
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("orgs")
-    .update({ name: v.name, role_labels: v.roleLabels, modules: mergeModules(org.modules, v.modules) })
+    // orgs.role_labels is left as it is: the access names are fixed now
+    // and nothing reads the column, but its data is not ours to drop.
+    .update({ name: v.name, modules: mergeModules(org.modules, v.modules) })
     .eq("id", org.id)
     .select("id");
   if (error) return { errors: { form: error.message }, values: echo(formData) };
   if (!data || data.length === 0) return { errors: { form: "That organization is gone." }, values: echo(formData) };
 
-  // The name and labels show on every screen in the org, and a module
+  // The name shows on every screen in the org, and a module
   // switch adds or removes whole sections, so the whole org refreshes.
   revalidatePath(`/org/${slug}`, "layout");
   redirect(`/org/${slug}/more?notice=${q("Settings saved.")}`);

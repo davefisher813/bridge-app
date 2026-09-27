@@ -116,10 +116,10 @@ export function explainApiError(e: unknown): string {
   }
   if (/too many pages|page limit|maximum.*pages|exceeds the maximum number of pages/.test(msg)) return "This PDF has more pages than the model reads at once. Upload the transcript pages on their own.";
   if (status === 413 || /request_too_large|too large|exceeds.*(size|bytes)/.test(msg)) return "The file is too large for the model. Scan it at a lower resolution, or upload the pages one at a time.";
-  if (status === 401 || status === 403 || /authentication|invalid x-api-key|api key/.test(msg)) return "The server's AI key is missing or not valid. An owner needs to check the ANTHROPIC_API_KEY setting.";
+  if (status === 401 || status === 403 || /authentication|invalid x-api-key|api key/.test(msg)) return "The server's AI key is missing or not valid. An Admin needs to check the ANTHROPIC_API_KEY setting.";
   if (status === 429 || /rate limit|rate_limit/.test(msg)) return "The model is busy right now. Wait a minute and read it again.";
   if (status === 529 || /overloaded/.test(msg)) return "The model is overloaded right now. Wait a minute and read it again.";
-  if (status === 400 && /credit|billing|balance/.test(msg)) return "The AI account is out of credit. An owner needs to top it up.";
+  if (status === 400 && /credit|billing|balance/.test(msg)) return "The AI account is out of credit. An Admin needs to top it up.";
   if (err.name === "APIConnectionTimeoutError" || /timed? ?out/.test(msg)) return "The model took too long to answer. Try again, or upload fewer pages at once.";
   if (err.name === "APIConnectionError" || /econnreset|enotfound|network|fetch failed/.test(msg)) return "The model could not be reached. Check the connection and try again.";
   return err.message ?? "The model returned an error.";

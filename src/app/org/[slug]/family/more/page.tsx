@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
 import { loadFamilyAthletes, requireFamily } from "@/lib/data/family";
 import { signout } from "@/lib/auth/actions";
-import { labelForRole } from "@/lib/org/roleLabels";
+import { labelForRole, personLabel } from "@/lib/org/roleLabels";
 import type { OrgRole } from "@/lib/auth/guard";
 import { Avatar, Button, Chevron, EmptyState, Form, Prose, Row, Screen, Section, Stack } from "@/components/kit";
 
@@ -14,6 +14,7 @@ import { Avatar, Button, Chevron, EmptyState, Form, Prose, Row, Screen, Section,
 interface StaffRow {
   user_id: string;
   role: string;
+  title?: string | null;
   users: { email: string; full_name: string | null } | { email: string; full_name: string | null }[] | null;
 }
 
@@ -31,10 +32,10 @@ export default async function FamilyMorePage({ params }: { params: Promise<{ slu
   const supabase = await createClient();
   const [athletes, { data: staffRows }] = await Promise.all([
     loadFamilyAthletes(org.id, user.id),
-    supabase.from("org_members").select("user_id, role, users(email, full_name)").eq("org_id", org.id).in("role", ["owner", "staff"]).order("created_at", { ascending: true }),
+    supabase.from("org_members").select("user_id, role, title, users(email, full_name)").eq("org_id", org.id).in("role", ["owner", "staff"]).order("created_at", { ascending: true }),
   ]);
   const staff = ((staffRows ?? []) as StaffRow[])
-    .map((r) => ({ id: r.user_id, role: r.role as OrgRole, person: unwrap(r.users) }))
+    .map((r) => ({ id: r.user_id, role: r.role as OrgRole, title: r.title ?? null, person: unwrap(r.users) }))
     .filter((r) => r.person?.email);
 
   return (
@@ -51,7 +52,7 @@ export default async function FamilyMorePage({ params }: { params: Promise<{ slu
               href={`mailto:${s.person!.email}`}
               leading={<Avatar name={s.person!.full_name || s.person!.email} />}
               title={s.person!.full_name || s.person!.email}
-              meta={`${labelForRole(org.roleLabels, s.role)} · ${s.person!.email}`}
+              meta={`${personLabel(s)} · ${s.person!.email}`}
               trailing={<Chevron />}
               wrap
             />
@@ -67,7 +68,7 @@ export default async function FamilyMorePage({ params }: { params: Promise<{ slu
       </Section>
 
       <Section label="You" role="people" kind="settings">
-        <Row kind="settings" role="people" title={user.full_name || user.email} meta={`${labelForRole(org.roleLabels, "family")} at ${org.name}`} wrap />
+        <Row kind="settings" role="people" title={user.full_name || user.email} meta={`${labelForRole("family")} at ${org.name}`} wrap />
         <Form action={signout}>
           <Stack gap={2}>
             <Button variant="destructive">Sign Out</Button>

@@ -95,7 +95,7 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
       <Section label="Roster" count={rows.length} role="people" kind="athlete">
         {rows.length === 0 ? (
           <EmptyState kind="athlete" title={q ? "Nobody Matches" : status || mine ? "Nothing Matches" : "No Athletes Yet"}>
-            {q ? "Try a shorter name, or clear the search." : mine ? "Nobody here is assigned to you. Pick yourself as Advisor on an athlete's Edit screen." : status ? "Nobody is at this status. Show every athlete to see the rest." : canEdit ? "Add the first one below." : "Ask an owner or coordinator to add one."}
+            {q ? "Try a shorter name, or clear the search." : mine ? "Nobody here is assigned to you. Pick yourself as Advisor on an athlete's Edit screen." : status ? "Nobody is at this status. Show every athlete to see the rest." : canEdit ? "Add the first one below." : "Ask an Admin to add one."}
           </EmptyState>
         ) : (
           rows.map((a) => (

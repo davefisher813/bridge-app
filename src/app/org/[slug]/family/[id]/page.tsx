@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireFamily, requireFamilyAthlete } from "@/lib/data/family";
 import { threadSummaryByAthlete } from "@/lib/data/messages";
 import { loadStaff } from "@/lib/data/staff";
-import { labelForRole } from "@/lib/org/roleLabels";
+import { personLabel } from "@/lib/org/roleLabels";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
 import { deriveJourneyStage } from "@/lib/journey";
@@ -55,10 +55,10 @@ const CATEGORY_LABEL: Record<string, string> = {
 // (route, failure stage) are staff's business.
 const DOC_STATUS: Record<string, string> = {
   applied: "On the record",
-  pending: "Being checked by staff",
+  pending: "Being checked by an Admin",
   processing: "Being read",
   failed: "Could not be read",
-  discarded: "Set aside by staff",
+  discarded: "Set aside by an Admin",
 };
 
 interface TargetRow {
@@ -166,7 +166,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
             href={`mailto:${advisor.email}`}
             leading={<Avatar name={advisor.name} />}
             title={advisor.name}
-            meta={`${labelForRole(org.roleLabels, advisor.role)} · ${advisor.email}`}
+            meta={`${personLabel(advisor)} · ${advisor.email}`}
             trailing={<Chevron />}
             wrap
           />

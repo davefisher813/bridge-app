@@ -101,6 +101,9 @@ export function buildFixture(): Dataset {
         name: "Fixture Foundation for Student Athletes",
         slug: ORG_WITH_MODULES,
         modules: { board_governance: true, donor_fundraising: true },
+        // Left as production has it. Nothing reads it since 2026-09-27
+        // (the access names are fixed), and the law in accessLaws.test.ts
+        // proves none of these words reaches a screen.
         role_labels: { owner: "Executive Director", staff: "Coordinator", member: "Board" },
         branding: { logo: "/logos/bridge-mark.png", lockup: "/logos/bridge-lockup.png" },
         scoring_preset: "money_first",
@@ -123,9 +126,14 @@ export function buildFixture(): Dataset {
       },
     ],
     org_members: [
-      { id: "m1", user_id: OWNER, org_id: BRIDGE, role: "owner" },
+      // A Title set by an Admin (migration 0041), shown in place of the
+      // access level next to the owner's name, on the athlete pages
+      // they advise included.
+      { id: "m1", user_id: OWNER, org_id: BRIDGE, role: "owner", title: "Head of Recruiting" },
       { id: "m2", user_id: MEMBER, org_id: BRIDGE, role: "member" },
       { id: "m3", user_id: OWNER, org_id: ELITE, role: "owner" },
+      // A leftover staff row. Migration 0041 moves every one to owner;
+      // this one stays so the screens prove a straggler reads as Admin.
       { id: "m4", user_id: OUTSIDER, org_id: ELITE, role: "staff" },
       { id: "m5", user_id: LONG_INVITE, org_id: BRIDGE, role: "member" },
       { id: "m6", user_id: FAMILY, org_id: BRIDGE, role: "family" },

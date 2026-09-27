@@ -99,7 +99,7 @@ describe("parseAthleteForm", () => {
   it("rejects an advisor that is not an id", () => {
     const r = parseAthleteForm(fd({ name: "A B", sport: "Baseball", recruitType: "hs", advisorId: "Mike" }));
     expect(r.ok).toBe(false);
-    expect(r.errors.advisorId).toBe("Pick someone on the staff.");
+    expect(r.errors.advisorId).toBe("Pick an Admin.");
   });
 });
 

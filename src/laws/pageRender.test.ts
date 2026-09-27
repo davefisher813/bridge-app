@@ -735,7 +735,7 @@ describe("LAW: the members screens are the owner's alone", () => {
 
   it("the only owner is told why they cannot be removed", async () => {
     const html = await render("@/app/org/[slug]/members/[userId]/page", { params: p({ slug: ORG_WITH_MODULES, userId: OWNER_ID }), searchParams: p({}) });
-    expect(html).toMatch(/only Executive Director/);
+    expect(html).toMatch(/only Admin/);
     expect(html).not.toMatch(/Remove From/);
   });
 
@@ -1090,7 +1090,7 @@ describe("LAW: every record can be corrected and removed by the people who may, 
   // by a plant in the page it names (see src/laws/README.md).
   const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
   const asStaff = () => {
-    // The fixture's Bridge member, made a Coordinator for the test. No
+    // The fixture's Bridge member, made a leftover staff row for the test. No
     // other row changes, so what differs from the owner is the role.
     data.org_members.find((m) => m.id === "m2")!.role = "staff";
     currentUser = MEMBER_ID;

@@ -53,7 +53,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 const REMOVED_ATHLETE = "Removed Athlete";
 
 const SOURCE_LABEL: Record<string, string> = {
-  admin: "an owner",
+  admin: "an Admin",
   coordinator: "you",
   email: "email",
   parent: "a parent",

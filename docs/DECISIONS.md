@@ -3294,8 +3294,8 @@ Athlete: the default role label, Invite Athlete, No Athlete Login Yet,
 the Athlete Logins section on an athlete's page, the message author
 fallback, and the action errors ("Athlete access is tied to an
 athlete"). The enum value, the `/family` routes and the code names stay
-`family`, so no guard, policy or migration changed. An org can still
-override the label in Organization Settings. "Family Budget per Year"
+`family`, so no guard, policy or migration changed. (The per-org label
+override was removed the same day; see the next entry.) "Family Budget per Year"
 and "what the family pays" are the household's money, not the login,
 and are unchanged. `src/laws/copyLaws.test.ts` fails the build on the
 old wording.
@@ -3304,3 +3304,50 @@ old wording.
 
 **Alternatives considered.** Renaming the enum value: a migration and a
 policy rewrite for a word on a screen.
+
+## 2026-09-27: three access levels with fixed names, and a Title per person
+
+**Decision.** Every org has the same three access levels, shown with the
+same names everywhere: Admin (`owner`), Viewer (`member`), Athlete
+(`family`). `staff` is retired: migration 0041 moves every staff
+membership to owner (`update org_members set role = 'owner' where role =
+'staff'`, a no-op on production, which had four owners), no invite or
+role picker offers it, and `inviteMember` / `changeMemberRole` refuse it
+before any write. The enum value stays so no policy, guard or
+`STAFF_ROLES` list changed, and a leftover staff row still reads as
+Admin. `labelForRole` returns the fixed names and no longer reads
+`orgs.role_labels`; the role-label editor left Organization Settings and
+the column keeps its data. What a person is called inside an org is now
+their own Title, `org_members.title` (null, or 1 to 80 trimmed
+characters, checked by the database), set or cleared by an Admin on the
+person's page under Members, written by the service role behind
+`requireOwner`, scoped by `org_id` and `user_id`. It shows next to the
+name on the members list, the member page, the athlete page's Advisor
+row, the Athlete screen's Your Advisor row and the Advisor picker
+("Name, Title"); with no Title the access level shows. Board members get
+Admin or Viewer as Dave picks per person. Nothing is backfilled.
+`src/laws/accessLaws.test.ts` holds the names, the refusal of staff and
+the Title's write gate; `scripts/rls_test.sql` proves the length check
+and that no session (Viewer, Athlete or Admin) updates an
+`org_members` row.
+
+**Reason.** Dave, 2026-09-27: "Admin, athlete, viewer. I control access
+of all that. Within admin I can set board, title, role, whatever." Asked
+whether Admin should be one level or two: "I already said what I
+wanted." Board members: "They will get whatever access I see fit." A
+Title per person: "Yes, a Title per person." This replaces the
+2026-09-16 rule that each org names its roles in `orgs.role_labels`
+(Bridge: Executive Director / Coordinator; Elite: Owner / Coach): what
+varied per org turned out to be what a person is called, not what a
+level is called.
+
+**Alternatives considered.** Renaming or dropping the enum value:
+rebuilding the type and every policy that names it, for a word the app
+no longer offers. Keeping staff as a second Admin tier: Dave said one
+level. Storing the Title on `users`: a person can hold different titles
+in two orgs, so it belongs on the membership row.
+
+**Consequences.** Every Admin can do everything an owner could,
+including inviting, changing roles and settings. `orgs.role_labels` is
+dead data until someone decides to drop it. A Title is words only; the
+day it needs to gate anything, it becomes a role instead.

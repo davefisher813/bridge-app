@@ -22,7 +22,7 @@ export function DraftForm({ action, initial, submitLabel }: { action: ServerActi
         <Field name="draftRound" label="Round" type="number" min="1" max="99" inputMode="numeric" defaultValue={value("draftRound", initial.round)} error={err("draftRound")} />
         <Field name="draftYear" label="Year" type="number" min="1900" max="2200" inputMode="numeric" defaultValue={value("draftYear", initial.year)} error={err("draftYear")} />
       </Grid2>
-      <TextAreaField name="note" label="Note" hint="Optional. Staff only, filed on the athlete's notes." maxLength={4000} defaultValue={value("note")} error={err("note")} />
+      <TextAreaField name="note" label="Note" hint="Optional. Admins only, filed on the athlete's notes." maxLength={4000} defaultValue={value("note")} error={err("note")} />
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );

@@ -38,7 +38,7 @@ function valuesFromFormData(formData: FormData): Record<string, FormDataEntryVal
 // 0039). The database trigger refuses anyone else; this asks first so the
 // answer is a field error, not a constraint message. Read through the
 // caller's own client: an owner or staff member sees their org's rows.
-const ADVISOR_ERROR = { advisorId: "Pick someone on the staff." };
+const ADVISOR_ERROR = { advisorId: "Pick an Admin." };
 
 async function assertAdvisorInOrg(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string, advisorId: string | undefined): Promise<boolean> {
   if (!advisorId) return true;

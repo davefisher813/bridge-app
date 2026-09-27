@@ -120,7 +120,7 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
       <Section label="Visits" count={visits.length} role="place" kind="visit">
         {visits.length === 0 ? (
           <EmptyState kind="visit" title="No Visits Yet">
-            Listed here once staff log them.
+            Listed here once an Admin logs them.
           </EmptyState>
         ) : (
           visits.map((v) => {
@@ -144,7 +144,7 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
         )}
       </Section>
 
-      <Prose>Staff keep this list. To add a school or log a visit, ask {org.name}.</Prose>
+      <Prose>Admins keep this list. To add a school or log a visit, ask {org.name}.</Prose>
 
       <Row href={`${base}/schools`} kind="school" role="place" title="Every School" meta="Search the whole database" trailing={<Chevron />} />
     </Screen>

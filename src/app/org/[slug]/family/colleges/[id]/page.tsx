@@ -130,7 +130,7 @@ export default async function FamilyCollegePage({ params }: { params: Promise<{ 
       <Section label="Visits" count={visits.length} role="place" kind="visit">
         {visits.length === 0 ? (
           <EmptyState kind="visit" title="No Visits Yet">
-            Listed here once staff log them.
+            Listed here once an Admin logs them.
           </EmptyState>
         ) : (
           visits.map((v) => (
@@ -150,7 +150,7 @@ export default async function FamilyCollegePage({ params }: { params: Promise<{ 
         )}
       </Section>
 
-      <Prose>Staff keep this record. Ask {org.name} about anything here.</Prose>
+      <Prose>Admins keep this record. Ask {org.name} about anything here.</Prose>
     </Screen>
   );
 }

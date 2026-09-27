@@ -375,7 +375,7 @@ describe("LAW: create_org refuses anyone with a membership that is not owner, an
     const { createOrg } = await import("@/lib/actions/org");
     const r = await run(() => createOrg({ errors: {} }, form({ name: "Staff Side Project" })));
     expect(r.redirect).toBeNull();
-    expect((r.state as { errors: Record<string, string> }).errors.form).toMatch(/Only an owner, or someone not yet in any organization/);
+    expect((r.state as { errors: Record<string, string> }).errors.form).toMatch(/Only an Admin, or someone not yet in any organization/);
     expect(writes).toEqual([]);
   });
 
@@ -385,7 +385,7 @@ describe("LAW: create_org refuses anyone with a membership that is not owner, an
     expect(picker).toContain("Choose an Organization");
     expect(picker).not.toContain("/orgs/new");
     const refused = await render("@/app/orgs/new/page", { params: p({}), searchParams: p({}) });
-    expect(refused).toMatch(/Only an owner, or someone not yet in any organization/);
+    expect(refused).toMatch(/Only an Admin, or someone not yet in any organization/);
     expect(refused).not.toContain("Web Address");
 
     currentUser = OWNER_ID;

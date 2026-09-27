@@ -2,16 +2,17 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireOwner, type OrgRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { labelForRole } from "@/lib/org/roleLabels";
-import { ORG_ROLES } from "@/lib/validation/member";
+import { cleanTitle, labelForRole, TITLE_MAX } from "@/lib/org/roleLabels";
+import { ASSIGNABLE_ROLES } from "@/lib/validation/member";
 import { RELATIONSHIPS, relationshipLabel } from "@/lib/copy/relationships";
-import { assignAdvisorForm, changeMemberRoleForm, removeMemberForm, renameMemberForm, unassignAdvisorForm } from "@/lib/actions/members";
+import { assignAdvisorForm, changeMemberRoleForm, removeMemberForm, renameMemberForm, setMemberTitleForm, unassignAdvisorForm } from "@/lib/actions/members";
 import { linkGuardian, unlinkGuardian, updateGuardianRelationship } from "@/lib/actions/guardians";
 import { Avatar, Button, Card, CheckField, Chevron, ConfirmButton, EmptyState, Field, Form, Hidden, Notice, Option, Prose, Row, Screen, Section, SelectField, Stack } from "@/components/kit";
 
 interface MemberRow {
   user_id: string;
   role: string;
+  title?: string | null;
   created_at: string;
   users: { email: string; full_name: string; last_sign_in_at: string | null } | { email: string; full_name: string; last_sign_in_at: string | null }[] | null;
 }
@@ -20,10 +21,11 @@ function unwrap<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-// What each role may do, in the org's own words for the role.
+// What each access level may do. staff is retired (migration 0041) and
+// is never offered; a leftover row reads as Admin.
 const ROLE_BLURB: Record<OrgRole, string> = {
-  owner: "Everything, plus members and schools",
-  staff: "Adds and edits records",
+  owner: "Everything, including members, schools and settings",
+  staff: "Everything, including members, schools and settings",
   member: "Read only",
   family: "One athlete, read only",
 };
@@ -62,7 +64,7 @@ export default async function MemberPage({
   const [{ data: row }, { data: ownerRows }, { data: guardianRows }, { data: athleteRows }, { data: staffRows }] = await Promise.all([
     supabase
       .from("org_members")
-      .select("user_id, role, created_at, users(email, full_name, last_sign_in_at)")
+      .select("user_id, role, title, created_at, users(email, full_name, last_sign_in_at)")
       .eq("org_id", org.id)
       .eq("user_id", userId)
       .maybeSingle(),
@@ -90,8 +92,11 @@ export default async function MemberPage({
   const ownerCount = (ownerRows ?? []).length;
   const onlyOwner = role === "owner" && ownerCount === 1;
   const isMe = member.user_id === me.id;
-  const ownerLabel = labelForRole(org.roleLabels, "owner");
-  const familyLabel = labelForRole(org.roleLabels, "family");
+  const ownerLabel = labelForRole("owner");
+  const familyLabel = labelForRole("family");
+  const title = cleanTitle(member.title);
+  // A leftover staff row is an Admin in every way the screen shows.
+  const level = role === "staff" ? "owner" : role;
   const here = `/org/${slug}/members/${member.user_id}`;
 
   const joined = person?.last_sign_in_at ? `joined ${new Date(member.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "invited, not signed in yet";
@@ -116,7 +121,7 @@ export default async function MemberPage({
 
   return (
     <Screen back={{ href: `/org/${slug}/members`, label: "Members" }}>
-      <Row leading={<Avatar name={name} size="lg" />} title={`${name}${isMe ? " (you)" : ""}`} meta={`${person?.email ?? ""} · ${joined}`} emphasis="bold" wrap />
+      <Row leading={<Avatar name={name} size="lg" />} title={`${name}${isMe ? " (you)" : ""}`} meta={[title, labelForRole(role), person?.email, joined].filter(Boolean).join(" · ")} emphasis="bold" wrap />
 
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
 
@@ -125,6 +130,15 @@ export default async function MemberPage({
           <Stack gap={3}>
             <Field name="fullName" label="Full Name" defaultValue={person?.full_name ?? ""} autoComplete="off" maxLength={120} hint="Shown on every athlete they advise, and to athlete logins. Left blank, their email shows." />
             <Button variant="secondary">Save Name</Button>
+          </Stack>
+        </Form>
+      </Section>
+
+      <Section label="Title" role="people" kind="people">
+        <Form action={setMemberTitleForm.bind(null, slug, member.user_id)}>
+          <Stack gap={3}>
+            <Field name="title" label="Title" defaultValue={title ?? ""} autoComplete="off" maxLength={TITLE_MAX} hint="What they are called here, like Head Coach or Board Chair. Shown next to their name in place of their access level. It never changes what they can do." />
+            <Button variant="secondary">Save Title</Button>
           </Stack>
         </Form>
       </Section>
@@ -182,9 +196,9 @@ export default async function MemberPage({
             <Stack gap={3}>
               <Hidden name="confirmed" value="yes" />
               <SelectField name="role" label="Change Their Role" defaultValue="member">
-                {ORG_ROLES.filter((r) => r !== "family").map((r) => (
+                {ASSIGNABLE_ROLES.filter((r) => r !== "family").map((r) => (
                   <option key={r} value={r}>
-                    {`${labelForRole(org.roleLabels, r)}: ${ROLE_BLURB[r]}`}
+                    {`${labelForRole(r)}: ${ROLE_BLURB[r]}`}
                   </option>
                 ))}
               </SelectField>
@@ -201,8 +215,8 @@ export default async function MemberPage({
           <>
             <Form action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
               <Stack gap={3}>
-                {ORG_ROLES.filter((r) => r !== "family").map((r) => (
-                  <Option key={r} name="role" value={r} selected={r === role} title={labelForRole(org.roleLabels, r)} meta={ROLE_BLURB[r]} />
+                {ASSIGNABLE_ROLES.filter((r) => r !== "family").map((r) => (
+                  <Option key={r} name="role" value={r} selected={r === level} title={labelForRole(r)} meta={ROLE_BLURB[r]} />
                 ))}
               </Stack>
             </Form>

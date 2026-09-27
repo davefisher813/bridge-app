@@ -2,10 +2,13 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-// Role names are generic on purpose: the label shown to a person (Coordinator,
-// Coach, Board) is org-level config (see orgs.role_labels), not a second
-// role system. Underneath there are exactly four tiers. Mirrors the
-// org_role enum in migrations/0001_core_schema.sql plus 0022.
+// Role names are generic on purpose. What a screen calls each one is
+// fixed (src/lib/org/roleLabels.ts): owner is Admin, member is Viewer,
+// family is Athlete, and what a person is called beyond that is their
+// own Title (org_members.title, migration 0041), never a second role
+// system. staff is retired (0041 moved every staff row to owner) but
+// stays in the enum and in STAFF_ROLES so a leftover row still works.
+// Mirrors the org_role enum in migrations/0001_core_schema.sql plus 0022.
 //
 // The first three read the whole org. `family` reads one athlete: the
 // ones linked to them in athlete_guardians (migration 0023), and nothing
