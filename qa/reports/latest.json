@@ -1,17 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "8e1a9ea",
-  "commitFull": "8e1a9ea1d206a2a33c4055db9f3dbd9b0be45a49",
+  "commit": "ca02966",
+  "commitFull": "ca029660071859eb6f167f6b6494245486a0d581",
   "branch": "main",
-  "remoteBranches": [
-    "origin/main"
-  ],
-  "shipped": true,
+  "remoteBranches": [],
+  "shipped": false,
   "dirty": false,
-  "onMain": true,
-  "startedAt": "2026-09-27T19:23:38.275Z",
-  "durationMs": 59791,
+  "onMain": false,
+  "startedAt": "2026-09-27T19:34:45.426Z",
+  "durationMs": 24713,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -129,7 +127,7 @@
             "location": "/login"
           }
         },
-        "ms": 1479
+        "ms": 1334
       },
       "errors": [],
       "warnings": [],
@@ -145,8 +143,8 @@
       },
       "baselineTotal": 2,
       "burndown": [],
-      "touchedFiles": 0,
-      "filesScanned": 521
+      "touchedFiles": 23,
+      "filesScanned": 522
     },
     {
       "name": "types",
@@ -156,16 +154,16 @@
   ],
   "manual": {
     "checklist": "qa/checklist.md",
-    "checklistCommit": "4c13132",
+    "checklistCommit": "8e1a9ea",
     "checklistSays": "pass",
     "openRows": [
       {
-        "row": "4",
+        "row": "12",
         "pass": "not run"
       }
     ],
-    "result": "provisional",
-    "reason": "checklist.md is for commit 4c13132, not this one"
+    "result": "open",
+    "reason": "checklist.md covers this commit but row 12 is still open (not run)"
   },
   "preview": {
     "applicable": null,
