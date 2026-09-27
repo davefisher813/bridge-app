@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
+import { orgEditsSharedDirectory, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { markEnrolled } from "@/lib/actions/enrollment";
 import { EnrollForm } from "@/components/EnrollForm";
@@ -28,7 +28,8 @@ export default async function EnrollAthletePage({ params }: { params: Promise<{ 
   const { slug, id } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
+  const canAddSchool = user.role === "owner" && (await orgEditsSharedDirectory(org.id));
 
   const supabase = await createClient();
   const { data: athlete } = await supabase.from("athletes").select("id, name, status, detail").eq("id", id).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
@@ -50,8 +51,9 @@ export default async function EnrollAthletePage({ params }: { params: Promise<{ 
     const detail = athlete.detail as { kind?: string; currentSchoolId?: unknown } | null;
     schoolChoice = {
       currentSchool: currentSchoolOf(athlete.detail),
-      schools: ((schoolRows ?? []) as { id: string; name: string; division: string }[]).map((s) => ({ id: s.id, label: `${s.name} (${s.division})` })),
+      schools: (schoolRows ?? []) as { id: string; name: string; division: string }[],
       selectedId: detail?.kind === "transfer" && typeof detail.currentSchoolId === "string" ? detail.currentSchoolId : null,
+      canAddSchool,
     };
   }
 

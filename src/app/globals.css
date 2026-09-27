@@ -248,3 +248,23 @@ html:not([data-theme="dark"]) .org-mark {
     }
   }
 }
+
+/* iOS Safari gives a date input an intrinsic width of its own and
+   centres the value, so the Graduated On field ran past the screen's
+   edge (Dave, 2026-09-27: "WAY too long"). Without the native
+   appearance it takes the width it is given, and the date reads from
+   the left like every other field. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
+  text-align: left;
+}
+

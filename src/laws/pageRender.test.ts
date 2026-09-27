@@ -366,11 +366,14 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     expect(noCommitted).toMatch(/Will Close/);
     // ...and asks which school, since nothing on file says.
     expect(noCommitted).toMatch(/Enrolled At/);
-    expect(noCommitted).toMatch(/Pick a School/);
+    // A search over every school on file, not a scroll through a list
+    // (Dave, 2026-09-27).
+    expect(noCommitted).toMatch(/placeholder="Search Schools"/);
+    expect(noCommitted).toMatch(/<datalist id="schoolName-options">[\s\S]*value="Fixture College"/);
 
     // An athlete already in college: their Current School is the default.
     const transfer = await render("@/app/org/[slug]/roster/[id]/enroll/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) });
-    expect(transfer).toMatch(/>City College of New York<\/option>/);
+    expect(transfer).toMatch(/placeholder="City College of New York"/);
 
     // A Committed target already names it, so there is nothing to ask.
     expect(html).not.toMatch(/Enrolled At/);

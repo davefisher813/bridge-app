@@ -3274,3 +3274,15 @@ the tab labels.
 **Consequences.** viewport-fit stays unset (the status bar fix of
 2026-09-21), so iOS reports no bottom inset in the installed app and the
 24px floor is what keeps the bar clear there.
+
+## 2026-09-27: search for the school on Mark Enrolled and Mark Graduated, add one inline
+
+**Decision.** The school on Mark Enrolled and Mark Graduated is a search
+field over every school on file, matched by name. A name not on file can
+be added right there with its division, by an owner of a directory-editor
+org (the same rule as Add School); anyone else is told an owner can add
+it. Date fields drop the native iOS appearance so they fit their column.
+
+**Reason.** Dave, 2026-09-27, on Mark Graduated: "Should be a search bar
+for schools. Should be able to add a school. Date row/pill is WAY too
+long."

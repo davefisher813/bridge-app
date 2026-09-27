@@ -1800,6 +1800,42 @@ describe("LAW: enrolling closes out recruiting, and nothing else does it silentl
     expect(writes).toEqual([]);
   });
 
+  it("Mark Graduated searches the schools on file by name, and adds a new one only for a directory editor", async () => {
+    // Dave, 2026-09-27: "Should be a search bar for schools. Should be
+    // able to add a school."
+    const { markGraduated } = await import("@/lib/actions/enrollment");
+    const committedFor = () => writes.find((w) => w.table === "recruiting_targets" && w.op === "insert")?.rows[0];
+
+    // A name on file, in any case, names that school.
+    const found = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ graduatedOn: "2026-09-15", schoolName: "  fixture college " })));
+    expect(decodeURIComponent(found.redirect!)).toMatch(/notice=Graduated from Fixture College/);
+    expect(committedFor()).toMatchObject({ athlete_id: IDS.athlete, school_id: IDS.schoolD3, status: "Committed" });
+    expect(writes.some((w) => w.table === "schools")).toBe(false);
+
+    // A new name, from an owner of the directory-editor org, is added
+    // with its division and named.
+    writes.length = 0;
+    data = buildFixture();
+    const added = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ graduatedOn: "2026-09-15", schoolName: "University of North Florida", division: "D1" })));
+    expect(decodeURIComponent(added.redirect!)).toMatch(/notice=Graduated from University of North Florida/);
+    expect(writes.find((w) => w.table === "schools" && w.op === "insert")?.rows[0]).toMatchObject({ name: "University of North Florida", division: "D1" });
+
+    // Without a division nothing is written.
+    writes.length = 0;
+    data = buildFixture();
+    const noDivision = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ graduatedOn: "2026-09-15", schoolName: "University of North Florida" })));
+    expect((noDivision.state as { errors: Record<string, string> }).errors.schoolId).toMatch(/division/);
+    expect(writes).toEqual([]);
+
+    // An org that does not edit the shared directory cannot add one.
+    writes.length = 0;
+    data = buildFixture();
+    for (const o of data.orgs as { slug: string; edits_shared_directory?: boolean }[]) if (o.slug === ORG_WITH_MODULES) o.edits_shared_directory = false;
+    const refused = await run(() => markGraduated(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ graduatedOn: "2026-09-15", schoolName: "University of North Florida", division: "D1" })));
+    expect((refused.state as { errors: Record<string, string> }).errors.schoolId).toMatch(/isn't on file yet/);
+    expect(writes).toEqual([]);
+  });
+
   it("Mark Drafted records the team, round and year, and closes open targets", async () => {
     const { markDrafted } = await import("@/lib/actions/enrollment");
     const r = await run(() => markDrafted(ORG_WITH_MODULES, IDS.athleteCommitted, { errors: {} }, form({ draftTeam: "New York Yankees", draftRound: "5", draftYear: "2026" })));

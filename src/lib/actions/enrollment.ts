@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
+import { orgEditsSharedDirectory, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveCollege } from "@/lib/data/lookups";
+import { SCHOOL_DIVISIONS } from "@/lib/validation/school";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { applyCloseOut, applyEnrollment, closeOutNotice, enrollmentNotice } from "@/lib/data/enrollment";
 import { currentSchoolOf, nextOutcomes } from "@/lib/placement";
@@ -68,7 +71,7 @@ export async function markEnrolled(slug: string, athleteId: string, _prev: Enrol
   if (!athlete) redirect("/unauthorized");
   if (!nextOutcomes(athlete.status).includes("enroll")) redirect(`/org/${slug}/roster/${athleteId}`);
 
-  const schoolError = await ensureSchool(supabase, org.id, athleteId, athlete.detail, formData, "Pick the school they enrolled at.");
+  const schoolError = await ensureSchool(supabase, org.id, athleteId, athlete.detail, formData, "Pick the school they enrolled at.", user.role === "owner" && (await orgEditsSharedDirectory(org.id)));
   if (schoolError) return { errors: { schoolId: schoolError }, values: Object.fromEntries(formData.entries()) };
 
   const { schoolName, closedCount } = await applyEnrollment(supabase, org.id, athleteId, enrolledOn);
@@ -87,13 +90,33 @@ export async function markEnrolled(slug: string, athleteId: string, _prev: Enrol
 // name the same one. With no pick, the Current School on the record will
 // do. Returns an error message when nothing names a school.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function ensureSchool(supabase: any, orgId: string, athleteId: string, detail: unknown, formData: FormData, missing: string): Promise<string | null> {
+async function ensureSchool(supabase: any, orgId: string, athleteId: string, detail: unknown, formData: FormData, missing: string, canAdd: boolean): Promise<string | null> {
   const { data: committed } = await supabase.from("recruiting_targets").select("id").eq("org_id", orgId).eq("athlete_id", athleteId).eq("status", "Committed").maybeSingle();
   if (committed) return null;
-  const schoolId = String(formData.get("schoolId") ?? "").trim();
-  if (!schoolId) return currentSchoolOf(detail) ? null : missing;
-  const { data: school } = await supabase.from("schools").select("id").eq("id", schoolId).maybeSingle();
-  if (!school) return "Pick a school from the list.";
+  const typed = String(formData.get("schoolName") ?? "").trim();
+  let schoolId = String(formData.get("schoolId") ?? "").trim();
+  if (!typed && !schoolId) return currentSchoolOf(detail) ? null : missing;
+  if (typed) {
+    // The name searched for, matched exactly to a school on file.
+    const hit = await resolveCollege(supabase, typed);
+    if (hit) {
+      schoolId = hit.id;
+    } else {
+      // Not on file: added to the shared directory, name and division,
+      // only by someone who edits it (the same rule as Add School).
+      if (!canAdd) return "That school isn't on file yet. An owner can add it under Schools.";
+      if (typed.length > 200) return "A school name is 200 characters or fewer.";
+      const division = String(formData.get("division") ?? "").trim();
+      if (!(SCHOOL_DIVISIONS as readonly string[]).includes(division)) return "Pick the new school's division.";
+      const admin = createAdminClient();
+      const { data: created, error } = await admin.from("schools").insert({ name: typed, division }).select("id").single();
+      if (error || !created) return "That school couldn't be added. Try again.";
+      schoolId = (created as { id: string }).id;
+    }
+  } else {
+    const { data: school } = await supabase.from("schools").select("id").eq("id", schoolId).maybeSingle();
+    if (!school) return "Pick a school from the list.";
+  }
   const { data: existing } = await supabase.from("recruiting_targets").select("id").eq("org_id", orgId).eq("athlete_id", athleteId).eq("school_id", schoolId).maybeSingle();
   if (existing) {
     await supabase.from("recruiting_targets").update({ status: "Committed", updated_at: new Date().toISOString() }).eq("id", existing.id).eq("org_id", orgId);
@@ -138,7 +161,7 @@ export async function markGraduated(slug: string, athleteId: string, _prev: Enro
     return { errors: { graduatedOn: "Graduated On comes after the Enrollment Date." }, values: Object.fromEntries(formData.entries()) };
   }
 
-  const schoolError = await ensureSchool(supabase, org.id, athleteId, athlete.detail, formData, "Pick the school they graduated from.");
+  const schoolError = await ensureSchool(supabase, org.id, athleteId, athlete.detail, formData, "Pick the school they graduated from.", user.role === "owner" && (await orgEditsSharedDirectory(org.id)));
   if (schoolError) return { errors: { schoolId: schoolError }, values: Object.fromEntries(formData.entries()) };
 
   const { name, closedCount } = await applyCloseOut(supabase, org.id, athleteId, { status: "Graduated", on: graduatedOn });
