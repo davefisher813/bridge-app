@@ -88,12 +88,16 @@ export function Screen({
   back,
   lede,
   action,
+  besideMark = false,
   children,
 }: {
   title?: ReactNode;
   back?: { href: string; label: string };
   lede?: ReactNode;
   action?: ReactNode;
+  // The title on the mark's line, the corner kept clear for it (Today,
+  // Dave's layout, 2026-09-27). Every other screen starts under it.
+  besideMark?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -104,7 +108,7 @@ export function Screen({
         </Link>
       )}
       {(title || action) && (
-        <div className={`flex items-start justify-between gap-3 ${back ? "mt-3" : "mt-12"}`}>
+        <div className={`flex items-start justify-between gap-3 ${back ? "mt-3" : besideMark ? "mt-1 pr-16" : "mt-12"}`}>
           {/* With no back link the org's mark sits alone in the corner
               (Chrome) and everything starts under it, on its own line:
               the top was too crowded with the title beside it (Dave,
@@ -599,6 +603,72 @@ export function Chrome({ orgName, slug, logo, tabs = "org", children }: { orgNam
         {children}
       </div>
       <TabBar slug={slug} variant={tabs} />
+    </div>
+  );
+}
+
+// ── Status counts ────────────────────────────────────────────────────
+// Today's Athletes card (Dave's layout, 2026-09-27): the title and the
+// total open the roster; each status is a bordered tile, the number in
+// ink, the status in its colour, a chevron, opening the roster filtered
+// to it. The emphasised tile carries its colour on the border.
+//
+// Two across on a phone, three from a tablet up: three tiles across a
+// 390 screen leave about 100px each, and "Committed" or "Transferring"
+// with its number and chevron needs 110 to 130 even at the label size.
+// The sizes are Dave's locked scale, so the grid gives way, not the type.
+// On a 320 screen the longest status truncates rather than overflow.
+const TILE_BORDER: Record<Role, string> = {
+  target: "border-tint-target-on",
+  contact: "border-tint-contact-on",
+  visit: "border-tint-visit-on",
+  offer: "border-tint-offer-on",
+  committed: "border-tint-committed-on",
+  high: "border-tint-high-on",
+  mid: "border-tint-mid-on",
+  low: "border-tint-low-on",
+  time: "border-tint-time-on",
+  people: "border-tint-people-on",
+  place: "border-tint-place-on",
+  accent: "border-tint-accent-on",
+  danger: "border-tint-danger-on",
+  neutral: "border-tint-neutral-on",
+};
+
+export interface StatusCount {
+  label: string;
+  count: number;
+  href: string;
+  role: Role;
+  emphasis?: boolean;
+}
+
+export function StatusCounts({ title, total, href, items }: { title: string; total: number; href: string; items: StatusCount[] }) {
+  return (
+    <div className="rounded border border-line bg-paper p-4">
+      <Link href={href} className="flex min-h-11 items-center justify-between gap-3">
+        <span className="text-heading font-extrabold text-ink">{title}</span>
+        <span className="flex items-center gap-2">
+          <span className="text-heading font-extrabold tabular-nums text-ink">{total}</span>
+          <Chevron />
+        </span>
+      </Link>
+      {items.length > 0 && (
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {items.map((it) => (
+            <Link
+              key={it.label}
+              href={it.href}
+              data-kit="tile"
+              className={`flex min-h-12 min-w-0 items-center gap-2 rounded border bg-bg px-3 ${it.emphasis ? TILE_BORDER[it.role] : "border-line"}`}
+            >
+              <span className="text-heading font-extrabold tabular-nums text-ink">{it.count}</span>
+              <span className={`min-w-0 flex-1 truncate text-body font-bold ${TEXT_ON[it.role]}`}>{it.label}</span>
+              <Chevron />
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

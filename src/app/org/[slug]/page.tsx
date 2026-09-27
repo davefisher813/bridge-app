@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { getCurrentUser, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { StatusPill } from "@/components/StatusPill";
-import { Body, Card, Chevron, Chip, EmptyState, Label, LinkButton, Row, Score, Screen, Section, Stack, TextLink } from "@/components/kit";
+import { Body, Card, Chevron, Chip, EmptyState, Label, LinkButton, Row, Score, Screen, Section, Stack, StatusCounts, TextLink } from "@/components/kit";
 import { stageKind, statusRole } from "@/components/statusHue";
 import { effectiveStatus, isScoredStatus, placementAthlete, type PlacementTarget } from "@/lib/placement";
 import { checkinDue, daysSinceCheckin, latestByAthlete, sortByNeed } from "@/lib/checkins";
@@ -228,30 +228,17 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   const firstName = (user.full_name || user.email).split(" ")[0] || user.email;
 
   return (
-    <Screen title={`Good morning, ${firstName}.`}>
-      {/* One line per status with anyone in it, each opening the roster
-          it counts. Seven tiles took half the screen (Dave, 2026-09-26:
-          "way too much vertical space and clutter"). */}
-      <Card isStatic>
-        <div className="flex items-baseline justify-between gap-3">
-          <Body weight="bold">Athletes</Body>
-          <Body weight="bold" numeric>
-            {athleteTotal}
-          </Body>
-        </div>
-        <div className="flex flex-wrap gap-4">
-          {[...counts]
-            .filter(([, count]) => count > 0)
-            .map(([status, count]) => (
-              <TextLink key={status} href={`/org/${slug}/roster?status=${encodeURIComponent(status)}`}>
-                <span className="inline-flex items-center gap-2">
-                  <Chip label={String(count)} kind={stageKind(status)} role={statusRole(status)} />
-                  {status}
-                </span>
-              </TextLink>
-            ))}
-        </div>
-      </Card>
+    <Screen title={`Good morning, ${firstName}.`} besideMark>
+      {/* One tile per status with anyone in it, each opening the roster
+          it counts: Dave's layout, 2026-09-27. */}
+      <StatusCounts
+        title="Athletes"
+        total={athleteTotal}
+        href={`/org/${slug}/roster`}
+        items={[...counts]
+          .filter(([, count]) => count > 0)
+          .map(([status, count]) => ({ label: status, count, href: `/org/${slug}/roster?status=${encodeURIComponent(status)}`, role: statusRole(status), emphasis: status === "Active" }))}
+      />
 
       <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" meta="Every school on file, with search and filters" trailing={<Chevron />} />
       <Row

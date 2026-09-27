@@ -3239,3 +3239,20 @@ now: Dave wants one shared school database).
 change it until flagged. Doc AI's grading-scale writes to the shared
 scale table are still gated by staff, with first-writer-wins checks.
 
+
+## 2026-09-27: Today's header in Dave's layout
+
+**Decision.** The greeting shares the first line with the org mark, and
+the Athletes card is a kit component (StatusCounts): the title and total
+open the roster, each status is a bordered tile (number, status in its
+colour, chevron) opening the roster filtered to it, Active emphasised.
+Two tiles across on a phone, three from a tablet up.
+
+**Reason.** Dave sent the layout as "the perfect format and layout",
+in the app's own styling. It reverses the 2026-09-21 choice to start the
+title under the mark, on Today only.
+
+**Alternatives considered.** Three across on a phone, as in his picture
+(rejected: at the locked type sizes a 390 screen leaves about 100px per
+tile, and "Committed" or "Transferring" with its number and chevron
+needs 110 to 130).

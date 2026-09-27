@@ -453,8 +453,9 @@ describe("LAW: Today counts every status, and each count opens the roster it cou
     const hrefs = [...html.matchAll(/href="([^"]*roster\?status=[^"]*)"/g)].map((m) => m[1]!);
     for (const s of ["Active", "Committed", "Enrolled", "Transferring", "Graduated", "Drafted"]) expect(hrefs).toContain(`/org/${ORG_WITH_MODULES}/roster?status=${s}`);
     expect(hrefs).not.toContain(`/org/${ORG_WITH_MODULES}/roster?status=Inactive`);
-    // The count sits in the chip right before the status word.
-    const count = (status: string) => html.match(new RegExp(`>(\\d+)<\\/span>\\s*${status}<`))?.[1];
+    // The count sits in the tile right before the status word (Dave's
+    // tile layout, 2026-09-27).
+    const count = (status: string) => html.match(new RegExp(`>(\\d+)<\\/span><span[^>]*>${status}<`))?.[1];
     expect(count("Enrolled")).toBe("1");
     expect(count("Transferring")).toBe("1");
     expect(count("Committed")).toBe("1");
@@ -480,7 +481,7 @@ describe("LAW: Today counts every status, and each count opens the roster it cou
     const today = await render("@/app/org/[slug]/page", { params: p({ slug: ORG_WITH_MODULES }) });
     for (const status of ATHLETE_STATUSES) {
       // A status nobody holds is left off Today, so its count is 0.
-      const count = Number(today.match(new RegExp(`>(\\d+)<\\/span>\\s*${status}<`))?.[1] ?? 0);
+      const count = Number(today.match(new RegExp(`>(\\d+)<\\/span><span[^>]*>${status}<`))?.[1] ?? 0);
       const list = await render("@/app/org/[slug]/roster/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ status }) });
       expect(list).toMatch(new RegExp(`${count} of \\d+, ${status}`));
     }
