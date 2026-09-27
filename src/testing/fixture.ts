@@ -190,7 +190,10 @@ export function buildFixture(): Dataset {
         name: "Fixture Athlete",
         // The owner advises this one and the next (migration 0039): one
         // checked in six days ago, one never. The rest carry no advisor.
+        // The stamp is the trigger's (migration 0043): when the owner
+        // was last assigned, which orders the Advisor sheet.
         advisor_id: OWNER,
+        advisor_assigned_at: "2026-09-10T12:00:00.000Z",
         sport: "baseball",
         position: "RHP",
         status: "Active",
@@ -223,6 +226,7 @@ export function buildFixture(): Dataset {
         recruit_type: "hs",
         name: "Fixture Unknown",
         advisor_id: OWNER,
+        advisor_assigned_at: "2026-09-20T12:00:00.000Z",
         sport: "baseball",
         position: null,
         status: "Active",

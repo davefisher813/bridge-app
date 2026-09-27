@@ -14,8 +14,9 @@ import { dollars, loadMonthSpend } from "@/lib/data/docaiUsage";
 import { recalculateAllMatches, setScoringPreset } from "@/lib/actions/matching";
 import { DEFAULT_PRESET, PRESETS, type ScoringPreset } from "@/lib/fit/contract";
 
-// Everything that isn't Today/Athletes/Board: the modules, the reference
-// data, who you are, and the way out.
+// Everything that isn't Today/Athletes/Board: the people, the program,
+// the reference data, the matching blend, Bridge's modules, who you are,
+// and the way out. Stage 5 Phase 3 made it the control center.
 export default async function MorePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ notice?: string; error?: string }> }) {
   const { slug } = await params;
   const { notice, error } = searchParams ? await searchParams : {};
@@ -47,10 +48,20 @@ export default async function MorePage({ params, searchParams }: { params: Promi
           {error}
         </Notice>
       )}
-      <Section label="Work" role="contact" kind="checklist">
+      {/* Six sections, Stage 5 Phase 3 (docs/PLAN_STAGE5.md): People,
+          Program, Reference, Matching, Foundation, Organization. Foundation
+          is Bridge's two modules and is left out entirely when neither is
+          on (docs/STYLING_CATALOG.md: modules off are hidden from More).
+          Assignments, View As and Activity join their sections with the
+          phases that build them; a row before its page fails the links
+          check. */}
+      <Section label="People" role="people" kind="people">
+        {user.role === "owner" && <Row href={`/org/${slug}/members`} kind="people" role="people" title="Members" meta="Who can sign in, and what each person can do" wrap />}
+        {canEdit && <Row href={`/org/${slug}/advisors`} kind="athlete" role="contact" title="Advisors" meta="Each Admin and how many athletes they advise" wrap />}
+      </Section>
+
+      <Section label="Program" role="contact" kind="checklist">
         {canEdit && <Row href={`/org/${slug}/documents`} kind="document" role="place" title="Documents" meta="Read a transcript or an offer letter into an athlete's record" wrap />}
-        {org.modules.donor_fundraising && <Row href={`/org/${slug}/fundraising`} kind="money" role="committed" title="Fundraising" meta="Donors, gifts, pledges and the year against budget" wrap />}
-        {org.modules.board_governance && <Row href={`/org/${slug}/board-governance`} kind="governance" role="people" title="Board" meta="Seats and give/get progress across every tier" wrap />}
       </Section>
 
       <Section label="Reference" role="place" kind="school">
@@ -82,31 +93,32 @@ export default async function MorePage({ params, searchParams }: { params: Promi
         )}
       </Section>
 
-      {canEdit && (
-        <Section label="Document Reading" role="contact" kind="document">
-          <Row
-            href={`/org/${slug}/documents`}
-            kind="money"
-            role={spend.exhausted ? "danger" : "contact"}
-            title="This Month"
-            meta={
-              stubbed
-                ? "No AI model is connected yet, so reading is simulated and free."
-                : `${dollars(spend.spentCents)} of ${dollars(spend.capCents)} · ${spend.calls} ${spend.calls === 1 ? "call" : "calls"}${spend.exhausted ? " · budget used up" : ""}`
-            }
-            wrap
-          />
-          {user.role === "owner" ? (
-            <DocaiBudgetForm action={setDocaiBudget.bind(null, slug)} currentCents={org.docaiBudgetCents} />
-          ) : (
-            <Label>{`Budget ${dollars(org.docaiBudgetCents)} a month · set by an Admin`}</Label>
-          )}
+      {(org.modules.donor_fundraising || org.modules.board_governance) && (
+        <Section label="Foundation" role="committed" kind="money">
+          {org.modules.donor_fundraising && <Row href={`/org/${slug}/fundraising`} kind="money" role="committed" title="Fundraising" meta="Donors, gifts, pledges and the year against budget" wrap />}
+          {org.modules.board_governance && <Row href={`/org/${slug}/board-governance`} kind="governance" role="people" title="Board" meta="Seats and give/get progress across every tier" wrap />}
         </Section>
       )}
 
       <Section label="Organization" role="people" kind="people">
-        {user.role === "owner" && <Row href={`/org/${slug}/members`} kind="people" role="people" title="Members" meta="Who can sign in, and what each person can do" wrap />}
         {user.role === "owner" && <Row href={`/org/${slug}/settings`} kind="settings" role="people" title="Organization Settings" meta="The name, what you call each role, and which modules are on" wrap />}
+        {/* What reading documents has cost this month, against the cap.
+            Every Admin sees the number; an owner sets the cap. */}
+        {canEdit && (
+          <Row
+            href={`/org/${slug}/documents`}
+            kind="money"
+            role={spend.exhausted ? "danger" : "contact"}
+            title="Doc AI Spending"
+            meta={
+              stubbed
+                ? "No AI model is connected yet, so reading is simulated and free."
+                : `${dollars(spend.spentCents)} of ${dollars(spend.capCents)} this month · ${spend.calls} ${spend.calls === 1 ? "call" : "calls"}${spend.exhausted ? " · budget used up" : ""}`
+            }
+            wrap
+          />
+        )}
+        {canEdit && (user.role === "owner" ? <DocaiBudgetForm action={setDocaiBudget.bind(null, slug)} currentCents={org.docaiBudgetCents} /> : <Label>{`Budget ${dollars(org.docaiBudgetCents)} a month · set by an Admin`}</Label>)}
         {canStartOrg && <Row href="/orgs/new" kind="org" role="place" title="Start Another Organization" meta="A separate organization with its own people and records" wrap />}
         <Row kind="settings" role="people" title={user.full_name || user.email} meta={`${labelForRole(user.role)} at ${org.name}`} wrap />
         <YourNameForm slug={slug} returnTo={`/org/${slug}/more`} fullName={user.full_name} />

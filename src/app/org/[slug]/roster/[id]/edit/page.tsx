@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 import { updateAthlete } from "@/lib/actions/athletes";
 import { AthleteForm, type AthleteFormInitialValues } from "@/components/AthleteForm";
 import { safeParseAthleteDetail } from "@/lib/fit/schema";
-import { advisorOptionLabel, loadStaff } from "@/lib/data/staff";
 import { loadAthleteFormOptions } from "@/lib/data/athleteFormOptions";
 import type { RecruitType } from "@/lib/fit/types";
 import { Screen } from "@/components/kit";
@@ -19,7 +18,6 @@ interface AthleteEditRow {
   gpa: number | null;
   gpa_verified: boolean;
   status: string;
-  advisor_id: string | null;
   is_international: boolean;
   toefl_score: number | null;
   ielts_score: number | null;
@@ -41,17 +39,18 @@ export default async function EditAthletePage({ params }: { params: Promise<{ sl
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const [{ data }, staff, options] = await Promise.all([
+  // The advisor is not edited here (Stage 5, Phase 2): the athlete
+  // page's Advisor sheet assigns, changes and clears it.
+  const [{ data }, options] = await Promise.all([
     supabase
       .from("athletes")
       .select(
-        "id, name, sport, position, recruit_type, gpa, gpa_verified, status, advisor_id, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status, detail, goal, family_budget_cents, home_state, grades, first_full_time_enrollment, graduated_on"
+        "id, name, sport, position, recruit_type, gpa, gpa_verified, status, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status, detail, goal, family_budget_cents, home_state, grades, first_full_time_enrollment, graduated_on"
       )
       .eq("id", id)
       .eq("org_id", org.id)
       .is("deleted_at", null)
       .single(),
-    loadStaff(supabase, org.id),
     loadAthleteFormOptions(supabase, org.id),
   ]);
 
@@ -69,7 +68,6 @@ export default async function EditAthletePage({ params }: { params: Promise<{ sl
     gpa: athlete.gpa ?? undefined,
     gpaVerified: athlete.gpa_verified,
     status: athlete.status,
-    advisorId: athlete.advisor_id ?? undefined,
     isInternational: athlete.is_international,
     toeflScore: athlete.toefl_score ?? undefined,
     ieltsScore: athlete.ielts_score ?? undefined,
@@ -126,7 +124,7 @@ export default async function EditAthletePage({ params }: { params: Promise<{ sl
 
   return (
     <Screen title={`Edit ${athlete.name}`} back={{ href: `/org/${slug}/roster/${athlete.id}`, label: athlete.name }}>
-      <AthleteForm action={action} initialValues={initialValues} submitLabel="Save Changes" advisors={staff.map((s) => ({ id: s.id, name: advisorOptionLabel(s) }))} options={options} editing dates={dates} />
+      <AthleteForm action={action} initialValues={initialValues} submitLabel="Save Changes" options={options} editing dates={dates} />
     </Screen>
   );
 }

@@ -3407,3 +3407,77 @@ sort vocabulary, the partial label and the member guard in
 planted. `docs/MATCHING_CONTRACT.md` section 2 carries the amendment and
 `docs/STYLING_CATALOG.md` the `trailingAction` addendum to the Row
 contract.
+
+## 2026-09-27: the advisor managed on the athlete's page, and More as the control center
+
+**Decision.** Stage 5 Phases 2 and 3 of the rebuild, Dave approved the
+whole plan on 2026-09-27, so its recommendations are the decisions.
+
+The advisor. The Advisor section is the first section on the athlete's
+page, directly under the header and any notice, with Messages and
+Check-Ins travelling with it. It is managed where it is seen: Change
+(or Assign, with "No Advisor Assigned") opens a sheet of the org's
+Admins, most recently used first, with a search once there are more
+than three, one tappable row per Admin, Clear Advisor when somebody is
+assigned, and Add Admin. Add Admin is the existing invite screen with
+the role preset to Admin and the athlete pinned (`members/new?role=owner&assignAthleteId=`),
+titled Add Admin with the lede "They will be assigned as {name}'s
+advisor."; sending it writes the membership first, then the advisor,
+and returns to the athlete; an address that is already an Admin here is
+assigned rather than refused as "Already a member". The plan's separate
+`roster/[id]/staff/new` page was not built; the invite already existed.
+Every Admin may add an Admin, because after migration 0041 there is one
+Admin level and "owner only" names nobody narrower. Who may advise is
+one function, `src/lib/org/advisors.ts` (`ADVISOR_ROLES`, `canAdvise`,
+`isEligibleAdvisor`), and the database trigger `private.advisor_is_staff()`
+is its only twin; the five app copies are gone. Recency is a
+trigger-stamped column, `athletes.advisor_assigned_at` (migration 0043,
+stamped when `advisor_id` changes to a person, never written by the
+app, no backfill). The Advisor select is off the Edit form and stays on
+Add; `updateAthlete` ignores an `advisorId` it is sent. The member's
+page keeps its tick list and gains the same sheet as Assign Athlete.
+The sheet is a presentational kit `Sheet` (scrim, bottom panel,
+`role="dialog"`, only the kit may be `fixed`) under `AdvisorSheet`.
+
+More. Six sections in this order: People (Members, owner only as today;
+Advisors, new, every Admin), Program (Documents), Reference (Schools,
+Grading Scales, Approved Lists, Transfer Windows), Matching (the preset
+and Recalculate All), Foundation (Fundraising, Board; the whole section
+is left out when neither module is on), Organization (Organization
+Settings, Doc AI Spending with the budget form beside it, Start Another
+Organization, the identity row, Your Name, Sign Out). Work, Document
+Reading and This Month are gone. Advisors (`/advisors`) lists every
+Admin with "Title · N athletes", counting Active and Transferring
+athletes only, the reminder rule, and says how many athletes have
+nobody in its lede rather than as a row that goes nowhere. Assignments,
+View As and Activity join their sections with the phases that build
+them.
+
+**Reason.** Dave's Stage 5 spec: the advisor should be handled where
+you see it, not on a form two taps away, and More should read as the
+control center. Production has every advisor null because picking one
+meant opening Edit. Edit writing `advisor_id` meant every Save from a
+stale form could undo a pick made from the sheet, so Edit stopped
+writing it. Six copies of "owner or staff" was how the rule would drift.
+Trigger-stamped recency over a per-Admin picks table: org-wide recency
+is enough and it adds no table a Viewer would need excluding from.
+"Add Admin" over "Add Staff Member": the app's own word after the roles
+rework, and honest about what the person can then do.
+
+**Alternatives considered.** A new page for Add Admin: the invite with
+a preset does the same job with one screen fewer. Keeping the Advisor
+select on Edit: the race above. Sorting Admins by name: the person you
+used last is the one you want again. A "No Advisor" row on Advisors
+linking to `/roster?advisor=none`: the roster has no such filter yet
+and a dead row raises the clickable baseline.
+
+**Consequences.** Migration 0043 is added to `scripts/run_rls_test.sh`
+with a planted block in `scripts/rls_test.sql`; a Viewer reads nothing
+new and a family session changes no row. Laws: `advisorLaws.test.ts`,
+`moreLaws.test.ts`, and the render laws in `pageRender.test.ts`, each
+planted. `src/testing/pages.ts` gains `add-admin`, `more-lite` and
+`advisors`, and the athlete entries expect the Advisor section with
+Change or Assign. Later phases must extend `moreLaws`' expected rows
+when they add Assignments, View As and Activity. Still owed:
+docs/BUSINESS_RULES.md lines on who assigns and from where, and the
+`Sheet` under Controls in docs/STYLING_CATALOG.md.

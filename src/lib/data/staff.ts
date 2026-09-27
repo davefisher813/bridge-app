@@ -1,7 +1,7 @@
-// The people who may advise an athlete: an org's owners and staff, with
-// the name and email to show. The same query the family More screen
-// runs for Who to Ask, unwrapped once here for the Advisor picker and
-// the advisor's row on the athlete pages.
+// The people who may advise an athlete: an org's Admins, with the name
+// and email to show, for the Advisor picker on Add, the Advisors screen
+// and the advisor's row on the athlete pages. The list itself comes from
+// src/lib/org/advisors.ts, where the one rule for who advises lives.
 //
 // A family login may read these users rows too (migration 0031, the
 // family's staff clause), so the loader is safe on either side.
@@ -9,6 +9,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OrgRole } from "@/lib/auth/guard";
 import { cleanTitle } from "@/lib/org/roleLabels";
+import { loadAdvisorChoices } from "@/lib/org/advisors";
+import { isScoredStatus } from "@/lib/placement";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = SupabaseClient<any, any, any>;
@@ -23,28 +25,40 @@ export interface StaffPerson {
   title: string | null;
 }
 
-interface StaffRow {
-  user_id: string;
-  role: string;
-  title?: string | null;
-  users: { email: string | null; full_name: string | null } | { email: string | null; full_name: string | null }[] | null;
-}
-
-function unwrap<T>(v: T | T[] | null): T | null {
-  return Array.isArray(v) ? (v[0] ?? null) : v;
-}
-
+// The org's Admins, A to Z. The rule for who that is lives in
+// src/lib/org/advisors.ts and is asked there, not spelled again here
+// (src/laws/advisorLaws.test.ts).
 export async function loadStaff(supabase: Client, orgId: string): Promise<StaffPerson[]> {
-  const { data } = await supabase.from("org_members").select("user_id, role, title, users(email, full_name)").eq("org_id", orgId).in("role", ["owner", "staff"]).order("created_at", { ascending: true });
-  return ((data ?? []) as StaffRow[])
-    .map((r) => {
-      const person = unwrap(r.users);
-      const email = person?.email?.trim() ?? "";
-      const name = person?.full_name?.trim() || email;
-      return name ? { id: r.user_id, name, email, role: r.role as OrgRole, title: cleanTitle(r.title) } : null;
-    })
-    .filter((p): p is StaffPerson => p !== null)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const choices = await loadAdvisorChoices(supabase, orgId);
+  return choices.map((c) => ({ id: c.id, name: c.name, email: c.email, role: c.role, title: c.title })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// How many athletes each Admin advises, for the Advisors screen under
+// More (Stage 5, Phase 3). Only an athlete still being recruited counts
+// (Active or Transferring, SCORED_STATUSES in src/lib/placement.ts), the
+// same rule as the check-in reminders, so the number here agrees with
+// the reminder on Today. `unassigned` is the same count for athletes
+// with nobody. Removed athletes are excluded by the caller's query
+// (deleted_at null), so a row that reaches here is on the roster.
+export interface AdvisorCounts {
+  byAdvisor: Map<string, number>;
+  unassigned: number;
+}
+
+export function countByAdvisor(rows: { advisor_id: string | null; status: string }[]): AdvisorCounts {
+  const byAdvisor = new Map<string, number>();
+  let unassigned = 0;
+  for (const r of rows) {
+    if (!isScoredStatus(r.status)) continue;
+    if (r.advisor_id) byAdvisor.set(r.advisor_id, (byAdvisor.get(r.advisor_id) ?? 0) + 1);
+    else unassigned += 1;
+  }
+  return { byAdvisor, unassigned };
+}
+
+export async function loadAdvisorCounts(supabase: Client, orgId: string): Promise<AdvisorCounts> {
+  const { data } = await supabase.from("athletes").select("id, advisor_id, status").eq("org_id", orgId).is("deleted_at", null);
+  return countByAdvisor((data ?? []) as { advisor_id: string | null; status: string }[]);
 }
 
 // The Advisor picker's option label: "Name, Title" when a Title is set.

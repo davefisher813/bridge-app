@@ -161,7 +161,8 @@ it was written; each file's comments name the plant.
 23. **The org, its people, its board and its money can all be edited in
     place.** Settings are the owner's; a new org comes from
     `create_org`; role changes to and from family carry their links;
-    advisors are assigned from the member page; every governance and
+    advisors are assigned by any Admin, from the athlete's page or the
+    member's page (Stage 5 Phase 2, below); every governance and
     fundraising record has an update and a remove behind a confirm; a
     donor removal is a soft delete; a pledge's Fulfilled comes from its
     payments. `orgCrudLaws.test.ts`.
@@ -193,3 +194,47 @@ it was written; each file's comments name the plant.
     has search and sort and no target action; Today never headlines a
     partial Safety over a full one; a filter change keeps the search
     and the sort. `pageRender.test.ts`, the last describe block.
+
+## Added 2026-09-27: Stage 5 Phases 2 and 3, the advisor and More
+
+Dave approved the Stage 5 plan whole (docs/PLAN_STAGE5.md), so its
+recommendations are the decisions. Every law below was planted, seen
+to fail, and reverted by copy; each file's header names the plants.
+
+26. **Who may advise is decided in one place, the database stamps when,
+    and the athlete page is where it is managed.** `ADVISOR_ROLES`,
+    `canAdvise` and `isEligibleAdvisor` live in `src/lib/org/advisors.ts`
+    and the rule is spelled nowhere else in the actions, the org module
+    or the roster and member screens; migration 0043's trigger stamps
+    `athletes.advisor_assigned_at` on a new advisor and no action, page
+    or loader ever writes it; the form action assigns, clears on empty,
+    and refuses a Viewer, an Athlete login, another org's Admin and
+    another org's athlete; `updateAthlete` ignores an advisorId and Edit
+    has no picker while Add keeps one; the sheet lists Admins most
+    recently used first, never assigned last, ties A to Z, marks the
+    current one and offers Clear and Add Admin; Add Admin writes the
+    membership first, then the advisor, none when the invite fails, and
+    assigns someone already an Admin instead of inviting them twice;
+    the Advisor section is first on the profile with Change or Assign;
+    the member page offers Assign Athlete to an Admin only.
+    `advisorLaws.test.ts`.
+27. **More is six sections in the plan's order, every row where the
+    plan puts it and every href a registered page; Advisors counts the
+    athletes still being recruited.** People, Program, Reference,
+    Matching, Foundation, Organization; Foundation is left out entirely
+    when neither module is on; Members and Organization Settings stay
+    the owner's while a leftover staff row keeps every other row; a
+    Viewer and an Athlete login open neither More nor Advisors; each
+    Admin's count follows the reminder rule (Active and Transferring,
+    not deleted) and the lede says how many have nobody.
+    `moreLaws.test.ts`.
+28. **The render side of both.** Advisor is the first section on every
+    staff profile, above the stage line or the placement row; Change
+    with an advisor, Assign without, no picker on Edit; no family or
+    member screen carries a trigger, Clear, Add Admin, the pinned invite
+    or the sheet's field, and neither login reaches the profile or Add
+    Admin; More renders its groups for an Admin with something in each
+    and drops Foundation for the org without modules; Advisors counts
+    two for the fixture owner, drops an Inactive athlete, and an
+    assignment lowers the count of athletes with nobody.
+    `pageRender.test.ts`, the last describe block.

@@ -275,7 +275,11 @@ Committed, Enrolled, Transferring, Graduated, Drafted, Inactive.
   a permission: every owner and staff member still reads and writes
   every athlete. A database trigger refuses anyone else, and removing a
   person or making them a member clears them as advisor. Production
-  starts with nobody; Dave assigns from the Edit screen.
+  starts with nobody; any Admin assigns, changes or clears from the
+  Advisor section at the top of the athlete's page (a sheet of the
+  org's Admins, most recently used first, with Add Admin) or from the
+  member's page. The Advisor select stays on Add only; Edit never
+  writes it (Stage 5, Phase 2, 2026-09-27).
 - **A check-in is due after 14 days** without one, or when there has
   never been one (`CHECKIN_DUE_DAYS` in `src/lib/checkins.ts`, the one
   place the number lives). Reminders are for Active and Transferring
@@ -317,7 +321,7 @@ the row belongs to one.
 | Transfer window | owner | owner | owner |
 | Org name, role labels, modules | anyone signed in (a new org) | owner | nobody (not built) |
 | Member role | owner (invite) | owner | owner |
-| Advisor assignment | owner (several at once, on the member page), owner and staff (on an athlete's Edit) | same | same |
+| Advisor assignment | any Admin (on the athlete's page, on Add, or several at once on the member page) | same | same (Clear Advisor on the athlete's page) |
 | A person's name | | owner (anyone in the org), owner and staff (their own) | |
 | Board, seat, donor, gift, pledge, campaign, grant (modules on) | owner, staff | owner, staff | owner, staff (a board with seats cannot be removed; a donor is a soft delete) |
 

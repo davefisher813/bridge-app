@@ -10,6 +10,7 @@ import { siteOrigin } from "@/lib/auth/origin";
 import { parseInviteForm, parseMemberTitle, parseRole } from "@/lib/validation/member";
 import { parsePersonName } from "@/lib/validation/org";
 import { RELATIONSHIPS } from "@/lib/copy/relationships";
+import { canAdvise, isEligibleAdvisor } from "@/lib/org/advisors";
 
 // Who belongs to an org, and what they may do there. Owner only, and
 // every write goes through the service role on purpose: org_members has
@@ -56,6 +57,14 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
     return { errors: { role: "Only an Admin can invite an Admin or a Viewer. You can invite an Athlete login from an athlete's page." }, values: Object.fromEntries(formData.entries()) };
   }
 
+  // Add Admin from an athlete's Advisor sheet (Stage 5, Phase 2): the
+  // new Admin is assigned as that athlete's advisor once they are in.
+  // Only a role that may advise; an athlete login or a Viewer cannot.
+  const assignAthleteId = String(formData.get("assignAthleteId") ?? "").trim() || null;
+  if (assignAthleteId && !canAdvise(role)) {
+    return { errors: { role: "Only an Admin can be an athlete's advisor." }, values: Object.fromEntries(formData.entries()) };
+  }
+
   // Where to go afterwards: the athlete's page when the invite started
   // there, the members list otherwise. Only a path inside this org.
   const rawReturn = String(formData.get("returnTo") ?? "");
@@ -63,6 +72,7 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   const done = (notice: string): never => {
     revalidatePath(`/org/${slug}/members`);
     if (athleteId) revalidatePath(`/org/${slug}/roster/${athleteId}`);
+    if (assignAthleteId) revalidatePath(`/org/${slug}/roster/${assignAthleteId}`);
     redirect(`${returnTo}?notice=${encodeURIComponent(notice)}`);
   };
 
@@ -77,6 +87,31 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
     }
     athleteName = (athlete as { name: string }).name;
   }
+
+  // The athlete the new Admin will advise must be this org's too, read
+  // the same way. Checked before any account is made.
+  let advisee: { id: string; name: string } | null = null;
+  if (assignAthleteId) {
+    const supabase = await createClient();
+    const { data: found } = await supabase.from("athletes").select("id, name").eq("org_id", org.id).eq("id", assignAthleteId).is("deleted_at", null).maybeSingle();
+    if (!found) {
+      return { errors: { form: "That athlete is not on this organization's roster." }, values: Object.fromEntries(formData.entries()) };
+    }
+    advisee = found as { id: string; name: string };
+  }
+
+  // The assignment, through the caller's own client so RLS and the
+  // advisor trigger answer, after the membership exists. A failure here
+  // leaves the person in and says so; nothing is rolled back, because
+  // the invite itself went out.
+  const assign = async (personId: string): Promise<string | null> => {
+    if (!advisee) return null;
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("athletes").update({ advisor_id: personId }).eq("org_id", org.id).eq("id", advisee.id).select("id");
+    if (error) return error.message;
+    if (!data || data.length === 0) return "the athlete could not be updated";
+    return null;
+  };
 
   if (!serviceRoleConfigured()) {
     return {
@@ -112,6 +147,14 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
         }
         return done(`${email} now sees ${athleteName ?? "that athlete"} as well.`);
       }
+      // Add Admin for somebody already an Admin here: no second
+      // membership, they are simply assigned. Anyone else who is already
+      // in the org is already in.
+      if (advisee && canAdvise((membership as { role: string }).role)) {
+        const failed = await assign(userId);
+        if (failed) return { errors: { form: `${email} is already an Admin here but could not be assigned to ${advisee.name}: ${failed}.` }, values: Object.fromEntries(formData.entries()) };
+        return done(`${email} was already an Admin here and is now ${advisee.name}'s advisor.`);
+      }
       return { errors: { email: "Already a member of this organization." }, values: Object.fromEntries(formData.entries()) };
     }
     notice = `${email} already had an account and has been added. They can sign in with their email.`;
@@ -142,6 +185,16 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
       return { errors: { form: `${email} was added but could not be linked to ${athleteName ?? "the athlete"}: ${guardianError.message}` }, values: Object.fromEntries(formData.entries()) };
     }
     notice = `${notice} They will see ${athleteName ?? "their athlete"} and nothing else.`;
+  }
+
+  // Written after the membership, because the database checks, in that
+  // order, that the advisor is an Admin of the athlete's org.
+  if (advisee) {
+    const failed = await assign(userId);
+    if (failed) {
+      return { errors: { form: `${email} was added but could not be assigned to ${advisee.name}: ${failed}. Assign them from the athlete's page.` }, values: Object.fromEntries(formData.entries()) };
+    }
+    notice = `${notice} They are ${advisee.name}'s advisor.`;
   }
 
   return done(notice);
@@ -450,13 +503,15 @@ export async function setMemberTitleForm(slug: string, userId: string, formData:
   redirect(`${back}?${r.ok ? `notice=${q(r.title ? "Title saved." : "Title cleared. Their access level shows instead.")}` : `error=${q(r.error ?? "Could not save the title.")}`}`);
 }
 
-// ── Advisors, from the advisor's side (audit crud F18) ───────────────
-// Connect several athletes to one advisor, or take one off, without
-// opening and re-saving each athlete's whole Edit form. Owner or staff,
-// the same people who pick an advisor on that form. The advisor must be
-// an owner or staff member here (migration 0039's rule, asked first so
-// the answer is a sentence), and every athlete must be this org's.
-// Nothing is recomputed: fit does not read the advisor.
+// ── Advisors (audit crud F18; Stage 5, Phase 2) ──────────────────────
+// Connect several athletes to one advisor, or take one off, from the
+// member page; or one athlete's advisor from the athlete page's sheet
+// (src/lib/actions/advisor.ts), which calls this too. Any Admin, the
+// same guard as editing the athlete. The advisor must be an Admin here
+// (the one rule, src/lib/org/advisors.ts, asked first so the answer is
+// a sentence), and every athlete must be this org's. Nothing is
+// recomputed: fit does not read the advisor. The database stamps
+// advisor_assigned_at itself (migration 0043).
 
 export async function setAthleteAdvisor(
   slug: string,
@@ -472,9 +527,8 @@ export async function setAthleteAdvisor(
   if (ids.length === 0) return { ok: false, error: "Pick at least one athlete." };
 
   const supabase = await createClient();
-  if (advisorId) {
-    const { data: advisor } = await supabase.from("org_members").select("user_id").eq("org_id", org.id).eq("user_id", advisorId).in("role", STAFF_ROLES).maybeSingle();
-    if (!advisor) return { ok: false, error: "Only an Admin can advise athletes." };
+  if (advisorId && !(await isEligibleAdvisor(supabase, org.id, advisorId))) {
+    return { ok: false, error: "Only an Admin can advise athletes." };
   }
 
   const { data: found } = await supabase.from("athletes").select("id").eq("org_id", org.id).in("id", ids).is("deleted_at", null);

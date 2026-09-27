@@ -211,8 +211,10 @@ describe("LAW: an Admin sets a Title, it shows where the person is named, and no
     const staff = text(await render("@/app/org/[slug]/roster/[id]/page", athlete));
     expect(staff).toMatch(/Advisor[\s\S]*Example Owner[\s\S]*Director of Advising · owner@example\.test/);
 
-    const edit = await render("@/app/org/[slug]/roster/[id]/edit/page", athlete);
-    expect(selectOptions(edit, "advisorId")).toContainEqual([OWNER_ID, "Example Owner, Director of Advising"]);
+    // The Advisor picker is on Add only (Stage 5, Phase 2); Edit no
+    // longer offers it, the athlete page's sheet does.
+    const add = await render("@/app/org/[slug]/roster/new/page", { params: P({ slug: ORG_WITH_MODULES }) });
+    expect(selectOptions(add, "advisorId")).toContainEqual([OWNER_ID, "Example Owner, Director of Advising"]);
   });
 
   it("with no Title, the access level shows instead", async () => {

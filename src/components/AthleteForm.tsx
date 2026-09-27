@@ -23,7 +23,7 @@ export interface AthleteFormInitialValues {
   gpa?: number;
   gpaVerified?: boolean;
   status?: string;
-  // The owner or staff member who checks in (migration 0039).
+  // The Admin who checks in (migration 0039). Add only.
   advisorId?: string;
   isInternational?: boolean;
   toeflScore?: number;
@@ -77,9 +77,11 @@ function field(state: AthleteActionState, initial: AthleteFormInitialValues, key
   return fromInitial === undefined || fromInitial === null ? "" : String(fromInitial);
 }
 
-// `advisors` is the org's Admins (src/lib/data/staff.ts), the
-// only people the database lets advise. A record whose advisor is no
-// longer among them shows Nobody Yet, and saving clears it.
+// `advisors` is the org's Admins (src/lib/data/staff.ts), the only
+// people the database lets advise. Offered on Add only (the
+// metrics-while-building pattern); Edit never shows or writes the
+// advisor, which is assigned from the athlete page's Advisor sheet
+// (Stage 5, Phase 2), so a Save here can never undo an assignment.
 //
 // `firstMetrics` puts a First Metrics section on the form (the Add
 // screen): the sport's metrics, one date, one source, each number
@@ -234,14 +236,16 @@ export function AthleteForm({
         </SelectField>
       </Grid2>
       <CheckField name="gpaVerified" label="GPA Verified" defaultChecked={f("gpaVerified") === "on" || !!initialValues.gpaVerified} />
-      <SelectField name="advisorId" label="Advisor" hint="Who checks in with this athlete. Their athlete login sees the name." defaultValue={advisors.some((a) => a.id === f("advisorId")) ? f("advisorId") : ""} error={err("advisorId")}>
-        <option value="">Nobody Yet</option>
-        {advisors.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.name}
-          </option>
-        ))}
-      </SelectField>
+      {!editing && (
+        <SelectField name="advisorId" label="Advisor" hint="Who checks in with this athlete. Their athlete login sees the name. Change it later from the athlete's page." defaultValue={advisors.some((a) => a.id === f("advisorId")) ? f("advisorId") : ""} error={err("advisorId")}>
+          <option value="">Nobody Yet</option>
+          {advisors.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </SelectField>
+      )}
 
       {recruitType === "hs" ? (
         <Stack gap={3}>

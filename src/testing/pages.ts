@@ -26,6 +26,10 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "mine", path: "@/app/org/[slug]/mine/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /My Athletes[\s\S]*never checked in[\s\S]*Fixture Athlete/ },
   { name: "members", path: "@/app/org/[slug]/members/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Example Owner[\s\S]*Invited[\s\S]*Example Member/ },
   { name: "invite", path: "@/app/org/[slug]/members/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Send Invite/ },
+  // Stage 5 Phase 2, 2026-09-27: the same invite reached from an
+  // athlete's Advisor sheet is Add Admin, pinned to that athlete, and
+  // the invite comes back to them with the new person assigned.
+  { name: "add-admin", path: "@/app/org/[slug]/members/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ role: "owner", assignAthleteId: IDS.athlete }) }, expect: /Add Admin[\s\S]*Fixture Athlete[\s\S]*Send Invite/ },
   { name: "member", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: MEMBER_ID }), searchParams: p({}) }, expect: /Example Member[\s\S]*Viewer[\s\S]*Title[\s\S]*Admin[\s\S]*Remove From/ },
   // An invited person with no name: the address is the title, and it is
   // wider than the screen. The edge-spill audit watches this one.
@@ -81,8 +85,10 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "roster-search", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "transfer" }) }, expect: /Fixture Transfer/ },
   { name: "roster-search-empty", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "zzzz" }) }, expect: /Nobody Matches/ },
   { name: "roster-mine", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ advisor: "me" }) }, expect: /2 of \d+, yours/ },
-  { name: "athlete", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Notes[\s\S]*Fixture note[\s\S]*Add Note[\s\S]*contacts\/ct1\/edit[\s\S]*Remove Athlete/ },
-  { name: "athlete-transfer", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /Fixture Transfer/ },
+  // Stage 5 Phase 2, 2026-09-27: the Advisor section is first, with
+  // Change when somebody is assigned and Assign when nobody is.
+  { name: "athlete", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Advisor[\s\S]*Change[\s\S]*Notes[\s\S]*Fixture note[\s\S]*Add Note[\s\S]*contacts\/ct1\/edit[\s\S]*Remove Athlete/ },
+  { name: "athlete-transfer", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /Fixture Transfer[\s\S]*No Advisor Assigned[\s\S]*Assign/ },
   { name: "athlete-committed", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteCommitted }) }, expect: /Fixture Committed[\s\S]*Mark Enrolled/ },
   { name: "athlete-enrolled", path: "@/app/org/[slug]/roster/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) }, expect: /Enrolled[\s\S]*Fixture State University/ },
   { name: "enroll-athlete", path: "@/app/org/[slug]/roster/[id]/enroll/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteCommitted }) }, expect: /Fixture State University[\s\S]*Will Close[\s\S]*Enrolled On/ },
@@ -160,6 +166,10 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "seat", path: "@/app/org/[slug]/board-governance/[id]/seats/[memberId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.board, memberId: IDS.boardMember }), searchParams: p({}) }, expect: /Fixture Chair/ },
   { name: "all-seats", path: "@/app/org/[slug]/board-governance/members/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture Chair/ },
   { name: "more", path: "@/app/org/[slug]/more/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Foundation/ },
+  // Stage 5 Phase 3, 2026-09-27: More for the org with no modules has
+  // no Foundation section, and Advisors lists every Admin with a count.
+  { name: "more-lite", path: "@/app/org/[slug]/more/page", props: { params: p({ slug: ORG_WITHOUT_MODULES }) }, expect: /^(?![\s\S]*Foundation)[\s\S]*Organization[\s\S]*Sign Out/ },
+  { name: "advisors", path: "@/app/org/[slug]/advisors/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Advisors[\s\S]*Example Owner[\s\S]*Head of Recruiting<\/span> · 2 athletes/ },
   { name: "approved-list", path: "@/app/org/[slug]/approved-courses/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.orgList }), searchParams: p({}) }, expect: /Unscaled High School/ },
   { name: "grading-scale", path: "@/app/org/[slug]/grading-scales/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.orgScale }) }, expect: /Fixture High School/ },
   { name: "document", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.document }) }, expect: /fixture.pdf/ },

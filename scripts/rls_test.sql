@@ -3004,3 +3004,97 @@ begin
 end $$;
 
 \echo 'ALL 0042 ASSERTIONS PASSED'
+
+-- ── When an advisor was assigned (migration 0043) ───────────────────
+-- One nullable column on athletes, stamped by the advisor trigger when
+-- advisor_id changes to somebody, never by the app. It rides the
+-- athletes policies, so nothing widens: user1 (Bridge Admin) assigns
+-- and the stamp moves; an unrelated edit and a re-save of the same
+-- advisor leave it; clearing leaves it too; user6 (Bridge Viewer) reads
+-- no athletes row and so no stamp; user5 (by now family in Elite only,
+-- linked to athlete 120) changes 0 rows on their own athlete's advisor;
+-- user2 (Elite's Admin) reaches 0 Bridge rows, and the trigger refuses
+-- them as a Bridge advisor even for the superuser.
+reset role;
+update athletes set advisor_id = null, advisor_assigned_at = null
+  where id in ('00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000111');
+set role app_user;
+do $$
+declare n int; stamp timestamptz; again timestamptz;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  update athletes set advisor_id = '00000000-0000-0000-0000-000000000001' where id = '00000000-0000-0000-0000-000000000111';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: the Admin could not assign an advisor (% rows)', n; end if;
+  select advisor_assigned_at into stamp from athletes where id = '00000000-0000-0000-0000-000000000111';
+  if stamp is null then raise exception 'FAIL: assigning an advisor left advisor_assigned_at null'; end if;
+  if stamp < now() - interval '1 minute' then raise exception 'FAIL: the stamp is not the moment of assignment (%)', stamp; end if;
+
+  update athletes set gpa = 3.5 where id = '00000000-0000-0000-0000-000000000111';
+  select advisor_assigned_at into again from athletes where id = '00000000-0000-0000-0000-000000000111';
+  if again is distinct from stamp then raise exception 'FAIL: an unrelated edit moved the stamp (% then %)', stamp, again; end if;
+
+  update athletes set advisor_id = '00000000-0000-0000-0000-000000000001' where id = '00000000-0000-0000-0000-000000000111';
+  select advisor_assigned_at into again from athletes where id = '00000000-0000-0000-0000-000000000111';
+  if again is distinct from stamp then raise exception 'FAIL: re-saving the same advisor moved the stamp'; end if;
+
+  update athletes set advisor_id = null where id = '00000000-0000-0000-0000-000000000111';
+  select advisor_assigned_at into again from athletes where id = '00000000-0000-0000-0000-000000000111';
+  if again is distinct from stamp then raise exception 'FAIL: clearing the advisor changed the stamp'; end if;
+  select count(*) into n from athletes where id = '00000000-0000-0000-0000-000000000111' and advisor_id is null;
+  if n <> 1 then raise exception 'FAIL: the advisor was not cleared'; end if;
+
+  select count(*) into n from athletes where id = '00000000-0000-0000-0000-000000000110' and advisor_assigned_at is not null;
+  if n <> 0 then raise exception 'FAIL: an athlete nobody assigned carries a stamp'; end if;
+  raise notice 'PASS: assigning stamps advisor_assigned_at; an unrelated edit, a re-save and a clear leave it';
+
+  perform set_test_user('00000000-0000-0000-0000-000000000006');
+  select count(*) into n from athletes;
+  if n <> 0 then raise exception 'FAIL: a Viewer read % athletes rows (the stamp rides the athletes row)', n; end if;
+  select count(*) into n from athletes where advisor_assigned_at is not null;
+  if n <> 0 then raise exception 'FAIL: a Viewer read % advisor stamps', n; end if;
+
+  -- Elite's own Admin reads athlete 120's stamp (set earlier in this
+  -- file) before and after the family session tries to move it.
+  perform set_test_user('00000000-0000-0000-0000-000000000002');
+  select advisor_assigned_at into stamp from athletes where id = '00000000-0000-0000-0000-000000000120';
+
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  update athletes set advisor_id = '00000000-0000-0000-0000-000000000002' where id = '00000000-0000-0000-0000-000000000120';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a family login assigned an advisor on % of their own athlete''s rows', n; end if;
+  update athletes set advisor_assigned_at = now() where id = '00000000-0000-0000-0000-000000000120';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a family login wrote a stamp on % rows', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000002');
+  select advisor_assigned_at into again from athletes where id = '00000000-0000-0000-0000-000000000120';
+  if again is distinct from stamp then raise exception 'FAIL: a family session''s stamp write landed (% then %)', stamp, again; end if;
+  update athletes set advisor_id = '00000000-0000-0000-0000-000000000002' where id = '00000000-0000-0000-0000-000000000110';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: another org''s Admin reached % Bridge athletes', n; end if;
+  update athletes set advisor_id = '00000000-0000-0000-0000-000000000001' where id = '00000000-0000-0000-0000-000000000110';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: another org''s Admin assigned Bridge''s own Admin on % rows', n; end if;
+
+  perform set_test_user(null);
+  raise notice 'PASS: a Viewer reads no stamp; a family login and another org''s Admin change 0 advisor rows';
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  -- Even without RLS in the way, the trigger holds: Elite's Admin is
+  -- nobody's advisor at Bridge, and the stamp is not written on a refusal.
+  begin
+    update athletes set advisor_id = '00000000-0000-0000-0000-000000000002' where id = '00000000-0000-0000-0000-000000000110';
+    raise exception 'FAIL: the trigger let another org''s Admin advise a Bridge athlete';
+  exception when check_violation then
+    null;
+  end;
+  select count(*) into n from athletes where id = '00000000-0000-0000-0000-000000000110' and (advisor_id is not null or advisor_assigned_at is not null);
+  if n <> 0 then raise exception 'FAIL: a refused assignment left an advisor or a stamp behind'; end if;
+  raise notice 'PASS: the trigger refuses another org''s Admin and writes no stamp on a refusal';
+end $$;
+
+\echo 'ALL 0043 ASSERTIONS PASSED'

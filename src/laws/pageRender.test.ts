@@ -174,9 +174,12 @@ describe("LAW: a family login opens family screens and nothing else, and staff c
       );
       // Not Authorized for the org-wide screens; Not Found for the
       // records the org page shows (a second org's page, say). Never a
-      // render.
+      // render. The family login belongs to Bridge only, so a screen of
+      // the org without modules (more-lite, Stage 5 Phase 3) sends it to
+      // sign in, which is the guard's answer to no membership at all.
+      const slug = ((await (page.props.params as Promise<{ slug?: string }>))?.slug) ?? ORG_WITH_MODULES;
       expect(outcome === "rendered" ? "rendered" : outcome.startsWith(REDIRECT) ? outcome : NOT_FOUND).not.toBe("rendered");
-      if (outcome.startsWith(REDIRECT)) expect(outcome).toMatch(/\/unauthorized$|\/family$/);
+      if (outcome.startsWith(REDIRECT)) expect(outcome).toMatch(slug === ORG_WITHOUT_MODULES ? /\/unauthorized$|\/family$|\/login$/ : /\/unauthorized$|\/family$/);
     });
   }
 
@@ -1501,5 +1504,114 @@ describe("LAW: matches are ranked full before partial, searched, sorted, capped,
       expect(src, f).toMatch(/new URLSearchParams\(params\?\.toString\(\) \?\? ""\)/);
       expect(src, f).not.toMatch(/new URLSearchParams\(\)/);
     }
+  });
+});
+
+// Stage 5 Phases 2 and 3, 2026-09-27 (docs/PLAN_STAGE5.md; Dave approved
+// the plan whole). The full laws are advisorLaws.test.ts (the rule, the
+// stamp, the sheet, Add Admin) and moreLaws.test.ts (each row in its
+// section, every href a registered page, the counts). These are the four
+// facts the page list itself leans on, checked from the render side.
+//
+// Each was planted and seen to fail, then restored byte for byte: the
+// Advisor section moved back under the placement row (the first two
+// cases failed on every athlete); an Add Admin button put on the family's
+// Your Advisor section (the controls case failed); Foundation rendered
+// for every org (the More case failed on the Elite fixture); the status
+// check dropped from countByAdvisor (the Advisors case read 3 and 0).
+describe("LAW: Advisor leads the profile, only an Admin sees its controls, More is grouped, Advisors counts", () => {
+  // What the sheet and its ways in look like in markup: the two
+  // triggers, Clear, Add Admin, the invite pinned to an athlete, and
+  // the field the sheet posts.
+  const ASSIGN_CONTROLS = /Assign Athlete|>Assign<|>Change<|Clear Advisor|Add Admin|assignAthleteId|name="advisorId"/;
+  // The kit's Section label span, in page order.
+  const sectionLabels = (html: string) => [...html.matchAll(/<span class="text-label font-bold uppercase tracking-wide text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
+  const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+  const profile = (id: string) => render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id }), searchParams: p({}) });
+
+  it("Advisor is the first section on every staff profile, above the stage line or the placement row", async () => {
+    // The thing directly under the header on each profile: the stage
+    // card for an athlete still recruiting, the outcome buttons or the
+    // draft line for a placed one.
+    const below: Array<[string, string]> = [
+      [IDS.athlete, `/board?athlete=${IDS.athlete}`],
+      [IDS.athleteTransfer, `/board?athlete=${IDS.athleteTransfer}`],
+      [IDS.athleteCommitted, "Mark Enrolled"],
+      [IDS.athleteEnrolled, "Mark Graduated"],
+      [IDS.athleteDrafted, "Round 5, 2026"],
+    ];
+    for (const [id, marker] of below) {
+      const html = await profile(id);
+      expect(sectionLabels(html)[0], id).toBe("Advisor");
+      const advisor = html.indexOf(">Advisor<");
+      expect(advisor, id).toBeGreaterThan(-1);
+      expect(html.indexOf(marker), `${id} ${marker}`).toBeGreaterThan(advisor);
+      expect(html.indexOf("NCAA Eligibility"), id).toBeGreaterThan(advisor);
+    }
+  });
+
+  it("the profile offers Change with an advisor and Assign without one, never a picker on Edit", async () => {
+    const assigned = await profile(IDS.athlete);
+    expect(assigned).toMatch(/>Change</);
+    expect(assigned).not.toMatch(/>Assign</);
+    const empty = await profile(IDS.athleteTransfer);
+    expect(empty).toMatch(/No Advisor Assigned[\s\S]*>Assign</);
+    expect(empty).not.toMatch(/>Change</);
+    const edit = await render("@/app/org/[slug]/roster/[id]/edit/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
+    expect(edit).not.toMatch(/name="advisorId"/);
+  });
+
+  it("a family sees its advisor by name and no way to change them; a Viewer sees no advisor control anywhere", async () => {
+    currentUser = FAMILY_ID;
+    const family = await render("@/app/org/[slug]/family/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
+    expect(family).toMatch(/Your Advisor[\s\S]*Example Owner/);
+    expect(family).not.toMatch(ASSIGN_CONTROLS);
+    // Every family and member screen in the list, not only the athlete's.
+    for (const page of PAGES.filter((x) => x.as === FAMILY_ID || x.as === MEMBER_ID)) {
+      currentUser = page.as!;
+      const html = await render(page.path, page.props);
+      expect(html, page.name).not.toMatch(ASSIGN_CONTROLS);
+      expect(hrefs(html).filter((l) => /\/members\/new|\/advisors$/.test(l)), page.name).toEqual([]);
+    }
+    // And neither reaches the sheet's own screens.
+    for (const who of [FAMILY_ID, MEMBER_ID]) {
+      currentUser = who;
+      await expect(profile(IDS.athlete)).rejects.toThrow(REDIRECT + "/unauthorized");
+      await expect(render("@/app/org/[slug]/members/new/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ role: "owner", assignAthleteId: IDS.athlete }) })).rejects.toThrow(REDIRECT + "/unauthorized");
+    }
+  });
+
+  it("More renders its groups for an Admin in the plan's order, each with something in it, and drops Foundation without the modules", async () => {
+    const bridge = await render("@/app/org/[slug]/more/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    const labels = sectionLabels(bridge);
+    expect(labels).toEqual(["People", "Program", "Reference", "Matching", "Foundation", "Organization"]);
+    // No group is an empty heading: each holds a row or a form.
+    for (let i = 0; i < labels.length; i++) {
+      const start = bridge.indexOf(`>${labels[i]}<`);
+      const end = i + 1 < labels.length ? bridge.indexOf(`>${labels[i + 1]}<`) : bridge.length;
+      expect(bridge.slice(start, end), labels[i]).toMatch(/data-kit="row"|<form/);
+    }
+    expect(hrefs(bridge)).toContain(`/org/${ORG_WITH_MODULES}/advisors`);
+    const elite = await render("@/app/org/[slug]/more/page", { params: p({ slug: ORG_WITHOUT_MODULES }) });
+    expect(sectionLabels(elite)).toEqual(["People", "Program", "Reference", "Matching", "Organization"]);
+    expect(elite).not.toMatch(/Fundraising|>Board</);
+  });
+
+  it("Advisors counts the Active and Transferring athletes each Admin advises, and says how many have nobody", async () => {
+    const advisors = () => render("@/app/org/[slug]/advisors/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    const before = await advisors();
+    expect(before).toMatch(/Example Owner[\s\S]*Head of Recruiting<\/span> · 2 athletes/);
+    expect(before).toMatch(/2 athletes have no advisor yet\./);
+    expect(hrefs(before)).toContain(`/org/${ORG_WITH_MODULES}/members/${OWNER_ID}`);
+    // Pausing one of the owner's athletes takes them off the count, the
+    // same as the reminders; assigning the transfer takes one off the
+    // count of athletes with nobody.
+    data.athletes.find((a) => a.id === IDS.athleteNoGpa)!.status = "Inactive";
+    data.athletes.find((a) => a.id === IDS.athleteTransfer)!.advisor_id = OWNER_ID;
+    const after = await advisors();
+    expect(after).toMatch(/Head of Recruiting<\/span> · 2 athletes/);
+    expect(after).toMatch(/1 athlete has no advisor yet\./);
+    data.athletes.find((a) => a.id === IDS.athleteTransfer)!.advisor_id = null;
+    expect(await advisors()).toMatch(/Head of Recruiting<\/span> · 1 athlete</);
   });
 });
