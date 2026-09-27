@@ -23,12 +23,15 @@ usable by other organizations and coaches, not just Bridge.
 
 Two concrete organizations validate the generic model:
 
-- **Bridge (BFFSA)**: a nonprofit. Owner role = Executive Director,
-  staff role = Coordinator. Needs board/governance and donor/fundraising
-  on top of the core recruiting product.
-- **Elite Squad NY**: Dave's travel baseball organization. Owner role =
-  Owner, staff role = Coach. Needs only the core recruiting product; no
-  board, no donor tracking.
+- **Bridge (BFFSA)**: a nonprofit. Needs board/governance and
+  donor/fundraising on top of the core recruiting product. Board members
+  get Admin or Viewer access as Dave picks per person.
+- **Elite Squad NY**: Dave's travel baseball organization. Needs only
+  the core recruiting product; no board, no donor tracking.
+
+Both use the same three access levels, Admin, Viewer and Athlete, and a
+free-text Title per person (Executive Director, Head Coach, Board
+Chair) for what a person is called there.
 
 The org boundary, role model, and module toggles exist so a third
 organization (any travel team, any coach, eventually college coaches on

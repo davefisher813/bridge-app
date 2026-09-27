@@ -16,7 +16,7 @@ export default function RootError({ error, reset }: { error: Error & { digest?: 
       <Stack gap={4}>
         <div className="text-center">
           <Heading>Something Broke on This Screen</Heading>
-          <Prose>Your data is fine. Try again, and if it keeps happening tell your organization&apos;s owner what you tapped.</Prose>
+          <Prose>Your data is fine. Try again, and if it keeps happening tell your organization&apos;s Admin what you tapped.</Prose>
         </div>
         <Button type="button" onClick={reset}>
           Try Again

@@ -326,13 +326,13 @@ describe("LAW: a seat edit keeps every check the add makes", () => {
 describe("LAW: a role switch to or from family keeps the links straight", () => {
   it("leaving family needs a confirm, then drops that person's links in this org before the role changes", async () => {
     // Plant: skipped the guardian delete on a switch away from family;
-    // the staff account kept three links to athletes.
+    // the Admin account kept three links to athletes.
     const { changeMemberRole } = await import("@/lib/actions/members");
-    const unconfirmed = await changeMemberRole(ORG_WITH_MODULES, FAMILY_ID, "staff");
+    const unconfirmed = await changeMemberRole(ORG_WITH_MODULES, FAMILY_ID, "owner");
     expect(unconfirmed.ok).toBe(false);
     expect(writes).toEqual([]);
 
-    const r = await changeMemberRole(ORG_WITH_MODULES, FAMILY_ID, "staff", { confirmed: true });
+    const r = await changeMemberRole(ORG_WITH_MODULES, FAMILY_ID, "owner", { confirmed: true });
     expect(r.ok).toBe(true);
     const unlink = of("athlete_guardians", "delete")[0];
     expect(filterValue(unlink, "user_id")).toBe(FAMILY_ID);
@@ -364,7 +364,7 @@ describe("LAW: a role switch to or from family keeps the links straight", () => 
     // Plant: skipped the only-owner check.
     const { changeMemberRole } = await import("@/lib/actions/members");
     const r = await changeMemberRole(ORG_WITH_MODULES, OWNER_ID, "family", { athleteId: IDS.athlete });
-    expect(r.error).toMatch(/only owner/);
+    expect(r.error).toMatch(/only Admin/);
     expect(writes).toEqual([]);
   });
 });
@@ -513,9 +513,10 @@ describe("LAW: an org is created through create_org and set up by its owner only
     expect(r.redirect).toMatch(/\/more\?notice=/);
     const update = of("orgs", "update")[0];
     expect(filterValue(update, "id")).toBe(BRIDGE_ID());
+    // A stale form still posting role label fields writes none of them:
+    // the access names are fixed and orgs.role_labels is left alone.
     expect(update?.rows[0]).toEqual({
       name: "Renamed Foundation",
-      role_labels: { owner: "Director" },
       modules: { recruiting: true, doc_ai: true, board_governance: true, donor_fundraising: false },
     });
   });
@@ -547,7 +548,7 @@ describe("LAW: the new org, member, board and money screens render on the fixtur
   const P = (o: Record<string, string>) => Promise.resolve(o);
   const screens: Array<{ path: string; props: Record<string, unknown>; expect: RegExp; as?: string }> = [
     { path: "@/app/orgs/new/page", props: {}, expect: /Create an Organization[\s\S]*Web Address/ },
-    { path: "@/app/org/[slug]/settings/page", props: { params: P({ slug: ORG_WITH_MODULES }), searchParams: P({}) }, expect: /Organization Settings[\s\S]*Executive Director[\s\S]*Fundraising/ },
+    { path: "@/app/org/[slug]/settings/page", props: { params: P({ slug: ORG_WITH_MODULES }), searchParams: P({}) }, expect: /Organization Settings[\s\S]*Modules[\s\S]*Fundraising/ },
     { path: "@/app/org/[slug]/board-governance/[id]/edit/page", props: { params: P({ slug: ORG_WITH_MODULES, id: IDS.board }) }, expect: /Edit Board[\s\S]*Fixture Executive Board[\s\S]*Remove them first/ },
     { path: "@/app/org/[slug]/board-governance/[id]/seats/[memberId]/edit/page", props: { params: P({ slug: ORG_WITH_MODULES, id: IDS.board, memberId: IDS.boardMember }) }, expect: /Edit Seat[\s\S]*Fixture Chair[\s\S]*Remove Seat/ },
     { path: "@/app/org/[slug]/fundraising/donors/[id]/edit/page", props: { params: P({ slug: ORG_WITH_MODULES, id: IDS.donor }), searchParams: P({}) }, expect: /Edit Donor[\s\S]*Fixture Donor[\s\S]*Remove Donor/ },

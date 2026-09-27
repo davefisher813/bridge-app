@@ -64,7 +64,7 @@ export function EnrollForm({
             suggestions={schoolChoice.schools.map((s) => ({ value: s.name, label: s.division }))}
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            hint={unknownName ? (schoolChoice.canAddSchool ? "Not on file yet. It will be added with the division below." : "Not on file yet. An owner can add it under Schools.") : "Start typing to search."}
+            hint={unknownName ? (schoolChoice.canAddSchool ? "Not on file yet. It will be added with the division below." : "Not on file yet. An Admin can add it under Schools.") : "Start typing to search."}
             error={err("schoolId")}
             required={!schoolChoice.currentSchool}
           />
@@ -81,7 +81,7 @@ export function EnrollForm({
         </>
       )}
       <Field name={dateName} label={dateLabel} type="date" defaultValue={value(dateName) || today} error={err(dateName)} required />
-      <TextAreaField name="note" label="Note" hint="Optional. Staff only, filed on the athlete's notes." maxLength={4000} defaultValue={value("note")} error={err("note")} />
+      <TextAreaField name="note" label="Note" hint="Optional. Admins only, filed on the athlete's notes." maxLength={4000} defaultValue={value("note")} error={err("note")} />
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );

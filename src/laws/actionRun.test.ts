@@ -535,13 +535,13 @@ describe("LAW: membership is written by the service role, only by an owner, and 
   it("an owner inviting a new address sends an invitation and adds the membership", async () => {
     withKey();
     const { inviteMember } = await import("@/lib/actions/members");
-    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "New@Example.test", role: "staff", fullName: "New Person" })));
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "New@Example.test", role: "owner", fullName: "New Person" })));
     expect(r.redirect).toContain("/members");
     const invite = writes.find((w) => w.table === "auth:invite");
     expect(invite?.rows[0]?.email).toBe("new@example.test");
     expect(String(invite?.rows[0]?.redirectTo)).toBe("https://app.example.test/auth/callback?next=/");
     const membership = writes.find((w) => w.table === "org_members" && w.op === "insert");
-    expect(membership?.rows[0]).toMatchObject({ org_id: data.orgs[0]!.id, role: "staff" });
+    expect(membership?.rows[0]).toMatchObject({ org_id: data.orgs[0]!.id, role: "owner" });
   });
 
   it("an owner adding an existing account writes the membership and sends no invitation", async () => {
@@ -557,7 +557,7 @@ describe("LAW: membership is written by the service role, only by an owner, and 
   it("inviting someone already in the org writes nothing", async () => {
     withKey();
     const { inviteMember } = await import("@/lib/actions/members");
-    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "member@example.test", role: "staff" })));
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "member@example.test", role: "owner" })));
     expect(r.redirect).toBeNull();
     expect((r.state as MemberState).errors.email).toMatch(/Already/);
     expect(writes).toEqual([]);
@@ -651,7 +651,7 @@ describe("LAW: membership is written by the service role, only by an owner, and 
     const toFamily = await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "family");
     expect(toFamily.ok).toBe(false);
     expect(toFamily.error).toMatch(/tied to an athlete/);
-    const fromFamily = await changeMemberRole(ORG_WITH_MODULES, FAMILY_ID, "staff");
+    const fromFamily = await changeMemberRole(ORG_WITH_MODULES, FAMILY_ID, "owner");
     expect(fromFamily.ok).toBe(false);
     expect(writes).toEqual([]);
   });
@@ -677,9 +677,9 @@ describe("LAW: membership is written by the service role, only by an owner, and 
   it("the only owner cannot be demoted or removed", async () => {
     withKey();
     const { changeMemberRole, removeMember } = await import("@/lib/actions/members");
-    const demote = await changeMemberRole(ORG_WITH_MODULES, OWNER_ID, "staff");
+    const demote = await changeMemberRole(ORG_WITH_MODULES, OWNER_ID, "member");
     expect(demote.ok).toBe(false);
-    expect(demote.error).toMatch(/only owner/);
+    expect(demote.error).toMatch(/only Admin/);
     const remove = await removeMember(ORG_WITH_MODULES, OWNER_ID);
     expect(remove.ok).toBe(false);
     expect(writes).toEqual([]);
@@ -688,9 +688,9 @@ describe("LAW: membership is written by the service role, only by an owner, and 
   it("a role change and a removal go through the admin client, scoped to the org", async () => {
     withKey();
     const { changeMemberRole, removeMember } = await import("@/lib/actions/members");
-    expect((await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "staff")).ok).toBe(true);
+    expect((await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "owner")).ok).toBe(true);
     const update = writes.find((w) => w.table === "org_members" && w.op === "update");
-    expect(update?.rows[0]).toEqual({ role: "staff" });
+    expect(update?.rows[0]).toEqual({ role: "owner" });
     expect(update?.filters).toEqual(
       expect.arrayContaining([
         { column: "user_id", value: MEMBER_ID },
@@ -796,10 +796,12 @@ describe("LAW: a resend is the ordinary magic link, sent for a colleague", () =>
   it("the form wrappers report back in the query string", async () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY = "test-only";
     const { changeMemberRoleForm, removeMemberForm } = await import("@/lib/actions/members");
-    const changed = await run(() => changeMemberRoleForm(ORG_WITH_MODULES, MEMBER_ID, form({ role: "staff" })));
-    expect(changed.redirect).toBe(`/org/${ORG_WITH_MODULES}/members/${MEMBER_ID}?notice=Role%20updated.`);
+    // Refused first: once the member is made an Admin the owner is no
+    // longer the only one, and removing them would succeed.
     const refused = await run(() => removeMemberForm(ORG_WITH_MODULES, OWNER_ID));
     expect(refused.redirect).toMatch(new RegExp(`^/org/${ORG_WITH_MODULES}/members/${OWNER_ID}\\?error=`));
+    const changed = await run(() => changeMemberRoleForm(ORG_WITH_MODULES, MEMBER_ID, form({ role: "owner" })));
+    expect(changed.redirect).toBe(`/org/${ORG_WITH_MODULES}/members/${MEMBER_ID}?notice=Role%20updated.`);
     const removed = await run(() => removeMemberForm(ORG_WITH_MODULES, MEMBER_ID));
     expect(removed.redirect).toBe(`/org/${ORG_WITH_MODULES}/members?notice=Removed.`);
   });
@@ -1418,13 +1420,13 @@ describe("LAW: a family invite from an athlete's page is a staff job, and comes 
     expect(revalidated).toContain(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}`);
   });
 
-  it("a staff member cannot invite staff", async () => {
+  it("a leftover staff row cannot invite an Admin or a Viewer", async () => {
     withKey();
     asStaff();
     const { inviteMember } = await import("@/lib/actions/members");
-    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "new-coach@example.test", role: "staff" })));
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "new-coach@example.test", role: "owner" })));
     expect(r.redirect).toBeNull();
-    expect((r.state as MemberState).errors.role).toMatch(/Only an owner/);
+    expect((r.state as MemberState).errors.role).toMatch(/Only an Admin/);
     expect(writes).toEqual([]);
   });
 
@@ -2196,11 +2198,11 @@ describe("LAW: an advisor is owner or staff of the athlete's org, and stops bein
     expect(picked.redirect).toContain(`/roster/${IDS.athleteTransfer}`);
     expect(advisorOf(IDS.athleteTransfer)).toBe(OWNER_ID);
     writes.length = 0;
-    // MEMBER_ID is a Bridge member (Board); OUTSIDER_ID is Elite's staff.
+    // MEMBER_ID is a Bridge Viewer; OUTSIDER_ID is Elite's Admin, not Bridge's.
     for (const advisorId of [MEMBER_ID, OUTSIDER_ID, FAMILY_ID]) {
       const r = await run(() => createAthlete(ORG_WITH_MODULES, { errors: {}, values: {} }, athlete({ name: "New Athlete", advisorId })));
       expect(r.redirect).toBeNull();
-      expect((r.state as { errors: Record<string, string> }).errors.advisorId).toMatch(/staff/);
+      expect((r.state as { errors: Record<string, string> }).errors.advisorId).toMatch(/Admin/);
     }
     expect(writes).toEqual([]);
   });

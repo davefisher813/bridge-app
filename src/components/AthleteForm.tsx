@@ -77,7 +77,7 @@ function field(state: AthleteActionState, initial: AthleteFormInitialValues, key
   return fromInitial === undefined || fromInitial === null ? "" : String(fromInitial);
 }
 
-// `advisors` is the org's owners and staff (src/lib/data/staff.ts), the
+// `advisors` is the org's Admins (src/lib/data/staff.ts), the
 // only people the database lets advise. A record whose advisor is no
 // longer among them shows Nobody Yet, and saving clears it.
 //
@@ -360,7 +360,7 @@ export function AthleteForm({
       {/* Five grades on the 20 to 80 scouting scale. They blend into the
           athletic score by position group; blank means metrics alone. */}
       <Stack gap={3}>
-        <Label caps>Staff assessment</Label>
+        <Label caps>Admin assessment</Label>
         <Grid2>
           {GRADE_KEYS.map((k) => (
             <Field key={k} name={k} label={gradeLabel(k, sport)} type="number" min={GRADE_MIN} max={GRADE_MAX} step="5" inputMode="numeric" defaultValue={f(k)} error={err(k)} />
@@ -411,7 +411,7 @@ export function AthleteForm({
       <TextAreaField
         name="notes"
         label={editing ? "Add a Note" : "Notes"}
-        hint="Staff only, never shown on an athlete login. Each note is dated; blank adds nothing."
+        hint="Admins only, never shown on an athlete login. Each note is dated; blank adds nothing."
         maxLength={4000}
         defaultValue={f("notes")}
         error={err("notes")}

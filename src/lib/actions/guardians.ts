@@ -72,7 +72,7 @@ export async function unlinkGuardian(slug: string, athleteId: string, userId: st
   const left = (rest ?? []).length;
   const notice =
     left === 0
-      ? `${who} no longer sees ${athlete ?? "that athlete"}. Their sign-in now shows nothing; an owner can remove it under Members.`
+      ? `${who} no longer sees ${athlete ?? "that athlete"}. Their sign-in now shows nothing; an Admin can remove it under Members.`
       : `${who} no longer sees ${athlete ?? "that athlete"}.`;
 
   revalidateLink(slug, athleteId, userId);

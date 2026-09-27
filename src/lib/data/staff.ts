@@ -8,6 +8,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OrgRole } from "@/lib/auth/guard";
+import { cleanTitle } from "@/lib/org/roleLabels";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = SupabaseClient<any, any, any>;
@@ -18,11 +19,14 @@ export interface StaffPerson {
   name: string;
   email: string;
   role: OrgRole;
+  // Their Title here (migration 0041), or null. Display only.
+  title: string | null;
 }
 
 interface StaffRow {
   user_id: string;
   role: string;
+  title?: string | null;
   users: { email: string | null; full_name: string | null } | { email: string | null; full_name: string | null }[] | null;
 }
 
@@ -31,14 +35,20 @@ function unwrap<T>(v: T | T[] | null): T | null {
 }
 
 export async function loadStaff(supabase: Client, orgId: string): Promise<StaffPerson[]> {
-  const { data } = await supabase.from("org_members").select("user_id, role, users(email, full_name)").eq("org_id", orgId).in("role", ["owner", "staff"]).order("created_at", { ascending: true });
+  const { data } = await supabase.from("org_members").select("user_id, role, title, users(email, full_name)").eq("org_id", orgId).in("role", ["owner", "staff"]).order("created_at", { ascending: true });
   return ((data ?? []) as StaffRow[])
     .map((r) => {
       const person = unwrap(r.users);
       const email = person?.email?.trim() ?? "";
       const name = person?.full_name?.trim() || email;
-      return name ? { id: r.user_id, name, email, role: r.role as OrgRole } : null;
+      return name ? { id: r.user_id, name, email, role: r.role as OrgRole, title: cleanTitle(r.title) } : null;
     })
     .filter((p): p is StaffPerson => p !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// The Advisor picker's option label: "Name, Title" when a Title is set.
+export function advisorOptionLabel(p: { name: string; title?: string | null }): string {
+  const t = cleanTitle(p.title);
+  return t ? `${p.name}, ${t}` : p.name;
 }

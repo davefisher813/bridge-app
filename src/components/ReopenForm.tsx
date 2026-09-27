@@ -38,7 +38,7 @@ export function ReopenForm({ action, kinds, defaults, colleges = [] }: { action:
       <Field name="eligibilityYearsRemaining" label="Eligibility Years Left" type="number" inputMode="numeric" min={0} max={5} step={1} defaultValue={value("eligibilityYearsRemaining", "")} error={err("eligibilityYearsRemaining")} required />
       <Field name="transferCount" label="Transfers So Far" type="number" inputMode="numeric" min={0} step={1} defaultValue={value("transferCount", String(defaults.transferCount))} error={err("transferCount")} hint="Counting this one." />
       <Field name="portalEntryDate" label="Portal Entry Date" type="date" defaultValue={value("portalEntryDate", "")} error={err("portalEntryDate")} hint="Leave blank if they are not in the portal yet." />
-      <TextAreaField name="note" label="Note" hint="Optional. Staff only, filed on the athlete's notes." maxLength={4000} defaultValue={value("note", "")} error={err("note")} />
+      <TextAreaField name="note" label="Note" hint="Optional. Admins only, filed on the athlete's notes." maxLength={4000} defaultValue={value("note", "")} error={err("note")} />
       <Button disabled={pending}>{pending ? "Saving..." : "Reopen Recruiting"}</Button>
     </Form>
   );

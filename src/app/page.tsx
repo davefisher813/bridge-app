@@ -26,7 +26,7 @@ export default async function HomePage() {
         <Stack gap={4}>
           <div className="text-center">
             <Heading>No Organization Access Yet</Heading>
-            <Prose>Your account isn&apos;t a member of any organization. Ask your organization&apos;s owner to add you, or start a new one.</Prose>
+            <Prose>Your account isn&apos;t a member of any organization. Ask your organization&apos;s Admin to add you, or start a new one.</Prose>
           </div>
           <LinkButton href="/orgs/new">Create an Organization</LinkButton>
           <Form action={signout}>

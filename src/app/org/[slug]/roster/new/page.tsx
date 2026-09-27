@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { loadStaff } from "@/lib/data/staff";
+import { advisorOptionLabel, loadStaff } from "@/lib/data/staff";
 import { loadAthleteFormOptions } from "@/lib/data/athleteFormOptions";
 import { createAthlete } from "@/lib/actions/athletes";
 import { AthleteForm } from "@/components/AthleteForm";
@@ -16,7 +16,7 @@ export default async function NewAthletePage({ params }: { params: Promise<{ slu
 
   const supabase = await createClient();
   const [staff, options] = await Promise.all([loadStaff(supabase, org.id), loadAthleteFormOptions(supabase, org.id)]);
-  const advisors = staff.map((s) => ({ id: s.id, name: s.name }));
+  const advisors = staff.map((s) => ({ id: s.id, name: advisorOptionLabel(s) }));
   const action = createAthlete.bind(null, slug);
 
   return (

@@ -26,7 +26,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "mine", path: "@/app/org/[slug]/mine/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /My Athletes[\s\S]*never checked in[\s\S]*Fixture Athlete/ },
   { name: "members", path: "@/app/org/[slug]/members/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Example Owner[\s\S]*Invited[\s\S]*Example Member/ },
   { name: "invite", path: "@/app/org/[slug]/members/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Send Invite/ },
-  { name: "member", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: MEMBER_ID }), searchParams: p({}) }, expect: /Example Member[\s\S]*Coordinator[\s\S]*Remove From/ },
+  { name: "member", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: MEMBER_ID }), searchParams: p({}) }, expect: /Example Member[\s\S]*Viewer[\s\S]*Title[\s\S]*Admin[\s\S]*Remove From/ },
   // An invited person with no name: the address is the title, and it is
   // wider than the screen. The edge-spill audit watches this one.
   // A family login: the page names the one athlete they see instead of
@@ -205,7 +205,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "document-stub", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.documentStub }) }, expect: /stub-read\.pdf[\s\S]*This Reading Can(&#x27;|')t Be Applied/ },
   { name: "document-correct", path: "@/app/org/[slug]/documents/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.document }) }, expect: /Correct the Reading/ },
   { name: "new-org", path: "@/app/orgs/new/page", props: { params: p({}), searchParams: p({}) }, expect: /Create an Organization[\s\S]*Web Address/ },
-  { name: "org-settings", path: "@/app/org/[slug]/settings/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Organization Settings[\s\S]*Executive Director[\s\S]*Fundraising/ },
+  { name: "org-settings", path: "@/app/org/[slug]/settings/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Organization Settings[\s\S]*Modules[\s\S]*Fundraising/ },
   { name: "member-owner", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: OWNER_ID }), searchParams: p({}) }, expect: /Athletes They Advise[\s\S]*Fixture Athlete/ },
   { name: "edit-board", path: "@/app/org/[slug]/board-governance/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.board }) }, expect: /Edit Board[\s\S]*Fixture Executive Board/ },
   { name: "edit-seat", path: "@/app/org/[slug]/board-governance/[id]/seats/[memberId]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.board, memberId: IDS.boardMember }) }, expect: /Edit Seat[\s\S]*Fixture Chair[\s\S]*Remove Seat/ },

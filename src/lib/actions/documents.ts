@@ -299,8 +299,8 @@ export async function processDocument(
         ok: false,
         error:
           spend.capCents === 0
-            ? "Document reading is turned off for this organization. An owner can set a monthly budget under More."
-            : `This month's document reading budget (${dollars(spend.capCents)}) is used up. An owner can raise it under More.`,
+            ? "Document reading is turned off for this organization. An Admin can set a monthly budget under More."
+            : `This month's document reading budget (${dollars(spend.capCents)}) is used up. An Admin can raise it under More.`,
       };
     }
   }

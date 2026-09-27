@@ -8,7 +8,6 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { OrgRole } from "@/lib/auth/guard";
 import { parseOrgModules, type OrgModules } from "@/lib/org/modules";
-import { parseRoleLabels, type RoleLabels } from "@/lib/org/roleLabels";
 import { parseBranding } from "@/lib/org/branding";
 
 export interface OrgMembership {
@@ -44,10 +43,6 @@ export interface OrgSummary {
   name: string;
   slug: string;
   modules: OrgModules;
-  // What this org calls its three roles. Bridge says Executive Director
-  // and Coordinator; Elite Squad says Owner and Coach. The permission
-  // enum stays generic either way.
-  roleLabels: RoleLabels;
   logo: string | null;
   lockup: string | null;
   scoringPreset: string;
@@ -60,14 +55,13 @@ export interface OrgSummary {
 // before a page had read a single row of its own.
 export const getOrgBySlug = cache(async function getOrgBySlug(slug: string): Promise<OrgSummary | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("orgs").select("id, name, slug, modules, role_labels, branding, scoring_preset, docai_budget_cents").eq("slug", slug).single();
+  const { data, error } = await supabase.from("orgs").select("id, name, slug, modules, branding, scoring_preset, docai_budget_cents").eq("slug", slug).single();
   if (error || !data) return null;
   return {
     id: data.id,
     name: data.name,
     slug: data.slug,
     modules: parseOrgModules(data.modules),
-    roleLabels: parseRoleLabels(data.role_labels),
     logo: parseBranding(data.branding).logo,
     lockup: parseBranding(data.branding).lockup,
     scoringPreset: typeof data.scoring_preset === "string" ? data.scoring_preset : "money_first",

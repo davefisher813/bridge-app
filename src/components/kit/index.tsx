@@ -315,12 +315,14 @@ export function Score({ score }: { score: number }) {
 // Initials on one fixed hue. Fixed rather than per person, so a roster
 // does not read as a colour wheel; indigo rather than the old blue-to-
 // indigo gradient because white on systemBlue is 3.65:1 and the audit
-// reads the corner the text actually sits on.
+// reads the corner the text actually sits on. Blue, not indigo: Dave,
+// 2026-09-27, "I don't like the color purple", and the contact pair is
+// the contrast-checked blue.
 export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg" }) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const initials = ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "")).toUpperCase() || "?";
   const box = size === "lg" ? "h-12 w-12 text-body" : "h-8 w-8 text-label";
-  return <div className={`flex flex-shrink-0 items-center justify-center rounded-full bg-ios-indigo font-extrabold text-white ${box}`}>{initials}</div>;
+  return <div className={`flex flex-shrink-0 items-center justify-center rounded-full bg-solid-contact font-extrabold text-solid-contact-on ${box}`}>{initials}</div>;
 }
 
 // An org's mark: a white shape on a transparent PNG (orgs.branding.logo),

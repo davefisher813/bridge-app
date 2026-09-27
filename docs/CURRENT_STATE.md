@@ -3,13 +3,17 @@
 Last updated: 2026-09-27. Stages 3 (advisors, messages, check-ins) and
 4 (autofill, the high school directory, athlete notes) and the add,
 edit and delete audit are deployed to production, with migrations
-applied through 0040.
+applied through 0040. The roles rework (three access levels with fixed
+names, a Title per person, migration 0041) is built and verified
+locally, not yet committed or deployed.
 Replaced wholesale when this changes meaningfully, never appended to.
 
-**One-line summary.** Three logins, each with their own app on the same
-database: staff run recruiting, fundraising and governance; a family
-sees one athlete and writes only messages on that athlete's thread; a
-board member sees the program as stages and their own seat. The
+**One-line summary.** Three access levels, each with their own app on
+the same database: an Admin runs recruiting, fundraising, governance and
+the org itself; an Athlete login sees one athlete and writes only
+messages on that athlete's thread; a Viewer sees the program as stages
+and their own board seat. Every person can carry a Title (Head Coach,
+Board Chair) that shows next to their name. The
 matching engine scores every athlete against every school and stores
 it; Doc AI reads a document into the right place and is hardened
 against misreads; every list over five rows has a search; matches
@@ -20,7 +24,7 @@ who logs check-ins and talks with the family in the app; every record
 can be corrected and removed where it lives, a pick fills what is
 blank, staff keep notes on an athlete, an owner sets up the org and
 anyone signed in with no other role can start one, and nothing the
-stand-in reader read can ever be applied. 113 screens on one kit, 1,774 tests green, the app itself driven in a browser at
+stand-in reader read can ever be applied. 113 screens on one kit, 1,791 tests green, the app itself driven in a browser at
 320, 375 and 390 in both themes with nothing past the edge, no row or
 tile that goes nowhere, and every link followed to a real screen.
 
@@ -37,7 +41,9 @@ tile that goes nowhere, and every link followed to a real screen.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
   us-west-2). All 40 migrations applied, the last 0040 (high schools,
   athlete notes, window notes, `documents.read_by`, shared-directory
-  editors, `create_org`) on 2026-09-27. Bridge is the directory-editor
+  editors, `create_org`) on 2026-09-27. Migration 0041 (staff to owner,
+  `org_members.title`) is written and tested locally, not yet applied;
+  on production it changes no row (four memberships, all owner). Bridge is the directory-editor
   org, set by a one-off statement. RLS on every table. The high school
   directory is empty: the loader (`scripts/load_high_schools.ts`) needs
   a machine that can reach nces.ed.gov.
@@ -47,8 +53,8 @@ tile that goes nowhere, and every link followed to a real screen.
 
 ## What exists
 
-**113 pages**, 40 migrations, 1,774 tests in 67 files, 24 law files,
-210 PASS lines in the row-level-security suite.
+**113 pages**, 41 migrations (40 applied), 1,791 tests in 68 files, 25 law
+files, 199 PASS notices in the row-level-security suite.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
@@ -558,10 +564,17 @@ the reasons in DECISIONS.md.
   asks first. Duplicate athlete and school names are caught.
 - **Enrolled and Graduated** only through Mark Enrolled and Mark
   Graduated; Edit corrects a date already set.
-- **The org.** Organization Settings (owner): name, role labels,
-  fundraising and board on or off. Create an Organization for anyone
-  signed in, from the start screen and More. Owners and staff rename
-  themselves on More.
+- **The org.** Organization Settings (Admin): name, fundraising and
+  board on or off. Create an Organization for anyone signed in, from the
+  start screen and More. Admins rename themselves on More.
+- **Access levels and Titles (2026-09-27).** Admin, Viewer, Athlete,
+  the same names in every org (`src/lib/org/roleLabels.ts`); staff is
+  retired and nothing offers it. An Admin sets a per-person Title on the
+  member's page; it shows on the members list, the member page, the
+  athlete page's Advisor row, the Athlete screen's Your Advisor row and
+  the Advisor picker, with the access level shown when there is none.
+  `src/laws/accessLaws.test.ts` and the 0041 block of
+  `scripts/rls_test.sql` hold it.
 - **The stand-in reader can never write onto an athlete.** Every
   document records who read it; a stand-in reading, any reading while
   no key is set, and an older document with no real model call on
@@ -710,25 +723,27 @@ Format examples stay, because they are the part a person acts on.
 
 ## Immediate next steps
 
-1. Stages 3 and 4 ship when Dave says "go": commit, apply 0039 and
-   0040 to production, deploy, then Dave picks advisors (several at once
-   from each staff member's page now) and walks the new edit and remove
-   screens on his phone. The new screens were built without a preview,
-   per the lead's call for this build.
-2. Load the high school directory (above), then set the AI key and
+1. The roles rework ships when Dave says "go": commit, apply 0041 to
+   production (no row changes there), deploy, then Dave sets each
+   person's Title from their page under Members and checks the members
+   list on his phone. Built without a preview, per "I don't need
+   previews. Ship it."
+2. Dave picks advisors (several at once from each Admin's page) and
+   walks the edit and remove screens on his phone.
+3. Load the high school directory (above), then set the AI key and
    discard, delete and re-upload the production documents.
-3. Dave exports his school sheet to the template and imports it, then
+4. Dave exports his school sheet to the template and imports it, then
    logs a first metric and reads a real match. The three interpreted
    numbers (strike target, grade weights, preset weights) get revisited
    on what he sees. Nothing else in the app is waiting on code: every
    screen it needs exists and is verified against the fixture.
-4. Dave's page-by-page audit of the new screens on his phone.
-5. The first real family (the athlete first, then a parent or legal
+5. Dave's page-by-page audit of the new screens on his phone.
+6. The first real family (the athlete first, then a parent or legal
    guardian) and the first real board login, each from the athlete's
    page and the seat's page respectively.
-6. The current NCAA transfer windows, entered from an NCAA-published
+7. The current NCAA transfer windows, entered from an NCAA-published
    page, so transfer timing stops reading as unverified.
-7. Cleanup pass: one page loader, `cache()` on the org and user lookups,
+8. Cleanup pass: one page loader, `cache()` on the org and user lookups,
    split `documents.ts`, then the `@supabase/ssr` and `zod` bumps.
 
 See docs/ROADMAP.md for the rest.

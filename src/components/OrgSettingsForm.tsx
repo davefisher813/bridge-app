@@ -10,13 +10,6 @@ const EMPTY: OrgActionState = { errors: {} };
 
 // Plain data from the page, so nothing from a "use client" module has
 // to reach the server as a value (see the law in dataLaws.test.ts).
-export interface RoleLabelInput {
-  role: string;
-  label: string;
-  fallback: string;
-  hint: string;
-}
-
 export interface ModuleInput {
   key: string;
   title: string;
@@ -24,9 +17,10 @@ export interface ModuleInput {
   on: boolean;
 }
 
-// An org's name, what it calls each role, and its optional modules.
-// Owner only; the page checks and so does the action.
-export function OrgSettingsForm({ action, name, roles, modules }: { action: ServerAction; name: string; roles: RoleLabelInput[]; modules: ModuleInput[] }) {
+// An org's name and its optional modules. Admin only; the page checks
+// and so does the action. The access names (Admin, Viewer, Athlete) are
+// fixed, so there is nothing to name here any more.
+export function OrgSettingsForm({ action, name, modules }: { action: ServerAction; name: string; modules: ModuleInput[] }) {
   const [state, formAction, pending] = useActionState(action, EMPTY);
   const err = (k: string) => state.errors[k];
   const value = (k: string, fallback: string) => state.values?.[k] ?? fallback;
@@ -34,15 +28,6 @@ export function OrgSettingsForm({ action, name, roles, modules }: { action: Serv
   return (
     <Form action={formAction} error={state.errors.form}>
       <Field name="name" label="Name" error={err("name")} defaultValue={value("name", name)} required maxLength={120} />
-
-      <Section label="What You Call Each Role" role="people" kind="people">
-        <Prose>Only the words on screen change. What each role may do stays the same.</Prose>
-        <Stack gap={3}>
-          {roles.map((r) => (
-            <Field key={r.role} name={`label_${r.role}`} label={r.fallback} hint={r.hint} error={err(`label_${r.role}`)} defaultValue={value(`label_${r.role}`, r.label)} placeholder={r.fallback} maxLength={40} />
-          ))}
-        </Stack>
-      </Section>
 
       <Section label="Modules" role="place" kind="checklist">
         <Stack gap={3}>

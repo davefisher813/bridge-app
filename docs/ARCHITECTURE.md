@@ -19,10 +19,12 @@ here, because two real organizations (Bridge and Elite Squad) exist on
 day one, not hypothetically later. So the membership table
 (`org_members`) is the starting point, not a future migration:
 
-- `orgs` - one row per organization, with `role_labels` (display-only
-  role names per org), `modules` (feature toggles), `branding`.
-- `org_members` - `(user_id, org_id, role)`. A person can belong to more
-  than one org (a coach who volunteers at two organizations).
+- `orgs` - one row per organization, with `modules` (feature toggles)
+  and `branding`. `role_labels` still exists but is no longer read (the
+  access names are fixed since 2026-09-27).
+- `org_members` - `(user_id, org_id, role, title)`. A person can belong
+  to more than one org (a coach who volunteers at two organizations).
+  `title` (migration 0041) is what they are called there, display only.
 - Every org-scoped table (`athletes`, `recruiting_targets`,
   `benchmark_sets`) carries `org_id` and an RLS policy of the shape
   `org_id in (select org_id from org_members where user_id = auth.uid())`.
@@ -170,9 +172,13 @@ column so rows written before the log still score.
 
 `org_role` is a 4-value enum: `owner | staff | member | family`.
 Generalized from tucci-admin's real `owner | admin | coach | reception |
-family` + `requireRole()` pattern. The *label* a person sees (Bridge:
-"Executive Director" / "Coordinator"; Elite Squad: "Owner" / "Coach") is
-org-level config in `orgs.role_labels`, never a second permission
+family` + `requireRole()` pattern. The name a person sees is fixed in
+every org (`src/lib/org/roleLabels.ts`, Dave 2026-09-27): owner is
+Admin, member is Viewer, family is Athlete. `staff` is retired by
+migration 0041 (every staff row became owner; nothing offers it; a
+leftover row reads as Admin) but stays in the enum and in `STAFF_ROLES`
+so no policy or guard changed. A person's own Title
+(`org_members.title`) is display only, never a second permission
 system - see `src/lib/auth/guard.ts`.
 
 `owner` and `staff` read the whole org and differ only in what they

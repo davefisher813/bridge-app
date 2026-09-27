@@ -27,7 +27,7 @@ const CATEGORIES: { id: DocCategoryId | null; label: string }[] = [
 
 const SOURCE_ROLES: { id: SourceRole; label: string }[] = [
   { id: "coordinator", label: "I uploaded it" },
-  { id: "admin", label: "An owner uploaded it" },
+  { id: "admin", label: "An Admin uploaded it" },
   { id: "parent", label: "A parent sent it" },
   { id: "athlete", label: "The athlete sent it" },
   { id: "email", label: "It came in by email" },

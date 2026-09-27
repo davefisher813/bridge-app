@@ -2,9 +2,8 @@
 
 import { useActionState, useState } from "react";
 import type { MemberActionState } from "@/lib/actions/members";
-import type { RoleLabels } from "@/lib/org/roleLabels";
 import { labelForRole } from "@/lib/org/roleLabels";
-import { ORG_ROLES } from "@/lib/validation/member";
+import { ASSIGNABLE_ROLES } from "@/lib/validation/member";
 import { Button, Field, Form, Hidden, SelectField, SuggestField } from "@/components/kit";
 import { RELATIONSHIPS } from "@/lib/copy/relationships";
 
@@ -17,9 +16,11 @@ export interface InviteAthleteOption {
   name: string;
 }
 
-// The roles an owner can hand out here. Family is offered only when the
-// org has athletes to link a family to: a family login without an
-// athlete is a login to an empty screen, and the action refuses it.
+// The access levels an Admin can hand out here: Admin, Viewer, Athlete
+// (Dave, 2026-09-27). staff is retired and never offered. Athlete is
+// offered only when the org has athletes to link one to: an athlete
+// login with no athlete is a login to an empty screen, and the action
+// refuses it.
 
 // `pinned` is the Invite Athlete screen on an athlete's page (Dave's
 // pick, 2026-09-21): the role is family and the athlete is this one, so
@@ -30,13 +31,11 @@ export interface InviteAthleteOption {
 // filled in when there is exactly one of them.
 export function InviteForm({
   action,
-  roleLabels,
   athletes = [],
   pinned,
   suggest,
 }: {
   action: ServerAction;
-  roleLabels: RoleLabels;
   athletes?: InviteAthleteOption[];
   pinned?: { athleteId: string; athleteName: string; returnTo: string };
   suggest?: { emails: string[]; name?: string };
@@ -44,9 +43,9 @@ export function InviteForm({
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const err = (key: string) => state.errors[key];
   const value = (key: string) => (state.values?.[key] === undefined ? "" : String(state.values[key]));
-  const L = (role: (typeof ORG_ROLES)[number]) => labelForRole(roleLabels, role);
-  const [role, setRole] = useState(pinned ? "family" : value("role") || "staff");
-  const roles = athletes.length > 0 ? ORG_ROLES : ORG_ROLES.filter((r) => r !== "family");
+  // Viewer by default: the level that changes nothing is the safe one.
+  const [role, setRole] = useState(pinned ? "family" : value("role") || "member");
+  const roles = athletes.length > 0 ? ASSIGNABLE_ROLES : ASSIGNABLE_ROLES.filter((r) => r !== "family");
 
   if (pinned) {
     return (
@@ -89,13 +88,13 @@ export function InviteForm({
         error={err("role")}
         hint={
           role === "family"
-            ? `${L("family")} access covers one athlete's record, read only, and nothing else.`
-            : `${L("staff")}s add and edit athletes, targets and documents. ${L("member")}s see the program as names and stages, the year's giving and their own seat, and change nothing. ${L("owner")}s can also manage members and schools.`
+            ? "Athlete access covers one athlete's record, read only, and nothing else."
+            : "Admins add and edit everything, including members, schools and settings. Viewers see the program as names and stages, the year's giving and their own seat, and change nothing."
         }
       >
         {roles.map((r) => (
           <option key={r} value={r}>
-            {L(r)}
+            {labelForRole(r)}
           </option>
         ))}
       </SelectField>

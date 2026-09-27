@@ -1,14 +1,15 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { requireOwner, type OrgRole } from "@/lib/auth/guard";
+import { requireOwner } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { labelForRole } from "@/lib/org/roleLabels";
+import { cleanTitle, labelForRole } from "@/lib/org/roleLabels";
 import { resendInviteForm } from "@/lib/actions/members";
 import { Avatar, Button, EmptyState, Form, LinkButton, Notice, Row, Screen, Section, Stat, StatRow, Chevron } from "@/components/kit";
 
 interface MemberRow {
   user_id: string;
   role: string;
+  title?: string | null;
   created_at: string;
   users: { email: string; full_name: string; last_sign_in_at: string | null } | { email: string; full_name: string; last_sign_in_at: string | null }[] | null;
 }
@@ -40,7 +41,7 @@ export default async function MembersPage({
   const supabase = await createClient();
   const { data } = await supabase
     .from("org_members")
-    .select("user_id, role, created_at, users(email, full_name, last_sign_in_at)")
+    .select("user_id, role, title, created_at, users(email, full_name, last_sign_in_at)")
     .eq("org_id", org.id)
     .order("created_at", { ascending: true });
 
@@ -49,7 +50,9 @@ export default async function MembersPage({
   // is always in: they are looking at the screen.
   const people = rows.filter((r) => r.user_id === me.id || r.person?.last_sign_in_at);
   const invited = rows.filter((r) => r.user_id !== me.id && !r.person?.last_sign_in_at);
-  const label = (role: string) => labelForRole(org.roleLabels, role as OrgRole);
+  // Their Title, when an Admin has set one, then their access level:
+  // this is the screen where access is managed, so it always shows.
+  const label = (r: MemberRow) => [cleanTitle(r.title), labelForRole(r.role)].filter(Boolean).join(" · ");
 
   return (
     <Screen title="Members" back={{ href: `/org/${slug}/more`, label: "More" }}>
@@ -67,7 +70,7 @@ export default async function MembersPage({
             href={`/org/${slug}/members/${r.user_id}`}
             leading={<Avatar name={r.person?.full_name || r.person?.email || "?"} />}
             title={`${r.person?.full_name || r.person?.email || "Unknown"}${r.user_id === me.id ? " (you)" : ""}`}
-            meta={`${label(r.role)} · ${r.person?.email ?? ""}`}
+            meta={`${label(r)} · ${r.person?.email ?? ""}`}
             trailing={<Chevron />}
             wrap
           />
@@ -87,7 +90,7 @@ export default async function MembersPage({
               kind="clock"
               role="time"
               title={r.person?.full_name || r.person?.email || "Unknown"}
-              meta={`${label(r.role)} · invited ${shortDate(r.created_at)}`}
+              meta={`${label(r)} · invited ${shortDate(r.created_at)}`}
               trailing={
                 <Form action={resendInviteForm.bind(null, slug, r.user_id)}>
                   <Button variant="quiet" inline>

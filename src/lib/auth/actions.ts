@@ -54,7 +54,7 @@ export async function sendMagicLink(_prev: MagicLinkState, formData: FormData): 
   });
   if (error) {
     if (/signups not allowed|user not found|otp_disabled/i.test(error.message)) {
-      return { sent: false, email, error: `There is no account for ${email}. Check the spelling, or ask your organization's owner to invite you.` };
+      return { sent: false, email, error: `There is no account for ${email}. Check the spelling, or ask your organization's Admin to invite you.` };
     }
     return { sent: false, email, error: error.message };
   }

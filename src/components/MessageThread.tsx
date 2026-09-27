@@ -24,7 +24,7 @@ export function MessageThread({ messages, meId, remove }: { messages: ThreadMess
             </div>
             {remove && (
               <Form action={remove.bind(null, m.id)}>
-                <ConfirmButton inline title="Remove This Message?" body="It comes off the thread for staff and the athlete login. It cannot be brought back." confirmLabel="Remove">
+                <ConfirmButton inline title="Remove This Message?" body="It comes off the thread for Admins and the athlete login. It cannot be brought back." confirmLabel="Remove">
                   Remove
                 </ConfirmButton>
               </Form>

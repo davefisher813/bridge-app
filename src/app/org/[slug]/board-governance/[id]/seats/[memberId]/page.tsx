@@ -18,7 +18,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { Avatar, Body, Button, Card, Chip, ConfirmButton, EmptyState, Form, Label, LinkButton, Meter, Notice, Row, Screen, Section, SelectField, Stack, Stat, StatRow } from "@/components/kit";
 import { createClient } from "@/lib/supabase/server";
 import { linkSeatSignIn } from "@/lib/actions/governance";
-import { labelForRole } from "@/lib/org/roleLabels";
+import { labelForRole, personLabel } from "@/lib/org/roleLabels";
 import type { OrgRole } from "@/lib/auth/guard";
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
@@ -101,9 +101,9 @@ export default async function SeatPage({
   // Who can sign in as this seat. The org's people, minus family
   // logins, with the one already linked (if any) named first.
   const supabase = await createClient();
-  const { data: peopleRows } = await supabase.from("org_members").select("user_id, role, users(email, full_name)").eq("org_id", org.id).in("role", ["owner", "staff", "member"]).order("created_at", { ascending: true });
-  const people = ((peopleRows ?? []) as { user_id: string; role: string; users: { email: string; full_name: string | null } | { email: string; full_name: string | null }[] | null }[])
-    .map((r) => ({ id: r.user_id, role: r.role as OrgRole, person: Array.isArray(r.users) ? (r.users[0] ?? null) : r.users }))
+  const { data: peopleRows } = await supabase.from("org_members").select("user_id, role, title, users(email, full_name)").eq("org_id", org.id).in("role", ["owner", "staff", "member"]).order("created_at", { ascending: true });
+  const people = ((peopleRows ?? []) as { user_id: string; role: string; title?: string | null; users: { email: string; full_name: string | null } | { email: string; full_name: string | null }[] | null }[])
+    .map((r) => ({ id: r.user_id, role: r.role as OrgRole, title: r.title ?? null, person: Array.isArray(r.users) ? (r.users[0] ?? null) : r.users }))
     .filter((r) => r.person?.email);
   const linked = member.userId ? (people.find((x) => x.id === member.userId) ?? null) : null;
   const linkAction = linkSeatSignIn.bind(null, slug, board.id, member.id);
@@ -183,7 +183,7 @@ export default async function SeatPage({
                 href={user.role === "owner" ? `/org/${slug}/members/${linked.id}` : `mailto:${linked.person!.email}`}
                 leading={<Avatar name={linked.person!.full_name || linked.person!.email} />}
                 title={linked.person!.full_name || linked.person!.email}
-                meta={`${labelForRole(org.roleLabels, linked.role)} · ${linked.person!.email} · sees this seat as theirs`}
+                meta={`${personLabel(linked)} · ${linked.person!.email} · sees this seat as theirs`}
                 wrap
               />
               <Form action={linkAction}>
@@ -195,11 +195,11 @@ export default async function SeatPage({
           ) : (
             <Form action={linkAction}>
               <Stack gap={3}>
-                <SelectField name="userId" label="Whose Seat Is This" hint={`Link a sign-in and this seat shows on their Home and Giving screens. Invite them under Members as ${labelForRole(org.roleLabels, "member")} first if they are not listed.`}>
+                <SelectField name="userId" label="Whose Seat Is This" hint={`Link a sign-in and this seat shows on their Home and Giving screens. Invite them under Members as ${labelForRole("member")} first if they are not listed.`}>
                   <option value="">Nobody yet</option>
                   {people.map((x) => (
                     <option key={x.id} value={x.id}>
-                      {`${x.person!.full_name || x.person!.email} (${labelForRole(org.roleLabels, x.role)})`}
+                      {`${x.person!.full_name || x.person!.email} (${personLabel(x)})`}
                     </option>
                   ))}
                 </SelectField>
