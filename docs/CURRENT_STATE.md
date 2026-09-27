@@ -1,9 +1,9 @@
 # Current state
 
-Last updated: 2026-09-27, after Stage 4 (autofill, the high school
-directory, athlete notes) and the add, edit and delete audit, written
-and tested locally, not yet committed or deployed. Stage 3 (0039) is
-not deployed either.
+Last updated: 2026-09-27. Stages 3 (advisors, messages, check-ins) and
+4 (autofill, the high school directory, athlete notes) and the add,
+edit and delete audit are deployed to production, with migrations
+applied through 0040.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three logins, each with their own app on the same
@@ -19,8 +19,8 @@ good, everywhere it shows; every athlete can have an advisor on staff
 who logs check-ins and talks with the family in the app; every record
 can be corrected and removed where it lives, a pick fills what is
 blank, staff keep notes on an athlete, an owner sets up the org and
-anyone signed in can start one, and nothing the stand-in reader read
-can ever be applied. 113 screens on one kit, 1,735 tests green, the app itself driven in a browser at
+anyone signed in with no other role can start one, and nothing the
+stand-in reader read can ever be applied. 113 screens on one kit, 1,774 tests green, the app itself driven in a browser at
 320, 375 and 390 in both themes with nothing past the edge, no row or
 tile that goes nowhere, and every link followed to a real screen.
 
@@ -35,19 +35,20 @@ tile that goes nowhere, and every link followed to a real screen.
   2026-09-21 (Alfred): every push to `main` builds and deploys on its
   own. Vercel Authentication is off; the app's own sign-in is the gate.
 - **Database:** Supabase project `Bridge-app` (ref `emllcefqxyxyhqolrllo`,
-  us-west-2). 38 migrations applied, the last 0038 (Transferring and
-  `closed_from`) on 2026-09-26. 0039 (advisors, messages, check-ins)
-  and 0040 (high schools, athlete notes, window notes,
-  `documents.read_by`, `create_org`) are tested locally and not applied
-  yet. RLS on every table.
+  us-west-2). All 40 migrations applied, the last 0040 (high schools,
+  athlete notes, window notes, `documents.read_by`, shared-directory
+  editors, `create_org`) on 2026-09-27. Bridge is the directory-editor
+  org, set by a one-off statement. RLS on every table. The high school
+  directory is empty: the loader (`scripts/load_high_schools.ts`) needs
+  a machine that can reach nces.ed.gov.
 - **Accounts:** dave@bffsa.org and davefisher813@gmail.com, both owners
   of both orgs, both with the same password. Password is the first
   screen; the magic link sits behind "Email me a link instead".
 
 ## What exists
 
-**113 pages**, 40 migrations, 1,735 tests in 65 files, 22 law files,
-205 PASS lines in the row-level-security suite.
+**113 pages**, 40 migrations, 1,774 tests in 67 files, 24 law files,
+210 PASS lines in the row-level-security suite.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
