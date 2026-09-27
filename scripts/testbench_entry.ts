@@ -10,7 +10,8 @@
 // Built by scripts/build_testbench.py.
 
 import { scoreFit } from "../src/lib/fit/score";
-import { scoreFinancial } from "../src/lib/fit/financial";
+import { estimateNetCost, scoreFinancial } from "../src/lib/fit/financial";
+import { partialLabelFor, rankFits } from "../src/lib/fit/rank";
 import { scoreEligibility } from "../src/lib/fit/transfer";
 import { scoreAcademic } from "../src/lib/fit/academic";
 import { scoreAthletic } from "../src/lib/fit/athletic";
@@ -271,6 +272,55 @@ function runSuite(): Check[] {
     if (r.confidence === "high") return "claimed high confidence with no budget";
     if (!r.warnings.join(" ").toLowerCase().includes("budget")) return "did not ask for a budget";
     return null;
+  });
+
+  // Ranking (src/lib/fit/rank.ts, Stage 5 Phase 1): full before partial,
+  // then score, then name; the label reads N of M with M from the row.
+  const rankRow = (name: string, score: number, partial: boolean, netCost: number | null) => ({
+    score,
+    partial,
+    net_cost: netCost,
+    dimensions: { academic: { score, confidence: partial ? "unknown" : "high" }, athletic: { score, confidence: "high" }, financial: { score, confidence: "high" }, counted: partial ? ["athletic", "financial"] : ["academic", "athletic", "financial"] },
+    school: { name },
+  });
+  check("Ranking", "a fully scored fit ranks above any partial one, whatever the raw score", () => {
+    const out = rankFits([rankRow("Partial Safety", 95, true, 10000), rankRow("Full Reach", 40, false, 50000), rankRow("Full Fit", 70, false, 30000)]);
+    const names = out.map((r) => r.school.name).join(", ");
+    return names === "Full Fit, Full Reach, Partial Safety" ? null : `ordered ${names}`;
+  });
+  check("Ranking", "a tie breaks by school name, A to Z", () => {
+    const out = rankFits([rankRow("Zeta", 70, false, null), rankRow("alpha", 70, false, null)]);
+    return out[0].school.name === "alpha" ? null : `put ${out[0].school.name} first`;
+  });
+  check("Ranking", "Net Cost is lowest first and a row with no cost goes last", () => {
+    const out = rankFits([rankRow("Unknown Cost", 90, false, null), rankRow("Dear", 60, false, 50000), rankRow("Cheap", 40, false, 9000)], "net_cost");
+    const names = out.map((r) => r.school.name).join(", ");
+    return names === "Cheap, Dear, Unknown Cost" ? null : `ordered ${names}`;
+  });
+  check("Ranking", "Academic puts a school whose academic dimension was not counted last", () => {
+    const out = rankFits([rankRow("Not Counted", 95, true, null), rankRow("Counted", 30, false, null)], "academic");
+    return out[0].school.name === "Counted" ? null : `put ${out[0].school.name} first`;
+  });
+  check("Ranking", "the partial label reads N of 3 for a high school athlete and N of 4 for a transfer", () => {
+    const hs = partialLabelFor({ dimensions: { academic: { score: 50, confidence: "unknown" }, athletic: { score: 50, confidence: "unknown" }, financial: { score: 48, confidence: "low" }, counted: ["financial"] } });
+    const tr = partialLabelFor({ dimensions: { academic: { score: 80 }, athletic: { score: 50, confidence: "unknown" }, financial: { score: 70 }, eligibility: { score: 60 }, counted: ["academic", "financial", "eligibility"] } });
+    if (hs !== "Partial · 1 of 3 scored") return `high school read "${hs}"`;
+    if (tr !== "Partial · 3 of 4 scored") return `transfer read "${tr}"`;
+    return null;
+  });
+  check("Ranking", "the stored net cost is the number in the financial reason", () => {
+    const a = hsAthlete({ familyBudgetCents: 2000000, homeState: "CT", gpa: 3.5 });
+    const s = school({ state: "NY", financials: { outstateTotal: 50000, athleticScholarship: "partial", avgAthleticAid: 5000, avgMeritAid: 4000 } });
+    const r = scoreFit(a, s);
+    const est = estimateNetCost(a, s);
+    if (r.netCost !== est) return `result carried ${r.netCost}, estimate said ${est}`;
+    if (typeof est !== "number") return "no net cost for a school with a cost on file";
+    if (!r.financial.reasons.join(" ").includes(`Net cost about $${est.toLocaleString("en-US")}`)) return "reason and stored number disagree";
+    return null;
+  });
+  check("Ranking", "an award letter replaces the estimated net cost", () => {
+    const r = scoreFit(hsAthlete({ familyBudgetCents: 2000000 }), school({ financials: { outstateTotal: 50000 } }), { aid: { netCost: 12000 } });
+    return r.netCost === 12000 ? null : `carried ${r.netCost}`;
   });
 
   check("Matching", "a pitcher under the tier's fastball floor is a Conflict", () => {

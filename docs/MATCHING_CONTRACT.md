@@ -98,14 +98,14 @@ grades on file the athletic score is metrics alone.
 
 | Decision | Pick |
 |---|---|
-| Where it lives | Both: a Matches section on the athlete page (top five, See All) and a full screen with filters and Add to Board. |
-| A match row | School, division, score and tag. The first reason on the second line. |
+| Where it lives | Both: a Matches section on the athlete page (the top ten, under the label "N Schools Evaluated", See All when there are more than ten) and a full screen with search, sort, filters and Add Target. Amended 2026-09-27. |
+| A match row | Compact, one line under the school: division, score and tag. A partial row leads with "Partial · N of M scored" instead; the target action sits at the right end of the row, outside its link. On the athlete page the row keeps its Score mark and the first reason, with the partial label in the reason's place. Amended 2026-09-27. |
 | Conflicts | At the bottom under a Conflicts rule, dimmed, each saying what blocks it. |
-| Missing numbers | Leave the unknown dimension out of the blend and say so: "scored on academic and financial only". |
-| Filters | Division, state or region, conference, major offered, cost ceiling, scholarship type, playing-time outlook. Sport sponsored always applies. |
+| Missing numbers | Leave the unknown dimension out of the blend and say so. In a row: the plain label "Partial · N of M scored", M read off the row (3 for a high school athlete, 4 for a transfer). The engine's sentence ("scored on academic and financial only") stays in `warnings` and on the match detail. Amended 2026-09-27. |
+| Filters | Division, state or region, conference, major offered, cost ceiling, scholarship type, playing-time outlook. Sport sponsored always applies. Plus a search by school name and six sorts: Best Fit, Academic, Athletic, Financial, Net Cost, A to Z. Distance is deferred (see the 2026-09-27 amendment). |
 | Default filters | None. Every school on file, ranked. |
-| To the board | Add to Board on every row, creating a target at the Target stage. The row then shows the stage. |
-| Order | Score, high to low. |
+| To the board | "Add Target" inside every row, creating a target at the Target stage. The row then shows the stage pill, which opens the target on the Board. |
+| Order | Fully scored first, then partial, each by score, A to Z on a tie. Today's Strong Matches follow the same rule, both for which row headlines an athlete and for the order of the athletes. |
 | Transfers | When the portal window is on file and the entry date misses it, the school goes to Conflicts. |
 | Today | A Strong Matches section: athletes with a new Safety or Fit, one row each, only when there is one. |
 
@@ -124,6 +124,49 @@ scoring even relevant at that point? It's a match, it worked." So:
 - Transferring is a college athlete who reopened recruiting. They are
   scored as a transfer against the schools that fit a transfer.
 - This amends a locked contract on Dave's word from that task.
+
+### Amended 2026-09-27: ranking, search and sort
+
+Dave approved the Stage 5 plan on 2026-09-27 ("finish all of the work
+and merge it"); its Phase 1 recommendations are these decisions.
+
+- **One ranking rule.** Wherever stored fits are listed (the athlete
+  page, Matches, the family's Matches and athlete page, Today's Strong
+  Matches, the school page) the order comes from `rankFits` in
+  `src/lib/fit/rank.ts`: fully scored rows first, then partial ones,
+  each by score, then school name A to Z, then id. The database is never
+  asked to order; `loadFitsForAthlete` returns rows already in Best Fit
+  order and a screen that offers another sort runs the same rows
+  through the helper with its key. A Safety scored on one dimension out
+  of three never headlines over a Fit the engine could evaluate.
+- **The partial label.** "Partial · N of M scored", N the dimensions
+  counted and M the dimensions the row carries (3 for a high school
+  athlete, 4 for a transfer). M comes from the row, never a constant.
+- **Search and sort.** Matches and the family's Matches take `?q=` (a
+  school name, substring, case-insensitive, run in memory before the
+  filters) and `?sort=` (best, academic, athletic, financial, net_cost,
+  az; anything else is Best Fit). A filter change or Clear Filters keeps
+  the search, the sort and the row count in the address.
+- **Net cost is stored.** `athlete_school_fits.net_cost` (migration
+  0042), whole dollars, written by the engine from the same estimate the
+  financial dimension reasons with, null when the school carries no
+  cost; `FIT_ENGINE_VERSION` 3 so Recalculate All fills it. Net Cost
+  sorts cheapest first with no cost on file last. A screen reads the
+  column; it never computes it.
+- **The compact row and the page.** Matches shows 25 ranked rows, then
+  "Showing 25 of N" and Show More (`?show=50`, then 75, and so on). The
+  row is the school, one meta line ("D2 · 93 · Safety", or the partial
+  label first), and the target action in the row through the kit Row's
+  `trailingAction` slot, a sibling of the row's link so no tap target
+  sits inside another. The family's row has no target action.
+- **Distance is deferred.** The only location data on both sides is the
+  state (`schools.state`, `athletes.home_state`); with no coordinates a
+  distance sort would be a state match, which the Region and State
+  filters already give. It returns when schools carry coordinates.
+- **Who reads it.** The read policy on `athlete_school_fits` did not
+  change: Admin in the org, or the athlete's own login. A Viewer reads
+  no fit row and no net cost, and no member screen or member data file
+  names the table (`src/laws/matchingLaws.test.ts`).
 
 ## 3. The scoring rules
 

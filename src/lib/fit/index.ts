@@ -20,7 +20,9 @@ export type { ScoreFitOptions } from "./score";
 
 export { scoreAcademic } from "./academic";
 export { scoreAthletic, baseballPositionGroup, positionGroupFor, positionGroupOf } from "./athletic";
-export { scoreFinancial } from "./financial";
+export { scoreFinancial, estimateNetCost } from "./financial";
+export { rankFits, partialLabel, partialLabelFor, parseFitSort, FIT_SORTS } from "./rank";
+export type { FitSort, RankableFit } from "./rank";
 export { scoreEligibility } from "./transfer";
 
 export { scoreToTag, clampScore } from "./bands";

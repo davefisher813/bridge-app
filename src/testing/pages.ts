@@ -129,7 +129,15 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "metrics-empty", path: "@/app/org/[slug]/roster/[id]/metrics/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteNoGpa }) }, expect: /Nothing Logged Yet/ },
   { name: "matches", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({}) }, expect: /Fixture State University[\s\S]*Fixture College/ },
   { name: "matches-filtered", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({ division: "D3" }) }, expect: /Fixture College/ },
-  { name: "matches-partial", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteNoGpa }), searchParams: p({}) }, expect: /Scored on financial only/ },
+  // Amended 2026-09-27: a partial row says "Partial · 1 of 3 scored" in
+  // plain view, after the division, the same shape on every screen. The
+  // engine's own sentence stays in warnings.
+  { name: "matches-partial", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteNoGpa }), searchParams: p({}) }, expect: /D3<\/span> · Partial · 1 of 3 scored/ },
+  // Search by name, a sort other than Best Fit, and the Show More address.
+  { name: "matches-search", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({ q: "state" }) }, expect: /1 matches the search[\s\S]*Fixture State University/ },
+  { name: "matches-sort-academic", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({ sort: "academic" }) }, expect: /Academic 90[\s\S]*Academic 78/ },
+  { name: "matches-show-more", path: "@/app/org/[slug]/roster/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({ show: "50" }) }, expect: /Fixture State University[\s\S]*Fixture College/ },
+  { name: "family-matches-sorted", path: "@/app/org/[slug]/family/[id]/matches/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({ sort: "az" }) }, expect: /Ranked[\s\S]*Fixture College[\s\S]*Fixture State University/, as: FAMILY_ID },
   { name: "edit-school", path: "@/app/org/[slug]/schools/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Fixture State University[\s\S]*Merge Into[\s\S]*Remove School/ },
   { name: "import-schools", path: "@/app/org/[slug]/schools/import/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Download the Template/ },
   { name: "school", path: "@/app/org/[slug]/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Fixture Athlete/ },

@@ -2949,3 +2949,58 @@ begin
 end $$;
 
 \echo 'ALL 0041 ASSERTIONS PASSED'
+
+-- ── Net cost on a stored match (migration 0042) ─────────────────────
+-- One nullable column on athlete_school_fits, riding the read policy
+-- 0023 wrote: the athlete's org for an Admin and the athlete's own
+-- family login. Nothing widens. user6 is a Bridge Viewer (member) and
+-- reads no fit row at all, so no net cost; user5 is by now family in
+-- Elite only, linked to Elite's athlete (120), and reads the number on
+-- their own athlete's row but cannot change it. Row 560 is Elite's
+-- seeded match for athlete 120.
+reset role;
+update athlete_school_fits set net_cost = 29000 where id = '00000000-0000-0000-0000-000000000560';
+do $$
+declare n int;
+begin
+  select count(*) into n from athlete_school_fits where id = '00000000-0000-0000-0000-000000000560' and net_cost = 29000;
+  if n <> 1 then raise exception 'FAIL: the seeded Elite match did not take a net cost (% rows)', n; end if;
+end $$;
+set role app_user;
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000006');
+  select count(*) into n from athlete_school_fits;
+  if n <> 0 then raise exception 'FAIL: a Viewer read % stored matches, expected 0 (net cost rides the fit row)', n; end if;
+  select count(*) into n from athlete_school_fits where net_cost is not null;
+  if n <> 0 then raise exception 'FAIL: a Viewer read % net costs, expected 0', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  select count(*) into n from athlete_school_fits where athlete_id = '00000000-0000-0000-0000-000000000120' and net_cost = 29000;
+  if n <> 1 then raise exception 'FAIL: a family login read % net costs on their own athlete, expected 1', n; end if;
+  select count(*) into n from athlete_school_fits where athlete_id <> '00000000-0000-0000-0000-000000000120';
+  if n <> 0 then raise exception 'FAIL: a family login read % other athletes'' matches', n; end if;
+  update athlete_school_fits set net_cost = 0 where athlete_id = '00000000-0000-0000-0000-000000000120';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a family login changed the net cost on % of their own athlete''s rows', n; end if;
+  update athlete_school_fits set net_cost = 0;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a family login changed % net costs across the table', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000002');
+  select count(*) into n from athlete_school_fits where net_cost = 29000;
+  if n <> 1 then raise exception 'FAIL: Elite''s Admin read % net costs, expected 1', n; end if;
+
+  perform set_test_user(null);
+  raise notice 'PASS: a Viewer reads no fit row and no net cost; a family login reads their own athlete''s net cost and updates 0 rows; the Admin reads it';
+end $$;
+reset role;
+do $$
+declare c int;
+begin
+  select net_cost into c from athlete_school_fits where id = '00000000-0000-0000-0000-000000000560';
+  if c is distinct from 29000 then raise exception 'FAIL: the net cost changed under a family session''s update (now %)', c; end if;
+end $$;
+
+\echo 'ALL 0042 ASSERTIONS PASSED'

@@ -149,6 +149,11 @@ export interface FitResult {
   // blend; `counted` names the ones that were in. docs/MATCHING_CONTRACT.md.
   partial: boolean;
   counted: string[];
+  // Estimated net cost a year in whole dollars: cost of attendance for
+  // this athlete less the aid they could expect, or the award letter's
+  // number when one is applied. Stored on the row so the Matches screen
+  // can sort on it. Undefined when the school carries no cost.
+  netCost?: number;
   // Recruiting signals are shown, never scored. Echoed for the chips.
   signals?: RecruitingSignals;
 }

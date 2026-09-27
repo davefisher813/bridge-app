@@ -28,6 +28,9 @@ const NOT_FOUND = "NEXT_NOT_FOUND";
 const REDIRECT = "NEXT_REDIRECT:";
 
 let currentUser: string | null = OWNER_ID;
+// What the client components on a page (a filter, a sort) read as the
+// current address. Empty unless a law sets it before a render.
+let searchParams = new URLSearchParams();
 // One dataset per test, rebuilt in beforeEach, so a law can change a
 // row before a render (an athlete set to Transferring, say) and the
 // page reads the changed row. The one write a render makes is the
@@ -50,7 +53,7 @@ vi.mock("next/navigation", () => ({
   // A client component on the page imports this. It is never called
   // during a render, but the module has to export it.
   useRouter: () => ({ push: () => {}, replace: () => {}, refresh: () => {} }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => searchParams,
   usePathname: () => "/",
 }));
 
@@ -78,6 +81,7 @@ async function render(modulePath: string, props: Record<string, unknown>): Promi
 
 beforeEach(() => {
   currentUser = OWNER_ID;
+  searchParams = new URLSearchParams();
   data = buildFixture();
 });
 
@@ -250,7 +254,7 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     expect(html).toMatch(/Enrolled[\s\S]*Fixture State University/);
     expect(html).not.toMatch(/>Profile</);
     expect(html).not.toMatch(/Mark Enrolled/);
-    expect(html).not.toMatch(/>Matches</);
+    expect(html).not.toMatch(/Schools? Evaluated/);
     // Stage 1, 2026-09-26: the closed target left the forefront. The
     // profile shows what is live; the record is Recruiting History.
     // Proven to bite by putting the Not Interested row back in the
@@ -288,7 +292,7 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     expect(html).toMatch(/Fixture State University/);
     // The school replaces the stepper; ranking more schools is over.
     expect(html).not.toMatch(/Furthest stage/);
-    expect(html).not.toMatch(/>Matches</);
+    expect(html).not.toMatch(/Schools? Evaluated/);
   });
 
   it("the roster names where every Committed and Enrolled athlete is going", async () => {
@@ -321,7 +325,7 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     expect(enrolled).not.toMatch(/Mark Enrolled/);
     const drafted = await render(page, { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteDrafted }) });
     expect(drafted).not.toMatch(/Mark (Enrolled|Graduated|Drafted)/);
-    expect(drafted).not.toMatch(/>Matches</);
+    expect(drafted).not.toMatch(/Schools? Evaluated/);
   });
 
   it("the board shows a placed athlete's commitment and none of their other targets", async () => {
@@ -343,7 +347,7 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
   it("the full Matches page shows an Enrolled state instead of a ranked list", async () => {
     const html = await render("@/app/org/[slug]/roster/[id]/matches/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }), searchParams: p({}) });
     expect(html).toMatch(/Enrolled/);
-    expect(html).not.toMatch(/Add to Board/);
+    expect(html).not.toMatch(/Add Target/);
   });
 
   it("the family mirror also drops the stepper and Matches once enrolled", async () => {
@@ -351,7 +355,7 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
     const html = await render("@/app/org/[slug]/family/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteEnrolled }) });
     expect(html).toMatch(/Enrolled[\s\S]*Fixture State University/);
     expect(html).not.toMatch(/>Profile</);
-    expect(html).not.toMatch(/>Matches</);
+    expect(html).not.toMatch(/Schools? Evaluated/);
   });
 
   it("the enroll screen previews what will close, and asks for the school only when nothing on file names it", async () => {
@@ -428,7 +432,7 @@ describe("LAW: a placed athlete has no score anywhere", () => {
     data.athletes.find((a) => a.id === IDS.athlete)!.status = "Inactive";
     const html = await render("@/app/org/[slug]/roster/[id]/matches/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({}) });
     expect(html).toMatch(/Matches stopped scoring while Fixture Athlete is inactive\./);
-    expect(html).not.toMatch(/Add to Board/);
+    expect(html).not.toMatch(/Add Target/);
     // Nor does any other screen build them a number: the target page,
     // the school page and the profile all read the status instead.
     const target = await render("@/app/org/[slug]/board/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) });
@@ -440,7 +444,7 @@ describe("LAW: a placed athlete has no score anywhere", () => {
     expect(row).toMatch(/>Inactive</);
     expect(row).not.toMatch(SCORE);
     const profile = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
-    expect(profile).not.toMatch(/>Matches</);
+    expect(profile).not.toMatch(/Schools? Evaluated/);
     expect(profile).toMatch(/>Targets</);
     currentUser = FAMILY_ID;
     const family = await render("@/app/org/[slug]/family/[id]/matches/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
@@ -449,7 +453,9 @@ describe("LAW: a placed athlete has no score anywhere", () => {
 
   it("a Transferring athlete is scored again: Matches and Targets are back on the profile", async () => {
     const html = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransferring }) });
-    expect(html).toMatch(/>Matches</);
+    // The section is named for its count ("1 School Evaluated"),
+    // amended 2026-09-27.
+    expect(html).toMatch(/1 School Evaluated/);
     expect(html).toMatch(/>Targets</);
     expect(html).toMatch(/>64</);
     expect(html).toMatch(/Reopen Recruiting|Mark Enrolled/);
@@ -1249,6 +1255,251 @@ describe("LAW: every record can be corrected and removed by the people who may, 
         currentUser = who;
         await expect(render(page.path, page.props), `${page.name} as ${who === FAMILY_ID ? "family" : "member"}`).rejects.toThrow(/NEXT_REDIRECT:\/unauthorized|NEXT_NOT_FOUND/);
       }
+    }
+  });
+});
+
+describe("LAW: matches are ranked full before partial, searched, sorted, capped, and the target action sits outside the row link", () => {
+  // Stage 5 Phase 1, docs/MATCHING_CONTRACT.md section 2 amended
+  // 2026-09-27, Dave approved the plan the same day. The fixture's
+  // no-GPA athlete carries the case: a partial Reach at 48 and a full
+  // Reach at 41. Raw score alone would put the partial row first.
+  //
+  // Verified these bite: reversed the partial split in rank.ts (the
+  // ordering cases on the profile, Matches, family Matches and Today
+  // failed); set PAGE to 5 on the Matches screen (the cap cases
+  // failed); rebuilt MatchFilters' clear address from its own keys
+  // only (the filter case failed). Each restored.
+  const NO_GPA = { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteNoGpa }) };
+  const matches = (id: string, sp: Record<string, string> = {}) => render("@/app/org/[slug]/roster/[id]/matches/page", { params: p({ slug: ORG_WITH_MODULES, id }), searchParams: p(sp) });
+  const familyMatches = (id: string, sp: Record<string, string> = {}) => {
+    currentUser = FAMILY_ID;
+    return render("@/app/org/[slug]/family/[id]/matches/page", { params: p({ slug: ORG_WITH_MODULES, id }), searchParams: p(sp) });
+  };
+  const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+  // The Matches section of a profile: from its label to its closing
+  // See All link, so a row count counts its rows and not the Targets'.
+  const matchesSection = (html: string) => {
+    const at = html.search(/\d+ Schools? Evaluated/);
+    expect(at).toBeGreaterThan(-1);
+    const rest = html.slice(at);
+    const end = rest.search(/See All \d+ Matches</);
+    return end === -1 ? rest : rest.slice(0, end + 24);
+  };
+  const before = (html: string, first: string, second: string) => {
+    expect(html).toContain(first);
+    expect(html).toContain(second);
+    expect(html.indexOf(first)).toBeLessThan(html.indexOf(second));
+  };
+  // A tap target (a form's button, a link) inside a link is invalid
+  // markup and the live driver fails it. Every `<a ...>` up to its `</a>`
+  // must be free of another one and of a form.
+  const nestedTapTargets = (html: string) => {
+    const out: string[] = [];
+    for (const m of html.matchAll(/<a [^>]*>([\s\S]*?)<\/a>/g)) if (/<a |<form|<button/.test(m[1]!)) out.push(m[0].slice(0, 120));
+    return out;
+  };
+  // N schools, each sponsoring baseball, each with a full fit for the
+  // athlete, so a law can see a list longer than one page.
+  const addSchools = (athleteId: string, n: number, score = (i: number) => 60 + (i % 30)) => {
+    const model = data.schools.find((s) => s.id === IDS.schoolD3)!;
+    for (let i = 0; i < n; i++) {
+      const id = `00000000-0000-0000-0000-0000000000e${i.toString(16).padStart(2, "0")}`;
+      data.schools.push({ ...model, id, name: `Fixture Extra ${String(i).padStart(2, "0")}`, conflicts: [] });
+      data.athlete_school_fits.push({
+        id: `fitx${i}`,
+        org_id: data.orgs[0]!.id,
+        athlete_id: athleteId,
+        school_id: id,
+        score: score(i),
+        tag: score(i) >= 80 ? "Safety" : score(i) >= 55 ? "Fit" : "Reach",
+        partial: false,
+        dimensions: {
+          academic: { score: 70, confidence: "high", veto: false, reasons: [], warnings: [] },
+          athletic: { score: 70, confidence: "high", veto: false, reasons: [], warnings: [] },
+          financial: { score: 70, confidence: "high", veto: false, reasons: [], warnings: [] },
+          counted: ["academic", "athletic", "financial"],
+        },
+        reasons: ["Fixture reason."],
+        warnings: [],
+        net_cost: 30000 + i,
+        inputs_hash: "fixture",
+        computed_at: new Date().toISOString(),
+      });
+    }
+  };
+
+  it("the profile ranks the full 41 above the partial 48, counts the schools evaluated and labels the partial row", async () => {
+    const html = matchesSection(await render("@/app/org/[slug]/roster/[id]/page", NO_GPA));
+    expect(html).toMatch(/2 Schools Evaluated/);
+    before(html, "Fixture State University", "Fixture College");
+    expect(html).toMatch(/Partial · 1 of 3 scored/);
+    expect(html).not.toMatch(/Scored on financial only/);
+  });
+
+  it("the profile shows ten rows, the count in the label, and See All only past ten", async () => {
+    const two = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
+    expect(two).toMatch(/2 Schools Evaluated/);
+    expect(two).not.toMatch(/>See All</);
+    expect(two).toMatch(/See All 2 Matches/);
+    addSchools(IDS.athlete, 12);
+    const html = matchesSection(await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }));
+    expect(html).toMatch(/14 Schools Evaluated/);
+    expect(html).toMatch(/>See All</);
+    expect(html).toMatch(/See All 14 Matches/);
+    expect((html.match(/data-kit="row"/g) ?? []).length).toBe(10);
+    // The best ten, in Best Fit order: the 93 first, then the 71s; the
+    // four lowest (60 to 63) are past the ten and not shown.
+    before(html, ">93<", ">71<");
+    expect(html).not.toMatch(/>6[0-3]</);
+  });
+
+  it("the family athlete page ranks and labels the same way, under /family/", async () => {
+    currentUser = FAMILY_ID;
+    const page = await render("@/app/org/[slug]/family/[id]/page", NO_GPA);
+    const html = matchesSection(page);
+    expect(html).toMatch(/2 Schools Evaluated/);
+    before(html, "Fixture State University", "Fixture College");
+    expect(html).toMatch(/Partial · 1 of 3 scored/);
+    expect(hrefs(page).filter((l) => l.startsWith("/org/") && !/\/family(\/|$)/.test(l))).toEqual([]);
+  });
+
+  it("Matches ranks the full row first, wears the partial label, and the engine sentence stays out of the row", async () => {
+    const html = await matches(IDS.athleteNoGpa);
+    before(html, "Fixture State University", "Fixture College");
+    expect(html).toMatch(/D3<\/span> · Partial · 1 of 3 scored · 48 · Reach/);
+    expect(html).not.toMatch(/Scored on financial only/);
+    expect(html).toMatch(/Some Scores Are Partial/);
+  });
+
+  it("Matches searches by school name and says how many matched", async () => {
+    const html = await matches(IDS.athlete, { q: "state" });
+    expect(html).toMatch(/name="q"/);
+    expect(html).toMatch(/2 schools scored for Fixture Athlete · 1 matches the search/);
+    expect(html).toMatch(/Fixture State University/);
+    expect(html).not.toMatch(/Fixture College/);
+    const none = await matches(IDS.athlete, { q: "zzzz" });
+    expect(none).toMatch(/No School Matches/);
+  });
+
+  it("Matches offers the six sorts and ranks by the one in the address", async () => {
+    const html = await matches(IDS.athlete);
+    expect(html).toMatch(/name="sort"/);
+    for (const label of ["Best Fit", "Academic", "Athletic", "Financial", "Net Cost", "A to Z"]) expect(html).toContain(`>${label}</option>`);
+    before(html, "Fixture State University", "Fixture College");
+    const az = await matches(IDS.athlete, { sort: "az" });
+    before(az, "Fixture College", "Fixture State University");
+    const cost = await matches(IDS.athlete, { sort: "net_cost" });
+    before(cost, "$14,000 net", "$45,200 net");
+    const academic = await matches(IDS.athlete, { sort: "academic" });
+    before(academic, "Academic 90", "Academic 78");
+    // An unknown sort is Best Fit, not an error.
+    before(await matches(IDS.athlete, { sort: "distance" }), "Fixture State University", "Fixture College");
+  });
+
+  it("Matches shows 25 rows, then Show More, and ?show=50 shows the rest", async () => {
+    addSchools(IDS.athlete, 30);
+    const html = await matches(IDS.athlete);
+    expect((html.match(/data-kit="row"/g) ?? []).length).toBe(25);
+    expect(html).toMatch(/Showing 25 of 32/);
+    expect(html).toMatch(new RegExp(`href="/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}/matches\\?show=50"[^>]*>Show More<`));
+    const more = await matches(IDS.athlete, { show: "50" });
+    expect((more.match(/data-kit="row"/g) ?? []).length).toBe(32);
+    expect(more).not.toMatch(/Show More/);
+    // The Show More address keeps the search and the sort.
+    const sorted = await matches(IDS.athlete, { sort: "az", q: "fixture" });
+    expect(sorted).toMatch(/matches\?sort=az&amp;q=fixture&amp;show=50"/);
+    // Two rows never show it.
+    expect(await matches(IDS.athleteNoGpa)).not.toMatch(/Show More/);
+  });
+
+  it("Add Target sits inside the row and outside its link; a target's stage pill opens the target on the Board", async () => {
+    const html = await matches(IDS.athlete);
+    expect(nestedTapTargets(html)).toEqual([]);
+    // Fixture State University is already a target: its row shows the
+    // stage and links to the Board, and offers no Add Target.
+    const target = rowAfter(html, "Fixture State University");
+    expect(target).toMatch(new RegExp(`href="/org/${ORG_WITH_MODULES}/board/${IDS.target}"`));
+    expect(target).not.toMatch(/Add Target/);
+    // Fixture College is not: the row carries the form and the button.
+    const open = rowAfter(html, "Fixture College");
+    expect(open).toMatch(/<form[\s\S]*<button[^>]*>Add Target<\/button>[\s\S]*<\/form>/);
+    // No "Make a Target" second line and no Score mark: the row is compact.
+    expect(html).not.toMatch(/Make a Target|Open on Board/);
+    expect(html).not.toMatch(SCORE);
+    expect(html).toMatch(/D2<\/span> · 93 · Safety/);
+  });
+
+  it("family Matches has the search and the sort, ranks the same way, and no target action", async () => {
+    const html = await familyMatches(IDS.athleteNoGpa);
+    before(html, "Fixture State University", "Fixture College");
+    expect(html).toMatch(/Partial · 1 of 3 scored/);
+    expect(html).toMatch(/name="q"/);
+    expect(html).toMatch(/name="sort"/);
+    expect(html).not.toMatch(/Add Target|Make a Target/);
+    // The search box is the one form on the screen (the kit's SearchField).
+    expect((html.match(/<form/g) ?? []).length).toBeLessThanOrEqual(1);
+    expect(html).not.toMatch(/<button[^>]*>Add Target/);
+    expect(hrefs(html).filter((l) => l.startsWith("/org/") && !/\/family(\/|$)/.test(l))).toEqual([]);
+    const az = await familyMatches(IDS.athlete, { sort: "az" });
+    before(az, "Fixture College", "Fixture State University");
+    const q = await familyMatches(IDS.athlete, { q: "college" });
+    expect(q).toMatch(/1 matches the search/);
+    expect(q).not.toMatch(/Fixture State University<\/div>/);
+  });
+
+  it("Today's Strong Matches never headlines a partial Safety over a full one", async () => {
+    // The transfer's one stored fit is a full Safety (81) at Fixture
+    // State University and they have no targets. A partial Safety at 99
+    // for Fixture College lands in the same seven-day window.
+    data.athlete_school_fits.push({
+      ...data.athlete_school_fits.find((f) => f.id === "fit4")!,
+      id: "fit-plant",
+      athlete_id: IDS.athleteTransfer,
+      school_id: IDS.schoolD3,
+      score: 99,
+      tag: "Safety",
+    });
+    // A second athlete whose only strong match is a partial Safety at
+    // 99: their headline is that row, and it still sits under the
+    // transfer's fully scored 81, because the rule between athletes is
+    // the same rule as within one. Reviewed 2026-09-27: before this the
+    // headlines were ordered by raw score.
+    data.athlete_school_fits.push({
+      ...data.athlete_school_fits.find((f) => f.id === "fit4")!,
+      id: "fit-plant-2",
+      athlete_id: IDS.athleteNoGpa,
+      school_id: IDS.school,
+      score: 99,
+      tag: "Safety",
+      computed_at: new Date().toISOString(),
+    });
+    const html = await render("@/app/org/[slug]/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    const row = rowAfter(html, "Fixture Transfer");
+    expect(row).toMatch(/Fixture State University/);
+    expect(row).not.toMatch(/Fixture College/);
+    expect(row).toMatch(/1 more not yet a target/);
+    const strong = html.slice(html.indexOf("Strong Matches"), html.indexOf("Needs Follow-Up"));
+    expect(strong).toMatch(/Fixture Unknown/);
+    expect(strong.indexOf("Fixture Transfer")).toBeLessThan(strong.indexOf("Fixture Unknown"));
+  });
+
+  it("changing a filter or clearing them keeps the search and the sort", async () => {
+    searchParams = new URLSearchParams("q=fixture&sort=az&division=D3");
+    const html = await matches(IDS.athlete, { q: "fixture", sort: "az", division: "D3" });
+    expect(html).toMatch(/Clear Filters/);
+    const clear = html.match(/href="([^"]*)"[^>]*>Clear Filters</)?.[1] ?? "";
+    expect(clear).toContain("q=fixture");
+    expect(clear).toContain("sort=az");
+    expect(clear).not.toContain("division=");
+    // The filters and the sort both read the live address rather than
+    // rebuilding it from their own values (the 2026-09-27 fix).
+    const { readFileSync } = await import("node:fs");
+    for (const f of ["src/components/MatchFilters.tsx", "src/components/MatchSort.tsx"]) {
+      const src = readFileSync(f, "utf8");
+      expect(src, f).toMatch(/useSearchParams\(\)/);
+      expect(src, f).toMatch(/new URLSearchParams\(params\?\.toString\(\) \?\? ""\)/);
+      expect(src, f).not.toMatch(/new URLSearchParams\(\)/);
     }
   });
 });

@@ -33,14 +33,12 @@ function costFor(athlete: Athlete, school: School): { cost: number; basis: strin
   return null;
 }
 
-// "What they will most qualify for with academic scholarships and
-// financial aid." Net cost after the aid this athlete could expect,
-// against what the family can pay. docs/MATCHING_CONTRACT.md section 3.
-function scoreAgainstBudget(athlete: Athlete, school: School, budget: number): DimensionResult | null {
-  const f = school.financials;
-  if (!f) return null;
-  const c = costFor(athlete, school);
-  if (!c) return null;
+// The aid this athlete could expect here in a year: athletic where the
+// division allows it, merit by GPA, and a share of need-based aid. One
+// estimate, used by the budget score below and by the stored net cost,
+// so the number on the row and the number in the reason never differ.
+function likelyAid(athlete: Athlete, school: School): { aid: number; reasons: string[]; warnings: string[] } {
+  const f = school.financials ?? {};
   const reasons: string[] = [];
   const warnings: string[] = [];
   let aid = 0;
@@ -68,6 +66,30 @@ function scoreAgainstBudget(athlete: Athlete, school: School, budget: number): D
     aid += need;
     reasons.push(`Need-based aid: possibly ${money(need)} a year, depending on the family's finances`);
   }
+  return { aid, reasons, warnings };
+}
+
+// The number the Matches screen sorts on: cost of attendance for this
+// athlete less the aid they could expect, in whole dollars, never below
+// zero. An applied award letter replaces the estimate. Null when the
+// school carries no cost, because a guessed cost is worse than none.
+// docs/MATCHING_CONTRACT.md section 2, amended 2026-09-27.
+export function estimateNetCost(athlete: Athlete, school: School, aid?: KnownAid): number | null {
+  if (aid && Number.isFinite(aid.netCost)) return Math.max(0, Math.round(aid.netCost));
+  const c = costFor(athlete, school);
+  if (!c) return null;
+  return Math.max(0, Math.round(c.cost - likelyAid(athlete, school).aid));
+}
+
+// "What they will most qualify for with academic scholarships and
+// financial aid." Net cost after the aid this athlete could expect,
+// against what the family can pay. docs/MATCHING_CONTRACT.md section 3.
+function scoreAgainstBudget(athlete: Athlete, school: School, budget: number): DimensionResult | null {
+  const f = school.financials;
+  if (!f) return null;
+  const c = costFor(athlete, school);
+  if (!c) return null;
+  const { aid, reasons, warnings } = likelyAid(athlete, school);
 
   const net = Math.max(0, c.cost - aid);
   reasons.push(`Net cost about ${money(net)} a year (${money(c.cost)} ${c.basis}, less ${money(aid)} in likely aid) against a ${money(budget)} budget`);

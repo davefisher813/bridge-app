@@ -1,12 +1,19 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Grid2, SelectField, Stack, TextLink } from "@/components/kit";
 
 // The filters on the matches screen. docs/MATCHING_CONTRACT.md section
-// 2: division, state, conference, major, cost ceiling, scholarship
-// type, playing-time outlook, none on by default. Every change goes to
-// the URL, so a filtered list can be shared and the server renders it.
+// 2: division, region, state, conference, major, cost ceiling,
+// scholarship type, playing-time outlook, none on by default. Every
+// change goes to the URL, so a filtered list can be shared and the
+// server renders it. Whatever else is in the address stays there: the
+// search (?q=), the sort (?sort=) and how many rows are shown (?show=)
+// are never cleared by a filter, the same rule SchoolFilters follows.
+// Until 2026-09-27 this rebuilt the address from its own values only
+// and silently reset all three.
+
+const KEYS = ["division", "region", "state", "conference", "major", "cost", "aid", "outlook"] as const;
 
 export interface MatchFilterValues {
   division?: string;
@@ -42,17 +49,24 @@ export const OUTLOOK_OPTIONS: { value: string; label: string }[] = [
 export function MatchFilters({ values, options }: { values: MatchFilterValues; options: MatchFilterOptions }) {
   const router = useRouter();
   const pathname = usePathname();
+  const params = useSearchParams();
 
   const set = (key: keyof MatchFilterValues, value: string) => {
-    const next: Record<string, string> = {};
-    for (const [k, v] of Object.entries(values)) if (v) next[k] = v;
-    if (value) next[key] = value;
-    else delete next[key];
-    const qs = new URLSearchParams(next).toString();
+    const next = new URLSearchParams(params?.toString() ?? "");
+    if (value) next.set(key, value);
+    else next.delete(key);
+    const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   };
 
-  const active = Object.values(values).some(Boolean);
+  const active = KEYS.some((k) => !!values[k]);
+  // Clearing the filters keeps the search and the sort.
+  const clearHref = (() => {
+    const next = new URLSearchParams(params?.toString() ?? "");
+    for (const k of KEYS) next.delete(k);
+    const qs = next.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  })();
 
   return (
     <Stack gap={3}>
@@ -126,7 +140,7 @@ export function MatchFilters({ values, options }: { values: MatchFilterValues; o
           </option>
         ))}
       </SelectField>
-      {active && <TextLink href={pathname}>Clear Filters</TextLink>}
+      {active && <TextLink href={clearHref}>Clear Filters</TextLink>}
     </Stack>
   );
 }

@@ -3351,3 +3351,59 @@ in two orgs, so it belongs on the membership row.
 including inviting, changing roles and settings. `orgs.role_labels` is
 dead data until someone decides to drop it. A Title is words only; the
 day it needs to gate anything, it becomes a role instead.
+
+## 2026-09-27: Matches ranking, search, sort and the compact row
+
+**Decision.** Stage 5 Phase 1 of the rebuild, Dave approved the whole
+plan ("finish all of the work and merge it"). One ranking rule wherever
+stored fits are listed: `rankFits` (`src/lib/fit/rank.ts`, pure and
+benchable) puts fully scored rows before partial ones, each by score,
+school name A to Z and then id on a tie, and `loadFitsForAthlete`
+returns rows already in that order with no database ORDER BY. A partial
+row wears "Partial · N of M scored", M read off the row (3 for a high
+school athlete, 4 for a transfer), never a constant. Matches and the
+family's Matches take a search by school name (`?q=`) and a sort
+(`?sort=`: Best Fit, Academic, Athletic, Financial, Net Cost, A to Z);
+`MatchFilters` reads the live address so a filter change keeps both.
+Net cost is a stored column, `athlete_school_fits.net_cost` (migration
+0042), written from `estimateNetCost` in the engine, `FIT_ENGINE_VERSION`
+3 so Recalculate All fills it. The Matches row is compact (school, then
+"division · score · tag" or the partial label first) with "Add Target"
+inside the row through a new kit `Row` slot, `trailingAction`, rendered
+as a sibling of the row's link; an existing target shows its stage pill
+opening the Board. 25 rows then Show More (`?show=50`). The athlete
+page and the family's athlete page show the top ten under "N Schools
+Evaluated" with See All past ten. Today's Strong Matches headline and
+the school page's athlete list go through the same helper. The
+family's Matches has no target action. Distance sort is left out.
+
+**Reason.** Dave's Stage 5 spec asked for search, sort, more rows and
+the action in the row, and the audit found a partial Safety could
+headline over a full Fit because every list was database `score desc`.
+The plan's four open questions went to Dave with recommendations and he
+approved the plan as written: "N of M" with M from the row (the spec's
+literal "N of 4" would be wrong for every high school athlete); "Add
+Target" over "+ Target" (Title Case safe for copyLaws); net cost stored
+rather than computed on view (the contract's "a screen reads rows; it
+never scores"); the family gets search and sort too (same helper, no
+filters exist there). Distance: both sides carry state only, no
+coordinates, so a distance sort would be the Region and State filters
+again.
+
+**Alternatives considered.** Sorting in the database with a partial
+tiebreak: the fake client and Postgres disagreed on ties already, and a
+screen could bypass it. Computing net cost on view: contradicts the
+contract. Putting the button inside the row's link: invalid markup and
+the live driver fails a tap target inside another. A second Row
+component for the action row: one slot on the kit Row keeps every row
+one component.
+
+**Consequences.** A deploy recomputes every fit (Recalculate All, 122
+schools by the roster, trivial). The Viewer read policy did not change
+and `scripts/rls_test.sql` pins that a Viewer reads no fit row and a
+family login cannot update its own athlete's net cost. Laws: ranking,
+sort vocabulary, the partial label and the member guard in
+`matchingLaws.test.ts`; the screens in `pageRender.test.ts`, each
+planted. `docs/MATCHING_CONTRACT.md` section 2 carries the amendment and
+`docs/STYLING_CATALOG.md` the `trailingAction` addendum to the Row
+contract.

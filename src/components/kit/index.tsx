@@ -193,6 +193,13 @@ function leadFact(meta: ReactNode): ReactNode {
 // A list row: an optional glyph or avatar on the left, a title and a
 // line under it, something on the right. 56px minimum so it is a
 // comfortable tap. `href` makes the whole row the link.
+//
+// `trailingAction` is a tap target of its own (a button in a form, a
+// link) that sits at the right end of the same paper. It is rendered as
+// a sibling of the row's link, never inside it, because a link inside a
+// link is invalid markup and the live driver fails "a tap target inside
+// another" (scripts/live/drive.mjs). With it set, the paper is the outer
+// box and the link covers the body only; without it, nothing changes.
 export function Row({
   href,
   kind,
@@ -201,6 +208,7 @@ export function Row({
   title,
   meta,
   trailing,
+  trailingAction,
   emphasis = "semibold",
   wrap = false,
 }: {
@@ -211,14 +219,15 @@ export function Row({
   title: ReactNode;
   meta?: ReactNode;
   trailing?: ReactNode;
+  trailingAction?: ReactNode;
   emphasis?: "semibold" | "bold";
   // A row is one line each by default. `wrap` lets the meta run on,
   // for the one case where the second line is the point of the row: a
   // reason, an instruction.
   wrap?: boolean;
 }) {
-  const body = (
-    <div data-kit="row" className="flex min-h-14 flex-wrap items-center gap-3 rounded border border-line bg-paper px-4 py-3">
+  const inner = (
+    <>
       {leading ?? (kind ? <RowGlyph kind={kind} role={role} /> : null)}
       {/* The body asks for 96px before the trailing may squeeze it. At a
           phone's width nothing changes; below about 300px of layout
@@ -238,6 +247,29 @@ export function Row({
           squeezed the title to a one-pixel column: text that was there
           and could not be seen. */}
       {trailing && <div className="ml-auto flex max-w-half flex-shrink-0 flex-col items-end gap-1 text-right">{trailing}</div>}
+    </>
+  );
+  if (trailingAction) {
+    // The body keeps the row's own tap rule (56px, the link) and asks
+    // for 96px of its own; below that the action wraps under it, the way
+    // the trailing does, rather than squeezing the title.
+    const bodyClass = "flex min-h-14 min-w-0 grow basis-24 flex-wrap items-center gap-3 px-4 py-3";
+    return (
+      <div data-kit="row" className="flex flex-wrap items-center gap-3 rounded border border-line bg-paper pr-3">
+        {href ? (
+          <Link href={href} className={bodyClass}>
+            {inner}
+          </Link>
+        ) : (
+          <div className={bodyClass}>{inner}</div>
+        )}
+        <div className="ml-auto flex flex-shrink-0 items-center py-2">{trailingAction}</div>
+      </div>
+    );
+  }
+  const body = (
+    <div data-kit="row" className="flex min-h-14 flex-wrap items-center gap-3 rounded border border-line bg-paper px-4 py-3">
+      {inner}
     </div>
   );
   return href ? (
