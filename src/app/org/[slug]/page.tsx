@@ -12,6 +12,7 @@ import { ATHLETE_STATUSES } from "@/lib/validation/athlete";
 import { formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { STRONG_MATCH_DAYS } from "@/lib/fit/contract";
+import { rankFits } from "@/lib/fit/rank";
 
 // The Today screen. Per Dave (2026-09): this is an org/recruiting
 // management tool, not a life-management app - so no "add a task" /
@@ -47,6 +48,7 @@ interface StrongFitRow {
   school_id: string;
   score: number;
   tag: string;
+  partial: boolean;
   computed_at: string;
   athletes: { name: string } | { name: string }[] | null;
   schools: { name: string } | { name: string }[] | null;
@@ -99,10 +101,9 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
     supabase.from("transfer_windows").select("sport, division, window_label, opens_on, closes_on"),
     supabase
       .from("athlete_school_fits")
-      .select("athlete_id, school_id, score, tag, computed_at, athletes(name), schools(name)")
+      .select("athlete_id, school_id, score, tag, partial, computed_at, athletes(name), schools(name)")
       .eq("org_id", org.id)
-      .in("tag", ["Safety", "Fit"])
-      .order("score", { ascending: false }),
+      .in("tag", ["Safety", "Fit"]),
     // Stage 3: the check-in log, for the reminders, and the staff list,
     // for the advisor's name on each one.
     supabase.from("athlete_checkins").select("athlete_id, occurred_on").eq("org_id", org.id).order("occurred_on", { ascending: false }),
@@ -214,16 +215,28 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   // Strong Matches. docs/MATCHING_CONTRACT.md section 2: a stored fit
   // computed in the last seven days, Safety or Fit, for a school not yet
   // on the board; one row per athlete, their best; the section only
-  // shows when there is one.
+  // shows when there is one. "Best" is the one ranking rule
+  // (src/lib/fit/rank.ts, amended 2026-09-27): fully scored before
+  // partial, then score, so a Safety scored on one dimension never
+  // headlines over a Fit the engine could actually evaluate.
   const onBoard = new Set(rows.map((r) => `${r.athlete_id}:${r.school_id}`));
   const since = Date.now() - STRONG_MATCH_DAYS * 24 * 60 * 60 * 1000;
-  const strongByAthlete = new Map<string, { athleteId: string; athleteName: string; schoolName: string; score: number; tag: string; more: number }>();
+  const strongRowsByAthlete = new Map<string, StrongFitRow[]>();
   for (const f of ((strongRows ?? []) as StrongFitRow[]).filter((f) => onRoster.has(f.athlete_id) && new Date(f.computed_at).getTime() >= since && !onBoard.has(`${f.athlete_id}:${f.school_id}`))) {
-    const existing = strongByAthlete.get(f.athlete_id);
-    if (existing) existing.more += 1;
-    else strongByAthlete.set(f.athlete_id, { athleteId: f.athlete_id, athleteName: unwrap(f.athletes)?.name ?? "Unknown athlete", schoolName: unwrap(f.schools)?.name ?? "Unknown school", score: f.score, tag: f.tag, more: 0 });
+    strongRowsByAthlete.set(f.athlete_id, [...(strongRowsByAthlete.get(f.athlete_id) ?? []), f]);
   }
-  const strongMatches = [...strongByAthlete.values()].slice(0, 5);
+  const headlines = [...strongRowsByAthlete.values()].map((group) => {
+    const ranked = rankFits(
+      group.map((f) => ({ ...f, school: { id: f.school_id, name: unwrap(f.schools)?.name ?? "" } })),
+      "best",
+    );
+    return { ...ranked[0]!, more: ranked.length - 1 };
+  });
+  // Between athletes the same rule again, so one athlete's partial
+  // headline never sits above another athlete's fully scored one.
+  const strongMatches = rankFits(headlines, "best")
+    .slice(0, 5)
+    .map((best) => ({ athleteId: best.athlete_id, athleteName: unwrap(best.athletes)?.name ?? "Unknown athlete", schoolName: best.school.name || "Unknown school", score: best.score, tag: best.tag, more: best.more }));
 
   const firstName = (user.full_name || user.email).split(" ")[0] || user.email;
 

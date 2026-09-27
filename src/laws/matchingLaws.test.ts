@@ -4,7 +4,7 @@
 // test together. See README.md in this folder.
 
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { scoreFit } from "../lib/fit/score";
 import { scoreAthletic } from "../lib/fit/athletic";
@@ -13,6 +13,8 @@ import { selectScoringMetrics } from "../lib/fit/metrics";
 import { BANDS, GOAL_SHIFT, GRADE_WEIGHT, NET_COST_BANDS, POSITIONAL_NEED_BOOST, PRESETS, blendWeights, gradeToScore } from "../lib/fit/contract";
 import { scoreToTag } from "../lib/fit/bands";
 import type { Athlete, School } from "../lib/fit/types";
+import { FIT_SORTS, parseFitSort, partialLabel, partialLabelFor, rankFits, type RankableFit } from "../lib/fit/rank";
+import { buildFixture, IDS } from "../testing/fixture";
 
 const rhp = (extra: Partial<Athlete> = {}): Athlete => ({ id: "a", orgId: "o", recruitType: "hs", name: "T", sport: "baseball", position: "RHP", gpa: 3.4, gpaVerified: true, detail: { kind: "hs", gradYear: 2027 }, ...extra });
 const mif = (extra: Partial<Athlete> = {}): Athlete => ({ id: "a", orgId: "o", recruitType: "hs", name: "T", sport: "baseball", position: "SS", gpa: 3.4, gpaVerified: true, detail: { kind: "hs", gradYear: 2027 }, ...extra });
@@ -229,5 +231,150 @@ describe("LAW: one band everywhere", () => {
     expect(scoreToTag(BANDS.fit - 1)).toBe("Reach");
     expect(scoreToTag(BANDS.reach)).toBe("Reach");
     expect(scoreToTag(BANDS.reach - 1)).toBe("Conflict");
+  });
+});
+
+// Amended 2026-09-27 (docs/MATCHING_CONTRACT.md section 2, Dave approved
+// the Stage 5 plan the same day): one ranking rule wherever stored fits
+// are listed. Fully scored first, then partial, each by score; a name
+// tiebreak so the fake client and Postgres agree. The label a partial
+// row wears is "Partial · N of M scored" with M read off the row.
+//
+// Verified these laws bite: deleted the partial split in compareBest
+// (rank.ts) and hardcoded M = 4 in partialLabelFor; the first two
+// describes failed on the fixture's high school row; restored both.
+
+type FixtureFit = RankableFit & { id: string; athlete_id: string; school_id: string; dimensions: Record<string, unknown> };
+const fixtureFits = () => buildFixture().athlete_school_fits as unknown as FixtureFit[];
+
+const fitRow = (name: string, score: number, partial: boolean, extra: Partial<RankableFit> = {}): RankableFit => ({
+  score,
+  partial,
+  school: { id: name.toLowerCase(), name },
+  dimensions: {
+    academic: { score: 70, confidence: "high" },
+    athletic: { score: 70, confidence: "high" },
+    financial: { score: 70, confidence: "high" },
+    counted: partial ? ["academic", "financial"] : ["academic", "athletic", "financial"],
+  },
+  net_cost: 20000,
+  ...extra,
+});
+
+describe("LAW: a fully scored fit ranks above any partial one, and score orders within each", () => {
+  const rows = [fitRow("Partial High", 99, true), fitRow("Full Low", 41, false), fitRow("Full High", 93, false), fitRow("Partial Low", 30, true)];
+  const names = (xs: RankableFit[]) => xs.map((r) => r.school.name);
+
+  it("Best Fit puts every full row before every partial row, each by score", () => {
+    expect(names(rankFits(rows, "best"))).toEqual(["Full High", "Full Low", "Partial High", "Partial Low"]);
+  });
+
+  it("a tie on score is A to Z by name, then by id, so two clients give one order", () => {
+    const a = fitRow("Beta", 60, false, { school: { id: "2", name: "Beta" } });
+    const b = fitRow("Alpha", 60, false, { school: { id: "1", name: "Alpha" } });
+    const c = fitRow("Alpha", 60, false, { school: { id: "0", name: "Alpha" } });
+    expect(rankFits([a, b, c], "best").map((r) => r.school.id)).toEqual(["0", "1", "2"]);
+    expect(rankFits([c, a, b], "best").map((r) => r.school.id)).toEqual(["0", "1", "2"]);
+  });
+
+  it("every other sort falls back to the same rule once its own key ties", () => {
+    // Same academic score everywhere: Academic becomes Best Fit.
+    expect(names(rankFits(rows, "academic"))).toEqual(["Full High", "Full Low", "Partial High", "Partial Low"]);
+    expect(names(rankFits(rows, "athletic"))).toEqual(["Full High", "Full Low", "Partial High", "Partial Low"]);
+    expect(names(rankFits(rows, "financial"))).toEqual(["Full High", "Full Low", "Partial High", "Partial Low"]);
+    expect(names(rankFits(rows, "net_cost"))).toEqual(["Full High", "Full Low", "Partial High", "Partial Low"]);
+  });
+
+  it("a dimension sort orders by that dimension, with an unknown one last", () => {
+    const strong = fitRow("Strong", 50, false, { dimensions: { academic: { score: 95, confidence: "high" } } });
+    const weak = fitRow("Weak", 90, false, { dimensions: { academic: { score: 40, confidence: "high" } } });
+    const unknown = fitRow("Unknown", 99, false, { dimensions: { academic: { score: 50, confidence: "unknown" } } });
+    expect(names(rankFits([unknown, weak, strong], "academic"))).toEqual(["Strong", "Weak", "Unknown"]);
+  });
+
+  it("Net Cost is cheapest first with no cost on file last; A to Z is by name", () => {
+    const cheap = fitRow("Zed", 40, false, { net_cost: 12000 });
+    const dear = fitRow("Mid", 90, false, { net_cost: 40000 });
+    const none = fitRow("Alpha", 99, false, { net_cost: null });
+    expect(names(rankFits([none, dear, cheap], "net_cost"))).toEqual(["Zed", "Mid", "Alpha"]);
+    expect(names(rankFits([none, dear, cheap], "az"))).toEqual(["Alpha", "Mid", "Zed"]);
+  });
+
+  it("returns a new array and leaves the caller's alone", () => {
+    const input = [...rows];
+    const out = rankFits(input, "best");
+    expect(out).not.toBe(input);
+    expect(names(input)).toEqual(names(rows));
+  });
+
+  it("the fixture carries the case: the full 41 beats the partial 48 for the no-GPA athlete", () => {
+    const fits = fixtureFits().filter((f) => f.athlete_id === IDS.athleteNoGpa);
+    const schools = new Map((buildFixture().schools as { id: string; name: string }[]).map((s) => [s.id, s.name]));
+    const rows: RankableFit[] = fits.map((f) => ({ ...f, school: { id: f.school_id, name: schools.get(f.school_id) ?? "" } }));
+    expect(rows.some((r) => r.partial && r.score > Math.max(...rows.filter((x) => !x.partial).map((x) => x.score)))).toBe(true);
+    expect(rankFits(rows, "best").map((r) => r.school.name)).toEqual(["Fixture State University", "Fixture College"]);
+  });
+});
+
+describe("LAW: the sort keys a screen offers are six, in one order, and an unknown one is Best Fit", () => {
+  it("Best Fit, Academic, Athletic, Financial, Net Cost, A to Z", () => {
+    expect(FIT_SORTS.map((s) => s.key)).toEqual(["best", "academic", "athletic", "financial", "net_cost", "az"]);
+    expect(FIT_SORTS.map((s) => s.label)).toEqual(["Best Fit", "Academic", "Athletic", "Financial", "Net Cost", "A to Z"]);
+  });
+  it("parseFitSort accepts each key and turns anything else into best", () => {
+    for (const s of FIT_SORTS) expect(parseFitSort(s.key)).toBe(s.key);
+    expect(parseFitSort("distance")).toBe("best");
+    expect(parseFitSort(undefined)).toBe("best");
+    expect(parseFitSort(["az", "best"])).toBe("az");
+  });
+});
+
+describe("LAW: the partial label says N of 3 for a high school athlete and N of 4 for a transfer", () => {
+  it("reads the denominator off the row, never a constant", () => {
+    expect(partialLabel(1, 3)).toBe("Partial · 1 of 3 scored");
+    expect(partialLabel(3, 4)).toBe("Partial · 3 of 4 scored");
+  });
+  it("the high school fixture row is 1 of 3", () => {
+    const hs = fixtureFits().find((f) => f.id === "fit4")!;
+    expect(hs.partial).toBe(true);
+    expect(partialLabelFor(hs)).toBe("Partial · 1 of 3 scored");
+  });
+  it("a transfer row with eligibility is out of 4", () => {
+    const transfer = fixtureFits().find((f) => f.id === "fit3")!;
+    expect(transfer.dimensions.eligibility).toBeTruthy();
+    const dims = { ...transfer.dimensions, counted: ["academic", "financial", "eligibility"] };
+    expect(partialLabelFor({ dimensions: dims })).toBe("Partial · 3 of 4 scored");
+  });
+  it("the engine's own partial result labels the same way", () => {
+    const r = scoreFit(rhp({ familyBudgetCents: 1500000 }), d2());
+    expect(r.partial).toBe(true);
+    expect(partialLabel(r.counted.length, 3)).toBe("Partial · 2 of 3 scored");
+  });
+});
+
+describe("LAW: a Viewer never reads a stored fit", () => {
+  // Migration 0031 gave the member (Viewer) role summaries, not rows,
+  // and 0042 added net_cost to athlete_school_fits behind the same
+  // read policy. No member screen or member data file may name the
+  // table or the ranking helper. Verified to bite by writing the table
+  // name into a comment in member.ts: failed, reverted.
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (/\.tsx?$/.test(entry.name)) files.push(full);
+    }
+  };
+  walk(join(process.cwd(), "src", "app", "org", "[slug]", "member"));
+  for (const f of readdirSync(join(process.cwd(), "src", "lib", "data"))) if (/^member.*\.ts$/.test(f)) files.push(join(process.cwd(), "src", "lib", "data", f));
+
+  it("there are member files to check", () => {
+    expect(files.length).toBeGreaterThan(5);
+    expect(files.some((f) => f.endsWith("member.ts"))).toBe(true);
+  });
+  it("none of them names athlete_school_fits or rankFits", () => {
+    const offenders = files.filter((f) => /athlete_school_fits|rankFits/.test(readFileSync(f, "utf8")));
+    expect(offenders.map((f) => f.replace(process.cwd(), ""))).toEqual([]);
   });
 });

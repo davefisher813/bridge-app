@@ -74,6 +74,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0038_transferring_a
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0039_advisors_messages_checkins.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0040_high_schools_and_notes.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0041_access_levels_and_titles.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0042_fit_net_cost.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

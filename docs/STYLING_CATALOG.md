@@ -272,3 +272,13 @@ The section heading keeps its old behaviour on purpose: making the
 label hold its width pushed the widest section heading past the right
 edge at 260, and a page that scrolls sideways is worse than a heading
 that wraps.
+
+## Addendum, 2026-09-27: a row's trailing action
+
+A row's `trailing` is a display slot. A row now also takes a
+`trailingAction`, a tap target of its own (a button in a form, a link)
+at the right end of the same paper, rendered as a sibling of the row's
+link and never inside it, so no tap target sits inside another. Below
+about 300px it wraps under the body the way the trailing does. Without
+it the row's markup is unchanged. Enforced by `src/laws/pageRender.test.ts`
+(the Matches row's Add Target) and measured by `scripts/live/clickable.mjs`.

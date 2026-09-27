@@ -28,6 +28,7 @@ import { CoachRows } from "@/components/CoachRows";
 import { SchoolAcademics, SchoolMoneyAndDepth, schoolLede } from "@/components/SchoolProfile";
 import { StatusPill } from "@/components/StatusPill";
 import { isScoredStatus } from "@/lib/placement";
+import { rankFits } from "@/lib/fit/rank";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +86,15 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
       return { id: t.id, status: t.status, name: a?.name ?? "Unknown athlete", position: a?.position ?? null, athleteStatus, unscored, fit: unscored ? null : (bundle?.fit ?? null) };
     }),
   );
-  scored.sort((a, b) => (b.fit?.score ?? -1) - (a.fit?.score ?? -1));
+  // The same order every list of fits uses (src/lib/fit/rank.ts): fully
+  // scored first, then partial, each by score, A to Z on a tie. The
+  // unscored (placed or Inactive) athletes follow, by name.
+  const byName = new Intl.Collator("en", { sensitivity: "base" });
+  const ranked = rankFits(
+    scored.filter((t) => t.fit).map((t) => ({ ...t, score: t.fit!.score, partial: t.fit!.partial, net_cost: t.fit!.netCost ?? null, dimensions: { academic: t.fit!.academic, athletic: t.fit!.athletic, financial: t.fit!.financial }, school: { id: t.id, name: t.name } })),
+    "best",
+  );
+  const ordered = [...ranked, ...scored.filter((t) => !t.fit).sort((a, b) => byName.compare(a.name, b.name))];
 
   const note = (noteRow ?? null) as { coach_name: string | null; coach_email: string | null; positions_of_need: PositionOfNeed[] | null; notes: string | null } | null;
   const needs = formatPositionsOfNeed(Array.isArray(note?.positions_of_need) ? note!.positions_of_need! : []);
@@ -141,7 +150,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
           <EmptyState kind="athlete" title="Nobody Here Yet" action={<LinkButton href={`/org/${slug}/roster`}>Open Athletes</LinkButton>}
           />
         ) : (
-          scored.map((t) => (
+          ordered.map((t) => (
             <Row
               key={t.id}
               href={`/org/${slug}/board/${t.id}`}

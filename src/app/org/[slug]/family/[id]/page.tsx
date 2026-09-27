@@ -14,7 +14,7 @@ import { statusRole, stageKind } from "@/components/statusHue";
 import { Avatar, Card, Chevron, EmptyState, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
 import { loadFitsForAthlete } from "@/lib/data/fits";
-import { formatMetricValue, metricsFor, positionGroupOf, selectScoringMetrics } from "@/lib/fit";
+import { formatMetricValue, metricsFor, partialLabelFor, positionGroupOf, rankFits, selectScoringMetrics } from "@/lib/fit";
 import { GOAL_LABEL, type AthleteGoal } from "@/lib/fit/contract";
 import type { FitTag } from "@/lib/fit/types";
 
@@ -93,7 +93,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
   const here = `${base}/${id}`;
 
   const supabase = await createClient();
-  const [{ data: athlete }, { data: targetRows }, { data: metricRows }, { data: docRows }, fits, staff, threads] = await Promise.all([
+  const [{ data: athlete }, { data: targetRows }, { data: metricRows }, { data: docRows }, fits, staff, threads, { data: schoolRows }] = await Promise.all([
     supabase
       .from("athletes")
       .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment, advisor_id")
@@ -107,6 +107,9 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
     loadFitsForAthlete(supabase, org.id, id),
     loadStaff(supabase, org.id),
     threadSummaryByAthlete(supabase, org.id, user.id, [id]),
+    // Which sports each school sponsors, so the count of schools
+    // evaluated is the same one the Matches screen shows.
+    supabase.from("schools").select("id, sports_sponsored"),
   ]);
   if (!athlete) notFound();
 
@@ -124,7 +127,18 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
     targets.map((t) => ({ id: t.id, status: t.status, schoolName: t.school?.name ?? null })),
   );
   const meta = placement ? placementMeta(placement, { firstEnrollment: athlete.first_full_time_enrollment, graduatedOn: athlete.graduated_on }) : undefined;
-  const topFits = fits.slice(0, 5);
+  // The top ten stored matches through the one ranking rule (fully
+  // scored first, then partial, each by score, src/lib/fit/rank.ts),
+  // counted over the schools that sponsor the sport, the same as the
+  // staff profile and the Matches screen. Amended 2026-09-27.
+  const sport = (athlete.sport ?? "").toLowerCase();
+  const sponsorsSport = new Map(((schoolRows ?? []) as { id: string; sports_sponsored: string[] | null }[]).map((s) => [s.id, (s.sports_sponsored ?? []).map((x) => x.toLowerCase())]));
+  const evaluated = fits.filter((f) => {
+    const list = sponsorsSport.get(f.school_id) ?? [];
+    return list.length === 0 || list.includes(sport);
+  });
+  const topFits = rankFits(evaluated, "best").slice(0, 10);
+  const evaluatedLabel = `${evaluated.length} ${evaluated.length === 1 ? "School" : "Schools"} Evaluated`;
   const goal = GOAL_LABEL[(athlete.goal ?? "balanced") as AthleteGoal] ?? GOAL_LABEL.balanced;
   const budgetCents = athlete.family_budget_cents as number | null;
   const docs = (docRows ?? []) as DocRow[];
@@ -204,8 +218,8 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
       </Stack>
 
       {!placement && isScoredStatus(athlete.status) && (
-        <Section label="Matches" count={fits.length} role="place" kind="target" action={fits.length > 5 ? <TextLink href={`${here}/matches`}>See All</TextLink> : undefined}>
-          {fits.length === 0 ? (
+        <Section label={evaluatedLabel} role="place" kind="target" action={evaluated.length > 10 ? <TextLink href={`${here}/matches`}>See All</TextLink> : undefined}>
+          {evaluated.length === 0 ? (
             <EmptyState kind="target" title="No Matches Yet">
               Every school on file is scored once the record is complete.
             </EmptyState>
@@ -218,7 +232,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
                   kind="school"
                   role={f.tag === "Conflict" ? "danger" : f.tag === "Safety" ? "committed" : "place"}
                   title={f.school.name}
-                  meta={`${f.school.division} · ${f.partial ? (f.warnings[0] ?? "Partial score") : (f.reasons[0] ?? f.warnings[0] ?? "")}`}
+                  meta={`${f.school.division} · ${f.partial ? partialLabelFor(f) : (f.reasons[0] ?? f.warnings[0] ?? "")}`}
                   trailing={
                     <>
                       <Score score={f.score} />
@@ -232,7 +246,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
                   A dimension with nothing on file is left out and the rest are reweighted. The score fills in once the missing numbers are logged.
                 </Notice>
               )}
-              <TextLink href={`${here}/matches`}>{`See All ${fits.length} Matches`}</TextLink>
+              <TextLink href={`${here}/matches`}>{`See All ${evaluated.length} Matches`}</TextLink>
             </>
           )}
         </Section>

@@ -4,7 +4,10 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
 import { requireFamily, requireFamilyAthlete } from "@/lib/data/family";
 import { loadFitsForAthlete } from "@/lib/data/fits";
+import { parseFitSort, partialLabelFor, rankFits } from "@/lib/fit/rank";
 import { StatusPill } from "@/components/StatusPill";
+import { SearchField } from "@/components/SearchField";
+import { MatchSort } from "@/components/MatchSort";
 import { PROGRAM_TIERS } from "@/lib/fit/contract";
 import type { FitTag } from "@/lib/fit/types";
 import { Body, EmptyState, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack } from "@/components/kit";
@@ -12,8 +15,10 @@ import { Body, EmptyState, Label, LinkButton, Notice, Row, Score, Screen, Sectio
 export const dynamic = "force-dynamic";
 
 // Every school on file, ranked for one athlete, as the family reads it.
-// Same stored rows the staff screen reads, no filters, no Add to Board:
-// each row opens the full reasoning.
+// Same stored rows the staff screen reads, the same ranking rule
+// (src/lib/fit/rank.ts: fully scored first, then partial, each by score),
+// the same search and sort, no filters and no Add Target: each row opens
+// the full reasoning. Every link stays under /family/.
 
 const TAG_TONE: Record<FitTag, "committed" | "ink" | "muted" | "danger"> = {
   Safety: "committed",
@@ -30,8 +35,14 @@ interface SchoolFacts {
   sports_sponsored: string[] | null;
 }
 
-export default async function FamilyMatchesPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
+function pick(v: string | string[] | undefined): string | undefined {
+  const s = Array.isArray(v) ? v[0] : v;
+  return s && s.trim() ? s.trim() : undefined;
+}
+
+export default async function FamilyMatchesPage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const { slug, id } = await params;
+  const sp = searchParams ? await searchParams : {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   const user = await requireFamily(org.id);
@@ -65,15 +76,33 @@ export default async function FamilyMatchesPage({ params }: { params: Promise<{ 
     return list.length === 0 || list.includes(sport);
   };
   const all = fits.filter((f) => sponsors(facts.get(f.school_id)));
-  const ranked = all.filter((f) => f.tag !== "Conflict");
-  const conflicts = all.filter((f) => f.tag === "Conflict");
+
+  // Search by school name and the sort both live in the address. The
+  // rows are ranked here, after the search, so the order is the helper's
+  // whatever the database returned them in.
+  const q = pick(sp.q);
+  const sort = parseFitSort(sp.sort);
+  const term = q?.toLowerCase();
+  const found = term ? all.filter((f) => f.school.name.toLowerCase().includes(term)) : all;
+  const ranked = rankFits(
+    found.filter((f) => f.tag !== "Conflict"),
+    sort,
+  );
+  const conflicts = rankFits(
+    found.filter((f) => f.tag === "Conflict"),
+    sort,
+  );
   const tierLabel = (key: string | null | undefined) => PROGRAM_TIERS.find((t) => t.key === key)?.label;
 
   const matchRow = (f: (typeof fits)[number], dim: boolean) => {
     const s = facts.get(f.school_id);
     const target = targetBySchool.get(f.school_id);
-    const line = dim ? (f.warnings[0] ?? f.reasons[0] ?? "Blocked") : f.partial ? (f.warnings[0] ?? "Partial score") : (f.reasons[0] ?? f.warnings[0] ?? "");
-    const meta = [f.school.division, s?.state, tierLabel(s?.program_tier)].filter(Boolean).join(" · ");
+    // Where a full score says its first reason, a partial one says what
+    // it is in plain words ("Partial · 1 of 3 scored"). The division
+    // stays the lead fact so the two kinds of row read the same way.
+    const detail = [f.school.division, s?.state, tierLabel(s?.program_tier)].filter(Boolean).join(" · ");
+    const line = dim ? (f.warnings[0] ?? f.reasons[0] ?? "Blocked") : f.partial ? partialLabelFor(f) : (f.reasons[0] ?? f.warnings[0] ?? "");
+    const meta = `${detail} · ${line}`;
     return (
       <Stack key={f.school_id} gap={2}>
         <Row
@@ -81,7 +110,7 @@ export default async function FamilyMatchesPage({ params }: { params: Promise<{ 
           kind="school"
           role={dim ? "danger" : f.tag === "Safety" ? "committed" : "place"}
           title={dim ? <Body tone="muted" weight="semibold">{f.school.name}</Body> : f.school.name}
-          meta={`${meta} · ${line}`}
+          meta={meta}
           wrap
           trailing={
             <>
@@ -101,15 +130,28 @@ export default async function FamilyMatchesPage({ params }: { params: Promise<{ 
   };
 
   return (
-    <Screen title="Matches" back={{ href: here, label: athlete.name }} lede={`${all.length} ${all.length === 1 ? "school" : "schools"} scored for ${athlete.name}`}>
+    <Screen title="Matches" back={{ href: here, label: athlete.name }} lede={`${all.length} ${all.length === 1 ? "school" : "schools"} scored for ${athlete.name}${term ? ` · ${found.length} ${found.length === 1 ? "matches" : "match"} the search` : ""}`}>
       {all.length === 0 ? (
         <EmptyState kind="target" title="No Matches Yet">
           Every school on file is scored once the record is complete.
         </EmptyState>
       ) : (
         <>
+          {/* Stacked, not side by side: a search box with its button and
+              a select do not share 320px. */}
+          <Stack gap={3}>
+            <SearchField initial={q ?? ""} label="Search" placeholder="School name" />
+            <MatchSort value={sort} />
+          </Stack>
+
           <Section label="Ranked" count={ranked.length} role="place" kind="target">
-            {ranked.map((f) => matchRow(f, false))}
+            {ranked.length === 0 ? (
+              <EmptyState kind="target" title="No School Matches">
+                Try a shorter search.
+              </EmptyState>
+            ) : (
+              ranked.map((f) => matchRow(f, false))
+            )}
           </Section>
 
           {ranked.some((f) => f.partial) && (

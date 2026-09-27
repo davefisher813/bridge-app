@@ -16,7 +16,7 @@
 import type { Athlete, DimensionResult, FitResult, PositionalNeed, RecruitingSignals, School, TransferWindow, KnownAid } from "./types";
 import { scoreAcademic } from "./academic";
 import { scoreAthletic, baseballPositionGroup } from "./athletic";
-import { scoreFinancial } from "./financial";
+import { estimateNetCost, scoreFinancial } from "./financial";
 import { scoreEligibility } from "./transfer";
 import { clampScore, scoreToTag } from "./bands";
 import { isD1D2 } from "./benchmarks";
@@ -162,6 +162,7 @@ export function scoreFit(athlete: Athlete, school: School, opts: ScoreFitOptions
     warnings,
     partial,
     counted: counted.map((d) => d.name),
+    netCost: estimateNetCost(athlete, school, opts.aid) ?? undefined,
     signals: opts.signals,
   };
 }

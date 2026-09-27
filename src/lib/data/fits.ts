@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { scoreFit } from "@/lib/fit/score";
+import { rankFits } from "@/lib/fit/rank";
 import { SCORED_STATUSES, isScoredStatus } from "@/lib/placement";
 import type { Athlete, FitResult, KnownAid, School, TransferWindow } from "@/lib/fit/types";
 import { DEFAULT_PRESET, type ScoringPreset } from "@/lib/fit/contract";
@@ -29,7 +30,8 @@ import {
 } from "@/lib/data/fitAdapters";
 
 // Bumped when the engine's meaning changes so old rows recompute.
-export const FIT_ENGINE_VERSION = 2;
+// 3: net_cost stored on the row (migration 0042), 2026-09-27.
+export const FIT_ENGINE_VERSION = 3;
 
 // Any client: the user's (RLS-scoped) for one org, the admin client for
 // a shared school across every org.
@@ -47,6 +49,8 @@ export interface FitRow {
   dimensions: Record<string, unknown>;
   reasons: string[];
   warnings: string[];
+  // Whole dollars a year, or null when the school carries no cost.
+  net_cost: number | null;
   inputs_hash: string;
   computed_at: string;
 }
@@ -80,6 +84,7 @@ export function fitToRow(orgId: string, athlete: Athlete, school: School, fit: F
     },
     reasons: fit.reasons,
     warnings: fit.warnings,
+    net_cost: typeof fit.netCost === "number" && Number.isFinite(fit.netCost) ? Math.round(fit.netCost) : null,
     inputs_hash: hash,
     computed_at: now.toISOString(),
   };
@@ -100,6 +105,7 @@ export function rowToFit(row: FitRow): FitResult {
     warnings: row.warnings ?? [],
     partial: row.partial,
     counted: (d.counted as string[]) ?? [],
+    netCost: typeof row.net_cost === "number" ? row.net_cost : undefined,
   };
 }
 
@@ -256,23 +262,29 @@ export async function recomputeFitsForSchools(admin: Client, schoolIds: string[]
   return { error: null, count };
 }
 
-// Read side. Stored rows for one athlete, best first.
-export async function loadFitsForAthlete(client: Client, orgId: string, athleteId: string): Promise<(FitRow & { school: { id: string; name: string; division: string; conference: string | null; state: string | null } })[]> {
+export type LoadedFit = FitRow & { school: { id: string; name: string; division: string; conference: string | null; state: string | null } };
+
+// Read side. Stored rows for one athlete, already in Best Fit order:
+// fully scored first, then partial, each by score, A to Z on a tie
+// (src/lib/fit/rank.ts). The database is not asked to order, so a
+// screen cannot get an order the helper did not give it; a screen that
+// offers another sort runs the same rows through rankFits with its key.
+export async function loadFitsForAthlete(client: Client, orgId: string, athleteId: string): Promise<LoadedFit[]> {
   const { data } = await client
     .from("athlete_school_fits")
-    .select("id, org_id, athlete_id, school_id, score, tag, partial, dimensions, reasons, warnings, inputs_hash, computed_at, schools(id, name, division, conference, state)")
+    .select("id, org_id, athlete_id, school_id, score, tag, partial, dimensions, reasons, warnings, net_cost, inputs_hash, computed_at, schools(id, name, division, conference, state)")
     .eq("org_id", orgId)
-    .eq("athlete_id", athleteId)
-    .order("score", { ascending: false });
-  return ((data ?? []) as (FitRow & { schools: unknown })[])
+    .eq("athlete_id", athleteId);
+  const rows = ((data ?? []) as (FitRow & { schools: unknown })[])
     .map((r) => {
       const s = Array.isArray(r.schools) ? r.schools[0] : r.schools;
       if (!s) return null;
       const { schools: _drop, ...rest } = r;
       void _drop;
-      return { ...rest, school: s as { id: string; name: string; division: string; conference: string | null; state: string | null } };
+      return { ...rest, net_cost: rest.net_cost ?? null, school: s as LoadedFit["school"] };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
+  return rankFits(rows, "best");
 }
 
 // Stored rows for a set of athlete and school pairs, for the board.
@@ -282,7 +294,7 @@ export async function loadFitsForPairs(client: Client, orgId: string, pairs: { a
   if (athleteIds.length === 0) return out;
   const { data } = await client
     .from("athlete_school_fits")
-    .select("id, org_id, athlete_id, school_id, score, tag, partial, dimensions, reasons, warnings, inputs_hash, computed_at")
+    .select("id, org_id, athlete_id, school_id, score, tag, partial, dimensions, reasons, warnings, net_cost, inputs_hash, computed_at")
     .eq("org_id", orgId)
     .in("athlete_id", athleteIds);
   for (const r of (data ?? []) as FitRow[]) out.set(`${r.athlete_id}:${r.school_id}`, r);

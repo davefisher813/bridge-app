@@ -173,3 +173,23 @@ it was written; each file's comments name the plant.
     control or a Remove; both are turned away from every staff edit
     screen; a removed athlete leaves the board, Today and the school
     page. `pageRender.test.ts`, the last describe block.
+
+## Added 2026-09-27: Stage 5 Phase 1, Matches
+
+25. **Fits are ranked one way everywhere, and a partial row says so.**
+    `rankFits` puts every fully scored fit above every partial one,
+    each by score, A to Z then id on a tie; each other sort falls back
+    to that rule; the six sort keys are fixed and an unknown one is
+    Best Fit; the partial label reads N of M with M off the row (3 for
+    a high school athlete, 4 for a transfer); no member screen or
+    member data file names `athlete_school_fits` or `rankFits`.
+    `matchingLaws.test.ts`. On the fixture the full 41 renders above
+    the partial 48 on the profile, Matches, the family's Matches and
+    the family's athlete page; the profile shows ten rows under "N
+    Schools Evaluated" and See All past ten; Matches searches by name,
+    offers the six sorts, shows 25 rows then Show More and `?show=50`
+    shows the rest; Add Target sits inside the row and outside its
+    link, a target's stage pill opens the Board; the family's Matches
+    has search and sort and no target action; Today never headlines a
+    partial Safety over a full one; a filter change keeps the search
+    and the sort. `pageRender.test.ts`, the last describe block.

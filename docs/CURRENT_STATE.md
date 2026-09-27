@@ -101,12 +101,24 @@ picks in docs/MATCHING_CONTRACT.md.
   scale (blended into the athletic score by position group).
 - **Stored matches** (`athlete_school_fits`): every athlete against
   every school, recomputed inside the action that changed an input,
-  never on view. The board and target screens read the rows.
-- **Matches** (`/roster/[id]/matches`): ranked, filters in the URL
-  (division, state, conference, major, cost ceiling, scholarship type,
-  playing time; sport sponsored always applies), Add to Board on each
-  row, conflicts at the bottom saying what blocks them, partial scores
-  saying which dimensions counted. The top five on the athlete page.
+  never on view, with the net cost stored on the row (migration 0042,
+  engine version 3). The board and target screens read the rows.
+- **Matches** (`/roster/[id]/matches`, Stage 5 Phase 1, 2026-09-27):
+  one ranking rule everywhere fits are listed (`src/lib/fit/rank.ts`:
+  fully scored first, then partial, each by score, A to Z on a tie),
+  a search by school name and a sort (Best Fit, Academic, Athletic,
+  Financial, Net Cost, A to Z) in the address alongside the filters
+  (division in NCAA order, region, state, conference, major, cost
+  ceiling, scholarship type, playing time; sport sponsored always
+  applies; a filter change keeps the search and the sort), a compact
+  row ("D2 · 93 · Safety", or "Partial · 1 of 3 scored" first) with
+  Add Target inside the row through the kit Row's `trailingAction`
+  slot and the stage pill opening the target once one exists, 25 rows
+  then Show More, conflicts at the bottom saying what blocks them. The
+  athlete page shows the top ten under "N Schools Evaluated" with See
+  All past ten; the family's Matches has the same search and sort and
+  no target action; Today's Strong Matches headline follows the same
+  rule. Distance is deferred until schools carry coordinates.
 - **Schools**: a full form (program tier, state, majors, academics,
   money, depth), an owner edit screen, the org's private overlay (coach
   contact, positions of need that boost a matching athlete, notes), and

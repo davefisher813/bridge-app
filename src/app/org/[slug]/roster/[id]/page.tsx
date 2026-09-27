@@ -19,7 +19,7 @@ import { relationshipLabel } from "@/lib/copy/relationships";
 import { statusRole, stageKind } from "@/components/statusHue";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
 import { loadFitsForAthlete } from "@/lib/data/fits";
-import { formatMetricValue, metricsFor, positionGroupOf, selectScoringMetrics } from "@/lib/fit";
+import { formatMetricValue, metricsFor, partialLabelFor, positionGroupOf, rankFits, selectScoringMetrics } from "@/lib/fit";
 import { loadStaff } from "@/lib/data/staff";
 import { threadSummaryByAthlete } from "@/lib/data/messages";
 import { checkinDue } from "@/lib/checkins";
@@ -63,6 +63,7 @@ interface SchoolRow {
   id: string;
   name: string;
   division: string;
+  sports_sponsored?: string[] | null;
 }
 
 interface GuardianRow {
@@ -114,7 +115,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
       .eq("org_id", org.id)
       .order("created_at", { ascending: false }),
     supabase.from("contacts").select("id, name, role, email, phone, notes, school_id").eq("athlete_id", id).eq("org_id", org.id).order("name"),
-    supabase.from("schools").select("id, name, division").order("name"),
+    supabase.from("schools").select("id, name, division, sports_sponsored").order("name"),
     supabase.from("athlete_metrics").select("id, metric, value, measured_on, source").eq("athlete_id", id).eq("org_id", org.id).order("measured_on", { ascending: false }),
     loadFitsForAthlete(supabase, org.id, id),
     // Stage 3 (migration 0039): the advisor comes from the staff list,
@@ -149,10 +150,22 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const tiles = metricsFor(athlete.sport, group).first.slice(0, 3);
   const lastLogged = metrics[0]?.measured_on;
 
-  // Stored matches, best first. docs/MATCHING_CONTRACT.md section 2:
-  // the top five here, the full ranked list with filters on its own
-  // screen. A partial score says which dimensions it counted.
-  const topFits = fits.slice(0, 5);
+  // Stored matches. docs/MATCHING_CONTRACT.md section 2, amended
+  // 2026-09-27: the top ten here through the one ranking rule (fully
+  // scored first, then partial, each by score, src/lib/fit/rank.ts), the
+  // full list with search, sort and filters on its own screen. The count
+  // is the schools evaluated for this athlete: every stored row for a
+  // school that sponsors the sport, the same rule the Matches screen
+  // applies before its filters. A partial row says so in plain words,
+  // where a full row says its first reason.
+  const sport = (athlete.sport ?? "").toLowerCase();
+  const sponsorsSport = new Map(((schoolRows ?? []) as SchoolRow[]).map((s) => [s.id, (s.sports_sponsored ?? []).map((x) => x.toLowerCase())]));
+  const evaluated = fits.filter((f) => {
+    const list = sponsorsSport.get(f.school_id) ?? [];
+    return list.length === 0 || list.includes(sport);
+  });
+  const topFits = rankFits(evaluated, "best").slice(0, 10);
+  const evaluatedLabel = `${evaluated.length} ${evaluated.length === 1 ? "School" : "Schools"} Evaluated`;
   const goal = GOAL_LABEL[(athlete.goal ?? "balanced") as AthleteGoal] ?? GOAL_LABEL.balanced;
   const budgetCents = athlete.family_budget_cents as number | null;
 
@@ -324,13 +337,12 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         // schools is noise, and an Inactive athlete is not scored either.
         // Dave, 2026-09-26.
         <Section
-          label="Matches"
-          count={fits.length}
+          label={evaluatedLabel}
           role="place"
           kind="target"
-          action={fits.length > 5 ? <TextLink href={`/org/${slug}/roster/${id}/matches`}>See All</TextLink> : undefined}
+          action={evaluated.length > 10 ? <TextLink href={`/org/${slug}/roster/${id}/matches`}>See All</TextLink> : undefined}
         >
-          {fits.length === 0 ? (
+          {evaluated.length === 0 ? (
             <EmptyState kind="target" title="No Matches Yet" action={canEdit ? <LinkButton href={`/org/${slug}/schools`}>Open Schools</LinkButton> : undefined}>
               {canEdit ? "With no schools on file there is nothing to score against." : "Every school on file is scored once the record is saved."}
             </EmptyState>
@@ -343,7 +355,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
                   kind="school"
                   role={f.tag === "Conflict" ? "danger" : f.tag === "Safety" ? "committed" : "place"}
                   title={f.school.name}
-                  meta={`${f.school.division} · ${f.partial ? (f.warnings[0] ?? "Partial score") : (f.reasons[0] ?? f.warnings[0] ?? "")}`}
+                  meta={`${f.school.division} · ${f.partial ? partialLabelFor(f) : (f.reasons[0] ?? f.warnings[0] ?? "")}`}
                   trailing={
                     <>
                       <Score score={f.score} />
@@ -357,7 +369,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
                   A dimension with no data on file is left out and the rest are reweighted. Add the missing numbers and the score fills in.
                 </Notice>
               )}
-              <TextLink href={`/org/${slug}/roster/${id}/matches`}>{`See All ${fits.length} Matches`}</TextLink>
+              <TextLink href={`/org/${slug}/roster/${id}/matches`}>{`See All ${evaluated.length} Matches`}</TextLink>
             </>
           )}
         </Section>
