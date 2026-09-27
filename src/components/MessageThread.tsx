@@ -19,12 +19,12 @@ export function MessageThread({ messages, meId, remove }: { messages: ThreadMess
         <Card key={m.id} isStatic>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <Label>{`${m.authorName ?? (m.authorId === null ? "Someone Who Left" : "Family")} · ${longDate(m.createdAt)}${m.authorId !== null && m.authorId === meId ? " · you" : ""}`}</Label>
+              <Label>{`${m.authorName ?? (m.authorId === null ? "Someone Who Left" : "Athlete")} · ${longDate(m.createdAt)}${m.authorId !== null && m.authorId === meId ? " · you" : ""}`}</Label>
               <Body>{m.body}</Body>
             </div>
             {remove && (
               <Form action={remove.bind(null, m.id)}>
-                <ConfirmButton inline title="Remove This Message?" body="It comes off the thread for staff and the family. It cannot be brought back." confirmLabel="Remove">
+                <ConfirmButton inline title="Remove This Message?" body="It comes off the thread for staff and the athlete login. It cannot be brought back." confirmLabel="Remove">
                   Remove
                 </ConfirmButton>
               </Form>

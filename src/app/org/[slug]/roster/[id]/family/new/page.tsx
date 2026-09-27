@@ -33,7 +33,7 @@ export default async function InviteFamilyPage({ params }: { params: Promise<{ s
   };
 
   return (
-    <Screen title="Invite Family" back={{ href: `/org/${slug}/roster/${id}`, label: name }} lede={`A sign-in that sees ${name}'s record and nothing else.`}>
+    <Screen title="Invite Athlete" back={{ href: `/org/${slug}/roster/${id}`, label: name }} lede={`A sign-in that sees ${name}'s record and nothing else.`}>
       <InviteForm action={inviteMember.bind(null, slug)} roleLabels={org.roleLabels} pinned={{ athleteId: id, athleteName: name, returnTo: `/org/${slug}/roster/${id}` }} suggest={suggest} />
       <Prose>The link works for 24 hours.</Prose>
     </Screen>

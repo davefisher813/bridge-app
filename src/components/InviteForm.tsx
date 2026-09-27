@@ -21,7 +21,7 @@ export interface InviteAthleteOption {
 // org has athletes to link a family to: a family login without an
 // athlete is a login to an empty screen, and the action refuses it.
 
-// `pinned` is the Invite Family screen on an athlete's page (Dave's
+// `pinned` is the Invite Athlete screen on an athlete's page (Dave's
 // pick, 2026-09-21): the role is family and the athlete is this one, so
 // neither is asked; what is asked is who this person is to the athlete.
 //
@@ -89,7 +89,7 @@ export function InviteForm({
         error={err("role")}
         hint={
           role === "family"
-            ? `${L("family")} sees one athlete's record, read only, and nothing else.`
+            ? `${L("family")} access covers one athlete's record, read only, and nothing else.`
             : `${L("staff")}s add and edit athletes, targets and documents. ${L("member")}s see the program as names and stages, the year's giving and their own seat, and change nothing. ${L("owner")}s can also manage members and schools.`
         }
       >

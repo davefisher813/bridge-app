@@ -54,7 +54,7 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   }
   const { email, role, fullName, athleteId, relationship } = parsed.values;
   if (role !== "family" && user.role !== "owner") {
-    return { errors: { role: "Only an owner can invite staff, members or owners. You can invite a family from an athlete's page." }, values: Object.fromEntries(formData.entries()) };
+    return { errors: { role: "Only an owner can invite staff, members or owners. You can invite an athlete login from an athlete's page." }, values: Object.fromEntries(formData.entries()) };
   }
 
   // Where to go afterwards: the athlete's page when the invite started
@@ -185,7 +185,7 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
   const becomingFamily = nextRole === "family";
 
   if (leavingFamily && !opts.confirmed) {
-    return { ok: false, error: "Family access is tied to an athlete. Confirm the switch: they stop seeing the athletes they are linked to." };
+    return { ok: false, error: "Athlete access is tied to an athlete. Confirm the switch: they stop seeing the athletes they are linked to." };
   }
 
   // The athlete a new family login will see, checked against this org's
@@ -193,7 +193,7 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
   const athleteId = (opts.athleteId ?? "").trim();
   let athleteName: string | null = null;
   if (becomingFamily) {
-    if (!athleteId) return { ok: false, error: "Family access is tied to an athlete. Pick the athlete they should see." };
+    if (!athleteId) return { ok: false, error: "Athlete access is tied to an athlete. Pick the athlete they should see." };
     const { data: athlete } = await supabase.from("athletes").select("id, name").eq("org_id", org.id).eq("id", athleteId).is("deleted_at", null).maybeSingle();
     if (!athlete) return { ok: false, error: "That athlete is not on this organization's roster." };
     athleteName = (athlete as { name: string }).name;

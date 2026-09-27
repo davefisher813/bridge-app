@@ -71,3 +71,39 @@ describe("LAW: a title is written in Title Case", () => {
     expect(isTitleLike("Things to Know")).toBe(true);
   });
 });
+
+// Dave, 2026-09-27: "Change family to a more generic term." The login
+// tied to one athlete is called an Athlete login on every screen, not a
+// Family one. The enum value, the /family routes and the code names stay
+// `family`; only the words a person reads changed. "Family Budget per
+// Year" and "what the family pays" are about the household's money, not
+// the login, and are left alone.
+//
+// Verified this law bites: put `family: "Family"` back in
+// DEFAULT_ROLE_LABEL, then separately `title="Invite Family"` back on the
+// athlete page, ran `npx vitest run copyLaws`, watched each fail, reverted.
+describe("LAW: the login tied to one athlete is called Athlete, not Family", () => {
+  it("the default access name for the family role is Athlete", async () => {
+    const { DEFAULT_ROLE_LABEL, labelForRole, parseRoleLabels } = await import("@/lib/org/roleLabels");
+    expect(DEFAULT_ROLE_LABEL.family).toBe("Athlete");
+    expect(labelForRole(parseRoleLabels({}), "family")).toBe("Athlete");
+    expect(labelForRole(parseRoleLabels(null), "family")).toBe("Athlete");
+  });
+
+  it("no screen, component or action names the login Family", () => {
+    const LOGIN_AS_FAMILY = /Invite Family|Family Logins?\b|family logins?\b|family sign-in|Family access|"Family"/;
+    const files = walk(SRC).filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f) && (f.includes("/app/") || f.includes("/components/") || f.includes("/lib/actions/") || f.includes("/lib/org/") || f.includes("/lib/copy/")));
+    const offenders: string[] = [];
+    for (const f of files) {
+      readFileSync(f, "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+          // Comments explain the code to the next engineer; the rule is
+          // about what reaches the screen.
+          if (/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(line)) return;
+          if (LOGIN_AS_FAMILY.test(line)) offenders.push(`${rel(f)}:${i + 1}: ${line.trim()}`);
+        });
+    }
+    expect(offenders).toEqual([]);
+  });
+});

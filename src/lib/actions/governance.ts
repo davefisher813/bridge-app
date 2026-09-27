@@ -296,7 +296,7 @@ export async function linkSeatSignIn(slug: string, boardId: string, memberId: st
   if (userId) {
     const { data: membership } = await supabase.from("org_members").select("user_id, role, users(email, full_name)").eq("org_id", org.id).eq("user_id", userId).maybeSingle();
     const m = membership as { role: string; users: { email: string; full_name: string | null } | { email: string; full_name: string | null }[] | null } | null;
-    if (!m || m.role === "family") redirect(`${back}?error=${encodeURIComponent("Pick someone who is a member of this organization. A family login cannot hold a seat.")}`);
+    if (!m || m.role === "family") redirect(`${back}?error=${encodeURIComponent("Pick someone who is a member of this organization. An athlete login cannot hold a seat.")}`);
     const person = Array.isArray(m.users) ? m.users[0] : m.users;
     personName = person?.full_name || person?.email || null;
     // One seat per sign-in, in this org: a person with two seats would

@@ -234,7 +234,7 @@ export function AthleteForm({
         </SelectField>
       </Grid2>
       <CheckField name="gpaVerified" label="GPA Verified" defaultChecked={f("gpaVerified") === "on" || !!initialValues.gpaVerified} />
-      <SelectField name="advisorId" label="Advisor" hint="Who checks in with this athlete. The family sees the name." defaultValue={advisors.some((a) => a.id === f("advisorId")) ? f("advisorId") : ""} error={err("advisorId")}>
+      <SelectField name="advisorId" label="Advisor" hint="Who checks in with this athlete. Their athlete login sees the name." defaultValue={advisors.some((a) => a.id === f("advisorId")) ? f("advisorId") : ""} error={err("advisorId")}>
         <option value="">Nobody Yet</option>
         {advisors.map((a) => (
           <option key={a.id} value={a.id}>
@@ -411,7 +411,7 @@ export function AthleteForm({
       <TextAreaField
         name="notes"
         label={editing ? "Add a Note" : "Notes"}
-        hint="Staff only, never shown to the family. Each note is dated; blank adds nothing."
+        hint="Staff only, never shown on an athlete login. Each note is dated; blank adds nothing."
         maxLength={4000}
         defaultValue={f("notes")}
         error={err("notes")}

@@ -38,10 +38,10 @@ export default async function AthleteMessagesPage({ params }: { params: Promise<
   const athleteHref = `/org/${slug}/roster/${id}`;
 
   return (
-    <Screen title="Messages" back={{ href: athleteHref, label: athlete.name }} lede={`${athlete.name} · ${logins} family ${logins === 1 ? "login" : "logins"}`}>
+    <Screen title="Messages" back={{ href: athleteHref, label: athlete.name }} lede={`${athlete.name} · ${logins} athlete ${logins === 1 ? "login" : "logins"}`}>
       {logins === 0 && (
-        <Notice tone="info" title="No Family Login Yet">
-          Nobody in the family can read this until they have a sign-in. Everything here is waiting for them when they do. <TextLink href={`${athleteHref}/family/new`}>Invite Family</TextLink>
+        <Notice tone="info" title="No Athlete Login Yet">
+          Nobody can read this until they have an athlete login. Everything here is waiting for them when they do. <TextLink href={`${athleteHref}/family/new`}>Invite Athlete</TextLink>
         </Notice>
       )}
 

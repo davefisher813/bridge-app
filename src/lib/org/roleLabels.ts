@@ -34,7 +34,7 @@ export const DEFAULT_ROLE_LABEL: Record<OrgRole, string> = {
   owner: "Owner",
   staff: "Staff",
   member: "Member",
-  family: "Family",
+  family: "Athlete",
 };
 
 export function parseRoleLabels(raw: unknown): RoleLabels {

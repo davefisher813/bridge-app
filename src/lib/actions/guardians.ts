@@ -123,7 +123,7 @@ export async function linkGuardian(slug: string, userId: string, formData: FormD
 
   const supabase = await createClient();
   const { data: membership } = await supabase.from("org_members").select("role").eq("org_id", org.id).eq("user_id", userId).maybeSingle();
-  if ((membership as { role: string } | null)?.role !== "family") redirect(`${back}?error=${q("Only a family sign-in is linked to athletes.")}`);
+  if ((membership as { role: string } | null)?.role !== "family") redirect(`${back}?error=${q("Only an athlete login is linked to athletes.")}`);
 
   const athlete = await athleteName(supabase, org.id, athleteId);
   if (!athlete) redirect(`${back}?error=${q("That athlete is not on this organization's roster.")}`);

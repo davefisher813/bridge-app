@@ -123,7 +123,7 @@ export default async function MemberPage({
       <Section label="Name" role="people" kind="people">
         <Form action={renameMemberForm.bind(null, slug, member.user_id)}>
           <Stack gap={3}>
-            <Field name="fullName" label="Full Name" defaultValue={person?.full_name ?? ""} autoComplete="off" maxLength={120} hint="Shown on every athlete they advise, and to families. Left blank, their email shows." />
+            <Field name="fullName" label="Full Name" defaultValue={person?.full_name ?? ""} autoComplete="off" maxLength={120} hint="Shown on every athlete they advise, and to athlete logins. Left blank, their email shows." />
             <Button variant="secondary">Save Name</Button>
           </Stack>
         </Form>
@@ -211,7 +211,7 @@ export default async function MemberPage({
               <Form action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
                 <Stack gap={3}>
                   <Hidden name="role" value="family" />
-                  <SelectField id="family-athlete" name="athleteId" label={`Make Them ${familyLabel} Instead`} defaultValue="" hint="A family sign-in sees one athlete and nothing else. Pick which.">
+                  <SelectField id="family-athlete" name="athleteId" label={`Make Them ${familyLabel} Instead`} defaultValue="" hint="An athlete login sees one athlete and nothing else. Pick which.">
                     <option value="">Pick an Athlete</option>
                     {athleteOptions(athletes)}
                   </SelectField>

@@ -1453,7 +1453,7 @@ describe("LAW: a board seat points at one sign-in, in this org", () => {
     const { linkSeatSignIn } = await import("@/lib/actions/governance");
     const r = await run(() => linkSeatSignIn(ORG_WITH_MODULES, IDS.board, "bm2", form({ userId: FAMILY_ID })));
     expect(r.redirect).toContain("error=");
-    expect(decodeURIComponent(r.redirect!)).toMatch(/family login cannot hold a seat/);
+    expect(decodeURIComponent(r.redirect!)).toMatch(/athlete login cannot hold a seat/);
     expect(writes.filter((w) => w.table === "board_members")).toEqual([]);
   });
 

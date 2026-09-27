@@ -242,8 +242,8 @@ family, and that an unlinked athlete is not found. The live driver
 opens the family routes as the family login through a `fixture_user`
 cookie the fixture server reads.
 
-Invite Family now sits on the athlete's page, which is where Dave
-picked it (2026-09-22): a staff member opens Invite Family, the athlete
+Invite Athlete (formerly Invite Family) now sits on the athlete's page, which is where Dave
+picked it (2026-09-22): a staff member opens Invite Athlete, the athlete
 is pinned rather than chosen from a list, the form asks who the person
 is (parent, guardian, the athlete themselves, other), and the invite
 comes back to that athlete's page with a line saying what was sent. The
@@ -277,7 +277,7 @@ the tab bar and on its screen (Dave: "most won't get what that means").
 The four things staff could not do from inside the app, and the two
 that made a long list unusable.
 
-- **Invite Family from the athlete** (above).
+- **Invite Athlete from the athlete** (above).
 - **A board seat points at a sign-in.** `board_members.user_id` is what
   `member_giving()` reads to decide whose seat is whose, and nothing
   ever set it. A seat's page now links or unlinks a sign-in: the person

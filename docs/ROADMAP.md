@@ -367,7 +367,7 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
 
 ## Next up after matching
 
-1. ~~Invite Family from the athlete's page~~ Done 2026-09-22: staff
+1. ~~Invite Athlete from the athlete's page~~ Done 2026-09-22: staff
    invite, the athlete is pinned, the relationship is recorded, the
    invite returns to the athlete.
 2. **Strike percentage and the grade weights** are interpretations

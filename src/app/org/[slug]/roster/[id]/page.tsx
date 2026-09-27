@@ -493,10 +493,10 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         )}
       </Section>
 
-      <Section label="Family" count={family.length} role="people" kind="people">
+      <Section label="Athlete Logins" count={family.length} role="people" kind="people">
         {family.length === 0 ? (
-          <EmptyState kind="people" title="No Family Login Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/family/new`}>Invite Family</LinkButton> : undefined}>
-            {canEdit ? "The athlete first, then a parent or guardian." : "Nobody in the family has a sign-in yet."}
+          <EmptyState kind="people" title="No Athlete Login Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/family/new`}>Invite Athlete</LinkButton> : undefined}>
+            {canEdit ? "The athlete first, then a parent or guardian." : "Nobody has an athlete login yet."}
           </EmptyState>
         ) : (
           family.map((g) => (
@@ -515,7 +515,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         )}
         {canEdit && (
           <LinkButton href={`/org/${slug}/roster/${id}/family/new`} variant="secondary">
-            Invite Family
+            Invite Athlete
           </LinkButton>
         )}
       </Section>
@@ -524,7 +524,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         // Audit crud F1: a test record, a duplicate, or a family that asks
         // for the record to go. It leaves every list at once.
         <Form action={removeAthlete.bind(null, slug, id)}>
-          <ConfirmButton title={`Remove ${athlete.name}?`} body="They come off the roster, Today, the Targets board and the family's view, and their matches are cleared." confirmLabel="Remove Athlete">
+          <ConfirmButton title={`Remove ${athlete.name}?`} body="They come off the roster, Today, the Targets board and their athlete logins, and their matches are cleared." confirmLabel="Remove Athlete">
             Remove Athlete
           </ConfirmButton>
         </Form>

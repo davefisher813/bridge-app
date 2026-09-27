@@ -18,6 +18,6 @@ export const RELATIONSHIPS: { value: string; label: string }[] = [
 export function relationshipLabel(value: string | null | undefined): string {
   const known = RELATIONSHIPS.find((r) => r.value === value);
   if (known) return known.label;
-  if (!value) return "Family";
+  if (!value) return "Athlete Login";
   return value.charAt(0).toUpperCase() + value.slice(1);
 }

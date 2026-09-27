@@ -3286,3 +3286,21 @@ it. Date fields drop the native iOS appearance so they fit their column.
 **Reason.** Dave, 2026-09-27, on Mark Graduated: "Should be a search bar
 for schools. Should be able to add a school. Date row/pill is WAY too
 long."
+
+## 2026-09-27: the login tied to one athlete is called Athlete, not Family
+
+**Decision.** Every word a person reads for the `family` role says
+Athlete: the default role label, Invite Athlete, No Athlete Login Yet,
+the Athlete Logins section on an athlete's page, the message author
+fallback, and the action errors ("Athlete access is tied to an
+athlete"). The enum value, the `/family` routes and the code names stay
+`family`, so no guard, policy or migration changed. An org can still
+override the label in Organization Settings. "Family Budget per Year"
+and "what the family pays" are the household's money, not the login,
+and are unchanged. `src/laws/copyLaws.test.ts` fails the build on the
+old wording.
+
+**Reason.** Dave, 2026-09-27: "Change family to a more generic term."
+
+**Alternatives considered.** Renaming the enum value: a migration and a
+policy rewrite for a word on a screen.
