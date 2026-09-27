@@ -4,8 +4,11 @@ Last updated: 2026-09-27. Stages 3 (advisors, messages, check-ins) and
 4 (autofill, the high school directory, athlete notes) and the add,
 edit and delete audit are deployed to production, with migrations
 applied through 0040. The roles rework (three access levels with fixed
-names, a Title per person, migration 0041) is built and verified
-locally, not yet committed or deployed.
+names, a Title per person, migration 0041) and Stage 5 Phases 1 to 3
+(Matches, the advisor managed on the athlete's page, More as the
+control center; migrations 0042 and 0043) are built and verified
+locally on branch `claude/stage5-phase2-3`, not yet committed or
+deployed.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three access levels, each with their own app on
@@ -24,7 +27,9 @@ who logs check-ins and talks with the family in the app; every record
 can be corrected and removed where it lives, a pick fills what is
 blank, staff keep notes on an athlete, an owner sets up the org and
 anyone signed in with no other role can start one, and nothing the
-stand-in reader read can ever be applied. 113 screens on one kit, 1,791 tests green, the app itself driven in a browser at
+stand-in reader read can ever be applied; an athlete's advisor is
+assigned from the athlete's own page, and More is grouped as the
+control center. 114 screens on one kit, 1,905 tests green, the app itself driven in a browser at
 320, 375 and 390 in both themes with nothing past the edge, no row or
 tile that goes nowhere, and every link followed to a real screen.
 
@@ -53,8 +58,8 @@ tile that goes nowhere, and every link followed to a real screen.
 
 ## What exists
 
-**113 pages**, 41 migrations (40 applied), 1,791 tests in 68 files, 25 law
-files, 199 PASS notices in the row-level-security suite.
+**114 pages**, 43 migrations (40 applied), 1,905 tests in 71 files, 27 law
+files, the row-level-security suite green through the 0043 block.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
@@ -124,9 +129,9 @@ picks in docs/MATCHING_CONTRACT.md.
   contact, positions of need that boost a matching athlete, notes), and
   a CSV import from `public/templates/schools.csv` that lists every
   problem by line and imports nothing until the file is clean.
-- **More**: the scoring preset (Money First is the default) and
-  Recalculate All, owner-only. **Today**: Strong Matches, one row per
-  athlete with a new Safety or Fit not yet on the board.
+- **More, Matching**: the scoring preset (Money First is the default)
+  and Recalculate All, owner-only. **Today**: Strong Matches, one row
+  per athlete with a new Safety or Fit not yet on the board.
 
 Every number is in `src/lib/fit/contract.ts`; `src/laws/matchingLaws.test.ts`
 and twelve bench checks read the same file.
@@ -206,11 +211,14 @@ generated at build from the stylesheet's own tokens. `src/proxy.ts`
 
 ### Membership
 
-Owner-only, under More. The members list, an invite form, and a
-one-person screen to rename them, change a role (to and from family in
-place, links and all), assign the athletes they advise, or remove
-access. An org can never be left without an owner. "Invited" is read off a mirror of
-`auth.users.last_sign_in_at` kept by the profile trigger.
+Owner-only, under More, People. The members list, an invite form, and a
+one-person screen to rename them, set their Title, change a role (to
+and from family in place, links and all), assign the athletes they
+advise (Assign Athlete, one at a time from a sheet, or several at once
+from the tick list), or remove access. An org can never be left without
+an owner. "Invited" is read off a mirror of `auth.users.last_sign_in_at`
+kept by the profile trigger. Beside it, Advisors (every Admin) lists
+each Admin with the number of athletes they advise.
 
 ### The family role, 2026-09-21
 
@@ -383,12 +391,12 @@ screens. No tab bar changed.
 Migration 0039. Nothing here changes what anyone may do; the advisor is
 a name and a reminder, never a permission.
 
-- **Advisor** (`athletes.advisor_id`): picked on the athlete's Add and
-  Edit forms from the org's owner and staff, or Nobody Yet. A trigger
-  refuses anyone else; removing a person or making them a member clears
-  it. The profile has an Advisor section (tap to email) or No Advisor
-  Yet with Pick One; the family's athlete page has Your Advisor or No
-  Advisor Named Yet, pointing at More.
+- **Advisor** (`athletes.advisor_id`): one of the org's Admins. A
+  trigger refuses anyone else; removing a person or making them a
+  Viewer clears it. Since Stage 5 Phase 2 (below) it is assigned from
+  the athlete's own page, or on the Add form while the record is being
+  built; the family's athlete page has Your Advisor or No Advisor Named
+  Yet, pointing at More.
 - **My Athletes** (`/mine`, owner and staff): the athletes you advise,
   never checked in first, then the longest gap, each with its new
   messages. Today has a My Athletes row, and Needs Follow-Up lists up
@@ -408,8 +416,9 @@ a name and a reminder, never a permission.
 - **No email.** A new message tells nobody outside the app; the unread
   count is the only signal. Stage 3b on the roadmap.
 - **Production starts empty.** Every athlete's advisor is null until
-  Dave picks one on Edit, so My Athletes is empty and no reminder shows
-  until then. Anyone to be picked needs an owner or staff login first.
+  Dave assigns one from the athlete's page, so My Athletes is empty and
+  no reminder shows until then. Anyone to be picked needs an Admin
+  login first, which Add Admin on the same sheet sends.
 
 The RLS suite proves a family login reads no check-in, writes only its
 own messages on its own athlete, cannot sign as someone else or file a
@@ -583,8 +592,9 @@ the reasons in DECISIONS.md.
   the same names in every org (`src/lib/org/roleLabels.ts`); staff is
   retired and nothing offers it. An Admin sets a per-person Title on the
   member's page; it shows on the members list, the member page, the
-  athlete page's Advisor row, the Athlete screen's Your Advisor row and
-  the Advisor picker, with the access level shown when there is none.
+  athlete page's Advisor row and sheet, the Athlete screen's Your
+  Advisor row, the Advisors list and the Add form's picker, with the
+  access level shown when there is none.
   `src/laws/accessLaws.test.ts` and the 0041 block of
   `scripts/rls_test.sql` hold it.
 - **The stand-in reader can never write onto an athlete.** Every
@@ -596,6 +606,49 @@ the reasons in DECISIONS.md.
   law bans data in any migration from 0040 on, and a fixture build
   refuses to build on Vercel. The Bridge mark stays the app icon, as
   Dave asked; the name is one constant, `src/lib/product.ts`.
+
+### The advisor managed where you see it, and More as the control center (Stage 5 Phases 2 and 3, 2026-09-27)
+
+Built to docs/PLAN_STAGE5.md, which Dave approved whole; the reasons
+are in DECISIONS.md under the same date. Migration 0043, no RLS change.
+
+- **The Advisor section is first on the athlete's page**, under the
+  header and any notice, with Messages and Check-Ins under it. With an
+  advisor: their row (Title, tap to email) and Change; without: "No
+  Advisor Assigned" and Assign. Either opens a sheet of the org's
+  Admins, most recently used first (`athletes.advisor_assigned_at`,
+  stamped by the database trigger when the advisor changes, never by
+  the app), a search once there are more than three, one tap per Admin
+  to assign, Clear Advisor, and Add Admin.
+- **Add Admin** is the invite screen with the role preset to Admin and
+  the athlete pinned: "They will be assigned as {name}'s advisor." Send
+  Invite writes the membership, then the advisor, and returns to the
+  athlete with the new person assigned; an address already an Admin
+  here is assigned rather than refused. Every Admin may add an Admin.
+- **Edit no longer has an Advisor field** and a Save there never
+  touches the advisor; Add keeps the picker. The member's page keeps
+  its tick list and gains Assign Athlete, the same sheet the other way
+  round.
+- **One rule**: `src/lib/org/advisors.ts` decides who may advise; the
+  trigger `private.advisor_is_staff()` is its only twin.
+- **More** is six sections: People (Members, owner only; Advisors,
+  every Admin), Program (Documents), Reference (Schools, Grading
+  Scales, Approved Lists, Transfer Windows), Matching (preset,
+  Recalculate All), Foundation (Fundraising, Board; the whole section
+  gone when neither module is on), Organization (Settings, Doc AI
+  Spending and its budget form, Start Another Organization, who you
+  are, Your Name, Sign Out). Assignments, View As and Activity arrive
+  with Phases 4 to 6.
+- **Advisors** (`/advisors`): every Admin with "Title · N athletes",
+  counting Active and Transferring athletes only (the reminder rule),
+  the lede saying how many athletes have nobody, each row opening the
+  person's page.
+
+Laws: `advisorLaws.test.ts`, `moreLaws.test.ts`, the last block of
+`pageRender.test.ts`, and the 0043 block of `scripts/rls_test.sql`
+(Admin assigns and the stamp moves; an unrelated edit leaves it; a
+Viewer reads no row; a family session changes nothing; another org's
+Admin is refused by RLS and by the trigger).
 
 ### Less text on every screen, 2026-09-25
 
@@ -617,7 +670,7 @@ Format examples stay, because they are the part a person acts on.
 ## How it is verified
 
 1. **Unit tests** over the pure modules.
-2. **Laws** (`src/laws/`, 22 files) encode the rules from CLAUDE.md,
+2. **Laws** (`src/laws/`, 27 files) encode the rules from CLAUDE.md,
    BUSINESS_RULES.md, STYLING_CATALOG.md and MATCHING_CONTRACT.md as
    executable checks, each planted, watched to fail, and reverted
    before it counts.
@@ -685,9 +738,11 @@ Format examples stay, because they are the part a person acts on.
   machine that can reach nces.ed.gov (steps in scripts/README.md).
 - **The name.** "BFFSA" is what the app calls itself for now.
 - **Who advises whom.** Every production athlete's advisor is null
-  until Dave picks one on the Edit screen; the notes name Dave, Mike
-  and Kev, but nothing maps those names to logins, and Mike and Kev
-  need owner or staff logins before they can be picked.
+  until Dave assigns one from the athlete's page (or several at once
+  from an Admin's page); the notes name Dave, Mike and Kev, but nothing
+  maps those names to logins. Mike and Kev need Admin logins before
+  they can be picked; Add Admin on the athlete's Advisor sheet sends
+  the invite and assigns them when it lands.
 
 ### Known and deliberate
 
@@ -735,13 +790,17 @@ Format examples stay, because they are the part a person acts on.
 
 ## Immediate next steps
 
-1. The roles rework ships when Dave says "go": commit, apply 0041 to
-   production (no row changes there), deploy, then Dave sets each
+1. The roles rework and Stage 5 Phases 1 to 3 ship when Dave says
+   "go": commit, apply 0041 to 0043 to production (0041 changes no row
+   there; 0042 and 0043 add columns), deploy, run Recalculate All once
+   so every stored match carries its net cost, then Dave sets each
    person's Title from their page under Members and checks the members
    list on his phone. Built without a preview, per "I don't need
    previews. Ship it."
-2. Dave picks advisors (several at once from each Admin's page) and
-   walks the edit and remove screens on his phone.
+2. Dave assigns advisors from each athlete's page (Assign, then a tap on
+   the Admin; Add Admin for Mike and Kev) and walks the edit and remove
+   screens on his phone. Stage 5 Phases 4 to 6 (Assignments, View As,
+   Activity) follow on the same plan.
 3. Load the high school directory (above), then set the AI key and
    discard, delete and re-upload the production documents.
 4. Dave exports his school sheet to the template and imports it, then

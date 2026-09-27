@@ -7,6 +7,8 @@ import { ASSIGNABLE_ROLES } from "@/lib/validation/member";
 import { RELATIONSHIPS, relationshipLabel } from "@/lib/copy/relationships";
 import { assignAdvisorForm, changeMemberRoleForm, removeMemberForm, renameMemberForm, setMemberTitleForm, unassignAdvisorForm } from "@/lib/actions/members";
 import { linkGuardian, unlinkGuardian, updateGuardianRelationship } from "@/lib/actions/guardians";
+import { canAdvise as roleCanAdvise, loadAdvisorChoices } from "@/lib/org/advisors";
+import { AdvisorSheet } from "@/components/AdvisorSheet";
 import { Avatar, Button, Card, CheckField, Chevron, ConfirmButton, EmptyState, Field, Form, Hidden, Notice, Option, Prose, Row, Screen, Section, SelectField, Stack } from "@/components/kit";
 
 interface MemberRow {
@@ -61,7 +63,7 @@ export default async function MemberPage({
   const me = await requireOwner(org.id);
 
   const supabase = await createClient();
-  const [{ data: row }, { data: ownerRows }, { data: guardianRows }, { data: athleteRows }, { data: staffRows }] = await Promise.all([
+  const [{ data: row }, { data: ownerRows }, { data: guardianRows }, { data: athleteRows }, advisors] = await Promise.all([
     supabase
       .from("org_members")
       .select("user_id, role, title, created_at, users(email, full_name, last_sign_in_at)")
@@ -71,19 +73,15 @@ export default async function MemberPage({
     supabase.from("org_members").select("user_id").eq("org_id", org.id).eq("role", "owner"),
     supabase.from("athlete_guardians").select("athlete_id, relationship, athletes(name, deleted_at)").eq("org_id", org.id).eq("user_id", userId),
     supabase.from("athletes").select("id, name, advisor_id").eq("org_id", org.id).is("deleted_at", null).order("name", { ascending: true }),
-    supabase.from("org_members").select("user_id, users(email, full_name)").eq("org_id", org.id).in("role", ["owner", "staff"]),
+    // The org's Admins, for the name behind "Advised by X now".
+    loadAdvisorChoices(supabase, org.id),
   ]);
   if (!row) notFound();
   // A removed athlete's link stays on file but is not shown: the family
   // sees nothing of them, and their roster page is gone.
   const linked = ((guardianRows ?? []) as GuardianRow[]).filter((g) => !unwrap(g.athletes)?.deleted_at).map((g) => ({ id: g.athlete_id, relationship: g.relationship, name: unwrap(g.athletes)?.name ?? "Unknown athlete" }));
   const athletes = (athleteRows ?? []) as AthleteRow[];
-  const staffName = new Map(
-    ((staffRows ?? []) as { user_id: string; users: { email: string; full_name: string | null } | { email: string; full_name: string | null }[] | null }[]).map((s) => {
-      const u = unwrap(s.users);
-      return [s.user_id, u?.full_name || u?.email || "Someone"];
-    }),
-  );
+  const staffName = new Map(advisors.map((a) => [a.id, a.name]));
 
   const member = row as MemberRow;
   const role = member.role as OrgRole;
@@ -105,7 +103,8 @@ export default async function MemberPage({
   const linkable = athletes.filter((a) => !linkedIds.has(a.id));
   const advises = athletes.filter((a) => a.advisor_id === member.user_id);
   const assignable = athletes.filter((a) => a.advisor_id !== member.user_id);
-  const canAdvise = role === "owner" || role === "staff";
+  // The one rule (src/lib/org/advisors.ts): only an Admin advises.
+  const canAdvise = roleCanAdvise(role);
 
   const athleteOptions = (list: AthleteRow[] | { id: string; name: string }[]) =>
     list.map((a) => (
@@ -247,7 +246,28 @@ export default async function MemberPage({
       </Section>
 
       {canAdvise && (
-        <Section label="Athletes They Advise" count={advises.length} role="people" kind="athlete">
+        <Section
+          label="Athletes They Advise"
+          count={advises.length}
+          role="people"
+          kind="athlete"
+          action={
+            assignable.length > 0 ? (
+              // Stage 5, Phase 2: the same sheet as the athlete page, the
+              // other way round. One athlete at a time, searchable; the
+              // tick list below still takes several at once.
+              <AdvisorSheet
+                action={assignAdvisorForm.bind(null, slug, member.user_id)}
+                field="athleteId"
+                title={`Assign to ${name}`}
+                trigger="Assign Athlete"
+                searchLabel="Search Athletes"
+                choices={assignable.map((a) => ({ id: a.id, title: a.name, meta: a.advisor_id ? `Advised by ${staffName.get(a.advisor_id) ?? "someone else"} now` : "No advisor" }))}
+                empty="Every athlete here already has them as advisor."
+              />
+            ) : undefined
+          }
+        >
           {advises.length === 0 && (
             <EmptyState kind="athlete" title="Nobody Yet">
               Tick athletes below to make {name} their advisor.

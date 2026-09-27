@@ -2193,10 +2193,12 @@ describe("LAW: an advisor is owner or staff of the athlete's org, and stops bein
   const advisorOf = (id: string) => data.athletes.find((a) => a.id === id)?.advisor_id ?? null;
 
   it("the owner can be picked; a member and another org's staff cannot", async () => {
-    const { updateAthlete, createAthlete } = await import("@/lib/actions/athletes");
-    const picked = await run(() => updateAthlete(ORG_WITH_MODULES, IDS.athleteTransfer, { errors: {}, values: {} }, athlete({ advisorId: OWNER_ID })));
-    expect(picked.redirect).toContain(`/roster/${IDS.athleteTransfer}`);
-    expect(advisorOf(IDS.athleteTransfer)).toBe(OWNER_ID);
+    // Picked on Add (Stage 5, Phase 2 took the advisor off Edit; the
+    // athlete page's sheet changes it, src/laws/advisorLaws.test.ts).
+    const { createAthlete } = await import("@/lib/actions/athletes");
+    const picked = await run(() => createAthlete(ORG_WITH_MODULES, { errors: {}, values: {} }, athlete({ name: "Advised Athlete", advisorId: OWNER_ID })));
+    expect(picked.redirect).toContain("/roster/");
+    expect(data.athletes.find((a) => a.name === "Advised Athlete")?.advisor_id).toBe(OWNER_ID);
     writes.length = 0;
     // MEMBER_ID is a Bridge Viewer; OUTSIDER_ID is Elite's Admin, not Bridge's.
     for (const advisorId of [MEMBER_ID, OUTSIDER_ID, FAMILY_ID]) {

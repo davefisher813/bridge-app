@@ -96,7 +96,10 @@ pill, and it has no fill), `Score` (the fit number in its band colour),
 destructive outlined with danger text, quiet text only; full width
 unless `inline`), `LinkButton`, `AddButton` (the 44px accent disc in a
 screen header), `TextLink` (a small accent link under a list),
-`ConfirmButton` (a destructive action that opens a confirm sheet).
+`ConfirmButton` (a destructive action that opens a confirm sheet),
+`Sheet` (the same scrim and bottom panel as a piece of its own, for a
+client component that puts a list in it; presentational, the caller
+holds open; `AdvisorSheet` is built on it, Stage 5 Phase 2).
 
 **Fields:** `Field`, `SelectField`, `TextAreaField` (label above, hint
 or error below, filled paper, 16px, 48px tall), `CheckField`,

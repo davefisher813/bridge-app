@@ -12,6 +12,7 @@ import { resolveCollege, resolveHighSchool } from "@/lib/data/lookups";
 import { addAthleteNote, deleteAthleteNote } from "@/lib/data/athleteNotes";
 import { escapeIlike, nameKey } from "@/lib/lookup/nameKey";
 import { isUsStateCode } from "@/lib/lookup/states";
+import { isEligibleAdvisor } from "@/lib/org/advisors";
 import type { AthleteFormResult } from "@/lib/validation/athlete";
 
 // Athlete add/edit was the top ROADMAP.md item once roster/board existed
@@ -34,17 +35,12 @@ function valuesFromFormData(formData: FormData): Record<string, FormDataEntryVal
   return Object.fromEntries(formData.entries());
 }
 
-// The advisor must be an owner or staff member of this org (migration
-// 0039). The database trigger refuses anyone else; this asks first so the
-// answer is a field error, not a constraint message. Read through the
-// caller's own client: an owner or staff member sees their org's rows.
+// The advisor picked on Add must be an Admin of this org: the one rule
+// in src/lib/org/advisors.ts, asked first so the answer is a field
+// error, not the trigger's constraint message. Edit no longer writes the
+// advisor at all (Stage 5, Phase 2): the athlete page's Advisor sheet
+// does, so a Save on Edit can never undo an assignment made there.
 const ADVISOR_ERROR = { advisorId: "Pick an Admin." };
-
-async function assertAdvisorInOrg(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string, advisorId: string | undefined): Promise<boolean> {
-  if (!advisorId) return true;
-  const { data } = await supabase.from("org_members").select("user_id").eq("user_id", advisorId).eq("org_id", orgId).in("role", ["owner", "staff"]).maybeSingle();
-  return !!data;
-}
 
 // The directory fills (Stage 4). A high school or current school that
 // matches exactly one directory row records that row's id; anything else
@@ -86,7 +82,7 @@ export async function createAthlete(slug: string, _prevState: AthleteActionState
   }
 
   const supabase = await createClient();
-  if (!(await assertAdvisorInOrg(supabase, org.id, parsed.values.advisorId))) {
+  if (parsed.values.advisorId && !(await isEligibleAdvisor(supabase, org.id, parsed.values.advisorId))) {
     return { errors: ADVISOR_ERROR, values: valuesFromFormData(formData) };
   }
 
@@ -187,10 +183,6 @@ export async function updateAthlete(
 
   const supabase = await createClient();
 
-  if (!(await assertAdvisorInOrg(supabase, org.id, parsed.values.advisorId))) {
-    return { errors: ADVISOR_ERROR, values: valuesFromFormData(formData) };
-  }
-
   // Read before write, so a save that flips the dropdown can be told
   // apart from every other save while it already reads the same, and a
   // date correction can be checked against what is on file.
@@ -273,7 +265,6 @@ export async function updateAthlete(
       gpa: parsed.values.gpa ?? null,
       gpa_verified: parsed.values.gpaVerified,
       status: parsed.values.status,
-      advisor_id: parsed.values.advisorId ?? null,
       is_international: parsed.values.isInternational,
       toefl_score: parsed.values.toeflScore ?? null,
       ielts_score: parsed.values.ieltsScore ?? null,

@@ -759,4 +759,23 @@ export function Skeleton({ rows = 4 }: { rows?: number }) {
   );
 }
 
+// ── Sheet ────────────────────────────────────────────────────────────
+// The bottom panel ConfirmButton draws, as a piece of its own so a
+// client component can put a list in it (the Advisor sheet, Stage 5
+// Phase 2). Presentational: the caller holds `open` and closes it. A
+// tap on the scrim closes; the panel scrolls when its list is long and
+// keeps 64px of the page showing above it. Only the kit may be `fixed`
+// (src/laws/kitLaws.test.ts), which is why this lives here.
+export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-20 flex items-end justify-center bg-ink/40 pt-16" role="presentation" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={title} className="pb-safe flex max-h-full w-full max-w-md flex-col gap-4 overflow-y-auto rounded border border-line bg-paper p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="text-heading font-extrabold tracking-tight text-ink">{title}</div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export { ConfirmButton } from "./ConfirmButton";

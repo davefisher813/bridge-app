@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import type { MemberActionState } from "@/lib/actions/members";
 import { labelForRole } from "@/lib/org/roleLabels";
-import { ASSIGNABLE_ROLES } from "@/lib/validation/member";
+import { ASSIGNABLE_ROLES, type AssignableRole } from "@/lib/validation/member";
 import { Button, Field, Form, Hidden, SelectField, SuggestField } from "@/components/kit";
 import { RELATIONSHIPS } from "@/lib/copy/relationships";
 
@@ -29,23 +29,43 @@ export interface InviteAthleteOption {
 // `suggest` is what the athlete's own parent and guardian contacts
 // already say (Stage 4): their emails are suggested, and the name is
 // filled in when there is exactly one of them.
+//
+// `preset` is Add Admin from an athlete's Advisor sheet (Stage 5, Phase
+// 2): the role is fixed (owner, shown as Admin), the athlete they will
+// advise rides along hidden, and the invite comes back to that athlete's
+// page with the new person assigned.
 export function InviteForm({
   action,
   athletes = [],
   pinned,
+  preset,
   suggest,
 }: {
   action: ServerAction;
   athletes?: InviteAthleteOption[];
   pinned?: { athleteId: string; athleteName: string; returnTo: string };
+  preset?: { role: AssignableRole; assignAthleteId?: string; returnTo: string };
   suggest?: { emails: string[]; name?: string };
 }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   const err = (key: string) => state.errors[key];
   const value = (key: string) => (state.values?.[key] === undefined ? "" : String(state.values[key]));
   // Viewer by default: the level that changes nothing is the safe one.
-  const [role, setRole] = useState(pinned ? "family" : value("role") || "member");
+  const [role, setRole] = useState(pinned ? "family" : preset?.role ?? (value("role") || "member"));
   const roles = athletes.length > 0 ? ASSIGNABLE_ROLES : ASSIGNABLE_ROLES.filter((r) => r !== "family");
+
+  if (preset) {
+    return (
+      <Form action={formAction} error={state.errors.form ?? state.errors.role}>
+        <Hidden name="role" value={preset.role} />
+        {preset.assignAthleteId && <Hidden name="assignAthleteId" value={preset.assignAthleteId} />}
+        <Hidden name="returnTo" value={preset.returnTo} />
+        <Field name="email" label="Email" type="email" autoComplete="off" inputMode="email" required defaultValue={value("email")} error={err("email")} hint={preset.role === "owner" ? `${labelForRole("owner")}s add and edit everything, including members, schools and settings.` : undefined} />
+        <Field name="fullName" label="Name (optional)" autoComplete="off" defaultValue={value("fullName")} />
+        <Button disabled={pending}>{pending ? "Sending..." : "Send Invite"}</Button>
+      </Form>
+    );
+  }
 
   if (pinned) {
     return (

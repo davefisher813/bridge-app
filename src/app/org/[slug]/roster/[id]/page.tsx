@@ -20,7 +20,9 @@ import { statusRole, stageKind } from "@/components/statusHue";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
 import { loadFitsForAthlete } from "@/lib/data/fits";
 import { formatMetricValue, metricsFor, partialLabelFor, positionGroupOf, rankFits, selectScoringMetrics } from "@/lib/fit";
-import { loadStaff } from "@/lib/data/staff";
+import { loadAdvisorChoices } from "@/lib/org/advisors";
+import { setAdvisorFromAthleteForm } from "@/lib/actions/advisor";
+import { AdvisorSheet } from "@/components/AdvisorSheet";
 import { threadSummaryByAthlete } from "@/lib/data/messages";
 import { checkinDue } from "@/lib/checkins";
 import { personLabel } from "@/lib/org/roleLabels";
@@ -90,9 +92,9 @@ function unwrap<T>(value: T | T[] | null): T | null {
 // and Family, as sections on one scrollable page. Closed targets,
 // messages and visits live on Recruiting History; the profile shows
 // only what is live. Dave, 2026-09-26.
-export default async function AthletePage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ notice?: string }> }) {
+export default async function AthletePage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ notice?: string; error?: string }> }) {
   const { slug, id } = await params;
-  const { notice } = searchParams ? await searchParams : {};
+  const { notice, error } = searchParams ? await searchParams : {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
@@ -100,7 +102,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
-  const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits, staff, { data: lastCheckinRows }, threads, notes] = await Promise.all([
+  const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits, advisors, { data: lastCheckinRows }, threads, notes] = await Promise.all([
     supabase
       .from("athletes")
       .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment, advisor_id")
@@ -118,10 +120,12 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
     supabase.from("schools").select("id, name, division, sports_sponsored").order("name"),
     supabase.from("athlete_metrics").select("id, metric, value, measured_on, source").eq("athlete_id", id).eq("org_id", org.id).order("measured_on", { ascending: false }),
     loadFitsForAthlete(supabase, org.id, id),
-    // Stage 3 (migration 0039): the advisor comes from the staff list,
-    // which also carries the role for the label, so a removed or
-    // demoted advisor reads as nobody picked rather than a stale name.
-    loadStaff(supabase, org.id),
+    // Stage 3 (migration 0039): the advisor comes from the Admin list,
+    // which also carries the Title for the label, so a removed or
+    // demoted advisor reads as nobody assigned rather than a stale
+    // name. Stage 5, Phase 2: the same list, most recently used first,
+    // is what the Advisor sheet offers.
+    loadAdvisorChoices(supabase, org.id),
     supabase.from("athlete_checkins").select("occurred_on").eq("org_id", org.id).eq("athlete_id", id).order("occurred_on", { ascending: false }).limit(1),
     threadSummaryByAthlete(supabase, org.id, user.id, [id]),
     // Staff notes (migration 0040), all of them: this is the only screen
@@ -205,7 +209,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
     await reopenRecruiting(slug, id, formData);
   }
 
-  const advisor = staff.find((s) => s.id === athlete.advisor_id) ?? null;
+  const advisor = advisors.find((s) => s.id === athlete.advisor_id) ?? null;
   const thread = threads.get(id);
   const lastCheckinOn = ((lastCheckinRows ?? []) as { occurred_on: string | null }[])[0]?.occurred_on ?? null;
   const checkinIsDue = checkinDue(lastCheckinOn, new Date());
@@ -219,6 +223,29 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const deleteContactAction = deleteContact.bind(null, slug, id);
   const noteAction = addNote.bind(null, slug, id);
 
+  // The Advisor sheet (Stage 5, Phase 2): Assign or Change, the org's
+  // Admins most recently used first, Clear, and Add Admin, which is the
+  // existing invite with the role preset and a way back here with the
+  // new person assigned. Admins only; the advisor itself is display and
+  // reminders, never a permission.
+  const advisorAction = setAdvisorFromAthleteForm.bind(null, slug, id);
+  const advisorSheet = canEdit ? (
+    <AdvisorSheet
+      action={advisorAction}
+      field="advisorId"
+      title="Advisor"
+      trigger={advisor ? "Change" : "Assign"}
+      searchLabel="Search Admins"
+      currentId={advisor?.id ?? null}
+      clearLabel={advisor ? "Clear Advisor" : undefined}
+      choices={advisors.map((a) => ({ id: a.id, title: a.name, meta: `${personLabel(a)}${a.advising ? ` · ${a.advising} ${a.advising === 1 ? "athlete" : "athletes"}` : ""}`, keywords: a.email }))}
+      // Inviting an Admin is an owner's (inviteMember, members/new), so
+      // the door is offered to the same people who may go through it.
+      add={user.role === "owner" ? { href: `/org/${slug}/members/new?role=owner&assignAthleteId=${id}`, label: "Add Admin" } : undefined}
+      empty="Nobody here can advise yet. Add an Admin below."
+    />
+  ) : undefined;
+
   return (
     <Screen
       title={athlete.name}
@@ -231,6 +258,45 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           {notice}
         </Notice>
       )}
+      {error && <Notice tone="danger" title={error} />}
+
+      {/* Who checks in with this athlete, and the two things they do:
+          the thread with the family and the check-in log. First on the
+          page (Stage 5, Phase 2), managed where you see it: Assign or
+          Change opens the sheet. The advisor is display and reminders
+          only, never a permission. */}
+      <Section label="Advisor" role="people" kind="people" action={advisor ? advisorSheet : undefined}>
+        {advisor ? (
+          <Row
+            href={advisor.email ? `mailto:${advisor.email}` : undefined}
+            leading={<Avatar name={advisor.name} />}
+            title={advisor.name}
+            meta={`${personLabel(advisor)}${advisor.email ? ` · ${advisor.email}` : ""}`}
+            trailing={advisor.email ? <Chevron /> : undefined}
+            wrap
+          />
+        ) : (
+          <EmptyState kind="people" title="No Advisor Assigned" action={advisorSheet}>
+            The advisor checks in with this athlete and the athlete login sees their name.
+          </EmptyState>
+        )}
+        <Row
+          href={`/org/${slug}/roster/${id}/messages`}
+          kind="message"
+          role="contact"
+          title="Messages"
+          meta={thread ? `${thread.total} ${thread.total === 1 ? "message" : "messages"}${thread.unread > 0 ? ` · ${thread.unread} new` : ""}` : "Nothing sent yet"}
+          trailing={<Chevron />}
+        />
+        <Row
+          href={`/org/${slug}/roster/${id}/checkins`}
+          kind="clock"
+          role="time"
+          title="Check-Ins"
+          meta={lastCheckinOn ? `last on ${longDate(lastCheckinOn)}${checkinIsDue ? " · due for one" : ""}` : "None yet"}
+          trailing={<Chevron />}
+        />
+      </Section>
 
       <Stack gap={3}>
         {placement ? (
@@ -397,41 +463,6 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         </Section>
       )}
 
-      {/* Who checks in with this athlete, and the two things they do:
-          the thread with the family and the check-in log. The advisor
-          is display and reminders only, never a permission. */}
-      <Section label="Advisor" role="people" kind="people">
-        {advisor ? (
-          <Row
-            href={advisor.email ? `mailto:${advisor.email}` : undefined}
-            leading={<Avatar name={advisor.name} />}
-            title={advisor.name}
-            meta={`${personLabel(advisor)}${advisor.email ? ` · ${advisor.email}` : ""}`}
-            trailing={advisor.email ? <Chevron /> : undefined}
-            wrap
-          />
-        ) : (
-          <EmptyState kind="people" title="No Advisor Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/edit`}>Pick One</LinkButton> : undefined}>
-            The advisor checks in with this athlete and the athlete login sees their name.
-          </EmptyState>
-        )}
-        <Row
-          href={`/org/${slug}/roster/${id}/messages`}
-          kind="message"
-          role="contact"
-          title="Messages"
-          meta={thread ? `${thread.total} ${thread.total === 1 ? "message" : "messages"}${thread.unread > 0 ? ` · ${thread.unread} new` : ""}` : "Nothing sent yet"}
-          trailing={<Chevron />}
-        />
-        <Row
-          href={`/org/${slug}/roster/${id}/checkins`}
-          kind="clock"
-          role="time"
-          title="Check-Ins"
-          meta={lastCheckinOn ? `last on ${longDate(lastCheckinOn)}${checkinIsDue ? " · due for one" : ""}` : "None yet"}
-          trailing={<Chevron />}
-        />
-      </Section>
 
       {/* Staff only (migration 0040): a dated log, newest first. Notes
           are deleted, never edited, and no family or member screen reads
