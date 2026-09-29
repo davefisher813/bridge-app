@@ -487,6 +487,11 @@ function fakeLogFamilyMessage(
     (data.athlete_guardians ?? []).some((g) => g.athlete_id === athleteId && g.user_id === userId) &&
     (data.org_members ?? []).some((m) => m.user_id === userId && m.org_id === athlete.org_id && m.role === "family");
   if (!athlete || !linked) return refuse("not linked to that athlete");
+  // Only for a message that exists and is not logged yet (the SQL compares
+  // times; counting is the same rule here).
+  const sent = (data.athlete_messages ?? []).filter((m) => m.athlete_id === athleteId && m.author_id === userId).length;
+  const logged = (data.activity_log ?? []).filter((l) => l.actor_id === userId && l.athlete_id === athleteId && l.action === "message_sent").length;
+  if (sent <= logged) return refuse("no unlogged message from you on that athlete");
   const forced = failOn("activity_log", "insert");
   if (forced) return { data: null, error: { code: "XX000", message: forced } };
   const log = data.activity_log ?? (data.activity_log = []);

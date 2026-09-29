@@ -169,6 +169,21 @@ export async function createAthlete(slug: string, _prevState: AthleteActionState
       athleteId: created.id,
       summary: activitySummary("athlete_created", { name: parsed.values.name }),
     });
+    // An advisor picked on Add is an advisor set, the same row the
+    // Advisor sheet writes, so an assignment reads the same whichever
+    // screen made it.
+    if (parsed.values.advisorId) {
+      const { data: advisor } = await supabase.from("users").select("full_name").eq("id", parsed.values.advisorId).maybeSingle();
+      await logActivity(supabase, {
+        orgId: org.id,
+        actorId: user.id,
+        action: "advisor_set",
+        subjectType: "athlete",
+        subjectId: created.id,
+        athleteId: created.id,
+        summary: activitySummary("advisor_set", { name: parsed.values.name, advisor: (advisor as { full_name: string | null } | null)?.full_name?.trim() ?? "" }),
+      });
+    }
   }
   if (metricsWarning) {
     return { errors: { form: `${parsed.values.name} was added, but the metrics could not be logged: ${metricsWarning}. Log them from the athlete's Metrics screen.` }, values: valuesFromFormData(formData) };

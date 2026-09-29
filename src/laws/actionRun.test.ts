@@ -73,13 +73,20 @@ vi.mock("@/lib/ai/anthropicCaller", async () => {
   };
 });
 
+// Writes made through the service role, also kept apart so a law can say
+// which client wrote a row (the activity log is the caller's own client's,
+// except for an Admin who has just taken their own access away).
+let viaServer: RecordedWrite[] = [];
+const serverRecorder = { push: (...w: RecordedWrite[]) => { viaServer.push(...w); return writes.push(...w); } } as unknown as RecordedWrite[];
+
 vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: () => createFakeClient(data, { userId: currentUser, recorded: writes, failOn }),
+  createAdminClient: () => createFakeClient(data, { userId: currentUser, recorded: serverRecorder, failOn }),
 }));
 
 beforeEach(() => {
   currentUser = OWNER_ID;
   writes = [];
+  viaServer = [];
   data = buildFixture();
   failOn = () => null;
   revalidated = [];
@@ -2403,6 +2410,163 @@ describe("LAW: every action writes one activity_log row on success, none on refu
     expect(logs()[0]).toMatchObject({ action: "member_removed", subject_id: MEMBER_ID, summary: "Removed Example Member" });
     // The name was read before the membership went, not after.
     expect(String(logs()[0].summary)).toContain("Example Member");
+  });
+
+  it("adding an athlete with an advisor picked logs the assignment as its own row", async () => {
+    const { createAthlete } = await import("@/lib/actions/athletes");
+    await run(() => createAthlete(ORG_WITH_MODULES, { errors: {}, values: {} }, hsForm({ name: "New Athlete", advisorId: OWNER_ID })));
+    const created = data.athletes.find((a) => a.name === "New Athlete")!;
+    expect(logs().map((r) => [r.action, r.athlete_id, r.summary])).toEqual([
+      ["athlete_created", created.id, "Added New Athlete"],
+      ["advisor_set", created.id, "Set Example Owner as the advisor for New Athlete"],
+    ]);
+    for (const row of logs()) wellFormed(row);
+  });
+
+  it("a target added, moved and removed each log one row naming both, and an in-place edit logs none", async () => {
+    const { createTarget, updateTarget, deleteTarget } = await import("@/lib/actions/targets");
+    await run(() => createTarget(ORG_WITH_MODULES, { errors: {} }, form({ athleteId: IDS.athlete, schoolId: IDS.schoolD3, status: "Target" })));
+    expect(logs()).toHaveLength(1);
+    wellFormed(logs()[0]);
+    expect(logs()[0]).toMatchObject({ action: "target_added", subject_type: "target", athlete_id: IDS.athlete, summary: "Added Fixture College as a target for Fixture Athlete" });
+    writes.length = 0;
+
+    await run(() => updateTarget(ORG_WITH_MODULES, IDS.target, { errors: {} }, form({ athleteId: IDS.athlete, schoolId: IDS.school, status: "Visit" })));
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "target_status_changed", subject_id: IDS.target, athlete_id: IDS.athlete });
+    expect(String(logs()[0].summary)).toMatch(/^Moved Fixture Athlete at Fixture State University from \w+ to Visit$/);
+    writes.length = 0;
+
+    // The same stage with another coach name is an edit, not history.
+    data = buildFixture();
+    const status = String(data.recruiting_targets.find((t) => t.id === IDS.target)!.status);
+    await run(() => updateTarget(ORG_WITH_MODULES, IDS.target, { errors: {} }, form({ athleteId: IDS.athlete, schoolId: IDS.school, status, coachName: "Someone Else" })));
+    expect(writes.filter((w) => w.table === "recruiting_targets" && w.op === "update")).toHaveLength(1);
+    expect(logs()).toEqual([]);
+
+    await run(() => deleteTarget(ORG_WITH_MODULES, IDS.target));
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "target_removed", athlete_id: IDS.athlete, summary: "Removed Fixture State University as a target for Fixture Athlete" });
+  });
+
+  it("Add to Board from a match logs one row, and a target for another org's athlete logs none", async () => {
+    const { addMatchToBoard } = await import("@/lib/actions/matching");
+    await run(() => addMatchToBoard(ORG_WITH_MODULES, IDS.athleteNoGpa, IDS.school));
+    expect(logs()).toHaveLength(1);
+    wellFormed(logs()[0]);
+    expect(logs()[0]).toMatchObject({ action: "target_added", athlete_id: IDS.athleteNoGpa });
+    writes.length = 0;
+    data = buildFixture();
+    const foreign = "00000000-0000-0000-0000-0000000009f1";
+    data.athletes.push({ ...data.athletes[0], id: foreign, org_id: data.orgs[1]!.id });
+    const { createTarget } = await import("@/lib/actions/targets");
+    await run(() => createTarget(ORG_WITH_MODULES, { errors: {} }, form({ athleteId: foreign, schoolId: IDS.school, status: "Target" })));
+    expect(logs()).toEqual([]);
+  });
+
+  it("a check-in logs its kind and day, never the note, and a refused one logs nothing", async () => {
+    const { logCheckin } = await import("@/lib/actions/checkins");
+    const r = await logCheckin(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ kind: "call", occurredOn: "2026-09-21", notes: "Fixture check-in note." }));
+    expect(r.errors).toEqual({});
+    expect(logs()).toHaveLength(1);
+    wellFormed(logs()[0]);
+    expect(logs()[0]).toMatchObject({ action: "checkin_logged", subject_type: "checkin", athlete_id: IDS.athlete, summary: "Logged a call check-in for Fixture Athlete on Sep 21, 2026" });
+    expect(JSON.stringify(logs())).not.toContain("Fixture check-in");
+    writes.length = 0;
+    await logCheckin(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ kind: "bogus", notes: "x" }));
+    expect(logs()).toEqual([]);
+  });
+
+  it("a staff message logs as the sender and a family message goes through log_family_message, neither with the body", async () => {
+    const { sendMessage } = await import("@/lib/actions/messages");
+    await sendMessage(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ body: "Fixture message from staff." }));
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "message_sent", actor_id: OWNER_ID, athlete_id: IDS.athlete, summary: "Sent a message to the family of Fixture Athlete" });
+    writes.length = 0;
+
+    currentUser = FAMILY_ID;
+    const r = await sendMessage(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ body: "Fixture reply from the family." }));
+    expect(r.errors).toEqual({});
+    // The fake's rpc stands in for the SECURITY DEFINER function, which
+    // is the only thing that writes a family login's row.
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "message_sent", actor_id: FAMILY_ID, org_id: ORG(), summary: "Sent a message" });
+    expect(JSON.stringify(logs())).not.toMatch(/Fixture message|Fixture reply/);
+  });
+
+  it("a document upload, apply and discard each log once: the kind and the athlete, nothing read off it", async () => {
+    const { processDocument, applyDocument, discardDocument } = await import("@/lib/actions/documents");
+    const stored = { originalName: "transcript.pdf", originalSize: 40, originalMime: "application/pdf", kind: "pdf" as const, sourceRole: "coordinator" as const, ingestedAt: "2026-09-26T00:00:00.000Z", requestId: "req_fixture", mediaType: "application/pdf", blockType: "document" as const, storagePath: `${ORG()}/req_fixture/1-transcript.pdf` };
+    const p = await processDocument(ORG_WITH_MODULES, { records: [stored], sourceRole: "coordinator", requestedCategory: "transcript", athleteId: IDS.athlete });
+    expect(p.ok).toBe(true);
+    expect(logs()).toHaveLength(1);
+    wellFormed(logs()[0]);
+    expect(logs()[0]).toMatchObject({ action: "document_uploaded", subject_type: "document", subject_id: p.documentId, summary: "Uploaded a transcript for Fixture Athlete" });
+    writes.length = 0;
+
+    const a = await asRealModel(() => applyDocument(ORG_WITH_MODULES, IDS.document, IDS.athlete));
+    expect(a.ok).toBe(true);
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "document_applied", subject_id: IDS.document, athlete_id: IDS.athlete, summary: "Applied a transcript to Fixture Athlete" });
+    expect(JSON.stringify(logs())).not.toMatch(/smudged|graduation year|3\.4/);
+    writes.length = 0;
+
+    // Applying twice is refused, and a refusal logs nothing.
+    expect((await asRealModel(() => applyDocument(ORG_WITH_MODULES, IDS.document, IDS.athlete))).ok).toBe(false);
+    expect(logs()).toEqual([]);
+
+    const d = await discardDocument(ORG_WITH_MODULES, IDS.document);
+    expect(d.ok).toBe(true);
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "document_discarded", subject_id: IDS.document, summary: "Discarded a transcript for Fixture Athlete" });
+    writes.length = 0;
+    expect((await discardDocument(ORG_WITH_MODULES, IDS.document)).ok).toBe(false);
+    expect(logs()).toEqual([]);
+  });
+
+  it("linking and unlinking an Athlete login log a member row on the athlete, the name and never the address", async () => {
+    const { linkGuardian, unlinkGuardian } = await import("@/lib/actions/guardians");
+    await run(() => linkGuardian(ORG_WITH_MODULES, FAMILY_ID, form({ athleteId: IDS.athleteTransfer, relationship: "parent" })));
+    expect(logs()).toHaveLength(1);
+    wellFormed(logs()[0]);
+    expect(logs()[0]).toMatchObject({ action: "member_invited", subject_type: "member", subject_id: FAMILY_ID, athlete_id: IDS.athleteTransfer, summary: "Invited Fixture Parent as an Athlete for Fixture Transfer" });
+    writes.length = 0;
+    // Already linked: refused, nothing logged.
+    await run(() => linkGuardian(ORG_WITH_MODULES, FAMILY_ID, form({ athleteId: IDS.athleteTransfer, relationship: "parent" })));
+    expect(logs()).toEqual([]);
+    await run(() => unlinkGuardian(ORG_WITH_MODULES, IDS.athleteTransfer, FAMILY_ID));
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "member_removed", subject_id: FAMILY_ID, athlete_id: IDS.athleteTransfer, summary: "Removed Fixture Parent from Fixture Transfer" });
+    writes.length = 0;
+    await run(() => unlinkGuardian(ORG_WITH_MODULES, IDS.athleteTransfer, FAMILY_ID));
+    expect(logs()).toEqual([]);
+  });
+
+  it("an Admin who demotes or removes themselves is logged by the server, since their own client no longer qualifies; anyone else by the session", async () => {
+    withKey();
+    const { changeMemberRole, removeMember } = await import("@/lib/actions/members");
+    // A second Admin, so the caller is not the org's only one.
+    data.org_members.push({ id: "m-second", user_id: OUTSIDER_ID, org_id: data.orgs[0]!.id, role: "owner" });
+    const serverLogs = () => viaServer.filter((w) => w.table === "activity_log");
+
+    expect((await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "owner")).ok).toBe(true);
+    expect(logs()).toHaveLength(1);
+    expect(serverLogs()).toEqual([]);
+    writes.length = 0;
+
+    expect((await changeMemberRole(ORG_WITH_MODULES, OWNER_ID, "member")).ok).toBe(true);
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "member_role_changed", actor_id: OWNER_ID, subject_id: OWNER_ID, summary: "Changed Example Owner from Admin to Viewer" });
+    expect(serverLogs()).toHaveLength(1);
+    writes.length = 0;
+    viaServer = [];
+
+    data = buildFixture();
+    data.org_members.push({ id: "m-second", user_id: OUTSIDER_ID, org_id: data.orgs[0]!.id, role: "owner" });
+    expect((await removeMember(ORG_WITH_MODULES, OWNER_ID)).ok).toBe(true);
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]).toMatchObject({ action: "member_removed", actor_id: OWNER_ID, subject_id: OWNER_ID, summary: "Removed Example Owner" });
+    expect(serverLogs()).toHaveLength(1);
   });
 
   it("a refused action logs nothing", async () => {

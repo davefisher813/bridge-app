@@ -38,7 +38,8 @@
 --    here, through a SECURITY DEFINER function, because no insert policy
 --    on this table admits a family session and none should. The caller
 --    must be linked to that athlete (private._family_athlete_ids(),
---    which honours a link only while the membership lives). The org is
+--    which honours a link only while the membership lives) and must have
+--    a message on it not yet logged. The org is
 --    read from the athlete, the summary is the literal "Sent a message"
 --    and the message body never enters the signature.
 --
@@ -187,6 +188,20 @@ begin
   select a.org_id into athlete_org from public.athletes a where a.id = p_athlete;
   if athlete_org is null then
     raise exception 'log_family_message: not linked to that athlete' using errcode = 'insufficient_privilege';
+  end if;
+  -- A line is written only for a message that exists: the caller must
+  -- have one on this athlete newer than their last logged one, so the
+  -- function cannot be called on its own to write "Sent a message" rows
+  -- with nothing behind them.
+  if not exists (
+    select 1 from public.athlete_messages m
+    where m.athlete_id = p_athlete and m.author_id = caller
+      and m.created_at > coalesce(
+        (select max(l.created_at) from public.activity_log l
+          where l.actor_id = caller and l.athlete_id = p_athlete and l.action = 'message_sent'),
+        '-infinity'::timestamptz)
+  ) then
+    raise exception 'log_family_message: no unlogged message from you on that athlete' using errcode = 'insufficient_privilege';
   end if;
   insert into public.activity_log (org_id, athlete_id, actor_id, action, subject_type, subject_id, summary)
     values (athlete_org, p_athlete, caller, 'message_sent', 'message', null, 'Sent a message');

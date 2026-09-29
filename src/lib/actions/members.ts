@@ -350,7 +350,10 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
 
   // The activity log (Stage 5, Phase 6): one row, the person and the two
   // access levels, on the athlete when the change linked them to one.
-  await logActivity(supabase, {
+  // An Admin who just made themselves a Viewer is no longer one, so the
+  // insert policy would refuse their own client; the server records it
+  // for them (the row still names them as the actor).
+  await logActivity(caller.id === userId ? admin : supabase, {
     orgId: org.id,
     actorId: caller.id,
     action: "member_role_changed",
@@ -403,10 +406,11 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
   if (error) return { ok: false, error: error.message };
 
   // The activity log (Stage 5, Phase 6): one row, org-level, naming who
-  // left. Written by the caller, who is still an Admin here even when
-  // they removed themselves, since the database checks the session's
-  // memberships at insert time and this runs in the same request.
-  await logActivity(supabase, {
+  // left. An Admin who removed themselves is no longer a member here, and
+  // the insert policy reads the membership as it stands after the delete,
+  // so their own client would be refused; the server records that one
+  // (the row still names them as the actor).
+  await logActivity(caller.id === userId ? admin : supabase, {
     orgId: org.id,
     actorId: caller.id,
     action: "member_removed",

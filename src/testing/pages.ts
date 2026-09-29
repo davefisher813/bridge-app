@@ -170,6 +170,15 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // no Foundation section, and Advisors lists every Admin with a count.
   { name: "more-lite", path: "@/app/org/[slug]/more/page", props: { params: p({ slug: ORG_WITHOUT_MODULES }) }, expect: /^(?![\s\S]*Foundation)[\s\S]*Organization[\s\S]*Sign Out/ },
   { name: "advisors", path: "@/app/org/[slug]/advisors/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Advisors[\s\S]*Example Owner[\s\S]*Head of Recruiting<\/span> · 2 athletes/ },
+  // Stage 5 Phase 6, 2026-09-27: the activity log, Admins only. The org
+  // screen lists every entry newest first and searches the summary and
+  // the actor; an athlete's own log renders its empty state for the one
+  // athlete with nothing recorded.
+  { name: "activity", path: "@/app/org/[slug]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Activity[\s\S]*Sent a message[\s\S]*Invited Example Member as a Viewer/ },
+  { name: "activity-search", path: "@/app/org/[slug]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "advisor" }) }, expect: /Set Example Owner as the advisor for Fixture Athlete/ },
+  { name: "activity-search-empty", path: "@/app/org/[slug]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "zzzz" }) }, expect: /Nothing Matches/ },
+  { name: "athlete-activity", path: "@/app/org/[slug]/roster/[id]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({}) }, expect: /Every change recorded for Fixture Athlete[\s\S]*Added Fixture Athlete/ },
+  { name: "athlete-activity-empty", path: "@/app/org/[slug]/roster/[id]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }), searchParams: p({}) }, expect: /No Activity Yet/ },
   { name: "approved-list", path: "@/app/org/[slug]/approved-courses/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.orgList }), searchParams: p({}) }, expect: /Unscaled High School/ },
   { name: "grading-scale", path: "@/app/org/[slug]/grading-scales/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.orgScale }) }, expect: /Fixture High School/ },
   { name: "document", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.document }) }, expect: /fixture.pdf/ },

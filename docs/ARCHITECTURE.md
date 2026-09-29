@@ -286,6 +286,42 @@ asserts each of these.
   authenticated) before the first migration, so a missing anon revoke
   fails locally the way it would matter in production.
 
+### The activity log (migration 0044)
+
+- **`activity_log`** is append only: a select policy on
+  `_staff_org_ids()` and an insert policy on the same with
+  `actor_id = auth.uid()`, no update or delete policy for anyone. A
+  Viewer and an Athlete login read nothing, and no family or member
+  page or loader names the table (`activityLaws.test.ts`).
+  `private.activity_is_honest()` stamps `created_at` and, except for the
+  service role, `actor_id` on insert and raises on any update, letting
+  through only the foreign key's own `on delete set null`, which is what
+  lets an athlete or login be hard deleted while the history stays.
+  `athlete_id` is `on delete set null`, never cascade. The coherence
+  trigger refuses a row whose athlete is not in its org.
+- **Summaries are sentences from a template table**, one per action, in
+  `src/lib/data/activity.ts`. `logActivity(client, entry)` takes an
+  action and a `subject` of names, statuses, kinds and dates and returns
+  `ActivitySummary`, a branded string the insert requires, so no caller
+  can hand the log a string, and there is no parameter a note, a message
+  or a reading could travel in. It never throws into the action: a
+  failed log write warns and the business write stands. Called once per
+  successful write in `src/lib/actions`, after the write and before
+  `revalidatePath`, never inside a shared data helper.
+- **The family's message** is the one write the Admin-only insert policy
+  cannot admit, so `sendMessage` calls the security-definer function
+  `log_family_message(p_athlete)` (`search_path = ''`, guardian check,
+  literal summary, revoked from anon). A person removing or demoting
+  themselves logs through the admin client, since they are no longer an
+  Admin when the insert runs; the row still names them as actor.
+- **Reads** are `loadAthleteActivity` (an athlete's rows, limit given by
+  the caller) and `loadOrgActivity` (the org's rows, searched in memory
+  over the summary and the actor's name, paged by limit). Screens:
+  the profile's Activity section (five, See All), `/roster/[id]/activity`
+  and `/org/[slug]/activity` (50, then Show More via `?show=`), all
+  behind `STAFF_ROLES`, all through `ActivityRows`
+  (`src/components/ActivityRows.tsx`, kit only).
+
 ### Lookups and autofill
 
 `SuggestField` in the kit is the one way a screen offers suggestions:

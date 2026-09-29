@@ -3358,7 +3358,20 @@ do $$
 declare n int; before_rows int;
 begin
   perform set_test_user('00000000-0000-0000-0000-000000000005');
+  -- Make sure there is exactly one message from this login on the athlete
+  -- to log (an earlier block may have sent one).
+  select count(*) into n from athlete_messages where athlete_id = '00000000-0000-0000-0000-000000000120' and author_id = '00000000-0000-0000-0000-000000000005';
+  if n = 0 then
+    insert into athlete_messages (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000005', 'synthetic message for the log');
+  end if;
   perform log_family_message('00000000-0000-0000-0000-000000000120');
+  -- One message, one line: a second call has nothing new behind it.
+  begin
+    perform log_family_message('00000000-0000-0000-0000-000000000120');
+    raise exception 'FAIL: an Athlete login logged the same message twice';
+  exception when insufficient_privilege then null;
+  end;
   begin
     perform log_family_message('00000000-0000-0000-0000-000000000110');
     raise exception 'FAIL: an Athlete login logged a message on an athlete they are not linked to';
@@ -3398,6 +3411,32 @@ begin
   exception when insufficient_privilege then null;
   end;
   raise notice 'PASS: log_family_message writes "Sent a message" as the linked family login and refuses everyone else';
+end $$;
+
+-- The anon role itself, not only its grants: the function and the table
+-- are both refused outright.
+reset role;
+set role anon;
+do $$
+declare n int;
+begin
+  begin
+    perform log_family_message('00000000-0000-0000-0000-000000000120');
+    raise exception 'FAIL: anon executed log_family_message';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    select count(*) into n from activity_log;
+    raise exception 'FAIL: anon read activity_log';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into activity_log (org_id, actor_id, action, subject_type, summary) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'member_removed', 'member', 'Removed Someone');
+    raise exception 'FAIL: anon appended to activity_log';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: anon can neither call log_family_message nor touch activity_log';
 end $$;
 reset role;
 do $$

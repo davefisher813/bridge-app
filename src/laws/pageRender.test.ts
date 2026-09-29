@@ -1343,7 +1343,9 @@ describe("LAW: matches are ranked full before partial, searched, sorted, capped,
   it("the profile shows ten rows, the count in the label, and See All only past ten", async () => {
     const two = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
     expect(two).toMatch(/2 Schools Evaluated/);
-    expect(two).not.toMatch(/>See All</);
+    // Scoped to Matches: the Activity section has its own See All once
+    // the athlete has more than five entries (Stage 5 Phase 6).
+    expect(matchesSection(two)).not.toMatch(/>See All</);
     expect(two).toMatch(/See All 2 Matches/);
     addSchools(IDS.athlete, 12);
     const html = matchesSection(await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }));
@@ -1613,5 +1615,169 @@ describe("LAW: Advisor leads the profile, only an Admin sees its controls, More 
     expect(after).toMatch(/1 athlete has no advisor yet\./);
     data.athletes.find((a) => a.id === IDS.athleteTransfer)!.advisor_id = null;
     expect(await advisors()).toMatch(/Head of Recruiting<\/span> · 1 athlete</);
+  });
+});
+
+// Stage 5 Phase 6, 2026-09-27 (Dave approved the whole plan): the
+// activity log. Who did what to whom, newest first, for Admins only.
+// The profile shows the last five with See All; the org screen and the
+// athlete's own screen list everything, search the summary and the
+// person, and stop at 50 with Show More. A Viewer and an Athlete open
+// none of it, and no summary carries the text of a note, a message, a
+// check-in or a document reading. Each was planted and seen to fail,
+// then restored: the staff guard dropped from the org screen (the
+// Viewer and Athlete case failed); a check-in note put into a fixture
+// summary (the content case failed); the profile's cap of five raised
+// to six (the See All case failed); the org filter dropped from the
+// loader (the Elite row appeared on the Bridge screen).
+describe("LAW: the activity log is the Admin's, five on the profile, searchable, and never carries the text of anything", () => {
+  const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+  const profile = (id: string) => render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id }), searchParams: p({}) });
+  const orgLog = (sp: Record<string, string> = {}) => render("@/app/org/[slug]/activity/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p(sp) });
+  const athleteLog = (id: string, sp: Record<string, string> = {}) => render("@/app/org/[slug]/roster/[id]/activity/page", { params: p({ slug: ORG_WITH_MODULES, id }), searchParams: p(sp) });
+  // The profile's Activity section: from its label to the next one.
+  const activitySection = (html: string) => {
+    const at = html.indexOf(">Activity<");
+    expect(at).toBeGreaterThan(-1);
+    const end = html.indexOf(">Contacts<", at);
+    expect(end).toBeGreaterThan(at);
+    return html.slice(at, end);
+  };
+  const BRIDGE_ROWS = () => data.activity_log.filter((r) => r.org_id === data.orgs.find((o) => o.slug === ORG_WITH_MODULES)!.id);
+
+  it("the profile shows the last five, newest first, with See All to the full log, and the oldest is left off", async () => {
+    const section = activitySection(await profile(IDS.athlete));
+    // Six entries on the fixture athlete: the five newest show, the
+    // September 5 "Added" entry is the one past five.
+    // Each entry's sentence is one semibold body line, a Row's or a Card's.
+    expect((section.match(/text-body font-semibold text-ink/g) ?? []).length).toBe(5);
+    expect(section).toMatch(/Sent a message[\s\S]*Logged a call check-in[\s\S]*Moved Fixture Athlete at Fixture State University[\s\S]*Added Fixture State University as a target[\s\S]*Set Example Owner as the advisor/);
+    expect(section).not.toContain("Added Fixture Athlete");
+    expect(section).toMatch(/>See All</);
+    expect(hrefs(section)).toContain(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}/activity`);
+    // The full screen has all six, the oldest last.
+    const full = await athleteLog(IDS.athlete);
+    expect(full).toMatch(/Sent a message[\s\S]*Added Fixture Athlete/);
+    expect(full).not.toMatch(/>Show More</);
+  });
+
+  it("five entries or fewer have no See All, and none at all reads as an empty state", async () => {
+    data.activity_log = data.activity_log.filter((r) => r.id !== "al1");
+    const five = activitySection(await profile(IDS.athlete));
+    expect(five).not.toMatch(/>See All</);
+    expect(five).toContain("Added Fixture State University as a target");
+    const none = activitySection(await profile(IDS.athleteTransfer));
+    expect(none).toMatch(/No Activity Yet/);
+    expect(none).not.toMatch(/>See All</);
+    expect(await athleteLog(IDS.athleteTransfer)).toMatch(/No Activity Yet/);
+  });
+
+  it("the org screen lists the org's own entries newest first and none of another org's", async () => {
+    const html = await orgLog();
+    expect(html).toMatch(/Invited Example Member as a Viewer/);
+    expect(html).not.toMatch(/Squad Athlete/);
+    // Newest first across the whole org.
+    const order = ["Sent a message", "Logged a call check-in", "Moved Fixture Athlete", "Added Fixture State University as a target", "Set Example Owner as the advisor", "Added Fixture Athlete", "Invited Example Member"];
+    let last = -1;
+    for (const text of order) {
+      const at = html.indexOf(text);
+      expect(at, text).toBeGreaterThan(last);
+      last = at;
+    }
+    // Each entry names who did it and when.
+    expect(html).toMatch(/Fixture Parent<\/span> · /);
+    expect(html).toMatch(/Example Owner(<\/span>)? · /);
+  });
+
+  it("only an Admin opens the org screen and an athlete's log; a Viewer and an Athlete are refused", async () => {
+    for (const who of [MEMBER_ID, FAMILY_ID]) {
+      currentUser = who;
+      await expect(orgLog(), `org log as ${who}`).rejects.toThrow(REDIRECT + "/unauthorized");
+      await expect(athleteLog(IDS.athlete), `athlete log as ${who}`).rejects.toThrow(REDIRECT + "/unauthorized");
+    }
+    currentUser = null;
+    await expect(orgLog()).rejects.toThrow(REDIRECT + "/login");
+    // An athlete of another org is not this org's to open.
+    currentUser = OWNER_ID;
+    await expect(athleteLog(IDS.athleteElite)).rejects.toThrow(NOT_FOUND);
+  });
+
+  it("no Viewer or Athlete screen carries an activity entry or a link to one", async () => {
+    const entries = BRIDGE_ROWS().map((r) => String(r.summary));
+    expect(entries.length).toBeGreaterThan(5);
+    for (const page of PAGES.filter((x) => x.as === FAMILY_ID || x.as === MEMBER_ID)) {
+      currentUser = page.as!;
+      const html = await render(page.path, page.props);
+      expect(hrefs(html).filter((l) => /\/activity(\/|\?|$)/.test(l)), page.name).toEqual([]);
+      for (const summary of entries) expect(html, `${page.name}: ${summary}`).not.toContain(summary.replace(/'/g, "&#x27;"));
+    }
+  });
+
+  it("search narrows by the words of a summary and by the person, and a term nothing matches reaches the empty state", async () => {
+    const byWords = await orgLog({ q: "advisor" });
+    expect(byWords).toMatch(/Set Example Owner as the advisor/);
+    expect(byWords).not.toMatch(/Invited Example Member|Sent a message|Logged a call/);
+    const byPerson = await orgLog({ q: "parent" });
+    expect(byPerson).toMatch(/Sent a message/);
+    expect(byPerson).not.toMatch(/Set Example Owner as the advisor|Invited Example Member/);
+    const none = await orgLog({ q: "zzzz" });
+    expect(none).toMatch(/Nothing Matches/);
+    expect(none).not.toMatch(/Sent a message/);
+    // The box keeps what was searched.
+    expect(byWords).toMatch(/value="advisor"/);
+  });
+
+  it("the org screen and an athlete's log stop at 50 and Show More asks for 50 more", async () => {
+    const org = data.orgs.find((o) => o.slug === ORG_WITH_MODULES)!.id;
+    for (let i = 0; i < 60; i++) {
+      data.activity_log.push({ id: `bulk${i}`, org_id: org, athlete_id: IDS.athlete, actor_id: OWNER_ID, action: "athlete_edited", subject_type: "athlete", subject_id: IDS.athlete, summary: `Edited Fixture Athlete ${i}`, created_at: new Date(Date.UTC(2026, 8, 25, 0, i)).toISOString() });
+    }
+    for (const html of [await orgLog(), await athleteLog(IDS.athlete)]) {
+      expect((html.match(/Edited Fixture Athlete \d+/g) ?? []).length).toBe(50);
+      expect(html).toMatch(/>Show More</);
+    }
+    expect(hrefs(await orgLog())).toContain(`/org/${ORG_WITH_MODULES}/activity?show=100`);
+    expect(hrefs(await athleteLog(IDS.athlete))).toContain(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}/activity?show=100`);
+    const more = await orgLog({ show: "100" });
+    expect((more.match(/Edited Fixture Athlete \d+/g) ?? []).length).toBe(60);
+    expect(more).not.toMatch(/>Show More</);
+  });
+
+  it("no summary on screen carries a note, a message, a check-in or a document's text, and search cannot reach them", async () => {
+    // Everything the fixture holds as free text or as a reading.
+    const secrets = [
+      ...data.athlete_notes.map((n) => n.body as string),
+      ...data.athlete_messages.map((m) => m.body as string),
+      ...data.athlete_checkins.map((c) => c.notes as string),
+      ...data.documents.flatMap((d) => ((d.extracted as { warnings?: string[] } | null)?.warnings) ?? []),
+      "Fixture check-in note",
+      "Fixture message from staff",
+      "Fixture reply from the family",
+      "The GPA cell was smudged",
+    ].filter((t): t is string => typeof t === "string" && t.length > 4);
+    expect(secrets.length).toBeGreaterThan(5);
+    // The rows themselves.
+    for (const r of data.activity_log) for (const t of secrets) expect(r.summary, `${r.id}: ${t}`).not.toContain(t.replace(/\.$/, ""));
+    // The screens that show them. The org screen and the athlete's log
+    // carry nothing but entries; on the profile only its Activity
+    // section is looked at, since Notes sits on the same page.
+    const shown = [await orgLog(), await athleteLog(IDS.athlete), activitySection(await profile(IDS.athlete))];
+    for (const html of shown) for (const t of secrets) expect(html).not.toContain(t.replace(/\.$/, ""));
+    // A term from a note or a message finds nothing: search reads the
+    // summary and the name, and the text was never in either.
+    for (const q of ["Fixture note", "check-in note", "message from staff", "smudged"]) {
+      expect(await orgLog({ q }), q).toMatch(/Nothing Matches/);
+    }
+  });
+
+  it("an entry links only to a screen that exists for it, and a removed athlete's entries link nowhere", async () => {
+    const html = await orgLog();
+    const links = hrefs(html).filter((l) => l.startsWith(`/org/${ORG_WITH_MODULES}/roster/`));
+    expect(links.length).toBeGreaterThan(0);
+    for (const l of links) expect(l).toMatch(new RegExp(`^/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}(/checkins|/messages)?$`));
+    data.athletes.find((a) => a.id === IDS.athlete)!.deleted_at = "2026-09-28T00:00:00.000Z";
+    const gone = await orgLog();
+    expect(hrefs(gone).filter((l) => l.includes(`/roster/${IDS.athlete}`))).toEqual([]);
+    expect(gone).toMatch(/Sent a message/);
   });
 });

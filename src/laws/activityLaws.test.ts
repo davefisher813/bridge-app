@@ -216,12 +216,14 @@ describe("LAW: the fixture bodies never appear in a recorded activity_log write"
   });
 
   // The actions that take free text, run with the fixture's own bodies.
-  // Today none of them logs yet (the call sites land with the actions
-  // work); when they do, this is what catches a body in a summary.
+  // Each must have logged (a row exists to be searched) and the row must
+  // carry none of the body; without the first half a missing call site
+  // would pass this as cleanly as a clean one.
   it("a check-in with the fixture note logs nothing of the note", async () => {
     const { logCheckin } = await import("@/lib/actions/checkins");
     await quietly(() => logCheckin(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ kind: "call", occurredOn: "2026-09-21", notes: "Fixture check-in note." })));
     expect(writes.some((w) => w.table === "athlete_checkins")).toBe(true);
+    expect(logWrites()).toHaveLength(1);
     expect(leaked(logWrites())).toEqual([]);
   });
 
@@ -231,6 +233,7 @@ describe("LAW: the fixture bodies never appear in a recorded activity_log write"
     currentUser = FAMILY_ID;
     await quietly(() => sendMessage(ORG_WITH_MODULES, IDS.athlete, { errors: {} }, form({ body: "Fixture reply from the family." })));
     expect(writes.filter((w) => w.table === "athlete_messages")).toHaveLength(2);
+    expect(logWrites()).toHaveLength(2);
     expect(leaked(logWrites())).toEqual([]);
     // A family row, when it is logged, is the SQL function's fixed line.
     for (const w of logWrites().filter((w) => w.rows[0]?.actor_id === FAMILY_ID)) expect(w.rows[0]?.summary).toBe("Sent a message");

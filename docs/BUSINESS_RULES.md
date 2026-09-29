@@ -18,6 +18,23 @@
   name in place of the access level and never grants anything.
   `orgs.role_labels` is no longer read; the column keeps its data.
 
+## The activity log (2026-09-27)
+
+- Every listed action leaves one line saying who did what to what:
+  athlete created, edited, status changed or removed; advisor set or
+  cleared; target added or moved; document uploaded, applied or
+  discarded; check-in logged; message sent; member invited, role changed
+  or removed. Nothing else is logged.
+- It is append only. No one, Admin included, can change or delete a line.
+  The actor and the time come from the server, never the caller.
+- Only Admins read it. An Athlete login and a Viewer read nothing, and
+  no screen for either names the table.
+- A line never carries what was said or read: no check-in note, no
+  message text, no document contents. Each line is built from a fixed
+  sentence with names, statuses, kinds and dates filled in.
+- An Athlete login's message is logged by a fixed function that writes
+  one line per message that exists, for an athlete they are linked to.
+
 ## Who sees a school (2026-09-26)
 
 - The school directory and a school's shared facts are open to every
@@ -382,6 +399,32 @@ and what the public directory has, and a pick fills its neighbours.
 - **No data in a migration** from 0040 on: no org, athlete, school,
   coach, window, high school, donor or user row. A new install starts
   empty; data comes in through the app or a one-off script.
+
+## Activity log (2026-09-27)
+
+An append-only record of who did what to what, per org. Migration 0044,
+`src/lib/data/activity.ts`.
+
+- **Admins read it and nobody else.** A Viewer, an Athlete login, another
+  org and a signed-out caller read zero rows. No family or member page
+  names the table (`src/laws/activityLaws.test.ts`, and `autofillLaws`).
+- **A summary is a sentence built from a fixed template** out of names,
+  statuses, kinds and dates. It never carries the text of a note, a
+  check-in note, a message, a document or anything read off one. There is
+  no parameter a body could be passed in: the type is a branded string
+  only `activitySummary()` can make, and the one SQL function that writes
+  a row for a family login (`log_family_message`) takes only the athlete's
+  id and writes the literal "Sent a message".
+- **Nothing is edited or removed.** No update or delete policy exists for
+  anyone, a trigger refuses a rewrite, and no code path updates or deletes
+  a row. An athlete or a person who leaves stays in the record with the
+  reference set null.
+- **Logged at the action layer, once**, after the write succeeded: never
+  inside a shared data helper (a close-out reached from two screens would
+  log twice). A log that cannot be written is warned about and never
+  undoes the action it records.
+- **Volume**: one row per athlete changed in a bulk advisor assignment,
+  none per fit recompute.
 
 ## Fit-scoring model
 

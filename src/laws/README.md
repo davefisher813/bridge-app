@@ -238,3 +238,43 @@ to fail, and reverted by copy; each file's header names the plants.
     two for the fixture owner, drops an Inactive athlete, and an
     assignment lowers the count of athletes with nobody.
     `pageRender.test.ts`, the last describe block.
+
+## Added 2026-09-27: Stage 5 Phase 6, the activity log
+
+Dave approved the Stage 5 plan whole (docs/PLAN_STAGE5.md). Every law
+below was planted, seen to fail, and reverted; each file's header names
+the plants.
+
+29. **A summary is built from a template, and no caller hands the log a
+    note, a body or a reading.** Every `logActivity` call in `src` passes
+    names, statuses, kinds and dates only; only `activity.ts` makes an
+    `ActivitySummary`; the templates take no property that could carry
+    free text; the action harness fed the fixture bodies records none of
+    them, for a check-in, a staff message, a family message and a note;
+    the fixture's own rows carry none. `activityLaws.test.ts`.
+30. **The log is append only and Admins only.** No family or member page
+    or loader names `activity_log` or its helpers; nothing in `src`
+    updates, upserts or deletes a row; migration 0044 has a select and an
+    insert policy and no other, the honesty and coherence triggers, and no
+    function that lets a parameter reach `summary`, nothing granted to
+    anon; the RLS suite applies it and holds the log to its cases.
+    `activityLaws.test.ts`, `scripts/rls_test.sql`.
+31. **Every action writes one row on success, none on refusal, and never
+    fails for the log.** Athlete, target, document, check-in, message
+    (staff and family), member and guardian actions each write exactly
+    one row (two for a status change made on an edit); a refused caller
+    writes none; a log write that errors does not fail the business
+    write; a person removing or demoting themselves is logged through the
+    admin client. `actionRun.test.ts`.
+32. **The screens: five on the profile, everything on the org screen and
+    the athlete's log, Admin only.** The profile shows the newest five
+    with See All only past five and an empty state for none; the org
+    screen lists only its own org's entries newest first, searches the
+    summary and the person and reaches the empty state, stops at 50 with
+    Show More asking for 50 more; a Viewer, an Athlete login and a
+    signed-out visitor are refused, and no Viewer or Athlete screen
+    carries an entry or a link to one; no summary on screen carries a
+    note, a message, a check-in or a reading, and search cannot reach
+    them; an entry links only to a screen that exists, and a removed
+    athlete's entries link nowhere. `pageRender.test.ts`, the last
+    describe block, `moreLaws.test.ts` for the More row.

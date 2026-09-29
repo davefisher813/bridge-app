@@ -213,7 +213,11 @@ describe("the fake's log_family_message", () => {
     const data = buildFixture();
     const recorded: RecordedWrite[] = [];
     const family = createFakeClient(data, { userId: FAMILY_ID, recorded });
+    // A line is written only for a message that exists and is not logged
+    // yet: send one first, and a second call has nothing behind it.
+    (data.athlete_messages ??= []).push({ id: "am-test", org_id: BRIDGE, athlete_id: IDS.athlete, author_id: FAMILY_ID, body: "Fixture message body", created_at: new Date().toISOString() });
     expect((await family.rpc("log_family_message", { p_athlete: IDS.athlete, body: "Fixture message body" })).error).toBeNull();
+    expect((await family.rpc("log_family_message", { p_athlete: IDS.athlete })).error).toMatchObject({ code: "42501" });
     expect(recorded).toHaveLength(1);
     expect(recorded[0].rows[0]).toMatchObject({ org_id: BRIDGE, athlete_id: IDS.athlete, actor_id: FAMILY_ID, action: "message_sent", subject_type: "message", summary: "Sent a message" });
     expect(JSON.stringify(recorded)).not.toContain("Fixture message body");
