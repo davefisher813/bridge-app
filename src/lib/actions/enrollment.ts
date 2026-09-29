@@ -11,6 +11,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { applyCloseOut, applyEnrollment, closeOutNotice, enrollmentNotice } from "@/lib/data/enrollment";
 import { currentSchoolOf, nextOutcomes } from "@/lib/placement";
 import { addAthleteNote, NOTE_MAX_LENGTH, type AthleteNoteContext } from "@/lib/data/athleteNotes";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 
 export interface EnrollActionState {
   errors: Record<string, string>;
@@ -46,6 +47,24 @@ async function fileNote(supabase: any, orgId: string, athleteId: string, authorI
   return error ? `${notice} ${error}` : notice;
 }
 
+// The activity log (Stage 5, Phase 6): a close-out is a status change,
+// logged here at the action layer and never inside
+// src/lib/data/enrollment.ts, which updateAthlete does not call and
+// which would otherwise log twice. Name and statuses only; the note
+// typed on the screen stays in athlete_notes.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function logStatusChange(supabase: any, orgId: string, actorId: string, athlete: { id: string; name: string; status: string }, to: string): Promise<void> {
+  await logActivity(supabase, {
+    orgId,
+    actorId,
+    action: "athlete_status_changed",
+    subjectType: "athlete",
+    subjectId: athlete.id,
+    athleteId: athlete.id,
+    summary: activitySummary("athlete_status_changed", { name: athlete.name, from: athlete.status, to }),
+  });
+}
+
 // The deliberate path onto Enrolled. The school comes from a Committed
 // target, or the athlete's Current School, or a school picked on the
 // form; enrolling never happens without one (Dave, 2026-09-26: "it just
@@ -67,7 +86,7 @@ export async function markEnrolled(slug: string, athleteId: string, _prev: Enrol
   if (note.length > NOTE_MAX_LENGTH) return { errors: { note: NOTE_TOO_LONG }, values: Object.fromEntries(formData.entries()) };
 
   const supabase = await createClient();
-  const { data: athlete } = await supabase.from("athletes").select("id, status, detail").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
+  const { data: athlete } = await supabase.from("athletes").select("id, name, status, detail").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
   if (!athlete) redirect("/unauthorized");
   if (!nextOutcomes(athlete.status).includes("enroll")) redirect(`/org/${slug}/roster/${athleteId}`);
 
@@ -76,6 +95,7 @@ export async function markEnrolled(slug: string, athleteId: string, _prev: Enrol
 
   const { schoolName, closedCount } = await applyEnrollment(supabase, org.id, athleteId, enrolledOn);
   const notice = await fileNote(supabase, org.id, athleteId, user.id, "enrolled", note, enrollmentNotice(schoolName, closedCount));
+  await logStatusChange(supabase, org.id, user.id, athlete, "Enrolled");
 
   revalidatePath(`/org/${slug}/roster/${athleteId}`);
   revalidatePath(`/org/${slug}/roster`);
@@ -151,7 +171,7 @@ export async function markGraduated(slug: string, athleteId: string, _prev: Enro
   if (note.length > NOTE_MAX_LENGTH) return { errors: { note: NOTE_TOO_LONG }, values: Object.fromEntries(formData.entries()) };
 
   const supabase = await createClient();
-  const { data: athlete } = await supabase.from("athletes").select("id, status, detail, first_full_time_enrollment").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
+  const { data: athlete } = await supabase.from("athletes").select("id, name, status, detail, first_full_time_enrollment").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
   if (!athlete) redirect("/unauthorized");
   if (!nextOutcomes(athlete.status).includes("graduate")) redirect(`/org/${slug}/roster/${athleteId}`);
   // Never before they enrolled: the same rule, and the same words, as a
@@ -166,6 +186,7 @@ export async function markGraduated(slug: string, athleteId: string, _prev: Enro
 
   const { name, closedCount } = await applyCloseOut(supabase, org.id, athleteId, { status: "Graduated", on: graduatedOn });
   const notice = await fileNote(supabase, org.id, athleteId, user.id, "graduated", note, closeOutNotice({ state: "Graduated", name }, closedCount));
+  await logStatusChange(supabase, org.id, user.id, athlete, "Graduated");
   revalidateAthlete(slug, athleteId);
   redirect(`/org/${slug}/roster/${athleteId}?notice=${encodeURIComponent(notice)}`);
 }
@@ -194,18 +215,22 @@ export async function markDrafted(slug: string, athleteId: string, _prev: Enroll
   if (Object.keys(errors).length) return { errors, values };
 
   const supabase = await createClient();
-  const { data: athlete } = await supabase.from("athletes").select("id, status").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
+  const { data: athlete } = await supabase.from("athletes").select("id, name, status").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
   if (!athlete) redirect("/unauthorized");
 
   if (athlete.status === "Drafted") {
     await supabase.from("athletes").update({ draft_team: team, draft_round: round, draft_year: year, updated_at: new Date().toISOString() }).eq("id", athleteId).eq("org_id", org.id);
     const noteError = await addAthleteNote(supabase, { orgId: org.id, athleteId, authorId: user.id, context: "drafted", body: note });
+    // Already Drafted: the details were corrected, the status did not
+    // move, so the log reads it as an edit.
+    await logActivity(supabase, { orgId: org.id, actorId: user.id, action: "athlete_edited", subjectType: "athlete", subjectId: athleteId, athleteId, summary: activitySummary("athlete_edited", { name: athlete.name }) });
     revalidateAthlete(slug, athleteId);
     redirect(noteError ? `/org/${slug}/roster/${athleteId}?notice=${encodeURIComponent(`Saved. ${noteError}`)}` : `/org/${slug}/roster/${athleteId}`);
   }
 
   const { name, closedCount } = await applyCloseOut(supabase, org.id, athleteId, { status: "Drafted", team, round, year });
   const notice = await fileNote(supabase, org.id, athleteId, user.id, "drafted", note, closeOutNotice({ state: "Drafted", name, draftRound: round, draftYear: year }, closedCount));
+  await logStatusChange(supabase, org.id, user.id, athlete, "Drafted");
   revalidateAthlete(slug, athleteId);
   redirect(`/org/${slug}/roster/${athleteId}?notice=${encodeURIComponent(notice)}`);
 }

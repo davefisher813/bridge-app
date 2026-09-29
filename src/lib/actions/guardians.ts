@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { RELATIONSHIPS } from "@/lib/copy/relationships";
+import { labelForRole } from "@/lib/org/roleLabels";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 
 // A family login's links to athletes (migration 0023, athlete_guardians),
 // one at a time (audit crud F7). Before this the only fix for a parent
@@ -47,6 +49,14 @@ async function personName(supabase: Awaited<ReturnType<typeof createClient>>, us
   return p?.full_name?.trim() || p?.email?.trim() || "They";
 }
 
+// What the activity log (Stage 5, Phase 6) calls a person: the name their
+// account carries, never the address, which personName above falls back to
+// for a notice. Blank reads as "someone" in the template.
+async function loggedName(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
+  const { data } = await supabase.from("users").select("full_name").eq("id", userId).maybeSingle();
+  return (data as { full_name: string | null } | null)?.full_name?.trim() || null;
+}
+
 async function athleteName(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string, athleteId: string): Promise<string | null> {
   const { data } = await supabase.from("athletes").select("name").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).maybeSingle();
   return (data as { name: string } | null)?.name ?? null;
@@ -57,16 +67,28 @@ async function athleteName(supabase: Awaited<ReturnType<typeof createClient>>, o
 export async function unlinkGuardian(slug: string, athleteId: string, userId: string, formData?: FormData): Promise<void> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
   const back = returnPath(slug, formData, `/org/${slug}/roster/${athleteId}`);
   const { data: link } = await supabase.from("athlete_guardians").select("user_id").eq("org_id", org.id).eq("athlete_id", athleteId).eq("user_id", userId).maybeSingle();
   if (!link) redirect(`${back}?error=${q("That link is already gone.")}`);
 
-  const [who, athlete] = await Promise.all([personName(supabase, userId), athleteName(supabase, org.id, athleteId)]);
+  const [who, athlete, logged] = await Promise.all([personName(supabase, userId), athleteName(supabase, org.id, athleteId), loggedName(supabase, userId)]);
   const { error } = await supabase.from("athlete_guardians").delete().eq("org_id", org.id).eq("athlete_id", athleteId).eq("user_id", userId);
   if (error) redirect(`${back}?error=${q(`Could not unlink: ${error.message}`)}`);
+
+  // The activity log (Stage 5, Phase 6): an unlink is a member removed
+  // from one athlete. The name only, never the address.
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    athleteId,
+    action: "member_removed",
+    subjectType: "member",
+    subjectId: userId,
+    summary: activitySummary("member_removed", { name: logged ?? "", athlete }),
+  });
 
   const { data: rest } = await supabase.from("athlete_guardians").select("athlete_id").eq("org_id", org.id).eq("user_id", userId);
   const left = (rest ?? []).length;
@@ -112,7 +134,7 @@ export async function updateGuardianRelationship(slug: string, athleteId: string
 export async function linkGuardian(slug: string, userId: string, formData: FormData): Promise<void> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const athleteId = String(formData.get("athleteId") ?? "").trim();
   const relationshipRaw = String(formData.get("relationship") ?? "").trim();
@@ -134,6 +156,18 @@ export async function linkGuardian(slug: string, userId: string, formData: FormD
 
   const { error } = await supabase.from("athlete_guardians").insert({ org_id: org.id, athlete_id: athleteId, user_id: userId, relationship });
   if (error) redirect(`${back}?error=${q(`Could not link: ${error.message}`)}`);
+
+  // The activity log (Stage 5, Phase 6): a link is an Athlete login
+  // invited to one more athlete. The name only, never the address.
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    athleteId,
+    action: "member_invited",
+    subjectType: "member",
+    subjectId: userId,
+    summary: activitySummary("member_invited", { name: await loggedName(supabase, userId), role: labelForRole("family"), athlete }),
+  });
 
   revalidateLink(slug, athleteId, userId);
   if (fromAthlete) revalidateLink(slug, fromAthlete, userId);

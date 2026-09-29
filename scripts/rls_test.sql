@@ -903,7 +903,8 @@ declare
     array['athlete_school_fits', 'insert into athlete_school_fits (org_id, athlete_id, school_id, score, tag, inputs_hash) values (%L, ''00000000-0000-0000-0000-000000000111'', ''00000000-0000-0000-0000-000000000130'', 50, ''Fit'', ''member'')'],
     array['athlete_checkins', 'insert into athlete_checkins (org_id, athlete_id, kind) values (%L, ''00000000-0000-0000-0000-000000000110'', ''call'')'],
     array['athlete_messages', 'insert into athlete_messages (org_id, athlete_id, author_id, body) values (%L, ''00000000-0000-0000-0000-000000000110'', ''00000000-0000-0000-0000-000000000003'', ''member wrote this'')'],
-    array['athlete_message_reads', 'insert into athlete_message_reads (org_id, athlete_id, user_id) values (%L, ''00000000-0000-0000-0000-000000000110'', ''00000000-0000-0000-0000-000000000003'')']
+    array['athlete_message_reads', 'insert into athlete_message_reads (org_id, athlete_id, user_id) values (%L, ''00000000-0000-0000-0000-000000000110'', ''00000000-0000-0000-0000-000000000003'')'],
+    array['activity_log', 'insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values (%L, ''00000000-0000-0000-0000-000000000110'', ''00000000-0000-0000-0000-000000000003'', ''athlete_edited'', ''athlete'', ''Edited Bridge Athlete A'')']
   ];
 begin
   for i in 1 .. array_length(inserts, 1) loop
@@ -3098,3 +3099,359 @@ begin
 end $$;
 
 \echo 'ALL 0043 ASSERTIONS PASSED'
+
+-- ── The activity log (migration 0044) ───────────────────────────────
+-- Append only, Admins only. user1 is Bridge's Admin (owner); user9 is a
+-- leftover staff row in Bridge and an owner in Elite; user6 is a Bridge
+-- Viewer (member); user3 is a Bridge Viewer and Elite staff, which is
+-- what proves the exclusion is per org; user5 is by now an Athlete
+-- login (family) in Elite only, linked to Elite's athlete (120); user2
+-- is Elite's Admin. Athletes 110 and 111 are Bridge's, 120 is Elite's.
+--
+-- Planted and reverted, each failing where named: an update policy
+-- (the shape check); the read policy widened to every org_members row
+-- (the Bridge Viewer read 5 rows); the honesty trigger neutered (a row
+-- kept its 2099 date); the coherence trigger pointed at a no-op (a
+-- Bridge athlete filed under Elite); the guardian check dropped from
+-- log_family_message (an Athlete login logged on another athlete); the
+-- anon revoke skipped (anon could execute it). Dropping actor_id from
+-- the insert policy alone does not fail here, because the honesty
+-- trigger already signs the row as the session; both stay.
+reset role;
+
+-- The shape, asked of the catalog: select and insert policies only, no
+-- update or delete for anyone, both triggers present, and no grant to
+-- anon on the table or the function.
+do $$
+declare cmds text[]; n int;
+begin
+  select coalesce(array_agg(distinct p.cmd::text order by p.cmd::text), '{}') into cmds from pg_policies p where p.schemaname = 'public' and p.tablename = 'activity_log';
+  if cmds <> array['INSERT', 'SELECT'] then raise exception 'FAIL: activity_log policies are %, expected INSERT and SELECT only', cmds; end if;
+  select count(*) into n from pg_trigger t join pg_class c on c.oid = t.tgrelid where c.relname = 'activity_log' and not t.tgisinternal and t.tgname in ('activity_log_coherent', 'activity_log_honest');
+  if n <> 2 then raise exception 'FAIL: activity_log carries % of its 2 triggers', n; end if;
+  if has_table_privilege('anon', 'public.activity_log', 'select') then raise exception 'FAIL: anon holds select on activity_log'; end if;
+  if has_table_privilege('anon', 'public.activity_log', 'insert') then raise exception 'FAIL: anon holds insert on activity_log'; end if;
+  if has_function_privilege('anon', 'public.log_family_message(uuid)', 'execute') then raise exception 'FAIL: anon can execute log_family_message'; end if;
+  if has_function_privilege('public', 'public.log_family_message(uuid)', 'execute') then raise exception 'FAIL: log_family_message is still granted to PUBLIC'; end if;
+  if not has_function_privilege('authenticated', 'public.log_family_message(uuid)', 'execute') then raise exception 'FAIL: a signed-in caller cannot execute log_family_message'; end if;
+  raise notice 'PASS: activity_log has read and insert policies only, both triggers, and nothing for anon';
+end $$;
+
+-- Seeded as the server would write them (no session, so the actor given
+-- is kept): one Bridge row about athlete A, one Bridge row about no
+-- athlete (a member event), one Elite row about athlete 120.
+insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, subject_id, summary) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000001', 'athlete_status_changed', 'athlete', '00000000-0000-0000-0000-000000000110', 'Moved Bridge Athlete A to Committed'),
+  ('00000000-0000-0000-0000-000000000010', null, '00000000-0000-0000-0000-000000000001', 'member_invited', 'member', null, 'Invited User Six as a Viewer'),
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000002', 'checkin_logged', 'checkin', null, 'Logged a meeting check-in');
+
+-- The triggers, as the superuser, so RLS is not what stops them.
+do $$
+declare n int; stamp timestamptz;
+begin
+  begin
+    insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000002', 'athlete_edited', 'athlete', 'Edited Bridge Athlete A');
+    raise exception 'FAIL: a log row filed a Bridge athlete under Elite Squad''s org';
+  exception when check_violation then null;
+  end;
+  -- The clock is the server's: a row dated into the future lands now.
+  insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary, created_at) values
+    ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000001', 'athlete_created', 'athlete', 'Added Bridge Athlete B', '2099-01-01');
+  select created_at into stamp from activity_log where summary = 'Added Bridge Athlete B';
+  if stamp > now() + interval '1 minute' then raise exception 'FAIL: a log row kept a caller''s future date (%)', stamp; end if;
+  -- No rewrite of any kind, superuser included.
+  begin
+    update activity_log set summary = 'Rewritten' where summary = 'Added Bridge Athlete B';
+    raise exception 'FAIL: a log row was reworded';
+  exception when check_violation then null;
+  end;
+  begin
+    update activity_log set created_at = '2020-01-01' where summary = 'Added Bridge Athlete B';
+    raise exception 'FAIL: a log row was redated';
+  exception when check_violation then null;
+  end;
+  begin
+    update activity_log set actor_id = '00000000-0000-0000-0000-000000000002' where summary = 'Added Bridge Athlete B';
+    raise exception 'FAIL: a log row was re-signed';
+  exception when check_violation then null;
+  end;
+  begin
+    update activity_log set org_id = '00000000-0000-0000-0000-000000000020' where summary = 'Invited User Six as a Viewer';
+    raise exception 'FAIL: a log row was moved to another org';
+  exception when check_violation then null;
+  end;
+  begin
+    update activity_log set athlete_id = '00000000-0000-0000-0000-000000000110' where summary = 'Invited User Six as a Viewer';
+    raise exception 'FAIL: a log row was pointed at an athlete after the fact';
+  exception when check_violation then null;
+  end;
+  -- A blank summary and one over 200 characters are refused.
+  begin
+    insert into activity_log (org_id, actor_id, action, subject_type, summary) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'member_removed', 'member', '   ');
+    raise exception 'FAIL: a blank summary was accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into activity_log (org_id, actor_id, action, subject_type, summary) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'member_removed', 'member', repeat('x', 201));
+    raise exception 'FAIL: a 201 character summary was accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into activity_log (org_id, actor_id, action, subject_type, summary) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'member_removed', 'note', 'Removed a note');
+    raise exception 'FAIL: an unlisted subject type was accepted';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS: a log row carries its athlete''s org, lands at the server''s time, and is never reworded, redated, re-signed or moved';
+end $$;
+
+-- The one update that passes: the foreign keys' own on delete set null,
+-- when the actor's account or the athlete's row is gone. The row stays.
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000044', 'leaver44@bridge.example');
+insert into users (id, email) values ('00000000-0000-0000-0000-000000000044', 'leaver44@bridge.example') on conflict (id) do nothing;
+insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000044', 'target_added', 'target', 'Added Shared Reference School for Bridge Athlete A');
+delete from auth.users where id = '00000000-0000-0000-0000-000000000044';
+insert into athletes (id, org_id, recruit_type, name, sport) values
+  ('00000000-0000-0000-0000-000000000144', '00000000-0000-0000-0000-000000000010', 'hs', 'Bridge Athlete Gone', 'baseball');
+insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000144', '00000000-0000-0000-0000-000000000001', 'athlete_created', 'athlete', 'Added Bridge Athlete Gone');
+delete from athletes where id = '00000000-0000-0000-0000-000000000144';
+do $$
+declare n int;
+begin
+  select count(*) into n from activity_log where summary = 'Added Shared Reference School for Bridge Athlete A' and actor_id is null and athlete_id = '00000000-0000-0000-0000-000000000110';
+  if n <> 1 then raise exception 'FAIL: a departed actor''s log row did not survive with actor_id null (% rows)', n; end if;
+  select count(*) into n from activity_log where summary = 'Added Bridge Athlete Gone' and athlete_id is null and actor_id = '00000000-0000-0000-0000-000000000001';
+  if n <> 1 then raise exception 'FAIL: a hard-deleted athlete''s log row did not survive with athlete_id null (% rows)', n; end if;
+  raise notice 'PASS: the log outlives the actor''s account and the athlete''s row, each set null and nothing else changed';
+end $$;
+
+-- Reads: Admins of the org and nobody else.
+set role app_user;
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge Admin
+  select count(*) into n from activity_log;
+  if n <> 5 then raise exception 'FAIL: Bridge''s Admin read % log rows, expected 5 (Bridge''s)', n; end if;
+  select count(*) into n from activity_log where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 0 then raise exception 'FAIL: Bridge''s Admin read % of Elite Squad''s log', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000009'); -- leftover staff row in Bridge, owner in Elite
+  select count(*) into n from activity_log where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 5 then raise exception 'FAIL: a leftover staff row read % Bridge log rows, expected 5', n; end if;
+  select count(*) into n from activity_log where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 1 then raise exception 'FAIL: Elite''s owner read % Elite log rows, expected 1', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000002'); -- Elite Admin
+  select count(*) into n from activity_log;
+  if n <> 1 then raise exception 'FAIL: Elite''s Admin read % log rows, expected 1 (Elite''s)', n; end if;
+  select count(*) into n from activity_log where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: Elite''s Admin read % of Bridge''s log', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000003'); -- Bridge Viewer, Elite staff
+  select count(*) into n from activity_log where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: a Bridge Viewer read % Bridge log rows through their Elite staff role', n; end if;
+  select count(*) into n from activity_log where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 1 then raise exception 'FAIL: Elite staff read % Elite log rows, expected 1', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000006'); -- Bridge Viewer
+  select count(*) into n from activity_log;
+  if n <> 0 then raise exception 'FAIL: a Viewer read % log rows, expected 0', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000005'); -- Athlete login, Elite, athlete 120
+  select count(*) into n from activity_log;
+  if n <> 0 then raise exception 'FAIL: an Athlete login read % log rows, including on their own athlete', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000007'); -- in no seeded org
+  select count(*) into n from activity_log;
+  if n <> 0 then raise exception 'FAIL: a user outside both orgs read % log rows', n; end if;
+
+  perform set_test_user(null);
+  select count(*) into n from activity_log;
+  if n <> 0 then raise exception 'FAIL: a signed-out caller read % log rows', n; end if;
+  raise notice 'PASS: the log is read by the org''s Admins (a leftover staff row included) and by nobody else';
+end $$;
+
+-- Writes: an Admin appends as themselves, on their own org's athlete;
+-- another actor's name is rewritten to the session; update and delete
+-- touch 0 rows; another org, a Viewer and an Athlete login are refused.
+do $$
+declare n int; who uuid;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values
+    ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000001', 'advisor_set', 'athlete', 'Set User One as the advisor for Bridge Athlete A');
+  select count(*) into n from activity_log where summary = 'Set User One as the advisor for Bridge Athlete A' and actor_id = '00000000-0000-0000-0000-000000000001';
+  if n <> 1 then raise exception 'FAIL: an Admin could not append to their own org''s log'; end if;
+  -- Signed as someone else: the trigger signs it as the session instead.
+  insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values
+    ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000002', 'advisor_cleared', 'athlete', 'Cleared the advisor for Bridge Athlete A');
+  select actor_id into who from activity_log where summary = 'Cleared the advisor for Bridge Athlete A';
+  if who is distinct from '00000000-0000-0000-0000-000000000001' then raise exception 'FAIL: an Admin signed a log row as % instead of themselves', who; end if;
+  -- Another org's athlete under Bridge, and Bridge's athlete under Elite.
+  begin
+    insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000001', 'athlete_edited', 'athlete', 'Edited Elite Squad Athlete');
+    raise exception 'FAIL: Bridge''s Admin logged Elite''s athlete under Bridge';
+  exception when check_violation or insufficient_privilege then null;
+  end;
+  begin
+    insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000001', 'athlete_edited', 'athlete', 'Edited Elite Squad Athlete');
+    raise exception 'FAIL: Bridge''s Admin appended to Elite Squad''s log';
+  exception when insufficient_privilege then null;
+  end;
+  -- Append only: an Admin's update and delete touch nothing.
+  update activity_log set summary = 'Rewritten by an Admin';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Admin updated % log rows', n; end if;
+  update activity_log set summary = 'Rewritten by an Admin' where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Admin updated % log rows in their own org', n; end if;
+  delete from activity_log;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Admin deleted % log rows', n; end if;
+  delete from activity_log where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Admin deleted % log rows in their own org', n; end if;
+  raise notice 'PASS: an Admin appends as themselves on their own org, and updates or deletes 0 rows';
+
+  -- Nobody else appends: a Viewer, a Viewer with a staff role elsewhere,
+  -- an Athlete login, another org's Admin.
+  foreach who in array array['00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000002']::uuid[] loop
+    perform set_test_user(who);
+    begin
+      insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values
+        ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', who, 'athlete_edited', 'athlete', 'Edited Bridge Athlete A');
+      raise exception 'FAIL: % appended to Bridge''s log', who;
+    exception when insufficient_privilege then null;
+    end;
+    update activity_log set summary = 'Rewritten';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: % updated % log rows', who, n; end if;
+    delete from activity_log;
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: % deleted % log rows', who, n; end if;
+  end loop;
+  -- An Athlete login is refused on their own athlete's org too.
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  begin
+    insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000005', 'message_sent', 'message', 'Sent a message');
+    raise exception 'FAIL: an Athlete login appended to the log directly';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_test_user(null);
+  raise notice 'PASS: a Viewer, an Athlete login and another org''s Admin append nothing and change nothing';
+end $$;
+
+-- The family path: log_family_message for the athlete they are linked
+-- to writes "Sent a message" as them; for another athlete, or signed
+-- out, it is refused and writes nothing.
+do $$
+declare n int; before_rows int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  -- Make sure there is exactly one message from this login on the athlete
+  -- to log (an earlier block may have sent one).
+  select count(*) into n from athlete_messages where athlete_id = '00000000-0000-0000-0000-000000000120' and author_id = '00000000-0000-0000-0000-000000000005';
+  if n = 0 then
+    insert into athlete_messages (org_id, athlete_id, author_id, body) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', '00000000-0000-0000-0000-000000000005', 'synthetic message for the log');
+  end if;
+  perform log_family_message('00000000-0000-0000-0000-000000000120');
+  -- One message, one line: a second call has nothing new behind it.
+  begin
+    perform log_family_message('00000000-0000-0000-0000-000000000120');
+    raise exception 'FAIL: an Athlete login logged the same message twice';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform log_family_message('00000000-0000-0000-0000-000000000110');
+    raise exception 'FAIL: an Athlete login logged a message on an athlete they are not linked to';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform log_family_message(null);
+    raise exception 'FAIL: log_family_message accepted a null athlete';
+  exception when insufficient_privilege then null;
+  end;
+  -- Still reads nothing, their own row included.
+  select count(*) into n from activity_log;
+  if n <> 0 then raise exception 'FAIL: an Athlete login read % log rows after logging a message', n; end if;
+
+  -- An Admin of Elite reads the family's row, signed as the family login.
+  perform set_test_user('00000000-0000-0000-0000-000000000002');
+  select count(*) into n from activity_log where action = 'message_sent' and summary = 'Sent a message' and actor_id = '00000000-0000-0000-0000-000000000005' and athlete_id = '00000000-0000-0000-0000-000000000120' and org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 1 then raise exception 'FAIL: Elite''s Admin saw % family message rows, expected 1', n; end if;
+  select count(*) into n from activity_log where athlete_id = '00000000-0000-0000-0000-000000000110';
+  if n <> 0 then raise exception 'FAIL: the refused call left a row on Bridge''s athlete'; end if;
+
+  -- An Admin is not a family login and has no link: refused too.
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  select count(*) into before_rows from activity_log;
+  begin
+    perform log_family_message('00000000-0000-0000-0000-000000000110');
+    raise exception 'FAIL: an Admin used the family path';
+  exception when insufficient_privilege then null;
+  end;
+  select count(*) into n from activity_log;
+  if n <> before_rows then raise exception 'FAIL: a refused log_family_message wrote a row'; end if;
+
+  perform set_test_user(null);
+  begin
+    perform log_family_message('00000000-0000-0000-0000-000000000120');
+    raise exception 'FAIL: a signed-out caller logged a family message';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: log_family_message writes "Sent a message" as the linked family login and refuses everyone else';
+end $$;
+
+-- The anon role itself, not only its grants: the function and the table
+-- are both refused outright.
+reset role;
+set role anon;
+do $$
+declare n int;
+begin
+  begin
+    perform log_family_message('00000000-0000-0000-0000-000000000120');
+    raise exception 'FAIL: anon executed log_family_message';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    select count(*) into n from activity_log;
+    raise exception 'FAIL: anon read activity_log';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into activity_log (org_id, actor_id, action, subject_type, summary) values
+      ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'member_removed', 'member', 'Removed Someone');
+    raise exception 'FAIL: anon appended to activity_log';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: anon can neither call log_family_message nor touch activity_log';
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from activity_log where summary in ('Rewritten', 'Rewritten by an Admin');
+  if n <> 0 then raise exception 'FAIL: % log rows were rewritten under a session''s update', n; end if;
+  select count(*) into n from activity_log;
+  if n <> 9 then raise exception 'FAIL: expected 9 log rows at the end, found %', n; end if;
+  -- The family function's summary is a literal: its source names no
+  -- text parameter and no assignment from one.
+  if exists (select 1 from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace where ns.nspname = 'public' and p.proname = 'log_family_message' and (pg_get_function_arguments(p.oid) ~* 'text' or p.prosrc ~* 'summary\s*:=\s*p_')) then
+    raise exception 'FAIL: log_family_message takes text or assigns summary from a parameter';
+  end if;
+  raise notice 'PASS: every refused write left the log as it was, and the family function carries no text';
+end $$;
+
+\echo 'ALL 0044 ASSERTIONS PASSED'

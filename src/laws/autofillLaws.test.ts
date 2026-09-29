@@ -124,10 +124,10 @@ describe("LAW: staff notes never reach a family or a member", () => {
   // Verified this law bites: added a scratch file under
   // src/app/org/[slug]/family/ calling `.from("athlete_notes")`, watched
   // it fail naming the file, deleted it.
-  it("no family or member screen or loader reads athlete_notes", () => {
+  it("no family or member screen or loader reads athlete_notes, athlete_checkins or activity_log", () => {
     const scoped = SOURCES.filter((f) => /\/app\/org\/\[slug\]\/(family|member)\//.test(f) || /\/lib\/data\/(family|member)[^/]*\.ts$/.test(f));
     expect(scoped.length).toBeGreaterThan(3);
-    const offenders = scoped.filter((f) => /athlete_notes|athleteNotes/.test(read(f))).map(rel);
+    const offenders = scoped.filter((f) => /athlete_notes|athleteNotes|athlete_checkins|activity_log/.test(read(f))).map(rel);
     expect(offenders).toEqual([]);
   });
 });

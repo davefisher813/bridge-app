@@ -104,8 +104,8 @@ describe("LAW: More is six sections in the plan's order, each row where the plan
     expect(sectionOf(html, "Matching")).toMatch(/Recalculate All Matches/);
     expect(hrefs(sectionOf(html, "Foundation"))).toEqual([`${org}/fundraising`, `${org}/board-governance`]);
     const organization = sectionOf(html, "Organization");
-    expect(hrefs(organization)).toEqual([`${org}/settings`, `${org}/documents`, "/orgs/new"]);
-    expect(organization).toMatch(/Organization Settings[\s\S]*Doc AI Spending[\s\S]*Start Another Organization[\s\S]*Example Owner[\s\S]*Sign Out/);
+    expect(hrefs(organization)).toEqual([`${org}/settings`, `${org}/activity`, `${org}/documents`, "/orgs/new"]);
+    expect(organization).toMatch(/Organization Settings[\s\S]*Activity[\s\S]*Doc AI Spending[\s\S]*Start Another Organization[\s\S]*Example Owner[\s\S]*Sign Out/);
     // The old groupings are gone, not renamed alongside.
     expect(html).not.toMatch(/>Work<|>Document Reading<|>This Month</);
   });
@@ -135,7 +135,7 @@ describe("LAW: the owner-only rows stay the owner's; everything else is every Ad
     const staff = await more();
     expect(hrefs(staff).filter((l) => l.endsWith("/members") || l.endsWith("/settings"))).toEqual([]);
     expect(staff).not.toMatch(/>Members<|Organization Settings/);
-    for (const path of ["advisors", "documents", "schools", "grading-scales", "approved-courses", "transfer-windows"]) expect(hrefs(staff)).toContain(`${org}/${path}`);
+    for (const path of ["advisors", "activity", "documents", "schools", "grading-scales", "approved-courses", "transfer-windows"]) expect(hrefs(staff)).toContain(`${org}/${path}`);
     expect(staff).toMatch(/Doc AI Spending/);
     // Every section still stands, Members or not.
     expect(sectionLabels(staff)).toEqual(["People", "Program", "Reference", "Matching", "Foundation", "Organization"]);

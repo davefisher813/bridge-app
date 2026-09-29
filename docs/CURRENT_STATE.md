@@ -1,14 +1,16 @@
 # Current state
 
-Last updated: 2026-09-27. Stages 3 (advisors, messages, check-ins) and
+Last updated: 2026-09-29. Stages 3 (advisors, messages, check-ins) and
 4 (autofill, the high school directory, athlete notes) and the add,
 edit and delete audit are deployed to production, with migrations
 applied through 0040. The roles rework (three access levels with fixed
 names, a Title per person, migration 0041) and Stage 5 Phases 1 to 3
 (Matches, the advisor managed on the athlete's page, More as the
 control center; migrations 0042 and 0043) are built and verified
-locally on branch `claude/stage5-phase2-3`, not yet committed or
-deployed.
+locally on branch `claude/stage5-phase2-3`, and Phase 6 (the activity
+log, migration 0044) is built and verified locally on branch
+`claude/stage5-phase6-activity`, on top of them. Nothing is committed
+past the branch's WIP commit or deployed.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three access levels, each with their own app on
@@ -637,8 +639,8 @@ are in DECISIONS.md under the same date. Migration 0043, no RLS change.
   Recalculate All), Foundation (Fundraising, Board; the whole section
   gone when neither module is on), Organization (Settings, Doc AI
   Spending and its budget form, Start Another Organization, who you
-  are, Your Name, Sign Out). Assignments, View As and Activity arrive
-  with Phases 4 to 6.
+  are, Your Name, Sign Out). Activity was added under Organization by
+  Phase 6; Assignments and View As arrive with Phases 4 and 5.
 - **Advisors** (`/advisors`): every Admin with "Title · N athletes",
   counting Active and Transferring athletes only (the reminder rule),
   the lede saying how many athletes have nobody, each row opening the
@@ -649,6 +651,48 @@ Laws: `advisorLaws.test.ts`, `moreLaws.test.ts`, the last block of
 (Admin assigns and the stamp moves; an unrelated edit leaves it; a
 Viewer reads no row; a family session changes nothing; another org's
 Admin is refused by RLS and by the trigger).
+
+### The activity log (Stage 5 Phase 6, 2026-09-27)
+
+- **Who did what, for Admins.** Migration 0044 adds `activity_log`,
+  append only: a select policy and an insert policy and nothing else,
+  a trigger that stamps the time and the actor and refuses any update,
+  and no delete path in code. A Viewer and an Athlete login read
+  nothing and no family or member screen names the table.
+- **Sentences from templates.** `logActivity` (`src/lib/data/activity.ts`)
+  builds each summary from a per-action template out of names, statuses,
+  kinds and dates and returns a branded `ActivitySummary` the insert
+  requires; a note, a message or a document reading has no parameter to
+  travel in. A failed log write warns and never fails the action.
+- **What is logged.** Athlete created, edited, status changed (two rows
+  when an edit moves the status), removed; the close-outs and Reopen;
+  advisor set or cleared; targets added, moved, removed (Add to Targets
+  included); documents uploaded, applied, discarded; check-ins (kind and
+  date only); messages, staff and family (the family's through the
+  security-definer `log_family_message`, which takes an athlete id and
+  no text); members invited, role changed, removed; a guardian linked
+  (`member_invited`) or unlinked (`member_removed`). A person removing or
+  demoting themselves logs through the admin client.
+- **Screens.** The athlete's page has an Activity section after Notes
+  (the last five, See All past five). `/roster/[id]/activity` is that
+  athlete's full log; `/org/[slug]/activity` is the whole org with a
+  search over the sentence and the person (shown past five entries), 50
+  entries and then Show More. More has an Activity row under
+  Organization. An entry is a Row when it has somewhere to go and a plain
+  card when it does not (a removed athlete, target or member, a discarded
+  document); a week on, the date replaces "N days ago".
+- **Not yet.** Assignments and View As (Phases 4 and 5) must write their
+  own log rows in their migrations; the Activity rows they add are not
+  built. "Invited" for linking a guardian who already has a login reads
+  slightly off (one template line).
+
+Laws: `activityLaws.test.ts`, the activity block of `actionRun.test.ts`,
+`moreLaws.test.ts`, the last block of `pageRender.test.ts`, and the 0044
+block of `scripts/rls_test.sql`. Five entries in `src/testing/pages.ts`
+(`activity`, `activity-search`, `activity-search-empty`,
+`athlete-activity`, `athlete-activity-empty`); the fixture holds six rows
+on the fixture athlete, one about the org and one for Elite, none on the
+transfer athlete so the empty state renders.
 
 ### Less text on every screen, 2026-09-25
 
@@ -670,7 +714,7 @@ Format examples stay, because they are the part a person acts on.
 ## How it is verified
 
 1. **Unit tests** over the pure modules.
-2. **Laws** (`src/laws/`, 27 files) encode the rules from CLAUDE.md,
+2. **Laws** (`src/laws/`, 28 files) encode the rules from CLAUDE.md,
    BUSINESS_RULES.md, STYLING_CATALOG.md and MATCHING_CONTRACT.md as
    executable checks, each planted, watched to fail, and reverted
    before it counts.
@@ -790,17 +834,18 @@ Format examples stay, because they are the part a person acts on.
 
 ## Immediate next steps
 
-1. The roles rework and Stage 5 Phases 1 to 3 ship when Dave says
-   "go": commit, apply 0041 to 0043 to production (0041 changes no row
-   there; 0042 and 0043 add columns), deploy, run Recalculate All once
+1. The roles rework and Stage 5 Phases 1 to 3 and 6 ship when Dave says
+   "go": commit, apply 0041 to 0044 to production (0041 changes no row
+   there; 0042 and 0043 add columns; 0044 adds the empty activity log),
+   deploy, run Recalculate All once
    so every stored match carries its net cost, then Dave sets each
    person's Title from their page under Members and checks the members
    list on his phone. Built without a preview, per "I don't need
    previews. Ship it."
 2. Dave assigns advisors from each athlete's page (Assign, then a tap on
    the Admin; Add Admin for Mike and Kev) and walks the edit and remove
-   screens on his phone. Stage 5 Phases 4 to 6 (Assignments, View As,
-   Activity) follow on the same plan.
+   screens on his phone. Stage 5 Phases 4 and 5 (Assignments, View As)
+   follow on the same plan, each writing its own activity rows.
 3. Load the high school directory (above), then set the AI key and
    discard, delete and re-upload the production documents.
 4. Dave exports his school sheet to the template and imports it, then

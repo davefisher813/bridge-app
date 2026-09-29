@@ -13,6 +13,8 @@ import { reopenRecruiting } from "@/lib/actions/reopen";
 import { addNote, removeAthlete, removeNote } from "@/lib/actions/athletes";
 import { AthleteNoteForm } from "@/components/AthleteNoteForm";
 import { loadAthleteNotes, NOTE_CONTEXT_LABEL } from "@/lib/data/athleteNotes";
+import { loadAthleteActivity } from "@/lib/data/activity";
+import { ActivityRows } from "@/components/ActivityRows";
 import { loadCoachOptions } from "@/lib/data/lookups";
 import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Grid2, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { relationshipLabel } from "@/lib/copy/relationships";
@@ -59,6 +61,9 @@ const CONTACT_ROLE_LABEL: Record<string, string> = {
   other: "Other",
 };
 
+// How many activity entries the profile shows before See All.
+const ACTIVITY_PREVIEW = 5;
+
 const OUTCOME_LABEL: Record<Outcome, string> = { enroll: "Mark Enrolled", graduate: "Mark Graduated", draft: "Mark Drafted" };
 
 interface SchoolRow {
@@ -102,7 +107,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
-  const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits, advisors, { data: lastCheckinRows }, threads, notes] = await Promise.all([
+  const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits, advisors, { data: lastCheckinRows }, threads, notes, recentActivity] = await Promise.all([
     supabase
       .from("athletes")
       .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment, advisor_id")
@@ -133,6 +138,10 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
     // read or delete. Behind the staff guard above; no family or member
     // screen reads this table.
     loadAthleteNotes(supabase, org.id, id),
+    // The last five entries of the activity log (migration 0044), one
+    // more than shown so See All knows whether there is more. Behind
+    // the same staff guard; no family or member screen reads the log.
+    loadAthleteActivity(supabase, org.id, id, ACTIVITY_PREVIEW + 1),
   ]);
 
   if (!athlete) notFound();
@@ -492,6 +501,23 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           ))
         )}
         {canEdit && <AthleteNoteForm action={noteAction} />}
+      </Section>
+
+      {/* Who did what to this athlete, newest first: Admins only, and
+          never the text of a note, a message or a document. */}
+      <Section
+        label="Activity"
+        role="accent"
+        kind="clock"
+        action={recentActivity.length > ACTIVITY_PREVIEW ? <TextLink href={`/org/${slug}/roster/${id}/activity`}>See All</TextLink> : undefined}
+      >
+        {recentActivity.length === 0 ? (
+          <EmptyState kind="clock" title="No Activity Yet">
+            Changes to this athlete are recorded here as they happen.
+          </EmptyState>
+        ) : (
+          <ActivityRows slug={slug} rows={recentActivity.slice(0, ACTIVITY_PREVIEW)} liveAthletes={new Set([id])} profileLinks={false} />
+        )}
       </Section>
 
       <Section label="Contacts" count={contacts.length} role="people" kind="people">

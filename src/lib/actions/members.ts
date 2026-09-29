@@ -11,6 +11,8 @@ import { parseInviteForm, parseMemberTitle, parseRole } from "@/lib/validation/m
 import { parsePersonName } from "@/lib/validation/org";
 import { RELATIONSHIPS } from "@/lib/copy/relationships";
 import { canAdvise, isEligibleAdvisor } from "@/lib/org/advisors";
+import { labelForRole } from "@/lib/org/roleLabels";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 
 // Who belongs to an org, and what they may do there. Owner only, and
 // every write goes through the service role on purpose: org_members has
@@ -38,6 +40,16 @@ async function ownersOf(orgId: string): Promise<string[]> {
   const supabase = await createClient();
   const { data } = await supabase.from("org_members").select("user_id").eq("org_id", orgId).eq("role", "owner");
   return ((data ?? []) as { user_id: string }[]).map((r) => r.user_id);
+}
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+// What the activity log (Stage 5, Phase 6) calls a person: their name on
+// users, read through the caller's own client (users_in_my_orgs, 0031),
+// or nothing, which the template reads as "someone". Never their email.
+async function personName(supabase: Supabase, userId: string): Promise<string | null> {
+  const { data } = await supabase.from("users").select("full_name").eq("id", userId).maybeSingle();
+  return (data as { full_name: string | null } | null)?.full_name?.trim() || null;
 }
 
 export async function inviteMember(slug: string, _prev: MemberActionState, formData: FormData): Promise<MemberActionState> {
@@ -76,11 +88,13 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
     redirect(`${returnTo}?notice=${encodeURIComponent(notice)}`);
   };
 
-  // The athlete a family invite is for must be this org's. Read through
-  // the caller's own client so RLS answers, not the admin client.
+  // The caller's own client: every read below goes through it so RLS
+  // answers, not the admin client, and the activity log is signed by it.
+  const supabase = await createClient();
+
+  // The athlete a family invite is for must be this org's.
   let athleteName: string | null = null;
   if (role === "family" && athleteId) {
-    const supabase = await createClient();
     const { data: athlete } = await supabase.from("athletes").select("id, name").eq("org_id", org.id).eq("id", athleteId).is("deleted_at", null).maybeSingle();
     if (!athlete) {
       return { errors: { athleteId: "That athlete is not on this organization's roster." }, values: Object.fromEntries(formData.entries()) };
@@ -92,7 +106,6 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   // the same way. Checked before any account is made.
   let advisee: { id: string; name: string } | null = null;
   if (assignAthleteId) {
-    const supabase = await createClient();
     const { data: found } = await supabase.from("athletes").select("id, name").eq("org_id", org.id).eq("id", assignAthleteId).is("deleted_at", null).maybeSingle();
     if (!found) {
       return { errors: { form: "That athlete is not on this organization's roster." }, values: Object.fromEntries(formData.entries()) };
@@ -106,11 +119,38 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   // the invite itself went out.
   const assign = async (personId: string): Promise<string | null> => {
     if (!advisee) return null;
-    const supabase = await createClient();
     const { data, error } = await supabase.from("athletes").update({ advisor_id: personId }).eq("org_id", org.id).eq("id", advisee.id).select("id");
     if (error) return error.message;
     if (!data || data.length === 0) return "the athlete could not be updated";
     return null;
+  };
+
+  // The activity log (Stage 5, Phase 6). An invite is one row, naming
+  // the person, the access level and, for an Athlete login, the athlete
+  // they were linked to; an assignment made on the way is its own row
+  // on the athlete. Names and levels only; the email never goes in.
+  const logInvited = async (personId: string, invitedName: string | null, linkedTo: string | null): Promise<void> => {
+    await logActivity(supabase, {
+      orgId: org.id,
+      actorId: user.id,
+      action: "member_invited",
+      subjectType: "member",
+      subjectId: personId,
+      athleteId: linkedTo ? athleteId : null,
+      summary: activitySummary("member_invited", { name: invitedName, role: labelForRole(role), athlete: linkedTo }),
+    });
+  };
+  const logAssigned = async (invitedName: string | null): Promise<void> => {
+    if (!advisee) return;
+    await logActivity(supabase, {
+      orgId: org.id,
+      actorId: user.id,
+      action: "advisor_set",
+      subjectType: "athlete",
+      subjectId: advisee.id,
+      athleteId: advisee.id,
+      summary: activitySummary("advisor_set", { name: advisee.name, advisor: invitedName ?? "" }),
+    });
   };
 
   if (!serviceRoleConfigured()) {
@@ -126,8 +166,11 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   // is added straight away and signs in as usual. Somebody new gets an
   // invitation email; the trigger on auth.users creates their profile
   // row when Supabase creates the account.
-  const { data: existing } = await admin.from("users").select("id").eq("email", email).maybeSingle();
+  const { data: existing } = await admin.from("users").select("id, full_name").eq("email", email).maybeSingle();
   let userId = (existing as { id: string } | null)?.id ?? null;
+  // What the log calls them: the name typed on the form, else the name
+  // their account already carries.
+  const invitedName = fullName || (existing as { full_name: string | null } | null)?.full_name?.trim() || null;
   let notice: string;
 
   if (userId) {
@@ -145,6 +188,7 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
         if (guardianError) {
           return { errors: { form: `Could not link ${email} to ${athleteName ?? "the athlete"}: ${guardianError.message}` }, values: Object.fromEntries(formData.entries()) };
         }
+        await logInvited(userId, invitedName, athleteName);
         return done(`${email} now sees ${athleteName ?? "that athlete"} as well.`);
       }
       // Add Admin for somebody already an Admin here: no second
@@ -153,6 +197,7 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
       if (advisee && canAdvise((membership as { role: string }).role)) {
         const failed = await assign(userId);
         if (failed) return { errors: { form: `${email} is already an Admin here but could not be assigned to ${advisee.name}: ${failed}.` }, values: Object.fromEntries(formData.entries()) };
+        await logAssigned(invitedName);
         return done(`${email} was already an Admin here and is now ${advisee.name}'s advisor.`);
       }
       return { errors: { email: "Already a member of this organization." }, values: Object.fromEntries(formData.entries()) };
@@ -182,10 +227,13 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   if (role === "family" && athleteId) {
     const { error: guardianError } = await admin.from("athlete_guardians").insert({ org_id: org.id, athlete_id: athleteId, user_id: userId, relationship: relationship ?? null });
     if (guardianError) {
+      // They are in, unlinked: logged as such before the error goes back.
+      await logInvited(userId, invitedName, null);
       return { errors: { form: `${email} was added but could not be linked to ${athleteName ?? "the athlete"}: ${guardianError.message}` }, values: Object.fromEntries(formData.entries()) };
     }
     notice = `${notice} They will see ${athleteName ?? "their athlete"} and nothing else.`;
   }
+  await logInvited(userId, invitedName, role === "family" ? athleteName : null);
 
   // Written after the membership, because the database checks, in that
   // order, that the advisor is an Admin of the athlete's org.
@@ -194,6 +242,7 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
     if (failed) {
       return { errors: { form: `${email} was added but could not be assigned to ${advisee.name}: ${failed}. Assign them from the athlete's page.` }, values: Object.fromEntries(formData.entries()) };
     }
+    await logAssigned(invitedName);
     notice = `${notice} They are ${advisee.name}'s advisor.`;
   }
 
@@ -222,7 +271,7 @@ export interface RoleChangeOptions {
 export async function changeMemberRole(slug: string, userId: string, role: unknown, opts: RoleChangeOptions = {}): Promise<{ ok: boolean; error?: string }> {
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
-  await requireOwner(org.id);
+  const caller = await requireOwner(org.id);
 
   // staff is retired (migration 0041) and parses as nothing, so a
   // stale form or a hand-built request for it is refused before any
@@ -299,6 +348,21 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
     }
   }
 
+  // The activity log (Stage 5, Phase 6): one row, the person and the two
+  // access levels, on the athlete when the change linked them to one.
+  // An Admin who just made themselves a Viewer is no longer one, so the
+  // insert policy would refuse their own client; the server records it
+  // for them (the row still names them as the actor).
+  await logActivity(caller.id === userId ? admin : supabase, {
+    orgId: org.id,
+    actorId: caller.id,
+    action: "member_role_changed",
+    subjectType: "member",
+    subjectId: userId,
+    athleteId: becomingFamily ? athleteId : null,
+    summary: activitySummary("member_role_changed", { name: (await personName(supabase, userId)) ?? "", from: labelForRole(currentRole), to: labelForRole(nextRole) }),
+  });
+
   revalidatePath(`/org/${slug}/members`);
   revalidatePath(`/org/${slug}/members/${userId}`);
   if (nextRole === "member" || becomingFamily || leavingFamily) {
@@ -326,6 +390,11 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
   // this org's athletes go with the membership: the database stops
   // honouring them the moment the membership is gone (migration 0026),
   // and a stale row must not come back to life on a re-invite.
+  // Their name, read before the membership goes: once it is gone the
+  // caller can no longer see their users row (users_in_my_orgs, 0031).
+  const supabase = await createClient();
+  const name = await personName(supabase, userId);
+
   const admin = createAdminClient();
   // The athletes they advised here lose their advisor with the
   // membership, for the same reason as a demotion above.
@@ -335,6 +404,20 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
   if (linkError) return { ok: false, error: linkError.message };
   const { error } = await admin.from("org_members").delete().eq("user_id", userId).eq("org_id", org.id);
   if (error) return { ok: false, error: error.message };
+
+  // The activity log (Stage 5, Phase 6): one row, org-level, naming who
+  // left. An Admin who removed themselves is no longer a member here, and
+  // the insert policy reads the membership as it stands after the delete,
+  // so their own client would be refused; the server records that one
+  // (the row still names them as the actor).
+  await logActivity(caller.id === userId ? admin : supabase, {
+    orgId: org.id,
+    actorId: caller.id,
+    action: "member_removed",
+    subjectType: "member",
+    subjectId: userId,
+    summary: activitySummary("member_removed", { name: name ?? "" }),
+  });
 
   revalidatePath(`/org/${slug}/members`);
   revalidatePath(`/org/${slug}/mine`);
@@ -521,7 +604,7 @@ export async function setAthleteAdvisor(
 ): Promise<{ ok: boolean; error?: string; count?: number }> {
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const ids = [...new Set(athleteIds.map((id) => id.trim()).filter(Boolean))];
   if (ids.length === 0) return { ok: false, error: "Pick at least one athlete." };
@@ -538,8 +621,23 @@ export async function setAthleteAdvisor(
   // Taking an advisor off touches only the athletes they actually
   // advise, so a stale screen cannot clear somebody else's assignment.
   if (opts.onlyFrom) update = update.eq("advisor_id", opts.onlyFrom);
-  const { data, error } = await update.select("id");
+  const { data, error } = await update.select("id, name");
   if (error) return { ok: false, error: error.message };
+
+  // The activity log (Stage 5, Phase 6): one row per athlete actually
+  // changed, on that athlete, naming the advisor or saying cleared.
+  const advisorName = advisorId ? await personName(supabase, advisorId) : null;
+  for (const changed of (data ?? []) as { id: string; name: string }[]) {
+    await logActivity(supabase, {
+      orgId: org.id,
+      actorId: user.id,
+      action: advisorId ? "advisor_set" : "advisor_cleared",
+      subjectType: "athlete",
+      subjectId: changed.id,
+      athleteId: changed.id,
+      summary: advisorId ? activitySummary("advisor_set", { name: changed.name, advisor: advisorName ?? "" }) : activitySummary("advisor_cleared", { name: changed.name }),
+    });
+  }
 
   revalidatePath(`/org/${slug}/members`);
   revalidatePath(`/org/${slug}/mine`);

@@ -52,7 +52,7 @@ export default async function MorePage({ params, searchParams }: { params: Promi
           Program, Reference, Matching, Foundation, Organization. Foundation
           is Bridge's two modules and is left out entirely when neither is
           on (docs/STYLING_CATALOG.md: modules off are hidden from More).
-          Assignments, View As and Activity join their sections with the
+          Assignments and View As join their sections with the
           phases that build them; a row before its page fails the links
           check. */}
       <Section label="People" role="people" kind="people">
@@ -102,6 +102,9 @@ export default async function MorePage({ params, searchParams }: { params: Promi
 
       <Section label="Organization" role="people" kind="people">
         {user.role === "owner" && <Row href={`/org/${slug}/settings`} kind="settings" role="people" title="Organization Settings" meta="The name, what you call each role, and which modules are on" wrap />}
+        {/* Who did what, org-wide (migration 0044). Admins only: the
+            log is read by nobody else. */}
+        {canEdit && <Row href={`/org/${slug}/activity`} kind="clock" role="time" title="Activity" meta="Who did what, across every athlete" wrap />}
         {/* What reading documents has cost this month, against the cap.
             Every Admin sees the number; an owner sets the cap. */}
         {canEdit && (

@@ -30,6 +30,7 @@ import { isStaleProcessing } from "@/lib/data/documentState";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
 import { applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, fillHighSchoolFromTranscript, undoContact, undoDetail, undoMetrics, undoTarget, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 import { applyRefusal, isStubReading, readerFor } from "@/lib/data/readBy";
 import { applyExtractedEdits } from "@/lib/data/extractedEdit";
 import { clampCredit, COURSE_SUBJECTS, MAX_COURSE_GRADE, MAX_COURSE_SCHOOL, MAX_COURSE_TERM, MAX_COURSE_TITLE } from "@/lib/validation/course";
@@ -258,6 +259,20 @@ async function loadRoster(orgId: string): Promise<{ roster: ResolverAthlete[]; c
   };
 }
 
+// The two things the activity log may say about a document: what kind
+// it is, as the category's label lower-cased for the middle of a
+// sentence ("document" when nothing has said yet), and which athlete
+// it was for, by name. Never a field that was read off it.
+function documentKind(category: DocCategoryId | null | undefined): string {
+  return category ? getCategory(category).label.toLowerCase() : "document";
+}
+
+async function orgAthleteName(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string, athleteId: string | null | undefined): Promise<{ id: string; name: string } | null> {
+  if (!athleteId) return null;
+  const { data } = await supabase.from("athletes").select("id, name").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).maybeSingle();
+  return (data as { id: string; name: string } | null) ?? null;
+}
+
 export async function processDocument(
   slug: string,
   input: {
@@ -280,7 +295,7 @@ export async function processDocument(
 ): Promise<ProcessResult> {
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Org not found." };
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   if (!input.records.length) return { ok: false, error: "No files were uploaded." };
   if (input.records.length > MAX_RECORDS_PER_UPLOAD) {
@@ -384,6 +399,21 @@ export async function processDocument(
 
   if (insertError || !created) return { ok: false, error: "Could not start processing." };
   const documentId = (created as { id: string }).id;
+
+  // The upload, logged once its row exists. The reading may still fail
+  // or settle on another athlete; what is recorded is that a file of
+  // this kind came in, for the athlete whose page it started from when
+  // it started from one.
+  const pinned = await orgAthleteName(supabase, org.id, input.athleteId);
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    athleteId: pinned?.id ?? null,
+    action: "document_uploaded",
+    subjectType: "document",
+    subjectId: documentId,
+    summary: activitySummary("document_uploaded", { name: pinned?.name ?? null, kind: documentKind(input.requestedCategory) }),
+  });
 
   // Anything that throws from here leaves a row that says so, rather
   // than one stuck at "processing" for good. The reading itself
@@ -1024,13 +1054,7 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
 
   // Same cross-org check the other actions make: RLS proves the document
   // belongs to this org, not that the athlete does.
-  const { data: athlete } = await supabase
-    .from("athletes")
-    .select("id")
-    .eq("id", athleteId)
-    .eq("org_id", org.id)
-    .is("deleted_at", null)
-    .single();
+  const athlete = await orgAthleteName(supabase, org.id, athleteId);
   if (!athlete) return { ok: false, error: "That athlete isn't on this org's roster." };
 
   // Claim the document before touching the athlete: the status moves to
@@ -1079,6 +1103,17 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
     .eq("id", documentId)
     .eq("org_id", org.id);
 
+  // Applied, so logged: the kind and the athlete, nothing that was read.
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    athleteId: athlete.id,
+    action: "document_applied",
+    subjectType: "document",
+    subjectId: doc.id,
+    summary: activitySummary("document_applied", { name: athlete.name, kind: documentKind(doc.category) }),
+  });
+
   revalidatePath(`/org/${slug}/documents`);
   revalidatePath(`/org/${slug}/roster`);
   if (statusError) return { ok: false, error: `Applied, but what it changed could not be recorded: ${statusError.message}` };
@@ -1109,17 +1144,17 @@ export async function discardDocument(
 ): Promise<{ ok: boolean; error?: string; undone?: string[] }> {
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Org not found." };
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select("id, status, applied_changes, created_at")
+    .select("id, status, applied_changes, created_at, category, athlete_id")
     .eq("id", documentId)
     .eq("org_id", org.id)
     .single();
 
-  const doc = data as { id: string; status: string; applied_changes: AppliedChanges | null; created_at: string } | null;
+  const doc = data as { id: string; status: string; applied_changes: AppliedChanges | null; created_at: string; category: DocCategoryId | null; athlete_id: string | null } | null;
   if (!doc) return { ok: false, error: "Document not found." };
   if (doc.status === "discarded") return { ok: false, error: "That document was already discarded." };
   // A reading takes a couple of minutes at most. One still marked as
@@ -1156,6 +1191,19 @@ export async function discardDocument(
     .eq("id", documentId)
     .eq("org_id", org.id);
   if (error) return { ok: false, error: `Undid the changes, but what was undone could not be recorded: ${error.message}` };
+
+  // Discarded, so logged: the kind, and the athlete it had been filed
+  // to when it had one. What was undone stays on the document row.
+  const filed = await orgAthleteName(supabase, org.id, doc.athlete_id);
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    athleteId: filed?.id ?? null,
+    action: "document_discarded",
+    subjectType: "document",
+    subjectId: doc.id,
+    summary: activitySummary("document_discarded", { name: filed?.name ?? null, kind: documentKind(doc.category) }),
+  });
 
   revalidatePath(`/org/${slug}/documents`);
   revalidatePath(`/org/${slug}/roster`);

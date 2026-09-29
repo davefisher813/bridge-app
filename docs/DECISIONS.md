@@ -3481,3 +3481,105 @@ Change or Assign. Later phases must extend `moreLaws`' expected rows
 when they add Assignments, View As and Activity. Still owed:
 docs/BUSINESS_RULES.md lines on who assigns and from where, and the
 `Sheet` under Controls in docs/STYLING_CATALOG.md.
+
+## 2026-09-27: the activity log, append only, Admins only, sentences from templates
+
+**Decision.** Stage 5 Phase 6, Dave approved the whole plan on
+2026-09-27, so its recommendations are the decisions. Migration 0044
+adds `activity_log`: who did what to whom, org scoped, newest first.
+
+Append only. There is an insert policy and a select policy and nothing
+else: no update or delete policy for anyone. A trigger
+(`private.activity_is_honest()`) stamps `created_at` from the server's
+clock and, for anyone but the service role, `actor_id` from the session,
+so a row cannot be redated or signed as somebody else, and it refuses
+every update except the foreign key's own `on delete set null` (an
+athlete or a login removed for good stays in the history, unnamed). The
+service role has no delete path in code and a law greps for one.
+
+Admins read it, and nobody else. The select policy is keyed to
+`_staff_org_ids()`, not `_member_org_ids()`, so the intent survives if
+that helper is ever widened. A Viewer and an Athlete login read zero
+rows. No family or member page or loader names the table (the family
+screen shows none of it). Actor names come from `users` through
+`users_in_my_orgs`, which is readable to Admins.
+
+Summaries are built from a template per action and are never passed in.
+`logActivity` (`src/lib/data/activity.ts`) takes an action and a small
+`subject` of names, statuses, kinds and dates, and returns
+`ActivitySummary`, a branded string the insert requires, so a bare
+`summary: someString` fails `npm run typecheck`. The template table, not
+the caller, decides the sentence, which is why a check-in note, a
+message or a document reading cannot reach the log: there is no
+parameter for it to travel in. `activityLaws.test.ts` scans every call,
+runs the action harness with the fixture bodies and asserts none is
+recorded, and reads every migration function that inserts for a
+`summary := p_` assignment.
+
+The family's message is the one write an Admin-only insert policy cannot
+admit, so it goes through `public.log_family_message(p_athlete uuid)`,
+security definer, `search_path = ''`, callable by a signed-in person only
+(revoked from anon). It checks the caller is linked to that athlete,
+reads the org itself and writes the literal "Sent a message". The body is
+not in its signature.
+
+Logged at the action layer, one row after the successful write and
+before `revalidatePath`, never inside a shared data helper (a helper
+would log twice). A broken log write warns and never fails the business
+write. What logs: athlete created, edited, status changed (two rows when
+the edit moves the status), removed; advisor set or cleared (one row per
+athlete, including on create and in bulk); target added, status changed,
+removed, and Add to Targets from a match; document uploaded, applied,
+discarded; check-in logged (kind and date only); message sent, staff and
+family; member invited, role changed, removed; the close-outs and
+Reopen. A guardian link logs as `member_invited` and an unlink as
+`member_removed`, on the athlete.
+
+Two things found while verifying, fixed. A person removing or demoting
+themselves is no longer an Admin when the log insert runs, so the policy
+would refuse it silently; both log through the admin client with the
+caller as actor. And the guardian names come from `full_name` only,
+never the email address (`loggedName`).
+
+Screens. The profile gets an Activity section after Notes: the last five
+with See All when there are more. `/roster/[id]/activity` is the
+athlete's full log. `/org/[slug]/activity` is the whole org, with a
+search over the summary and the person's name (`?q=`, shown past five
+entries), 50 rows and then Show More (`?show=`). An Activity row sits
+under Organization on More. Every entry is a Row when it has somewhere to
+go and a static Card when it does not (a removed athlete, target or
+member, a discarded document). Relative time for a week, then the date.
+
+**Reason.** Dave's Stage 5 spec: know who changed what. The two layers
+against text (a type and laws) because either alone fails: the type
+stops a string, the law stops a note handed to a template as if it were
+a name. A security-definer function for the family's message over
+widening the insert policy: the policy would then admit any text under
+any summary from a family session.
+
+**Alternatives considered.** Owner only for the org screen: after
+migration 0041 that is every Admin and there is no narrower level. Cascade
+on `athlete_id`: Remove Athlete is a soft delete and history should
+outlive a hard one, so it is `set null`. Filter chips by action and
+athlete in place of search: search over the sentence and the name does
+the same job with one control. Logging document deletes, notes, titles,
+metrics, contacts and visits: not now, the enum stays open. Retention:
+forever; the code law, not a grant, covers the service role.
+
+**Consequences.** Migration 0044 is in `scripts/run_rls_test.sh` with a
+block in `scripts/rls_test.sql` (a Viewer and an Athlete read zero rows
+and insert none; an Admin's update and delete affect zero rows; a second
+org's Admin reads nothing; the family function works for a linked
+athlete only; anon refused, tested with `set role anon`). Laws:
+`activityLaws.test.ts`, the activity block of `actionRun.test.ts`,
+`moreLaws.test.ts`, and the last block of `pageRender.test.ts`, each
+planted. `src/testing/pages.ts` gains `activity`, `activity-search`,
+`activity-search-empty`, `athlete-activity` and `athlete-activity-empty`;
+the fixture holds six rows on the fixture athlete, one about the org and
+one for Elite, and none on the transfer athlete so the empty state
+renders. Still owed: Phase 4 and 5 RPCs (assignments, View As) must
+write their own log rows in their migrations; "Invited" reads slightly
+off for linking a guardian who already has a login, and is one template
+line to change; docs/BUSINESS_RULES.md lines on who reads the log and
+what a summary may carry; `autofillLaws` (c) to name `athlete_checkins`
+as well as `activity_log`.

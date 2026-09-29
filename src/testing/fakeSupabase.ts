@@ -122,6 +122,12 @@ const EMBEDS: Record<string, Record<string, EmbedSpec>> = {
   athlete_messages: {
     users: { table: "users", foreignKey: "author_id", many: false },
   },
+  // Migration 0044: who did the thing a log row records. One key to
+  // users (actor_id), so the bare embed name is unambiguous.
+  activity_log: {
+    users: { table: "users", foreignKey: "actor_id", many: false },
+    athletes: { table: "athletes", foreignKey: "athlete_id", many: false },
+  },
 };
 
 interface Filter {
@@ -458,6 +464,53 @@ function fakeCreateOrg(
   return { data: id, error: null };
 }
 
+// public.log_family_message(p_athlete), migration 0044, with the same
+// refusals and codes: sign in first, or not linked to that athlete right
+// now (a guardian row AND a live family membership in the athlete's org,
+// as private._family_athlete_ids() reads it), both 42501. On success one
+// activity_log row is written and recorded, signed as the caller, with
+// the literal summary the SQL carries. No argument but the athlete's id
+// is read, so nothing a caller sends can reach the summary.
+function fakeLogFamilyMessage(
+  data: Dataset,
+  userId: string | null,
+  args: Record<string, unknown>,
+  recorded: RecordedWrite[],
+  failOn: (table: string, op: string) => string | null,
+): { data: null; error: { message: string; code: string } | null } {
+  const refuse = (message: string) => ({ data: null, error: { code: "42501", message: `log_family_message: ${message}` } });
+  if (!userId) return refuse("sign in first");
+  const athleteId = typeof args.p_athlete === "string" ? args.p_athlete : null;
+  const athlete = athleteId ? (data.athletes ?? []).find((a) => a.id === athleteId) : undefined;
+  const linked =
+    !!athlete &&
+    (data.athlete_guardians ?? []).some((g) => g.athlete_id === athleteId && g.user_id === userId) &&
+    (data.org_members ?? []).some((m) => m.user_id === userId && m.org_id === athlete.org_id && m.role === "family");
+  if (!athlete || !linked) return refuse("not linked to that athlete");
+  // Only for a message that exists and is not logged yet (the SQL compares
+  // times; counting is the same rule here).
+  const sent = (data.athlete_messages ?? []).filter((m) => m.athlete_id === athleteId && m.author_id === userId).length;
+  const logged = (data.activity_log ?? []).filter((l) => l.actor_id === userId && l.athlete_id === athleteId && l.action === "message_sent").length;
+  if (sent <= logged) return refuse("no unlogged message from you on that athlete");
+  const forced = failOn("activity_log", "insert");
+  if (forced) return { data: null, error: { code: "XX000", message: forced } };
+  const log = data.activity_log ?? (data.activity_log = []);
+  const row: Row = {
+    id: `fake-activity_log-${log.length + 1}`,
+    org_id: athlete.org_id,
+    athlete_id: athleteId,
+    actor_id: userId,
+    action: "message_sent",
+    subject_type: "message",
+    subject_id: null,
+    summary: "Sent a message",
+    created_at: new Date().toISOString(),
+  };
+  log.push(row);
+  recorded.push({ op: "insert", table: "activity_log", rows: [row], filters: [] });
+  return { data: null, error: null };
+}
+
 export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
   const unsupported = (what: string): never => {
     // Loud rather than empty. An unimplemented builder method returning
@@ -475,10 +528,12 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
     },
     // The summary functions of migration 0031, mirrored in fakeRpc.ts.
     // Awaitable like a query, so a page writes `await supabase.rpc(...)`.
-    // create_org (migration 0040) writes, so it lives here, next to the
-    // write log, rather than in the read-only mirror.
+    // create_org (migration 0040) and log_family_message (0044) write,
+    // so they live here, next to the write log, rather than in the
+    // read-only mirror.
     async rpc(name: string, args: Record<string, unknown> = {}) {
       if (name === "create_org") return fakeCreateOrg(data, opts.userId, args, recorded, failOn);
+      if (name === "log_family_message") return fakeLogFamilyMessage(data, opts.userId, args, recorded, failOn);
       return fakeRpc(data, opts.userId, name, args);
     },
     auth: {

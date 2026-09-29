@@ -8,6 +8,7 @@ import { requireOwner, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { PRESETS, type ScoringPreset } from "@/lib/fit/contract";
 import { recomputeFitsForOrg } from "@/lib/data/fits";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 
 // docs/MATCHING_CONTRACT.md section 2: Add to Board on a match row makes
 // a target at the Target stage. Section 3: the org's scoring preset and
@@ -16,10 +17,11 @@ import { recomputeFitsForOrg } from "@/lib/data/fits";
 export async function addMatchToBoard(slug: string, athleteId: string, schoolId: string): Promise<void> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const { data: athlete } = await supabase.from("athletes").select("id").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).single();
+  const { data } = await supabase.from("athletes").select("id, name").eq("id", athleteId).eq("org_id", org.id).is("deleted_at", null).single();
+  const athlete = data as { id: string; name: string } | null;
   if (!athlete) redirect(`/org/${slug}/roster`);
 
   const { data: created, error } = await supabase
@@ -29,6 +31,21 @@ export async function addMatchToBoard(slug: string, athleteId: string, schoolId:
     .single();
   // Already on the board is not an error worth a screen; land on it.
   if (error && error.code !== "23505") redirect(`/org/${slug}/roster/${athleteId}/matches`);
+
+  // Logged only when a target was actually made; landing on one that
+  // was already there changed nothing.
+  if (!error) {
+    const { data: school } = await supabase.from("schools").select("name").eq("id", schoolId).maybeSingle();
+    await logActivity(supabase, {
+      orgId: org.id,
+      actorId: user.id,
+      athleteId: athlete.id,
+      action: "target_added",
+      subjectType: "target",
+      subjectId: (created as { id?: string } | null)?.id ?? null,
+      summary: activitySummary("target_added", { name: athlete.name, school: (school as { name?: string | null } | null)?.name ?? "" }),
+    });
+  }
 
   revalidatePath(`/org/${slug}/board`);
   revalidatePath(`/org/${slug}/roster/${athleteId}`);
