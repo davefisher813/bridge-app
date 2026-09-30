@@ -434,7 +434,13 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
    NCES directory with `scripts/load_high_schools.ts` from a machine
    that can reach nces.ed.gov (this sandbox cannot); discard, delete
    and re-upload every production document once the AI key is set.
-6. **Stage 5:** Spanish mode and translated messages. The thread has
+6. **Stage 5 (Dave's Sep 27 build):** Phases 0 to 4 and 6 are live
+   (status doc, Matches, advisor on the athlete, More as control center,
+   Assignments, Activity Log; migrations through 0046). **Phase 5, View
+   As, is built and pushed on `claude/stage5-phase5-viewas` but held
+   until the very end by Dave's call (2026-09-30); migration 0047 is not
+   applied.**
+7. **On hold: Spanish mode and translated messages.** The thread has
    no `body_es` column yet; it is added then, not guessed now.
 
 ## Left open by Stage 4 and the audit, 2026-09-27

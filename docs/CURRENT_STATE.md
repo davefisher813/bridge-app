@@ -1,17 +1,13 @@
 # Current state
 
-Last updated: 2026-09-29. Stages 3 (advisors, messages, check-ins) and
-4 (autofill, the high school directory, athlete notes) and the add,
-edit and delete audit are deployed to production, with migrations
-applied through 0040. The roles rework (three access levels with fixed
-names, a Title per person, migration 0041) and Stage 5 Phases 1 to 3
-(Matches, the advisor managed on the athlete's page, More as the
-control center; migrations 0042 and 0043) are built and verified
-locally, Phase 6 (the activity log, migration 0044) on top of them, and
-Phase 4 (assignments, migrations 0045 and 0046) on top of that, on
-branch `claude/stage5-phase4-assignments`. Nothing past the Phase 6
-merge is committed or deployed. Phase 5 (View As) is the one phase of
-Stage 5 not built.
+Last updated: 2026-09-30. Everything through Stage 5 Phases 1, 2, 3, 4
+and 6 and the roles rework is deployed to production: migrations 0039 to
+0046 are applied, `main` is at the Phase 4 merge and Vercel is READY.
+Stage 5 Phase 5 (View As, migration 0047) is built, reviewed and
+dry-run against the production schema (rolled back, clean), and is
+pushed on branch `claude/stage5-phase5-viewas`. It is deliberately NOT
+merged and 0047 is NOT applied: Dave, 2026-09-30, "We will do that at
+the very end we don't need it right now." Spanish mode is on hold.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three access levels, each with their own app on
@@ -32,7 +28,7 @@ blank, staff keep notes on an athlete, an owner sets up the org and
 anyone signed in with no other role can start one, and nothing the
 stand-in reader read can ever be applied; an athlete's advisor is
 assigned from the athlete's own page, and More is grouped as the
-control center. 121 screens on one kit, 2,129 tests green, the app itself driven in a browser at
+control center. 121 screens on one kit, 2,130 tests green, the app itself driven in a browser at
 320, 375 and 390 in both themes with nothing past the edge, no row or
 tile that goes nowhere, and every link followed to a real screen.
 
@@ -892,21 +888,16 @@ Format examples stay, because they are the part a person acts on.
 
 ## Immediate next steps
 
-1. The roles rework and Stage 5 Phases 1 to 4 and 6 ship when Dave says
-   "go": commit, apply 0041 to 0046 to production (0041 changes no row
-   there; 0042 and 0043 add columns; 0044 adds the empty activity log;
-   0045 and 0046 add the `filed` status and the empty assignments
-   table, and 0045 must run before 0046), confirm the storage `owner`
-   column is filled for a client upload,
-   deploy, run Recalculate All once
-   so every stored match carries its net cost, then Dave sets each
-   person's Title from their page under Members and checks the members
-   list on his phone. Built without a preview, per "I don't need
-   previews. Ship it."
+1. Dave taps Recalculate All once (More) so every stored match carries
+   its net cost (engine version 3), then sets each person's Title from
+   their page under Members and checks the members list on his phone.
+   Built without a preview, per "I don't need previews. Ship it."
 2. Dave assigns advisors from each athlete's page (Assign, then a tap on
    the Admin; Add Admin for Mike and Kev) and walks the edit and remove
-   screens on his phone. Stage 5 Phase 5 (View As) follows on the same
-   plan, writing its own activity rows.
+   screens on his phone. Stage 5 Phase 5 (View As) waits until the very
+   end by Dave's call; the branch is ready (`claude/stage5-phase5-viewas`,
+   0047 dry-run clean). Before applying 0047: merge, apply, then check a
+   file upload, because it edits the storage write rules.
 3. Load the high school directory (above), then set the AI key and
    discard, delete and re-upload the production documents.
 4. Dave exports his school sheet to the template and imports it, then
