@@ -904,7 +904,8 @@ declare
     array['athlete_checkins', 'insert into athlete_checkins (org_id, athlete_id, kind) values (%L, ''00000000-0000-0000-0000-000000000110'', ''call'')'],
     array['athlete_messages', 'insert into athlete_messages (org_id, athlete_id, author_id, body) values (%L, ''00000000-0000-0000-0000-000000000110'', ''00000000-0000-0000-0000-000000000003'', ''member wrote this'')'],
     array['athlete_message_reads', 'insert into athlete_message_reads (org_id, athlete_id, user_id) values (%L, ''00000000-0000-0000-0000-000000000110'', ''00000000-0000-0000-0000-000000000003'')'],
-    array['activity_log', 'insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values (%L, ''00000000-0000-0000-0000-000000000110'', ''00000000-0000-0000-0000-000000000003'', ''athlete_edited'', ''athlete'', ''Edited Bridge Athlete A'')']
+    array['activity_log', 'insert into activity_log (org_id, athlete_id, actor_id, action, subject_type, summary) values (%L, ''00000000-0000-0000-0000-000000000110'', ''00000000-0000-0000-0000-000000000003'', ''athlete_edited'', ''athlete'', ''Edited Bridge Athlete A'')'],
+    array['assignments', 'insert into assignments (org_id, athlete_id, title, created_by) values (%L, ''00000000-0000-0000-0000-000000000110'', ''Member Assignment'', ''00000000-0000-0000-0000-000000000003'')']
   ];
 begin
   for i in 1 .. array_length(inserts, 1) loop
@@ -1566,7 +1567,7 @@ begin
   delete from recruiting_targets where id = '00000000-0000-0000-0000-000000000210';
   get diagnostics affected = row_count;
   if affected <> 0 then raise exception 'FAIL: a family member deleted a target'; end if;
-  raise notice 'PASS: a family member writes nothing';
+  raise notice 'PASS: a family member writes nothing but a message and an assignment submission';
 end $$;
 
 select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge owner
@@ -3455,3 +3456,671 @@ begin
 end $$;
 
 \echo 'ALL 0044 ASSERTIONS PASSED'
+
+-- ── Assignments (migrations 0045 and 0046) ──────────────────────────
+-- Work an Admin gives an athlete. Admins read, create, update; the
+-- Athlete login reads its own athlete's rows and writes only through
+-- submit_assignment; a Viewer reads nothing; nobody deletes. user2 is
+-- Elite's Admin (owner), user1 is Bridge's Admin, user9 is a leftover
+-- staff row in Bridge (owner in Elite), user6 a Bridge Viewer, user3 a
+-- Bridge Viewer and Elite staff, user5 by now an Athlete login (family)
+-- in Elite only, linked to athlete 120. Athlete 121 is Elite's second
+-- athlete, not linked to user5; 122 is a removed Elite athlete linked
+-- to user5 late in the block.
+--
+-- Planted and reverted, each failing where named: the read policy
+-- widened to _any_org_ids (the Viewer read rows); the created_by clause
+-- and the honesty trigger's rewrite dropped together (an Admin signed a
+-- row as someone else; either alone holds); the coherence trigger
+-- dropped (a Bridge athlete filed under Elite); the guardian check
+-- dropped from submit_assignment (an Athlete login submitted another
+-- athlete's row); the [2] = 'family' check dropped from the storage
+-- policy (a family login wrote into a staff request folder); the anon
+-- revoke skipped (anon could execute submit_assignment).
+reset role;
+
+-- The shape, asked of the catalog: select, insert and update policies
+-- only (no delete for anyone), the three triggers, the new enum value,
+-- the storage policy, and nothing for anon.
+do $$
+declare cmds text[]; n int; pol text;
+begin
+  select coalesce(array_agg(distinct p.cmd::text order by p.cmd::text), '{}') into cmds from pg_policies p where p.schemaname = 'public' and p.tablename = 'assignments';
+  if cmds <> array['INSERT', 'SELECT', 'UPDATE'] then raise exception 'FAIL: assignments policies are %, expected INSERT, SELECT and UPDATE only', cmds; end if;
+  select count(*) into n from pg_trigger t join pg_class c on c.oid = t.tgrelid where c.relname = 'assignments' and not t.tgisinternal and t.tgname in ('assignments_coherent', 'assignments_document_coherent', 'assignments_honest');
+  if n <> 3 then raise exception 'FAIL: assignments carries % of its 3 triggers', n; end if;
+  if not ('filed' = any (enum_range(null::doc_status)::text[])) then raise exception 'FAIL: doc_status has no filed value'; end if;
+  if has_table_privilege('anon', 'public.assignments', 'select') then raise exception 'FAIL: anon holds select on assignments'; end if;
+  if has_table_privilege('anon', 'public.assignments', 'insert') then raise exception 'FAIL: anon holds insert on assignments'; end if;
+  if has_function_privilege('anon', 'public.submit_assignment(uuid, text, text, int, text, text, text)', 'execute') then raise exception 'FAIL: anon can execute submit_assignment'; end if;
+  if has_function_privilege('public', 'public.submit_assignment(uuid, text, text, int, text, text, text)', 'execute') then raise exception 'FAIL: submit_assignment is still granted to PUBLIC'; end if;
+  if not has_function_privilege('authenticated', 'public.submit_assignment(uuid, text, text, int, text, text, text)', 'execute') then raise exception 'FAIL: a signed-in caller cannot execute submit_assignment'; end if;
+  -- The one new storage policy names the family folder in its check.
+  select pg_get_expr(p.polwithcheck, p.polrelid) into pol from pg_policy p where p.polname = 'documents_bucket_family_insert' and p.polrelid = 'storage.objects'::regclass;
+  if pol is null or pol !~ 'family' then raise exception 'FAIL: the family storage policy is missing or does not name the family folder'; end if;
+  raise notice 'PASS: assignments has select, insert and update policies only, its three triggers, filed status, the family storage policy, and nothing for anon';
+end $$;
+
+-- Seed, as the server would write it (no session, so the author given
+-- is kept). Elite gets a second athlete and a removed third; both orgs
+-- get rows so "sees only its own" is a real assertion.
+insert into athletes (id, org_id, recruit_type, name, sport) values
+  ('00000000-0000-0000-0000-000000000121', '00000000-0000-0000-0000-000000000020', 'hs', 'Elite Squad Athlete Two', 'baseball'),
+  ('00000000-0000-0000-0000-000000000122', '00000000-0000-0000-0000-000000000020', 'hs', 'Elite Squad Athlete Gone', 'baseball');
+insert into assignments (id, org_id, athlete_id, title, kind, status, due_on, created_by, reviewer_comment) values
+  ('00000000-0000-0000-0000-0000000a0001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Bridge Transcript Request', 'upload', 'assigned', '2026-09-01', '00000000-0000-0000-0000-000000000001', null),
+  ('00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Elite Report Card', 'upload', 'assigned', '2026-09-01', '00000000-0000-0000-0000-000000000002', null),
+  ('00000000-0000-0000-0000-0000000a0003', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000121', 'Elite Other Athlete Report Card', 'upload', 'assigned', '2026-10-15', '00000000-0000-0000-0000-000000000002', null),
+  ('00000000-0000-0000-0000-0000000a0004', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Elite Confirm Schedule', 'confirm', 'assigned', '2026-10-01', '00000000-0000-0000-0000-000000000002', null),
+  ('00000000-0000-0000-0000-0000000a0005', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Elite Finished Task', 'other', 'complete', null, '00000000-0000-0000-0000-000000000002', null),
+  ('00000000-0000-0000-0000-0000000a0006', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Elite Cancelled Task', 'other', 'cancelled', null, '00000000-0000-0000-0000-000000000002', null),
+  ('00000000-0000-0000-0000-0000000a0007', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Elite Waiting For Review', 'other', 'submitted', null, '00000000-0000-0000-0000-000000000002', null),
+  ('00000000-0000-0000-0000-0000000a0008', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Elite Sent Back Upload', 'upload', 'needs_revision', '2026-09-20', '00000000-0000-0000-0000-000000000002', 'Please redo page two'),
+  ('00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Elite Refusal Target', 'upload', 'assigned', null, '00000000-0000-0000-0000-000000000002', null),
+  ('00000000-0000-0000-0000-0000000a000a', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000122', 'Elite Removed Athlete Task', 'other', 'assigned', null, '00000000-0000-0000-0000-000000000002', null);
+update athletes set deleted_at = now() where id = '00000000-0000-0000-0000-000000000122';
+-- A document of the other Elite athlete, and objects in the bucket: three
+-- the Athlete login put there, one another person put there.
+insert into documents (id, org_id, athlete_id, file_name, file_size, media_type, source_role, status) values
+  ('00000000-0000-0000-0000-0000000d0121', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000121', 'athlete-two-report.pdf', 1000, 'application/pdf', 'parent', 'filed');
+insert into storage.objects (bucket_id, name, owner) values
+  ('documents', '00000000-0000-0000-0000-000000000020/family/req1/report-card.pdf', '00000000-0000-0000-0000-000000000005'),
+  ('documents', '00000000-0000-0000-0000-000000000020/family/req2/second.pdf', '00000000-0000-0000-0000-000000000005'),
+  ('documents', '00000000-0000-0000-0000-000000000020/family/req3/theirs.pdf', '00000000-0000-0000-0000-000000000002'),
+  ('documents', '00000000-0000-0000-0000-000000000020/family/req4/third.pdf', '00000000-0000-0000-0000-000000000005'),
+  -- Objects the login owns whose paths are wrong in shape: another org's
+  -- folder, a staff request folder, a climb out of the folder, a bare
+  -- dot segment. Only the path rule in the function stops these.
+  ('documents', '00000000-0000-0000-0000-000000000010/family/req1/x.pdf', '00000000-0000-0000-0000-000000000005'),
+  ('documents', '00000000-0000-0000-0000-000000000020/req1/x.pdf', '00000000-0000-0000-0000-000000000005'),
+  ('documents', '00000000-0000-0000-0000-000000000020/family/req4/../x.pdf', '00000000-0000-0000-0000-000000000005'),
+  ('documents', '00000000-0000-0000-0000-000000000020/family/req4/..', '00000000-0000-0000-0000-000000000005');
+
+-- The triggers, as the superuser, so RLS is not what stops them.
+do $$
+declare n int; stamp timestamptz;
+begin
+  begin
+    insert into assignments (org_id, athlete_id, title) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000110', 'Bridge athlete under Elite');
+    raise exception 'FAIL: an assignment filed a Bridge athlete under Elite Squad''s org';
+  exception when check_violation then null;
+  end;
+  -- The clock is the server's: a row dated into the future lands now.
+  insert into assignments (id, org_id, athlete_id, title, created_by, created_at, updated_at) values
+    ('00000000-0000-0000-0000-0000000a00f1', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', 'Dated Into 2099', '00000000-0000-0000-0000-000000000001', '2099-01-01', '2099-01-01');
+  select created_at into stamp from assignments where id = '00000000-0000-0000-0000-0000000a00f1';
+  if stamp > now() + interval '1 minute' then raise exception 'FAIL: an assignment kept a caller''s future date (%)', stamp; end if;
+  -- A row keeps its author, its time, its athlete and its org.
+  begin
+    update assignments set created_by = '00000000-0000-0000-0000-000000000002' where id = '00000000-0000-0000-0000-0000000a00f1';
+    raise exception 'FAIL: an assignment was re-signed';
+  exception when check_violation then null;
+  end;
+  begin
+    update assignments set created_at = '2020-01-01' where id = '00000000-0000-0000-0000-0000000a00f1';
+    raise exception 'FAIL: an assignment was redated';
+  exception when check_violation then null;
+  end;
+  begin
+    update assignments set athlete_id = '00000000-0000-0000-0000-000000000110' where id = '00000000-0000-0000-0000-0000000a00f1';
+    raise exception 'FAIL: an assignment was moved to another athlete';
+  exception when check_violation then null;
+  end;
+  begin
+    update assignments set org_id = '00000000-0000-0000-0000-000000000020' where id = '00000000-0000-0000-0000-0000000a00f1';
+    raise exception 'FAIL: an assignment was moved to another org';
+  exception when check_violation then null;
+  end;
+  -- A linked document is the same athlete's in the same org.
+  begin
+    update assignments set document_id = '00000000-0000-0000-0000-0000000d0121' where id = '00000000-0000-0000-0000-0000000a0002';
+    raise exception 'FAIL: an assignment linked another athlete''s document';
+  exception when check_violation then null;
+  end;
+  begin
+    update assignments set document_id = (select id from documents where org_id = '00000000-0000-0000-0000-000000000010' and athlete_id = '00000000-0000-0000-0000-000000000110' limit 1) where id = '00000000-0000-0000-0000-0000000a0002';
+    raise exception 'FAIL: an assignment linked another org''s document';
+  exception when check_violation then null;
+  end;
+  -- The column checks: a blank or long title, a long note, an unlisted status.
+  begin
+    insert into assignments (org_id, athlete_id, title) values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '   ');
+    raise exception 'FAIL: a blank title was accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into assignments (org_id, athlete_id, title) values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', repeat('x', 201));
+    raise exception 'FAIL: a 201 character title was accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into assignments (org_id, athlete_id, title, family_note) values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Long Note', repeat('x', 4001));
+    raise exception 'FAIL: a 4001 character note was accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into assignments (org_id, athlete_id, title, status) values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'In Progress', 'in_progress');
+    raise exception 'FAIL: an in_progress status was accepted';
+  exception when invalid_text_representation then null;
+  end;
+  delete from assignments where id = '00000000-0000-0000-0000-0000000a00f1';
+  raise notice 'PASS: an assignment carries its athlete''s org and a same-athlete document, lands at the server''s time, and keeps its author, time, athlete and org';
+end $$;
+
+-- Reads first, before any test writes a row. Bridge holds 1 row (A1),
+-- Elite holds 9 (E1 to E10 without the second athlete's count split:
+-- 7 on athlete 120, 1 on 121, 1 on the removed 122).
+set role app_user;
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge Admin
+  select count(*) into n from assignments;
+  if n <> 1 then raise exception 'FAIL: Bridge''s Admin read % assignments, expected 1 (Bridge''s)', n; end if;
+  select count(*) into n from assignments where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 0 then raise exception 'FAIL: Bridge''s Admin read % of Elite Squad''s assignments', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000009'); -- leftover staff row in Bridge, owner in Elite
+  select count(*) into n from assignments where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 1 then raise exception 'FAIL: a leftover staff row read % Bridge assignments, expected 1', n; end if;
+  select count(*) into n from assignments where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 9 then raise exception 'FAIL: Elite''s owner read % Elite assignments, expected 9', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000002'); -- Elite Admin
+  select count(*) into n from assignments;
+  if n <> 9 then raise exception 'FAIL: Elite''s Admin read % assignments, expected 9 (Elite''s)', n; end if;
+  select count(*) into n from assignments where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: Elite''s Admin read % of Bridge''s assignments', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000003'); -- Bridge Viewer, Elite staff
+  select count(*) into n from assignments where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: a Bridge Viewer read % Bridge assignments through their Elite staff role', n; end if;
+  select count(*) into n from assignments where org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 9 then raise exception 'FAIL: Elite staff read % Elite assignments, expected 9', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000006'); -- Bridge Viewer
+  select count(*) into n from assignments;
+  if n <> 0 then raise exception 'FAIL: a Viewer read % assignments, expected 0', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000005'); -- Athlete login, Elite, athlete 120 only
+  select count(*) into n from assignments;
+  if n <> 6 then raise exception 'FAIL: an Athlete login read % assignments, expected 6 (its own athlete''s, cancelled ones hidden)', n; end if;
+  select count(*) into n from assignments where status = 'cancelled';
+  if n <> 0 then raise exception 'FAIL: an Athlete login read % cancelled assignments', n; end if;
+  select count(*) into n from assignments where athlete_id <> '00000000-0000-0000-0000-000000000120';
+  if n <> 0 then raise exception 'FAIL: an Athlete login read % assignments of another athlete', n; end if;
+  select count(*) into n from assignments where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: an Athlete login in Elite read % of Bridge''s assignments', n; end if;
+
+  perform set_test_user('00000000-0000-0000-0000-000000000007'); -- in no seeded org
+  select count(*) into n from assignments;
+  if n <> 0 then raise exception 'FAIL: a user outside both orgs read % assignments', n; end if;
+
+  perform set_test_user(null);
+  select count(*) into n from assignments;
+  if n <> 0 then raise exception 'FAIL: a signed-out caller read % assignments', n; end if;
+  raise notice 'PASS: assignments are read by the org''s Admins (a leftover staff row included), by the Athlete login for its own athlete only, and by nobody else';
+end $$;
+
+-- Admin writes: create as themselves, review, cancel; another org and
+-- another author's name are refused or rewritten; nothing is deleted.
+do $$
+declare n int; who uuid; before_at timestamptz; after_at timestamptz;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000002'); -- Elite Admin
+  insert into assignments (id, org_id, athlete_id, title, category, kind, due_on, instructions) values
+    ('00000000-0000-0000-0000-0000000a0101', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000121', 'Admin Made This', 'academics', 'complete_info', '2026-11-01', 'Fill in the form.');
+  select created_by into who from assignments where id = '00000000-0000-0000-0000-0000000a0101';
+  if who is distinct from '00000000-0000-0000-0000-000000000002' then raise exception 'FAIL: an Admin''s new assignment was signed %', who; end if;
+  -- Signed as someone else: the trigger signs it as the session instead.
+  insert into assignments (id, org_id, athlete_id, title, created_by) values
+    ('00000000-0000-0000-0000-0000000a0102', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000121', 'Signed As Another', '00000000-0000-0000-0000-000000000001');
+  select created_by into who from assignments where id = '00000000-0000-0000-0000-0000000a0102';
+  if who is distinct from '00000000-0000-0000-0000-000000000002' then raise exception 'FAIL: an Admin signed an assignment as % instead of themselves', who; end if;
+  -- Another org's athlete under Elite, and Elite's athlete under Bridge.
+  begin
+    insert into assignments (org_id, athlete_id, title) values ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000110', 'Bridge athlete under Elite');
+    raise exception 'FAIL: Elite''s Admin assigned Bridge''s athlete under Elite';
+  exception when check_violation or insufficient_privilege then null;
+  end;
+  begin
+    insert into assignments (org_id, athlete_id, title) values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Elite Admin writing into Bridge');
+    raise exception 'FAIL: Elite''s Admin created an assignment in Bridge';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into assignments (org_id, athlete_id, title) values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000120', 'Elite athlete under Bridge');
+    raise exception 'FAIL: Elite''s Admin assigned Elite''s athlete under Bridge';
+  exception when check_violation or insufficient_privilege then null;
+  end;
+  -- Review: Needs Revision with a comment, then Complete; updated_at moves.
+  select updated_at into before_at from assignments where id = '00000000-0000-0000-0000-0000000a0003';
+  update assignments set status = 'needs_revision', reviewer_comment = 'Missing the second page', reviewed_by = '00000000-0000-0000-0000-000000000002', reviewed_at = now() where id = '00000000-0000-0000-0000-0000000a0003';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: an Admin could not review an assignment in their own org (% rows)', n; end if;
+  select updated_at into after_at from assignments where id = '00000000-0000-0000-0000-0000000a0003';
+  if after_at <= before_at then raise exception 'FAIL: an update did not move updated_at (% to %)', before_at, after_at; end if;
+  update assignments set status = 'complete' where id = '00000000-0000-0000-0000-0000000a0003';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: an Admin could not complete an assignment (% rows)', n; end if;
+  -- Cancel is a status, and history stays.
+  update assignments set status = 'cancelled' where id = '00000000-0000-0000-0000-0000000a0102';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: an Admin could not cancel an assignment (% rows)', n; end if;
+  -- Another org's rows: 0 rows changed, whatever the filter.
+  update assignments set title = 'Rewritten by another org' where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: Elite''s Admin updated % of Bridge''s assignments', n; end if;
+  -- No delete for anyone, an Admin included.
+  delete from assignments;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Admin deleted % assignments', n; end if;
+  delete from assignments where org_id = '00000000-0000-0000-0000-000000000020';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Admin deleted % assignments in their own org', n; end if;
+  raise notice 'PASS: an Admin creates as themselves, reviews and cancels in their own org, is refused elsewhere, and deletes nothing';
+
+  -- The leftover staff row in Bridge works as an Admin does.
+  perform set_test_user('00000000-0000-0000-0000-000000000009');
+  insert into assignments (id, org_id, athlete_id, title) values
+    ('00000000-0000-0000-0000-0000000a0201', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Staff Row Made This');
+  select created_by into who from assignments where id = '00000000-0000-0000-0000-0000000a0201';
+  if who is distinct from '00000000-0000-0000-0000-000000000009' then raise exception 'FAIL: a leftover staff row''s assignment was signed %', who; end if;
+  update assignments set reviewer_comment = 'Looks fine' where id = '00000000-0000-0000-0000-0000000a0001';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: a leftover staff row could not update a Bridge assignment (% rows)', n; end if;
+  raise notice 'PASS: a leftover staff row creates and updates assignments as an Admin does';
+
+  -- Nobody else writes: a Viewer, a Viewer with a staff role elsewhere,
+  -- an Athlete login, a user in neither org.
+  foreach who in array array['00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000007']::uuid[] loop
+    perform set_test_user(who);
+    begin
+      insert into assignments (org_id, athlete_id, title, created_by) values
+        ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Not Mine To Make', who);
+      raise exception 'FAIL: % created an assignment in Bridge', who;
+    exception when insufficient_privilege then null;
+    end;
+    -- Bridge's rows only: user3 is Elite staff and may write Elite's.
+    update assignments set title = 'Rewritten', status = 'complete' where org_id = '00000000-0000-0000-0000-000000000010';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: % updated % Bridge assignments', who, n; end if;
+    delete from assignments where org_id = '00000000-0000-0000-0000-000000000010';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: % deleted % Bridge assignments', who, n; end if;
+  end loop;
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  update assignments set title = 'Rewritten', status = 'complete';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Athlete login updated % assignments', n; end if;
+  delete from assignments;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Athlete login deleted % assignments', n; end if;
+  -- An Athlete login is refused on its own athlete's org too.
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  begin
+    insert into assignments (org_id, athlete_id, title, created_by) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Made By The Athlete', '00000000-0000-0000-0000-000000000005');
+    raise exception 'FAIL: an Athlete login created an assignment for its own athlete';
+  exception when insufficient_privilege then null;
+  end;
+  update assignments set status = 'complete' where athlete_id = '00000000-0000-0000-0000-000000000120';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Athlete login completed % of its own assignments directly', n; end if;
+  update assignments set family_note = 'written directly' where athlete_id = '00000000-0000-0000-0000-000000000120';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Athlete login wrote a note directly on % assignments', n; end if;
+  perform set_test_user(null);
+  raise notice 'PASS: a Viewer, a user outside the org and an Athlete login create, update and delete nothing directly';
+end $$;
+
+-- The bucket: an Athlete login may add a file under its org's family
+-- folder and nowhere else, reads none back and deletes none. A staff
+-- request folder, another org's folder, no folder, a Viewer and a user
+-- outside the org are all refused.
+do $$
+declare n int; who uuid; target text;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000005'); -- Athlete login, Elite
+  insert into storage.objects (bucket_id, name, owner) values
+    ('documents', '00000000-0000-0000-0000-000000000020/family/x/f.pdf', '00000000-0000-0000-0000-000000000005');
+  foreach target in array array[
+    '00000000-0000-0000-0000-000000000020/req9/f.pdf',
+    '00000000-0000-0000-0000-000000000020/other/x/f.pdf',
+    '00000000-0000-0000-0000-000000000010/family/x/f.pdf',
+    'loose-family-file.pdf',
+    -- Flatter and deeper than <org>/family/<request>/<file>: refused too.
+    '00000000-0000-0000-0000-000000000020/family/flat.pdf',
+    '00000000-0000-0000-0000-000000000020/family/a/b/c.pdf'
+  ] loop
+    begin
+      insert into storage.objects (bucket_id, name, owner) values ('documents', target, '00000000-0000-0000-0000-000000000005');
+      raise exception 'FAIL: an Athlete login wrote to %', target;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+  -- Onto a name someone else already holds, in its own family folder: a
+  -- second object cannot take the name (no overwrite, no lookalike that
+  -- would carry the login's ownership into a submission).
+  begin
+    insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000000020/family/req3/theirs.pdf', '00000000-0000-0000-0000-000000000005');
+    raise exception 'FAIL: an Athlete login wrote a second object onto another person''s file name';
+  exception when unique_violation then null;
+  end;
+  -- Its own upload is not readable, and it cannot remove one.
+  select count(*) into n from storage.objects where bucket_id = 'documents';
+  if n <> 0 then raise exception 'FAIL: an Athlete login read % objects from the documents bucket', n; end if;
+  delete from storage.objects where name like '00000000-0000-0000-0000-000000000020/family/%';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Athlete login deleted % objects from the family folder', n; end if;
+  update storage.objects set name = '00000000-0000-0000-0000-000000000020/family/x/renamed.pdf' where name = '00000000-0000-0000-0000-000000000020/family/x/f.pdf';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Athlete login renamed % objects', n; end if;
+  raise notice 'PASS: an Athlete login writes only under <org>/family/, and reads, renames and deletes nothing in the bucket';
+
+  -- A Viewer and a user in no org are not family: refused everywhere.
+  foreach who in array array['00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000007']::uuid[] loop
+    perform set_test_user(who);
+    foreach target in array array['00000000-0000-0000-0000-000000000010/family/x/f.pdf', '00000000-0000-0000-0000-000000000020/family/x/f.pdf'] loop
+      begin
+        insert into storage.objects (bucket_id, name, owner) values ('documents', target, who);
+        raise exception 'FAIL: % wrote to %', who, target;
+      exception when insufficient_privilege then null;
+      end;
+    end loop;
+  end loop;
+  -- Bridge's Admin still cannot write into Elite's family folder.
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  begin
+    insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000000020/family/x/g.pdf', '00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: Bridge''s Admin wrote into Elite Squad''s family folder';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_test_user(null);
+  raise notice 'PASS: a Viewer, a user outside the org and another org''s Admin write nothing under an org''s family folder';
+end $$;
+
+-- submit_assignment, refusals. Each row: assignment, path, media type,
+-- size, and which refusal is expected (check for check_violation, priv
+-- for insufficient_privilege). Every path is under Elite's family
+-- folder unless the row says otherwise; a0009 is assigned throughout.
+do $$
+declare
+  cases text[][] := array[
+    array['00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-000000000010/family/req1/x.pdf', 'application/pdf', '1000', 'check'],
+    array['00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-000000000020/req1/x.pdf', 'application/pdf', '1000', 'check'],
+    array['00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-000000000020/family/req1/x.pdf', 'application/pdf', '1000', 'check'],
+    array['00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-000000000020/family/req3/theirs.pdf', 'application/pdf', '1000', 'check'],
+    array['00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-000000000020/family/req4/../x.pdf', 'application/pdf', '1000', 'check'],
+    array['00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-000000000020/family/req4/..', 'application/pdf', '1000', 'check'],
+    array['00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-000000000020/family/req4/third.pdf', 'text/html', '1000', 'check'],
+    array['00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-000000000020/family/req4/third.pdf', 'application/pdf', '10485761', 'check'],
+    array['00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-000000000020/family/req4/third.pdf', 'application/pdf', '0', 'check'],
+    array['00000000-0000-0000-0000-0000000a0005', '00000000-0000-0000-0000-000000000020/family/req4/third.pdf', 'application/pdf', '1000', 'check'],
+    array['00000000-0000-0000-0000-0000000a0006', null, null, null, 'check'],
+    -- An upload assignment with no file and none attached before.
+    array['00000000-0000-0000-0000-0000000a0009', null, null, null, 'check'],
+    array['00000000-0000-0000-0000-0000000a0003', '00000000-0000-0000-0000-000000000020/family/req4/third.pdf', 'application/pdf', '1000', 'priv'],
+    array['00000000-0000-0000-0000-0000000a0003', null, null, null, 'priv'],
+    array['00000000-0000-0000-0000-0000000a0001', null, null, null, 'priv'],
+    array['00000000-0000-0000-0000-0000000a9999', null, null, null, 'priv']
+  ];
+  got text; n_before int; n_after int; st text;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000005'); -- Athlete login, Elite, athlete 120
+  select count(*) into n_before from documents where status = 'filed';
+  for i in 1 .. array_length(cases, 1) loop
+    got := null;
+    begin
+      perform submit_assignment(cases[i][1]::uuid, 'a note', case when cases[i][2] is null then null else 'x.pdf' end, cases[i][4]::int, cases[i][3], cases[i][2]);
+      raise exception 'FAIL: submit_assignment accepted case % (%)', i, cases[i][2];
+    exception
+      when check_violation then got := 'check';
+      when insufficient_privilege then got := 'priv';
+    end;
+    if got is distinct from cases[i][5] then raise exception 'FAIL: submit_assignment case % was refused as %, expected %', i, got, cases[i][5]; end if;
+  end loop;
+  select count(*) into n_after from documents where status = 'filed';
+  if n_after <> n_before then raise exception 'FAIL: refused submissions left % filed documents behind', n_after - n_before; end if;
+  select status::text into st from assignments where id = '00000000-0000-0000-0000-0000000a0009';
+  if st <> 'assigned' then raise exception 'FAIL: a refused submission moved the row to %', st; end if;
+  -- Null id: nothing to find.
+  begin
+    perform submit_assignment(null, 'a note', null, null, null, null);
+    raise exception 'FAIL: submit_assignment accepted a null assignment';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: submit_assignment refuses another org''s row, another athlete''s, a complete or cancelled one, and every bad path, type and size, leaving no file and no state change';
+end $$;
+
+-- submit_assignment, acceptance: with a file, with a note only, and a
+-- resubmission after Needs Revision.
+do $$
+declare r uuid; st text; d uuid; note text; n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  r := submit_assignment('00000000-0000-0000-0000-0000000a0002', 'Here is the report card', 'report-card.pdf', 1234, 'application/pdf', '00000000-0000-0000-0000-000000000020/family/req1/report-card.pdf', 'hash-one');
+  if r is distinct from '00000000-0000-0000-0000-0000000a0002' then raise exception 'FAIL: submit_assignment returned % instead of the assignment id', r; end if;
+  select status::text, document_id, family_note into st, d, note from assignments where id = '00000000-0000-0000-0000-0000000a0002';
+  if st <> 'submitted' or d is null or note <> 'Here is the report card' then raise exception 'FAIL: the submitted row is % / % / %', st, d, note; end if;
+
+  -- A note only, whitespace trimmed, no file.
+  perform submit_assignment('00000000-0000-0000-0000-0000000a0004', '  confirmed  ', null, null, null, null);
+  select status::text, document_id, family_note into st, d, note from assignments where id = '00000000-0000-0000-0000-0000000a0004';
+  if st <> 'submitted' or d is not null or note <> 'confirmed' then raise exception 'FAIL: the note-only row is % / % / %', st, d, note; end if;
+
+  -- Sent back, then resubmitted with a new file; the reviewer's comment stays.
+  perform submit_assignment('00000000-0000-0000-0000-0000000a0008', null, 'page-two.pdf', 900, 'application/pdf', '00000000-0000-0000-0000-000000000020/family/req2/second.pdf');
+  select status::text, document_id, reviewer_comment into st, d, note from assignments where id = '00000000-0000-0000-0000-0000000a0008';
+  if st <> 'submitted' or d is null or note <> 'Please redo page two' then raise exception 'FAIL: the resubmitted row is % / % / %', st, d, note; end if;
+
+  -- Once submitted, it is not open again from the family's side.
+  begin
+    perform submit_assignment('00000000-0000-0000-0000-0000000a0002', 'again', null, null, null, null);
+    raise exception 'FAIL: a submitted assignment was submitted twice';
+  exception when check_violation then null;
+  end;
+  -- A file already filed cannot be filed again on another row.
+  begin
+    perform submit_assignment('00000000-0000-0000-0000-0000000a0009', null, 'report-card.pdf', 1234, 'application/pdf', '00000000-0000-0000-0000-000000000020/family/req1/report-card.pdf');
+    raise exception 'FAIL: a filed file was filed twice';
+  exception when check_violation then null;
+  end;
+  -- After it: its own rows read back as submitted, and it still writes nothing directly.
+  select count(*) into n from assignments where athlete_id = '00000000-0000-0000-0000-000000000120' and status = 'submitted';
+  -- Its three, and the one seeded as already submitted.
+  if n <> 4 then raise exception 'FAIL: the Athlete login reads % submitted rows, expected 4', n; end if;
+  update assignments set status = 'assigned' where id = '00000000-0000-0000-0000-0000000a0002';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Athlete login reopened its own submitted assignment directly'; end if;
+  perform set_test_user(null);
+  raise notice 'PASS: submit_assignment moves an assigned or needs_revision row to submitted for its own athlete''s login, with a file, with a note, or resubmitted';
+end $$;
+
+-- What it wrote, as the superuser: a filed document per file, never
+-- read by a model, and one log line per submission in a fixed template
+-- that carries no note, no title and no name.
+reset role;
+do $$
+declare n int; d uuid; linked uuid;
+begin
+  select count(*) into n from documents where athlete_id = '00000000-0000-0000-0000-000000000120' and status = 'filed';
+  if n <> 2 then raise exception 'FAIL: % filed documents on the athlete, expected 2', n; end if;
+  select count(*) into n from documents where athlete_id = '00000000-0000-0000-0000-000000000120' and status = 'filed'
+    and org_id = '00000000-0000-0000-0000-000000000020' and source_role = 'parent' and read_by is null and route is null and category is null
+    and array_length(storage_paths, 1) = 1 and storage_paths[1] like '00000000-0000-0000-0000-000000000020/family/%';
+  if n <> 2 then raise exception 'FAIL: only % of 2 filed documents have the parent source, no reading and one family path', n; end if;
+  select id into d from documents where content_hash = 'hash-one' and file_name = 'report-card.pdf' and file_size = 1234 and media_type = 'application/pdf';
+  select document_id into linked from assignments where id = '00000000-0000-0000-0000-0000000a0002';
+  if d is null or d is distinct from linked then raise exception 'FAIL: the assignment links % but the filed document is %', linked, d; end if;
+
+  select count(*) into n from activity_log where action = 'assignment_submitted' and subject_type = 'assignment' and actor_id = '00000000-0000-0000-0000-000000000005'
+    and athlete_id = '00000000-0000-0000-0000-000000000120' and org_id = '00000000-0000-0000-0000-000000000020';
+  if n <> 3 then raise exception 'FAIL: % assignment_submitted log rows, expected 3', n; end if;
+  select count(*) into n from activity_log where summary = 'Submitted the upload assignment' and subject_id in ('00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-0000000a0008');
+  if n <> 2 then raise exception 'FAIL: % upload log lines carry the template, expected 2', n; end if;
+  select count(*) into n from activity_log where summary = 'Submitted the confirmation assignment' and subject_id = '00000000-0000-0000-0000-0000000a0004';
+  if n <> 1 then raise exception 'FAIL: % confirmation log lines carry the template, expected 1', n; end if;
+  select count(*) into n from activity_log where action = 'assignment_submitted' and (summary ilike '%report card%' or summary ilike '%confirmed%' or summary ilike '%page two%' or summary ilike '%Elite%');
+  if n <> 0 then raise exception 'FAIL: % log lines carry a note, a comment, a title or a name', n; end if;
+  -- The line's writer takes only the assignment's id, and writes literals.
+  if exists (select 1 from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace where ns.nspname = 'private' and p.proname = 'log_assignment_submitted' and (pg_get_function_arguments(p.oid) ~* 'text' or p.prosrc ~* 'summary\s*:=' or p.prosrc ~ '\|\|')) then
+    raise exception 'FAIL: log_assignment_submitted takes text or builds its line from a value';
+  end if;
+  if exists (select 1 from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace where ns.nspname = 'public' and p.proname = 'submit_assignment' and (p.prosrc ~* 'insert\s+into\s+(public\.)?activity_log' or p.prosrc ~* 'summary')) then
+    raise exception 'FAIL: submit_assignment writes the log line itself instead of through the helper';
+  end if;
+  if has_function_privilege('authenticated', 'private.log_assignment_submitted(uuid)', 'execute') or has_function_privilege('anon', 'private.log_assignment_submitted(uuid)', 'execute') then
+    raise exception 'FAIL: a signed-in or anon caller can execute the log helper directly';
+  end if;
+  raise notice 'PASS: a submission files one parent document per file, never read, and logs one fixed line with no note and no title';
+end $$;
+
+-- After it, as the Athlete login: the filed document is its athlete's to
+-- see and not to change, the log is closed, the bucket is closed.
+set role app_user;
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  select count(*) into n from documents where status = 'filed';
+  if n <> 2 then raise exception 'FAIL: an Athlete login reads % filed documents, expected its 2', n; end if;
+  update documents set status = 'applied' where status = 'filed';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Athlete login changed % filed documents', n; end if;
+  delete from documents where status = 'filed';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Athlete login deleted % filed documents', n; end if;
+  begin
+    insert into documents (org_id, athlete_id, file_name, file_size, media_type, source_role, status) values
+      ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'direct.pdf', 10, 'application/pdf', 'parent', 'filed');
+    raise exception 'FAIL: an Athlete login inserted a document row directly';
+  exception when insufficient_privilege then null;
+  end;
+  select count(*) into n from activity_log;
+  if n <> 0 then raise exception 'FAIL: an Athlete login read % log rows after submitting', n; end if;
+  select count(*) into n from storage.objects where bucket_id = 'documents';
+  if n <> 0 then raise exception 'FAIL: an Athlete login read % bucket objects after submitting', n; end if;
+
+  -- The other Elite athlete's filed document is not this login's.
+  select count(*) into n from documents where athlete_id = '00000000-0000-0000-0000-000000000121';
+  if n <> 0 then raise exception 'FAIL: an Athlete login read another athlete''s filed document'; end if;
+
+  -- Elite's Admin reads the filed documents and the log lines; Bridge's Admin neither.
+  perform set_test_user('00000000-0000-0000-0000-000000000002');
+  select count(*) into n from documents where status = 'filed' and athlete_id = '00000000-0000-0000-0000-000000000120';
+  if n <> 2 then raise exception 'FAIL: Elite''s Admin read % filed documents, expected 2', n; end if;
+  select count(*) into n from activity_log where action = 'assignment_submitted';
+  if n <> 3 then raise exception 'FAIL: Elite''s Admin read % submission log lines, expected 3', n; end if;
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  select count(*) into n from documents where status = 'filed';
+  if n <> 0 then raise exception 'FAIL: Bridge''s Admin read % of Elite''s filed documents', n; end if;
+  select count(*) into n from activity_log where action = 'assignment_submitted';
+  if n <> 0 then raise exception 'FAIL: Bridge''s Admin read % of Elite''s submission log lines', n; end if;
+
+  -- The Viewer reads none of it.
+  perform set_test_user('00000000-0000-0000-0000-000000000006');
+  select count(*) into n from assignments;
+  if n <> 0 then raise exception 'FAIL: a Viewer read % assignments after a submission', n; end if;
+  select count(*) into n from documents where status = 'filed';
+  if n <> 0 then raise exception 'FAIL: a Viewer read % filed documents', n; end if;
+  perform set_test_user(null);
+  raise notice 'PASS: the filed document is read by the athlete''s login and its Admins only; the log and the bucket stay closed to the family';
+end $$;
+
+-- Everyone else is refused the function: another org's Admin, a Viewer, a
+-- user in no org, and a signed-out caller. Nothing changes.
+do $$
+declare who uuid; target uuid; n int; st text;
+begin
+  foreach who in array array['00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000007']::uuid[] loop
+    perform set_test_user(who);
+    foreach target in array array['00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-0000000a0001']::uuid[] loop
+      begin
+        perform submit_assignment(target, 'not mine', null, null, null, null);
+        raise exception 'FAIL: % submitted %', who, target;
+      exception when insufficient_privilege then null;
+      end;
+    end loop;
+  end loop;
+  perform set_test_user(null);
+  begin
+    perform submit_assignment('00000000-0000-0000-0000-0000000a0009', 'signed out', null, null, null, null);
+    raise exception 'FAIL: a signed-out caller submitted an assignment';
+  exception when insufficient_privilege then null;
+  end;
+  reset role;
+  select count(*) into n from assignments where id in ('00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-0000000a0001') and status = 'assigned';
+  if n <> 2 then raise exception 'FAIL: a refused caller moved an assignment (% of 2 still assigned)', n; end if;
+  select count(*) into n from activity_log where action = 'assignment_submitted';
+  if n <> 3 then raise exception 'FAIL: a refused caller left a log line (% total)', n; end if;
+  raise notice 'PASS: another org''s Admin, a Viewer, a user in no org and a signed-out caller cannot submit an assignment, and nothing changes';
+end $$;
+
+-- The anon role itself, not only its grants.
+reset role;
+set role anon;
+do $$
+declare n int;
+begin
+  begin
+    perform submit_assignment('00000000-0000-0000-0000-0000000a0009', 'anon', null, null, null, null);
+    raise exception 'FAIL: anon executed submit_assignment';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    select count(*) into n from assignments;
+    raise exception 'FAIL: anon read assignments';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into assignments (org_id, athlete_id, title) values ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Anon Made This');
+    raise exception 'FAIL: anon inserted an assignment';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: anon can neither call submit_assignment nor touch assignments';
+end $$;
+reset role;
+
+-- A link is only as alive as the membership, and a removed athlete is
+-- not submittable. user5 is linked to the removed athlete 122 here.
+insert into athlete_guardians (org_id, athlete_id, user_id, relationship) values
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000122', '00000000-0000-0000-0000-000000000005', 'parent');
+set role app_user;
+do $$
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  begin
+    perform submit_assignment('00000000-0000-0000-0000-0000000a000a', 'removed athlete', null, null, null, null);
+    raise exception 'FAIL: an Athlete login submitted for a removed athlete';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_test_user(null);
+  raise notice 'PASS: submit_assignment refuses an athlete who has been removed';
+end $$;
+reset role;
+delete from org_members where user_id = '00000000-0000-0000-0000-000000000005' and org_id = '00000000-0000-0000-0000-000000000020';
+set role app_user;
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000005');
+  select count(*) into n from assignments;
+  if n <> 0 then raise exception 'FAIL: a login whose family membership was removed still read % assignments', n; end if;
+  begin
+    perform submit_assignment('00000000-0000-0000-0000-0000000a0009', 'membership gone', null, null, null, null);
+    raise exception 'FAIL: a login whose family membership was removed submitted an assignment';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000000020/family/y/f.pdf', '00000000-0000-0000-0000-000000000005');
+    raise exception 'FAIL: a login whose family membership was removed wrote to the family folder';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_test_user(null);
+  raise notice 'PASS: removing the family membership closes assignments, the function and the family folder together';
+end $$;
+reset role;
+
+\echo 'ALL 0046 ASSERTIONS PASSED'

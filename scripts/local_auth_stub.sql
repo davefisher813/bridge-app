@@ -49,6 +49,10 @@ create table if not exists storage.objects (
   created_at timestamptz not null default now()
 );
 alter table storage.objects enable row level security;
+-- Supabase's own unique index: a second object cannot take a name, so an
+-- insert onto an existing path fails rather than adding a lookalike (the
+-- overwrite and impersonation cases in the assignments block need it).
+create unique index if not exists bucketid_objname on storage.objects (bucket_id, name);
 
 -- Same contract as Supabase's: every path segment but the last.
 create or replace function storage.foldername(name text) returns text[]

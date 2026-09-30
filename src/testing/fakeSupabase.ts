@@ -1,4 +1,4 @@
-import { fakeRpc } from "./fakeRpc";
+import { fakeRpc, fakeSubmitAssignment } from "./fakeRpc";
 
 // An in-memory stand-in for the Supabase client, good enough to render a
 // page and nothing more.
@@ -46,6 +46,10 @@ export interface RecordedWrite {
   // that is visible is here.
   filters: Array<{ column: string; value: unknown }>;
   onConflict?: string;
+  // Set when the write was made inside a SECURITY DEFINER function rather
+  // than by the caller's own query, so a law can tell the one write a
+  // family login is allowed (submit_assignment's) from a query it made.
+  via?: string;
 }
 
 // Which embedded name resolves to which table, and whether it comes back
@@ -126,6 +130,10 @@ const EMBEDS: Record<string, Record<string, EmbedSpec>> = {
   // users (actor_id), so the bare embed name is unambiguous.
   activity_log: {
     users: { table: "users", foreignKey: "actor_id", many: false },
+    athletes: { table: "athletes", foreignKey: "athlete_id", many: false },
+  },
+  // Migration 0046: an assignment belongs to one athlete.
+  assignments: {
     athletes: { table: "athletes", foreignKey: "athlete_id", many: false },
   },
 };
@@ -530,10 +538,12 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
     // Awaitable like a query, so a page writes `await supabase.rpc(...)`.
     // create_org (migration 0040) and log_family_message (0044) write,
     // so they live here, next to the write log, rather than in the
-    // read-only mirror.
+    // read-only mirror; submit_assignment (0046) writes too and lives in
+    // fakeRpc.ts beside the rest of the mirrors, handed the write log.
     async rpc(name: string, args: Record<string, unknown> = {}) {
       if (name === "create_org") return fakeCreateOrg(data, opts.userId, args, recorded, failOn);
       if (name === "log_family_message") return fakeLogFamilyMessage(data, opts.userId, args, recorded, failOn);
+      if (name === "submit_assignment") return fakeSubmitAssignment(data, opts.userId, args, recorded, failOn);
       return fakeRpc(data, opts.userId, name, args);
     },
     auth: {

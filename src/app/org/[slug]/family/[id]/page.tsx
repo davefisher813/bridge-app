@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireFamily, requireFamilyAthlete } from "@/lib/data/family";
 import { threadSummaryByAthlete } from "@/lib/data/messages";
 import { loadStaff } from "@/lib/data/staff";
+import { computeDueSoon, computeOverdue, groupAssignments, loadAthleteAssignments, sortByUrgency, todayIso, type Assignment } from "@/lib/data/assignments";
 import { personLabel } from "@/lib/org/roleLabels";
 import { JourneyStepper } from "@/components/JourneyStepper";
 import { StatusPill } from "@/components/StatusPill";
@@ -57,6 +58,7 @@ const DOC_STATUS: Record<string, string> = {
   applied: "On the record",
   pending: "Being checked by an Admin",
   processing: "Being read",
+  filed: "Filed for your Admin",
   failed: "Could not be read",
   discarded: "Set aside by an Admin",
 };
@@ -65,6 +67,17 @@ interface TargetRow {
   id: string;
   status: string;
   schools: { name: string } | { name: string }[] | null;
+}
+
+// One open assignment's second line: what is wrong with it first, then
+// when it is due. Sentences, in the family's words.
+function assignmentMeta(a: Assignment, today: string): string {
+  const parts: string[] = [];
+  if (a.status === "needs_revision") parts.push("Needs a change");
+  if (computeOverdue(a.dueOn, a.status, today)) parts.push("Overdue");
+  else if (computeDueSoon(a.dueOn, a.status, today)) parts.push("Due soon");
+  parts.push(a.dueOn ? `Due ${longDate(a.dueOn)}` : "No due date");
+  return parts.join(" · ");
 }
 
 interface DocRow {
@@ -93,7 +106,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
   const here = `${base}/${id}`;
 
   const supabase = await createClient();
-  const [{ data: athlete }, { data: targetRows }, { data: metricRows }, { data: docRows }, fits, staff, threads, { data: schoolRows }] = await Promise.all([
+  const [{ data: athlete }, { data: targetRows }, { data: metricRows }, { data: docRows }, fits, staff, threads, { data: schoolRows }, assignmentRows] = await Promise.all([
     supabase
       .from("athletes")
       .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment, advisor_id")
@@ -110,6 +123,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
     // Which sports each school sponsors, so the count of schools
     // evaluated is the same one the Matches screen shows.
     supabase.from("schools").select("id, sports_sponsored"),
+    loadAthleteAssignments(supabase, org.id, id),
   ]);
   if (!athlete) notFound();
 
@@ -148,6 +162,15 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
   const thread = threads.get(id) ?? { total: 0, unread: 0 };
   const threadMeta = thread.total === 0 ? "Nothing sent yet" : `${thread.total} ${thread.total === 1 ? "message" : "messages"}${thread.unread > 0 ? ` · ${thread.unread} new` : ""}`;
 
+  // Cancelled rows are not shown. Open rows (assigned or sent back) come
+  // urgent first with the one button; submitted rows say they are with an
+  // Admin; complete ones are counted in one line.
+  const today = todayIso();
+  const visible = groupAssignments(assignmentRows.filter((a) => a.status !== "cancelled"));
+  const openAssignments = sortByUrgency(visible.open, today);
+  const submittedAssignments = sortByUrgency(visible.submitted, today);
+  const completeCount = visible.done.length;
+
   return (
     <Screen
       title={athlete.name}
@@ -172,6 +195,43 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
         <Card href={`${base}/colleges`}>
           <JourneyStepper result={journey} />
         </Card>
+      )}
+
+      {(openAssignments.length > 0 || submittedAssignments.length > 0 || completeCount > 0) && (
+        <Section label="Your Assignments" count={openAssignments.length + submittedAssignments.length || undefined} role="time" kind="flag">
+          {openAssignments.map((a) => {
+            const late = computeOverdue(a.dueOn, a.status, today);
+            return (
+              <Row
+                key={a.id}
+                kind={late || a.status === "needs_revision" ? "warning" : "flag"}
+                role={late || a.status === "needs_revision" ? "danger" : "contact"}
+                title={a.title}
+                meta={assignmentMeta(a, today)}
+                wrap
+                trailingAction={
+                  <LinkButton href={`${here}/assignments/${a.id}`} inline>
+                    {/* Short on purpose: "Fix and Resubmit" leaves a row at 320
+                        too little width for the title (the audit's edge-spill
+                        finding). The submit screen's button says the long
+                        form. */}
+                    {a.status === "needs_revision" ? "Resubmit" : "Submit"}
+                  </LinkButton>
+                }
+              />
+            );
+          })}
+          {/* A sent row opens the same screen, which says it is with an
+              Admin; it is a link and not a button, so an open row is still
+              the only thing with a button. */}
+          {submittedAssignments.map((a) => (
+            <Row key={a.id} href={`${here}/assignments/${a.id}`} kind="check" role="contact" title={a.title} meta="Sent. With an Admin for review." trailing={<Chevron />} />
+          ))}
+          {/* A line of text, not a row: there is no screen for a finished
+              one to open, and a row that looks tappable and is not is what
+              the clickable check exists to stop. */}
+          {completeCount > 0 && <Label>{`${completeCount} complete. Reviewed and done.`}</Label>}
+        </Section>
       )}
 
       <Section label="Your Advisor" role="people" kind="people">

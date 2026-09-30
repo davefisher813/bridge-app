@@ -3583,3 +3583,140 @@ off for linking a guardian who already has a login, and is one template
 line to change; docs/BUSINESS_RULES.md lines on who reads the log and
 what a summary may carry; `autofillLaws` (c) to name `athlete_checkins`
 as well as `activity_log`.
+
+## 2026-09-27: assignments, one family write more, and the file a family hands in
+
+**Decision.** Stage 5 Phase 4, Dave approved the whole plan on
+2026-09-27, so its recommendations are the decisions. An Admin gives an
+athlete a piece of work with a due date; the Athlete login for that
+athlete answers it; an Admin reviews it. Migration 0045 adds the `filed`
+value to `doc_status`, alone in its file (the 0022 lesson: a new enum
+value cannot be used in the transaction that adds it). Migration 0046
+adds `assignments`, its three enums, the policies, the triggers, one
+function and one storage policy.
+
+The status set is `assigned`, `submitted`, `needs_revision`, `complete`,
+`cancelled`. There is no in-progress status. **Overdue is never stored**:
+it is a due date in the past on a row still assigned or needing
+revision, computed by `computeOverdue` in `src/lib/data/assignments.ts`
+each time a row is drawn, and Due Soon (seven days) the same way. A
+column that said so would go stale at midnight and could be set wrong.
+"Today" is the calendar day in `America/New_York`, because no per-org
+timezone exists yet.
+
+Access. Admins (owner, and a leftover staff row, which reads as Admin)
+read, create and update their org's rows. The Athlete login reads only
+its linked athlete's rows. A Viewer reads nothing from the table, and
+the read policy is keyed to `_staff_org_ids()` rather than
+`_member_org_ids()` so that stays true if the member helper is ever
+widened. There is no delete policy for anyone: Cancel is a status and the
+history stays.
+
+The Athlete login writes to the table through one function only,
+`public.submit_assignment`, security definer, `search_path = ''`, signed-in
+callers only (revoked from anon). It checks the caller is linked to the
+row's athlete and the athlete is not removed, that the row is assigned or
+sent back, and, for a file, that the path is `<org>/family/<request>/<file>`,
+that the caller owns the object, that it is not already filed, and the
+bucket's size and type limits. It files a `documents` row (`status
+'filed'`, `source_role 'parent'`), links it, sets the row to submitted,
+and writes its activity line through `private.log_assignment_submitted`,
+which takes only the id and writes one literal per kind ("Submitted the
+upload assignment"). The note, the title and the athlete's name are not
+in that line. The action `submitAssignment` reads the uploaded bytes with
+the service role, in that one place, to run the shared acceptance check
+and the hash; it returns nothing it read. A family still has no bucket
+read.
+
+The file. One new storage policy lets an Athlete login add an object
+under `<org>/family/...` in the `documents` bucket, and nowhere else. The
+`[2] = 'family'` segment is load-bearing: without it a family could drop
+a file into a staff request folder that `processDocument` would later
+read back. The `documents` table gets no family insert policy; the
+function files the row. A filed document is never read by a model, never
+appears under Needs Review and never has an Apply button. The documents
+list shows it under Family Upload, and its own screen says what it is.
+No Doc AI call happens on submission, and no email goes out.
+
+Screens. The profile gets an Assignments section right after Advisor
+(the three most urgent open rows, See All, New Assignment).
+`/roster/[id]/assignments` is the whole list, grouped Open, Submitted
+and Done; `/new` creates one; `/[assignmentId]` shows it, the file as a
+row to the document, and the review: Complete, Needs Revision with a
+required comment, and a confirmed Cancel. `/org/[slug]/assignments` is
+the org-wide list: Submitted for Review, Overdue, Due Soon and Open, with
+a search over the title and the athlete once there are more than five.
+Today gains Submitted for Review and Overdue after Needs Follow-Up, each
+only when it has a row. My Athletes says "N open assignments · N overdue
+· N to review" per athlete. More gains an Assignments row under Program.
+The Athlete login's athlete page gets Your Assignments above Your
+Advisor: one link button per open row (Submit, or Resubmit on a row sent
+back; the answer screen's button says Fix and Resubmit), a link row with no button for one already sent
+(it opens the screen that says it is with an Admin), one line of text for
+the complete ones, cancelled rows hidden. `/family/[id]/assignments/[id]` is
+the answer screen: instructions, the reviewer's comment only on a row
+sent back, a file field for an upload assignment, a note, one button.
+
+**Reason.** Dave's Stage 5 spec: give an athlete work and see it come
+back. The one function over a family insert policy for the same reason
+as the message log line: a policy would admit any values in any column
+from a family session, where the function admits a status change and the
+fields it names. Computing Overdue over storing it because a stored flag
+is wrong the moment the date passes.
+
+**Compatible with the earlier decision against tasks on Today** (the
+2026-09 entry "Today dashboard rebuilt around org/recruiting management,
+not tasks/events"). That decision rejected add-a-task and add-an-event
+widgets, life-management shapes with no owner and no athlete.
+Assignments are athlete-scoped work between an Admin and a family,
+created on the athlete's page, not on Today. Today shows only two
+read-only sections of them, each present only when it has a row; there
+is no add control on Today.
+
+**Alternatives considered.** An in-progress status: rejected, nothing
+would set it and it would make Overdue ambiguous. A stored `overdue`
+boolean or a nightly job: rejected, see above. A family insert policy on
+`assignments` or `documents`: rejected, see above. Widening `STORAGE_PATH`
+(`documents.ts`) so `processDocument` could take a family file: rejected,
+it would let a family reach the Doc AI path; the assignment action has its
+own four-segment `FAMILY_STORAGE_PATH`. Labelling the profile button
+"Assign" as the plan had it: it is "New Assignment", because the Advisor
+sheet's trigger is the bare word Assign and two advisor laws tell the two
+apart by it. Copying the athlete's name into the family's log line: the
+existing 0044 law forbids a text-taking function writing a computed
+summary, so the line is a literal per kind and names nobody.
+
+**Consequences.** "A family writes exactly one thing" becomes two: a
+message, and an assignment submission through the function (BUSINESS_RULES
+and ARCHITECTURE say so; the older entries above stay as history). The
+RLS suite asserts an Admin, a leftover staff row, the Athlete login (its
+own athlete, another athlete, another org), a Viewer, a second org and
+anon, and every one was planted and seen to fail. Laws: `assignmentLaws.test.ts`
+(48 cases) and the last block of `pageRender.test.ts`; `src/testing/pages.ts`
+gains eleven entries and the fixture seven assignment rows, a filed
+document and a family storage object. Still owed: the storage `owner`
+column is only tested against the local stub, so before this goes to a
+real project confirm it is filled for client uploads; a Viewer's View As
+(Phase 5) may need the function to refuse while viewing, which is a
+later migration; a refused upload stays in the bucket because the action
+cannot prove whose file it is; `todayIso()` needs a per-org timezone the
+first time an org outside the Eastern zone joins.
+
+## 2026-09-29: assignments hardening found in review
+
+**Decision.** Three changes came out of the adversarial review of Phase
+4. The Athlete login's storage insert policy admits only
+`<org>/family/<request>/<file>`, exactly three segments, matching the
+function's and the app's path pattern; a flat or deeper name is refused.
+`submit_assignment` refuses an upload-kind row with no file and no earlier
+one. An Athlete login cannot read a cancelled assignment through the API
+(the read policy excludes it), not only on screen. Separately, the
+Admin upload's duplicate check ignores a family's filed copy, since a
+filed row has no Discard button and would strand the Admin.
+
+**Consequences.** A filed document is still not removable by an Admin;
+if that is wanted, `deleteDocument` must also clear the 4-segment family
+bytes. The family folder is shared by every athlete login in an org; the
+owner check on submit is what protects it. `submit_assignment` trusts the
+caller's size, type and hash; a later hardening can cross-check the
+stored object.

@@ -14,6 +14,8 @@ import { addNote, removeAthlete, removeNote } from "@/lib/actions/athletes";
 import { AthleteNoteForm } from "@/components/AthleteNoteForm";
 import { loadAthleteNotes, NOTE_CONTEXT_LABEL } from "@/lib/data/athleteNotes";
 import { loadAthleteActivity } from "@/lib/data/activity";
+import { isOpenStatus, loadAthleteAssignments, sortByUrgency, todayIso } from "@/lib/data/assignments";
+import { AssignmentRows } from "@/components/AssignmentRows";
 import { ActivityRows } from "@/components/ActivityRows";
 import { loadCoachOptions } from "@/lib/data/lookups";
 import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Grid2, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
@@ -64,6 +66,9 @@ const CONTACT_ROLE_LABEL: Record<string, string> = {
 // How many activity entries the profile shows before See All.
 const ACTIVITY_PREVIEW = 5;
 
+// How many assignments the profile shows before See All: the most urgent.
+const ASSIGNMENT_PREVIEW = 3;
+
 const OUTCOME_LABEL: Record<Outcome, string> = { enroll: "Mark Enrolled", graduate: "Mark Graduated", draft: "Mark Drafted" };
 
 interface SchoolRow {
@@ -107,7 +112,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const supabase = await createClient();
-  const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits, advisors, { data: lastCheckinRows }, threads, notes, recentActivity] = await Promise.all([
+  const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits, advisors, { data: lastCheckinRows }, threads, notes, recentActivity, assignmentRows] = await Promise.all([
     supabase
       .from("athletes")
       .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment, advisor_id")
@@ -142,6 +147,9 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
     // more than shown so See All knows whether there is more. Behind
     // the same staff guard; no family or member screen reads the log.
     loadAthleteActivity(supabase, org.id, id, ACTIVITY_PREVIEW + 1),
+    // Assignments (migration 0046), every status, for the section below.
+    // Admins only: the Viewer reads none of this table.
+    loadAthleteAssignments(supabase, org.id, id),
   ]);
 
   if (!athlete) notFound();
@@ -222,6 +230,15 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const thread = threads.get(id);
   const lastCheckinOn = ((lastCheckinRows ?? []) as { occurred_on: string | null }[])[0]?.occurred_on ?? null;
   const checkinIsDue = checkinDue(lastCheckinOn, new Date());
+
+  // Assignments: what still needs doing (open or waiting on a review),
+  // most urgent first, so overdue and due soon lead. Done and cancelled
+  // rows stay on See All.
+  const today = todayIso();
+  const assignments = sortByUrgency(assignmentRows, today);
+  const activeAssignments = assignments.filter((a) => isOpenStatus(a.status) || a.status === "submitted");
+  const assignHref = `/org/${slug}/roster/${id}/assignments`;
+  const assignmentsShown = Math.min(activeAssignments.length, ASSIGNMENT_PREVIEW);
 
   const contacts = contactRows ?? [];
   const schools = (schoolRows ?? []).map((s) => ({ id: s.id, label: `${s.name} (${s.division})` }));
@@ -305,6 +322,37 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           meta={lastCheckinOn ? `last on ${longDate(lastCheckinOn)}${checkinIsDue ? " · due for one" : ""}` : "None yet"}
           trailing={<Chevron />}
         />
+      </Section>
+
+      {/* Work given to this athlete (Stage 5, Phase 4): overdue and due
+          soon first, New Assignment to add one, See All for the whole list.
+          Not labelled Assign: the Advisor sheet's trigger is Assign, and
+          the advisor laws tell the two apart by that word. */}
+      <Section
+        label="Assignments"
+        count={activeAssignments.length}
+        role="contact"
+        kind="checklist"
+        action={assignments.length > assignmentsShown ? <TextLink href={assignHref}>See All</TextLink> : undefined}
+      >
+        {assignments.length === 0 ? (
+          <EmptyState kind="checklist" role="contact" title="No Assignments Yet" action={<LinkButton href={`${assignHref}/new`}>New Assignment</LinkButton>}>
+            Give this athlete a piece of work with a due date.
+          </EmptyState>
+        ) : (
+          <>
+            {activeAssignments.length === 0 ? (
+              <EmptyState kind="check" role="committed" title="Nothing Open">
+                Everything assigned to this athlete is done.
+              </EmptyState>
+            ) : (
+              <AssignmentRows slug={slug} rows={activeAssignments.slice(0, assignmentsShown)} today={today} />
+            )}
+            <LinkButton href={`${assignHref}/new`} variant="secondary">
+              New Assignment
+            </LinkButton>
+          </>
+        )}
       </Section>
 
       <Stack gap={3}>

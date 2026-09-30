@@ -220,6 +220,9 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   const isFailed = doc.status === "failed";
   const isDiscarded = doc.status === "discarded";
   const isProcessing = doc.status === "processing";
+  // Sent by an Athlete login with an assignment (migration 0046). Filed,
+  // never read by a model, so there is nothing to apply or correct.
+  const isFiled = doc.status === "filed";
   // A reading that never finished: the row was written, the function
   // was killed. It can be cleared once it is plainly not going to end.
   const isStuck = isProcessing && isStaleProcessing(doc.created_at);
@@ -244,7 +247,9 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   const correctable = isPending && !stubRead && doc.category && doc.category !== "film" && doc.extracted ? editableFields(doc.category as DocCategoryId, doc.extracted).length > 0 : false;
   const deletable = isDiscarded || isFailed;
 
-  const headline = isFailed
+  const headline = isFiled
+    ? "Family Upload"
+    : isFailed
     ? "Could Not Use This"
     : isProcessing
       ? isStuck
@@ -256,7 +261,9 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
         : "Not sure who this is"
       : `${doc.category ? (CATEGORY_LABEL[doc.category] ?? doc.category) : "Document"} read`;
 
-  const chip = isApplied ? (
+  const chip = isFiled ? (
+    <Chip label="Family Upload" kind="document" role="place" />
+  ) : isApplied ? (
     <Chip label="Applied" kind="check" role="committed" />
   ) : isProcessing ? (
     <Chip label={isStuck ? "Stuck" : "Reading"} kind="warning" role="offer" />
@@ -289,6 +296,12 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
 
       {doc.requested_category === null && doc.detected_type && (
         <Note title="Worked Out the Type Itself">Nobody told it what this was. It decided: {doc.detected_type.replace(/_/g, " ")}.</Note>
+      )}
+
+      {isFiled && (
+        <Note title="Sent with an Assignment">
+          The athlete login handed this in. Nothing has read it and nothing on the athlete was changed. It is kept here with the assignment it answers.
+        </Note>
       )}
 
       {isProcessing && (

@@ -8,6 +8,7 @@ import { Avatar, EmptyState, LinkButton, Row, Screen, Section, TextLink } from "
 import { effectiveStatus, isScoredStatus, placementAthlete, type PlacementTarget } from "@/lib/placement";
 import { checkinDue, daysSinceCheckin, latestByAthlete, sortByNeed } from "@/lib/checkins";
 import { unreadByAthlete } from "@/lib/data/messages";
+import { countsFor, loadAssignmentCounts, todayIso } from "@/lib/data/assignments";
 
 // My Athletes: the athletes this person advises, the ones who need a
 // check-in most first (never checked in, then the longest gap). The
@@ -48,6 +49,9 @@ export default async function MyAthletesPage({ params }: { params: Promise<{ slu
   ]);
 
   const athletes = (athleteRows ?? []) as AthleteRow[];
+  // Open assignment counts per athlete, computed on load (overdue is
+  // never stored). Admin only, like this screen.
+  const assignmentCounts = await loadAssignmentCounts(supabase, org.id, todayIso());
   const unread = await unreadByAthlete(
     supabase,
     org.id,
@@ -75,6 +79,7 @@ export default async function MyAthletesPage({ params }: { params: Promise<{ slu
         // still being recruited. A placed or graduated one is never due.
         due: isScoredStatus(effective) && checkinDue(lastOn, today),
         unread: unread.get(a.id) ?? 0,
+        work: countsFor(assignmentCounts, a.id),
         effective,
       };
     }),
@@ -99,7 +104,7 @@ export default async function MyAthletesPage({ params }: { params: Promise<{ slu
               href={`/org/${slug}/roster/${a.id}`}
               leading={<Avatar name={a.name} />}
               title={a.name}
-              meta={`${a.days === null ? "never checked in" : a.due ? `no check-in in ${a.days} days` : `last check-in ${longDate(a.lastOn)}`} · ${a.sport}${a.position ? ` · ${a.position}` : ""}${a.unread > 0 ? ` · ${a.unread} new ${a.unread === 1 ? "message" : "messages"}` : ""}`}
+              meta={`${a.days === null ? "never checked in" : a.due ? `no check-in in ${a.days} days` : `last check-in ${longDate(a.lastOn)}`} · ${a.sport}${a.position ? ` · ${a.position}` : ""}${a.work.open > 0 ? ` · ${a.work.open} open ${a.work.open === 1 ? "assignment" : "assignments"}` : ""}${a.work.overdue > 0 ? ` · ${a.work.overdue} overdue` : ""}${a.work.toReview > 0 ? ` · ${a.work.toReview} to review` : ""}${a.unread > 0 ? ` · ${a.unread} new ${a.unread === 1 ? "message" : "messages"}` : ""}`}
               trailing={<StatusPill status={a.effective} />}
               wrap
             />
