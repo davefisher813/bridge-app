@@ -52,15 +52,16 @@ export default async function MorePage({ params, searchParams }: { params: Promi
           Program, Reference, Matching, Foundation, Organization. Foundation
           is Bridge's two modules and is left out entirely when neither is
           on (docs/STYLING_CATALOG.md: modules off are hidden from More).
-          Assignments and View As join their sections with the
-          phases that build them; a row before its page fails the links
-          check. */}
+          Assignments joined Program with Stage 5 Phase 4; View As joins
+          Organization with the phase that builds it. A row before its
+          page fails the links check. */}
       <Section label="People" role="people" kind="people">
         {user.role === "owner" && <Row href={`/org/${slug}/members`} kind="people" role="people" title="Members" meta="Who can sign in, and what each person can do" wrap />}
         {canEdit && <Row href={`/org/${slug}/advisors`} kind="athlete" role="contact" title="Advisors" meta="Each Admin and how many athletes they advise" wrap />}
       </Section>
 
       <Section label="Program" role="contact" kind="checklist">
+        {canEdit && <Row href={`/org/${slug}/assignments`} kind="checklist" role="contact" title="Assignments" meta="Work given to athletes, what is waiting on a review and what is late" wrap />}
         {canEdit && <Row href={`/org/${slug}/documents`} kind="document" role="place" title="Documents" meta="Read a transcript or an offer letter into an athlete's record" wrap />}
       </Section>
 

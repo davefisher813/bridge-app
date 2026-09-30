@@ -278,3 +278,63 @@ the plants.
     them; an entry links only to a screen that exists, and a removed
     athlete's entries link nowhere. `pageRender.test.ts`, the last
     describe block, `moreLaws.test.ts` for the More row.
+
+## Added 2026-09-27: Stage 5 Phase 4, assignments
+
+Dave approved the Stage 5 plan whole (docs/PLAN_STAGE5.md). Every law
+below was planted, seen to fail, and reverted; each file's header names
+the plants.
+
+33. **Overdue is computed, never stored, and there is no in-progress
+    status.** `computeOverdue` and `computeDueSoon` are pure over a due
+    date, a status and a day; no column, insert field or stored flag
+    says overdue; the status enum is exactly assigned, submitted,
+    needs_revision, complete, cancelled. `assignmentLaws.test.ts`,
+    `schemaLaws.test.ts`.
+34. **The Viewer reads nothing about assignments, and the Athlete login
+    writes one thing.** No Viewer page or loader names the table; the
+    only family write is `submit_assignment` (no `.from("assignments")`
+    write in any family path, and the fake's copy of the function refuses
+    an Admin, another athlete's login and a row that is not open, as the
+    SQL does). `assignmentLaws.test.ts`, `scripts/rls_test.sql`.
+35. **A family file lands only under `<org>/family/<request>/<file>`, is
+    filed and never read.** The path pattern, the `[2] = 'family'`
+    storage check, the owner check and the size and type limits are in
+    the function and the policy; a submission makes no Doc AI call and
+    sends no email; a family note and a reviewer comment never reach an
+    activity line. `assignmentLaws.test.ts`, `scripts/rls_test.sql`.
+36. **A filed document never renders in Needs Review or with an Apply
+    button.** The documents list shows the family file under its own
+    Family Upload heading and the document screen offers no Apply.
+    `assignmentLaws.test.ts`.
+37. **Migrations 0045 and 0046 are structure only**: 0045 is one
+    statement in its own file, neither carries data, both are in the
+    RLS runner in order, and every planted case (Admin, a leftover staff
+    row, the Athlete login for its own and another athlete, the Viewer,
+    a second org, anon) fails when its policy or check is dropped.
+    `assignmentLaws.test.ts`, `migrationLaws.test.ts`,
+    `scripts/rls_test.sql`.
+38. **The screens: Admin only, computed on every draw, one button per
+    row for the Athlete login.** The profile puts Assignments right after
+    Advisor with the three most urgent rows; the athlete's list groups
+    Open, Submitted and Done; review controls show on a submitted row
+    only and Cancel never on a finished one; the org list opens with
+    Submitted for Review; Today shows Submitted for Review and Overdue
+    after Needs Follow-Up only when each has a row; My Athletes counts
+    open, overdue and to review; an Overdue chip follows a moved date
+    and a changed status. `pageRender.test.ts`, the last describe block,
+    `moreLaws.test.ts` for the More row.
+39. **What the Athlete login sees of it.** Your Assignments sits above
+    Your Advisor, one link button per open row and none on a sent or
+    finished one, cancelled rows hidden, no form anywhere on the
+    athlete's page, no reviewer comment, family note or other athlete's
+    or org's work; the answer screen shows the reviewer's comment only
+    on a row sent back and offers its one form only on an open row; a
+    cancelled row, another org's row and an unlinked athlete are Not
+    Found; every link stays under `/family/`; an Admin and a Viewer are
+    sent away. `pageRender.test.ts`, the last describe block.
+40. **A Viewer opens none of it.** Every assignment screen, the org
+    list, Today, My Athletes and More send a Viewer away, and no Viewer
+    screen names an assignment, links to one or has a Submit button; a
+    signed-out visitor is sent to sign in. `pageRender.test.ts`, the
+    last describe block.

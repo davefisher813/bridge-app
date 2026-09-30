@@ -57,7 +57,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // Bridge, so this is the common case, not the edge one.
   { name: "member-home-lite", path: "@/app/org/[slug]/member/page", props: { params: p({ slug: ORG_WITHOUT_MODULES }) }, expect: /Athletes[\s\S]*The Program/, as: MEMBER_ID },
   { name: "member-more-lite", path: "@/app/org/[slug]/member/more/page", props: { params: p({ slug: ORG_WITHOUT_MODULES }), searchParams: p({}) }, expect: /Who to Ask[\s\S]*Sign Out/, as: MEMBER_ID },
-  { name: "family-athlete", path: "@/app/org/[slug]/family/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Matches[\s\S]*Documents/, as: FAMILY_ID },
+  { name: "family-athlete", path: "@/app/org/[slug]/family/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture Athlete[\s\S]*Your Assignments[\s\S]*Your Advisor[\s\S]*Matches[\s\S]*Documents/, as: FAMILY_ID },
   // Stage 3: the athlete's thread, the one thing a family login writes.
   // There is no family check-ins screen; the log is staff only.
   { name: "family-messages", path: "@/app/org/[slug]/family/[id]/messages/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Fixture message from staff[\s\S]*Send/, as: FAMILY_ID },
@@ -179,6 +179,24 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "activity-search-empty", path: "@/app/org/[slug]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "zzzz" }) }, expect: /Nothing Matches/ },
   { name: "athlete-activity", path: "@/app/org/[slug]/roster/[id]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({}) }, expect: /Every change recorded for Fixture Athlete[\s\S]*Added Fixture Athlete/ },
   { name: "athlete-activity-empty", path: "@/app/org/[slug]/roster/[id]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }), searchParams: p({}) }, expect: /No Activity Yet/ },
+  // Stage 5 Phase 4, 2026-09-27 (Dave approved the whole plan): assignments.
+  // The athlete's list groups Open, Submitted and Done; the org list opens
+  // with what is waiting on a review; the detail screen of a submitted row
+  // carries the Family Upload document and the review controls, and a
+  // finished one carries no Cancel.
+  { name: "assignments", path: "@/app/org/[slug]/roster/[id]/assignments/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Send Fall Transcript[\s\S]*Upload Test Scores[\s\S]*Confirm Graduation Year/ },
+  { name: "assignments-empty", path: "@/app/org/[slug]/roster/[id]/assignments/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /No Assignments Yet[\s\S]*New Assignment/ },
+  { name: "assignment-new", path: "@/app/org/[slug]/roster/[id]/assignments/new/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /New Assignment[\s\S]*Create Assignment/ },
+  { name: "assignment", path: "@/app/org/[slug]/roster/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentSubmitted }) }, expect: /Upload Test Scores[\s\S]*Family Upload[\s\S]*Complete[\s\S]*Needs Revision[\s\S]*Cancel Assignment/ },
+  { name: "assignment-revision", path: "@/app/org/[slug]/roster/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentRevision }) }, expect: /Complete Family Budget Form[\s\S]*Reviewer Comment[\s\S]*second parent[\s\S]*Cancel Assignment/ },
+  { name: "assignment-complete", path: "@/app/org/[slug]/roster/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentComplete }) }, expect: /Confirm Graduation Year[\s\S]*Complete/ },
+  { name: "org-assignments", path: "@/app/org/[slug]/assignments/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Submitted for Review[\s\S]*Overdue[\s\S]*Due Soon/ },
+  { name: "org-assignments-search", path: "@/app/org/[slug]/assignments/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "zzzz" }) }, expect: /Nothing Matches/ },
+  // The Athlete login's side: the submit screen for an open and overdue
+  // row, a row sent back (with what to change), and a row already sent.
+  { name: "family-assignment", path: "@/app/org/[slug]/family/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentOverdue }) }, expect: /Send Fall Transcript[\s\S]*Overdue[\s\S]*Submit/, as: FAMILY_ID },
+  { name: "family-assignment-revision", path: "@/app/org/[slug]/family/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentRevision }) }, expect: /What to Change[\s\S]*second parent[\s\S]*Fix and Resubmit/, as: FAMILY_ID },
+  { name: "family-assignment-submitted", path: "@/app/org/[slug]/family/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentSubmitted }) }, expect: /Sent for Review/, as: FAMILY_ID },
   { name: "approved-list", path: "@/app/org/[slug]/approved-courses/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.orgList }), searchParams: p({}) }, expect: /Unscaled High School/ },
   { name: "grading-scale", path: "@/app/org/[slug]/grading-scales/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.orgScale }) }, expect: /Fixture High School/ },
   { name: "document", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.document }) }, expect: /fixture.pdf/ },

@@ -209,7 +209,9 @@ is every membership and is used only to resolve the org row;
 `_family_staff_ids()` the people they may ask. Every read policy on
 athlete data is `org_id in member orgs OR athlete_id in family
 athletes`; every write policy is `org_id in staff orgs`, which never
-includes family, with one exception since 0039: a message (below). A trigger on `athlete_guardians` refuses a row whose
+includes family, with two exceptions: a message (0039, below) and, since
+0046, one storage insert under `<org>/family/` for an assignment's file,
+plus one family function, `submit_assignment` (see Assignments below). A trigger on `athlete_guardians` refuses a row whose
 athlete or person is not in the row's org, so the org id on it cannot be
 used to cross tenants. `scripts/rls_test.sql` seeds a family member and
 asserts each of these.
@@ -321,6 +323,55 @@ asserts each of these.
   and `/org/[slug]/activity` (50, then Show More via `?show=`), all
   behind `STAFF_ROLES`, all through `ActivityRows`
   (`src/components/ActivityRows.tsx`, kit only).
+
+### Assignments (migrations 0045 and 0046)
+
+- **`assignments`** carries `org_id` and `athlete_id`, a status enum of
+  five values (no in-progress), a kind, a category, a nullable `due_on`
+  and the two free-text fields (`family_note`, `reviewer_comment`).
+  **There is no overdue column**: `computeOverdue` and `computeDueSoon`
+  (`src/lib/data/assignments.ts`, pure, client-safe) derive both from
+  `due_on` and `status` on every draw, and `assignmentLaws.test.ts`
+  fails on a column, a stored field or an insert that names one.
+- **Policies.** Select is `_staff_org_ids()` or `athlete_id in
+  _family_athlete_ids()`, so a Viewer reads nothing (it is not keyed to
+  `_member_org_ids()` on purpose). Insert requires `created_by =
+  auth.uid()`; update is staff orgs; **no delete policy**. Triggers:
+  the coherence function from 0039 (a row's athlete is in its org), a
+  document coherence check (a linked document is the same athlete's and
+  org's), and an honesty trigger that signs and dates a new row, keeps
+  its author, athlete and org fixed and stamps `updated_at`, the first
+  touch trigger in the repo, scoped to this table.
+- **`public.submit_assignment(...)`** is the only family write to the
+  table: security definer, `search_path = ''`, revoked from anon,
+  granted to authenticated. It checks the guardian link and that the
+  athlete is not removed, that the row is assigned or needs_revision,
+  and for a file that the path is `<org>/family/<request>/<file>`, the
+  caller owns the storage object, the object is not already filed, and
+  the bucket's size and type limits hold. It inserts the `documents` row
+  (status `filed`, source `parent`), links it and sets the status. The
+  activity line comes from `private.log_assignment_submitted(uuid)`,
+  which takes no text. `fakeRpc.ts` mirrors the function on the fixture
+  and `RecordedWrite.via` marks writes made inside it.
+- **Storage.** One new policy on `storage.objects`: insert into the
+  `documents` bucket where the first folder is one of the caller's family
+  orgs and the second is `family`. Reads stay staff only, so a family
+  cannot read its upload back. `submitAssignment` reads the bytes with
+  the service role in that one place to run `checkIngestedRecord` and
+  hash them, and returns none of it. `FAMILY_STORAGE_PATH` is its own
+  four-segment pattern; `STORAGE_PATH` in `documents.ts` is not widened,
+  so a family object can never enter `processDocument`.
+- **`filed`** (0045, alone in its file) is a `doc_status` no model ever
+  writes. The documents list shows it under Family Upload and the
+  document screen offers no Apply, Correct or Discard.
+- **Client.** `AssignmentSubmitForm` uploads from the browser to the
+  bucket, then calls `submitAssignment` with only the path, name, type and
+  note, so file bytes never ride a server action (the 1MB cap).
+- **Screens** are Admin only except the two under `/family/`. The Athlete
+  login's athlete page draws its section from `loadAthleteAssignments`
+  and every link it renders stays under `/family/`
+  (`pageRender.test.ts`, last block). The three loaders drop removed
+  athletes and any row outside the org.
 
 ### Lookups and autofill
 

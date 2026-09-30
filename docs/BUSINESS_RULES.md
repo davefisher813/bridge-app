@@ -24,7 +24,8 @@
   athlete created, edited, status changed or removed; advisor set or
   cleared; target added or moved; document uploaded, applied or
   discarded; check-in logged; message sent; member invited, role changed
-  or removed. Nothing else is logged.
+  or removed; assignment created, submitted, reviewed or cancelled.
+  Nothing else is logged.
 - It is append only. No one, Admin included, can change or delete a line.
   The actor and the time come from the server, never the caller.
 - Only Admins read it. An Athlete login and a Viewer read nothing, and
@@ -307,10 +308,11 @@ Committed, Enrolled, Transferring, Graduated, Drafted, Inactive.
   for staff must never reach a parent through the API.
 - **The message thread** is one per athlete, between the org's owner
   and staff and that athlete's family logins. A member never reads it.
-- **A family writes exactly one thing**: a message it authors, on an
-  athlete it is linked to, plus its own read marker. It cannot edit or
+- **A family writes two things**: a message it authors, on an athlete it
+  is linked to, plus its own read marker; and, since Stage 5 Phase 4, an
+  assignment submission (see Assignments below). It cannot edit or
   delete a message (staff can), cannot sign as someone else, and cannot
-  file a message under another org.
+  file either under another org.
 - **No email yet.** A new message is signalled only by the unread count
   in the app.
 
@@ -329,6 +331,7 @@ the row belongs to one.
 | Athlete note | owner, staff | nobody | owner, staff |
 | Contact, metric, check-in, transcript course | owner, staff | owner, staff | owner, staff |
 | Message | owner, staff, a linked family | nobody | owner, staff |
+| Assignment | any Admin | any Admin (review, cancel); the Athlete login only by submitting | nobody (Cancel is a status) |
 | Family link | owner, staff (invite, link another athlete) | owner, staff (relationship) | owner, staff (one athlete at a time) |
 | Target, contact log entry, visit, award | owner, staff | owner, staff | owner, staff |
 | Document | owner, staff | owner, staff (correct a pending reading) | owner, staff (discarded or failed only) |
@@ -343,7 +346,8 @@ the row belongs to one.
 | Board, seat, donor, gift, pledge, campaign, grant (modules on) | owner, staff | owner, staff | owner, staff (a board with seats cannot be removed; a donor is a soft delete) |
 
 A family login and a member add, edit and remove nothing except a
-family's own messages on its own athlete's thread.
+family's own messages on its own athlete's thread and, for a family
+login, submitting an assignment on its own athlete.
 
 - **Enrolled and Graduated are set by Mark Enrolled and Mark Graduated,
   never by Edit.** Edit corrects an Enrollment Date or Graduated On
@@ -425,6 +429,51 @@ An append-only record of who did what to what, per org. Migration 0044,
   undoes the action it records.
 - **Volume**: one row per athlete changed in a bulk advisor assignment,
   none per fit recompute.
+
+## Assignments (2026-09-27)
+
+Work an Admin gives an athlete, with a due date. Migrations 0045 and 0046,
+`src/lib/data/assignments.ts`, `src/lib/actions/assignments.ts`.
+
+- **Five statuses, no in-progress**: Assigned, Submitted, Needs Revision,
+  Complete, Cancelled. Assigned and Needs Revision are the open ones; the
+  athlete can submit either. Complete and Cancelled are final.
+- **Overdue and Due Soon are computed, never stored.** Overdue is a due
+  date before today on a row that is Assigned or Needs Revision. Due Soon
+  is the next seven days on the same rows. A submitted, complete or
+  cancelled row is never either. Today is the calendar day in
+  `America/New_York` until an org carries its own timezone. A row that
+  was sent back and is also late shows both.
+- **Who reads what.** Admins read and write every assignment in their org.
+  The Athlete login reads only its linked athlete's rows (never a
+  cancelled one on screen), sees the instructions and the due date, and
+  sees the reviewer's comment only while the row is Needs Revision. It
+  never sees who else was assigned what or anything of another athlete or
+  org. A Viewer reads nothing from any assignment table, screen or count.
+- **The Athlete login writes one thing here**: a submission, through
+  `public.submit_assignment` and nothing else. It cannot create, edit,
+  cancel, review or delete a row, cannot submit a row that is Submitted,
+  Complete or Cancelled, and an Admin cannot submit on a family's behalf.
+  A kind Upload requires a file; the other kinds take a note only.
+- **The file a family hands in** goes to the `documents` bucket under
+  `<org>/family/<request>/<file>`, the only place a family may write, and
+  is filed as a document with status Filed (shown as Family Upload) and
+  source Parent. Nothing reads it: no model call on submission, no Apply
+  button, never in Needs Review. An Admin can open it from the assignment
+  and, as with any document, choose to run the existing read from there.
+  The same size and type limits as every upload apply, and the same bytes
+  already filed for the athlete are refused. The family still cannot read
+  a file back from the bucket.
+- **Review.** An Admin marks a Submitted row Complete, or Needs Revision
+  with a required comment the athlete login reads. Cancel is offered on an
+  Assigned, Submitted or Needs Revision row and asks first. Nothing is
+  deleted; the history stays.
+- **The activity log** records created, submitted, reviewed and cancelled,
+  as names, kinds and dates only. The family's note, the reviewer's
+  comment and the assignment's title never enter it. A family's
+  submission line names nobody ("Submitted the upload assignment").
+- **No email.** A new assignment, a submission and a review are signalled
+  only by what the screens show.
 
 ## Fit-scoring model
 

@@ -76,7 +76,7 @@ function DocumentRow({ slug, doc, role }: { slug: string; doc: DocRow; role: Rol
       href={`/org/${slug}/documents/${doc.id}`}
       kind="document"
       role={role}
-      title={`${doc.category ? (CATEGORY_LABEL[doc.category] ?? doc.category) : "Unrecognized"}${athlete ? ` · ${athlete}` : " · no match"}`}
+      title={doc.status === "filed" ? `Family Upload${athlete ? ` · ${athlete}` : ""}` : `${doc.category ? (CATEGORY_LABEL[doc.category] ?? doc.category) : "Unrecognized"}${athlete ? ` · ${athlete}` : " · no match"}`}
       meta={`${doc.status === "failed" && doc.failure_reason ? doc.failure_reason : doc.file_name}${isStubReading(doc.read_by) ? " · made up by the stand-in" : ""} · ${ago(doc.created_at)}`}
       wrap
       trailing={
@@ -119,6 +119,9 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const applied = rows.filter((r) => r.status === "applied");
   const problems = rows.filter((r) => r.status === "failed");
   const discarded = rows.filter((r) => r.status === "discarded");
+  // A file an Athlete login sent in with an assignment (migration 0046).
+  // Filed, never read: it is not in Needs Review and has nothing to apply.
+  const familyUploads = rows.filter((r) => r.status === "filed");
   const stubbed = await isStubbedModel();
 
   return (
@@ -150,6 +153,13 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
             <Section label="Needs Review" count={pending.length} role="offer" kind="warning">
               {pending.map((d) => (
                 <DocumentRow key={d.id} slug={slug} doc={d} role="offer" />
+              ))}
+            </Section>
+          )}
+          {familyUploads.length > 0 && (
+            <Section label="Family Upload" count={familyUploads.length} role="place" kind="document">
+              {familyUploads.map((d) => (
+                <DocumentRow key={d.id} slug={slug} doc={d} role="place" />
               ))}
             </Section>
           )}

@@ -13,6 +13,8 @@ import { formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 import { STRONG_MATCH_DAYS } from "@/lib/fit/contract";
 import { rankFits } from "@/lib/fit/rank";
+import { loadOrgAssignments, partitionOrgAssignments, todayIso as orgCalendarDay } from "@/lib/data/assignments";
+import { AssignmentRows } from "@/components/AssignmentRows";
 
 // The Today screen. Per Dave (2026-09): this is an org/recruiting
 // management tool, not a life-management app - so no "add a task" /
@@ -92,7 +94,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
 
   const supabase = await createClient();
 
-  const [{ data: athleteRows }, { data: targets }, { data: windowRows }, { data: strongRows }, { data: checkinRows }, staff] = await Promise.all([
+  const [{ data: athleteRows }, { data: targets }, { data: windowRows }, { data: strongRows }, { data: checkinRows }, staff, openAssignments] = await Promise.all([
     supabase.from("athletes").select("id, name, advisor_id, status, detail, draft_team, draft_round, draft_year").eq("org_id", org.id).is("deleted_at", null),
     supabase
       .from("recruiting_targets")
@@ -108,6 +110,10 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
     // for the advisor's name on each one.
     supabase.from("athlete_checkins").select("athlete_id, occurred_on").eq("org_id", org.id).order("occurred_on", { ascending: false }),
     loadStaff(supabase, org.id),
+    // Phase 4: the org's open assignments, for the two sections below.
+    // Admin only (this screen is), and removed athletes are dropped by
+    // the loader.
+    loadOrgAssignments(supabase, org.id, { openOnly: true }),
   ]);
 
   // Only queried when the module is on. An org without fundraising does
@@ -182,6 +188,13 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   // The way into My Athletes, with the same due rule the screen uses.
   const mine = advised.filter((a) => a.advisor_id === user.id);
   const mineDue = mine.filter((a) => isScoredStatus(effectiveById.get(a.id) ?? a.status) && checkinDue(lastCheckin.get(a.id), today)).length;
+
+  // Assignments (Phase 4). Overdue is computed from the due date and the
+  // status here, every load; nothing stored says so. A section shows only
+  // when it has something, and shows the first few with a way to the rest.
+  const assignmentDay = orgCalendarDay();
+  const { submitted: toReview, overdue: overdueWork } = partitionOrgAssignments(openAssignments, assignmentDay);
+  const ASSIGNMENTS_SHOWN = 5;
 
   const needsFollowUp = rows
     .filter((r) => OPEN_STATUSES.includes(r.status))
@@ -312,6 +325,18 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
           </>
         )}
       </Section>
+
+      {toReview.length > 0 && (
+        <Section label="Submitted for Review" count={toReview.length} role="place" kind="document" action={<TextLink href={`/org/${slug}/assignments`}>See All</TextLink>}>
+          <AssignmentRows slug={slug} rows={toReview.slice(0, ASSIGNMENTS_SHOWN)} today={assignmentDay} showAthlete />
+        </Section>
+      )}
+
+      {overdueWork.length > 0 && (
+        <Section label="Overdue" count={overdueWork.length} role="danger" kind="warning" action={<TextLink href={`/org/${slug}/assignments`}>See All</TextLink>}>
+          <AssignmentRows slug={slug} rows={overdueWork.slice(0, ASSIGNMENTS_SHOWN)} today={assignmentDay} showAthlete />
+        </Section>
+      )}
 
       <Section label="Upcoming" count={upcomingVisits.length + upcomingWindows.length} role="visit" kind="clock">
         {upcomingVisits.length === 0 && upcomingWindows.length === 0 ? (

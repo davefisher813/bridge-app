@@ -118,7 +118,10 @@ export interface ActivitySubjects {
   // `kind` is the assignment's kind or category label, never its title
   // or instructions.
   assignment_created: { name: string; kind: string };
-  assignment_submitted: { name: string; kind: string };
+  // A submission is written by the database for the family login, from
+  // literals that name nobody ("Submitted the upload assignment"), so the
+  // name is optional here.
+  assignment_submitted: { name?: string | null; kind: string };
   assignment_reviewed: { name: string; kind: string; to: string };
   assignment_cancelled: { name: string; kind: string };
   // `kind` is the document category (transcript, test score, ...); the
@@ -188,7 +191,7 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   target_status_changed: (s) => `Moved ${who(s.name)} at ${clip(s.school, NAME_MAX, "a school")}${fromTo(s.from, s.to)}`,
   target_removed: (s) => `Removed ${clip(s.school, NAME_MAX, "a school")} as a target for ${who(s.name)}`,
   assignment_created: (s) => `Created ${article(word(s.kind, "new"))} ${word(s.kind, "new")} assignment for ${who(s.name)}`,
-  assignment_submitted: (s) => `Submitted the ${word(s.kind, "open")} assignment for ${who(s.name)}`,
+  assignment_submitted: (s) => (s.name ? `Submitted the ${word(s.kind, "open")} assignment for ${who(s.name)}` : `Submitted the ${word(s.kind, "open")} assignment`),
   assignment_reviewed: (s) => `Reviewed the ${word(s.kind, "open")} assignment for ${who(s.name)} as ${word(s.to, "reviewed")}`,
   assignment_cancelled: (s) => `Cancelled the ${word(s.kind, "open")} assignment for ${who(s.name)}`,
   document_uploaded: (s) => (s.name ? `Uploaded ${article(word(s.kind, "document"))} ${word(s.kind, "document")} for ${who(s.name)}` : `Uploaded ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`),

@@ -1781,3 +1781,472 @@ describe("LAW: the activity log is the Admin's, five on the profile, searchable,
     expect(gone).toMatch(/Sent a message/);
   });
 });
+
+// Stage 5 Phase 4, 2026-09-27 (Dave approved the whole plan): assignments.
+// An Admin gives an athlete a piece of work; the Athlete login answers it
+// through one button per row and one submit screen; a Viewer reads none of
+// it. Overdue is computed from the due date and the status on every draw,
+// so the laws move a date or a status on the fixture row and watch the
+// screens follow. Each was planted and seen to fail, then restored: the
+// Today empty guard removed (the empty case rendered the headings); the
+// family row given a second link (the one-button case failed); a family
+// note put on the family athlete page (the no-Admin-text case failed); a
+// cancelled row let through on the submit screen (the 404 case failed);
+// the Viewer's program screen given an assignment title (the Viewer case
+// failed); the org filter dropped from the loader (the Elite row showed
+// on the Bridge screens).
+describe("LAW: assignments are the Admin's to give and review, the Athlete login's to answer, and the Viewer reads none", () => {
+  const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+  const sectionLabels = (html: string) => [...html.matchAll(/<span class="text-label font-bold uppercase tracking-wide text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
+  const slug = ORG_WITH_MODULES;
+  const staffBase = `/org/${slug}/roster/${IDS.athlete}/assignments`;
+  const familyBase = `/org/${slug}/family/${IDS.athlete}`;
+  const TITLES = ["Send Fall Transcript", "Confirm Showcase Dates", "Upload Test Scores", "Complete Family Budget Form", "Confirm Graduation Year", "Register For Fall Camp", "Squad Only Task"];
+  const profile = (id: string = IDS.athlete) => render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug, id }), searchParams: p({}) });
+  const athleteList = (id: string = IDS.athlete) => render("@/app/org/[slug]/roster/[id]/assignments/page", { params: p({ slug, id }) });
+  const newForm = (id: string = IDS.athlete) => render("@/app/org/[slug]/roster/[id]/assignments/new/page", { params: p({ slug, id }) });
+  const detail = (assignmentId: string, id: string = IDS.athlete) => render("@/app/org/[slug]/roster/[id]/assignments/[assignmentId]/page", { params: p({ slug, id, assignmentId }) });
+  const orgList = (sp: Record<string, string> = {}) => render("@/app/org/[slug]/assignments/page", { params: p({ slug }), searchParams: p(sp) });
+  const today = () => render("@/app/org/[slug]/page", { params: p({ slug }) });
+  const mine = () => render("@/app/org/[slug]/mine/page", { params: p({ slug }) });
+  const familyHome = (id: string = IDS.athlete) => render("@/app/org/[slug]/family/[id]/page", { params: p({ slug, id }) });
+  const familySubmit = (assignmentId: string, id: string = IDS.athlete) => render("@/app/org/[slug]/family/[id]/assignments/[assignmentId]/page", { params: p({ slug, id, assignmentId }) });
+  // The profile's Assignments section: from its label to the next one.
+  const profileSection = (html: string) => {
+    const at = html.indexOf(">Assignments<");
+    expect(at).toBeGreaterThan(-1);
+    const labels = sectionLabels(html);
+    const next = labels[labels.indexOf("Assignments") + 1];
+    const end = next ? html.indexOf(`>${next}<`, at) : html.length;
+    return html.slice(at, end === -1 ? html.length : end);
+  };
+  // A section of Today or the org list, from its label to the next one.
+  const sectionOf = (html: string, label: string) => {
+    const labels = sectionLabels(html);
+    const at = html.indexOf(`>${label}<`);
+    expect(at, label).toBeGreaterThan(-1);
+    const next = labels[labels.indexOf(label) + 1];
+    const end = next ? html.indexOf(`>${next}<`, at) : html.length;
+    return html.slice(at, end === -1 ? html.length : end);
+  };
+
+  // One Row's whole markup by its title. A Row with a link is
+  // `<a ...><div data-kit="row">`, so the link sits before the marker and
+  // rowAfter would hand it to the row above; this splits ahead of the
+  // anchor instead.
+  const rowChunk = (html: string, title: string) => {
+    const chunks = html.split(/(?=<a [^>]*><div data-kit="row")|(?<!<a [^>]*>)(?=<div data-kit="row")/);
+    const chunk = chunks.find((c) => c.includes(title) && c.includes('data-kit="row"'));
+    expect(chunk, title).toBeDefined();
+    return chunk!;
+  };
+
+  // ── The staff side ────────────────────────────────────────────────
+
+  it("the profile has an Assignments section right after Advisor, three most urgent rows, See All, and New Assignment", async () => {
+    const html = await profile();
+    const labels = sectionLabels(html);
+    expect(labels[0]).toBe("Advisor");
+    expect(labels[1]).toBe("Assignments");
+    const section = profileSection(html);
+    // Four rows are open or waiting (overdue, due soon, sent back,
+    // submitted, in that order of urgency); three show, the overdue one
+    // first, and the rest is behind See All. Done and cancelled rows
+    // never show here.
+    const rowLinks = hrefs(section).filter((l) => l.startsWith(`${staffBase}/`) && !l.endsWith("/new"));
+    expect(rowLinks).toEqual([IDS.assignmentOverdue, IDS.assignmentDueSoon, IDS.assignmentRevision].map((id) => `${staffBase}/${id}`));
+    expect(section).toMatch(/Send Fall Transcript[\s\S]*Overdue[\s\S]*Assigned/);
+    expect(section.indexOf("Send Fall Transcript")).toBeLessThan(section.indexOf("Confirm Showcase Dates"));
+    expect(section).not.toMatch(/Confirm Graduation Year|Register For Fall Camp|Upload Test Scores/);
+    expect(section).toMatch(/>See All</);
+    expect(hrefs(section)).toContain(staffBase);
+    expect(hrefs(section)).toContain(`${staffBase}/new`);
+    expect(hrefs(section)).toContain(`${staffBase}/${IDS.assignmentOverdue}`);
+    // The Advisor sheet's own trigger is still the one bare Assign.
+    expect(section).not.toMatch(/>Assign</);
+  });
+
+  it("an athlete with nothing assigned gets an empty state that offers New Assignment, and no See All", async () => {
+    const section = profileSection(await profile(IDS.athleteTransfer));
+    expect(section).toMatch(/No Assignments Yet/);
+    expect(hrefs(section)).toContain(`/org/${slug}/roster/${IDS.athleteTransfer}/assignments/new`);
+    expect(section).not.toMatch(/>See All</);
+  });
+
+  it("the athlete's list groups Open, Submitted and Done, urgent first, and leaves out none of them", async () => {
+    const html = await athleteList();
+    expect(sectionLabels(html)).toEqual(["Open", "Submitted", "Done"]);
+    expect(html).toMatch(/Send Fall Transcript[\s\S]*Confirm Showcase Dates[\s\S]*Complete Family Budget Form[\s\S]*>Submitted<[\s\S]*Upload Test Scores[\s\S]*>Done<[\s\S]*Confirm Graduation Year[\s\S]*Register For Fall Camp/);
+    expect(html).not.toContain("Squad Only Task");
+    expect(hrefs(html)).toContain(`${staffBase}/new`);
+    // Every row opens its own detail screen.
+    for (const id of [IDS.assignmentOverdue, IDS.assignmentDueSoon, IDS.assignmentSubmitted, IDS.assignmentRevision, IDS.assignmentComplete, IDS.assignmentCancelled]) {
+      expect(hrefs(html), id).toContain(`${staffBase}/${id}`);
+    }
+  });
+
+  it("the create screen is a form with every field, and the Create button", async () => {
+    const html = await newForm();
+    expect(html).toMatch(/name="title"/);
+    expect(html).toMatch(/name="instructions"/);
+    expect(html).toMatch(/name="category"/);
+    expect(html).toMatch(/name="kind"/);
+    expect(html).toMatch(/name="dueOn"/);
+    expect(html).toMatch(/Create Assignment/);
+  });
+
+  it("a submitted row shows the file as a Family Upload row and offers Complete, Needs Revision and a confirmed Cancel", async () => {
+    const html = await detail(IDS.assignmentSubmitted);
+    expect(html).toMatch(/Upload Test Scores[\s\S]*Submission[\s\S]*Sent the June score report[\s\S]*june-score-report\.pdf[\s\S]*Family Upload[\s\S]*Review[\s\S]*Complete[\s\S]*Needs Revision[\s\S]*Cancel Assignment/);
+    expect(hrefs(html)).toContain(`/org/${slug}/documents/${IDS.documentFiled}`);
+    expect(html).toMatch(/<button[^>]*>Complete<\/button>/);
+    expect(html).toMatch(/<button[^>]*>Needs Revision<\/button>/);
+    expect(html).toMatch(/name="comment"/);
+    expect(html).not.toMatch(/>Apply</);
+  });
+
+  it("review controls appear on a submitted row and on no other", async () => {
+    for (const id of [IDS.assignmentOverdue, IDS.assignmentDueSoon, IDS.assignmentRevision, IDS.assignmentComplete, IDS.assignmentCancelled]) {
+      const html = await detail(id);
+      expect(html, id).not.toMatch(/<button[^>]*>(Complete|Needs Revision)<\/button>|name="comment"/);
+    }
+  });
+
+  it("Cancel is offered on an assigned, submitted or sent-back row and never on a finished or cancelled one", async () => {
+    for (const id of [IDS.assignmentOverdue, IDS.assignmentDueSoon, IDS.assignmentSubmitted, IDS.assignmentRevision]) {
+      expect(await detail(id), id).toMatch(/Cancel Assignment/);
+    }
+    for (const id of [IDS.assignmentComplete, IDS.assignmentCancelled]) {
+      expect(await detail(id), id).not.toMatch(/Cancel Assignment/);
+    }
+  });
+
+  it("the reviewer's comment shows on the Admin's detail screen of a sent-back row", async () => {
+    expect(await detail(IDS.assignmentRevision)).toMatch(/Reviewer Comment[\s\S]*second parent/);
+  });
+
+  it("another org's assignment, a cancelled row read through the wrong athlete, and a removed athlete are not found", async () => {
+    await expect(detail(IDS.assignmentElite)).rejects.toThrow(NOT_FOUND);
+    await expect(detail(IDS.assignmentOverdue, IDS.athleteTransfer)).rejects.toThrow(NOT_FOUND);
+    data.athletes.find((a) => a.id === IDS.athlete)!.deleted_at = "2026-09-28T00:00:00.000Z";
+    await expect(detail(IDS.assignmentOverdue)).rejects.toThrow(NOT_FOUND);
+    await expect(athleteList()).rejects.toThrow(NOT_FOUND);
+    await expect(newForm()).rejects.toThrow(NOT_FOUND);
+  });
+
+  it("Overdue is computed from the due date and the status on every draw, never read from the row", async () => {
+    const row = data.assignments.find((a) => a.id === IDS.assignmentOverdue)!;
+    expect(await athleteList()).toMatch(/>Overdue</);
+    // Pushed out to next year, it is not overdue.
+    row.due_on = "2099-01-01";
+    expect(sectionOf(await athleteList(), "Open")).not.toMatch(/>Overdue</);
+    expect(await today()).not.toMatch(/>Overdue<\/span>[\s\S]*Send Fall Transcript/);
+    // Due yesterday and submitted, it is waiting on a review, not late.
+    row.due_on = "2026-09-01";
+    row.status = "submitted";
+    expect(await athleteList()).not.toMatch(/Overdue<\/span>[\s\S]{0,400}Send Fall Transcript/);
+    // Complete or cancelled with a past date is never overdue.
+    for (const status of ["complete", "cancelled"]) {
+      row.status = status;
+      expect(sectionOf(await athleteList(), "Done"), status).not.toMatch(/>Overdue</);
+    }
+    // A sent-back row that is late is both.
+    const back = data.assignments.find((a) => a.id === IDS.assignmentRevision)!;
+    back.due_on = "2026-09-02";
+    expect(rowAfter(await athleteList(), "Complete Family Budget Form")).toMatch(/>Overdue<[\s\S]*Needs Revision/);
+  });
+
+  // ── The org list, Today, My Athletes ──────────────────────────────
+
+  it("the org list opens with Submitted for Review, then Overdue, Due Soon and Open, each row naming its athlete", async () => {
+    const html = await orgList();
+    expect(sectionLabels(html)).toEqual(["Submitted for Review", "Overdue", "Due Soon", "Open"]);
+    expect(sectionOf(html, "Submitted for Review")).toMatch(/Upload Test Scores[\s\S]*Fixture Athlete/);
+    expect(sectionOf(html, "Overdue")).toMatch(/Send Fall Transcript[\s\S]*Fixture Athlete/);
+    expect(sectionOf(html, "Due Soon")).toMatch(/Confirm Showcase Dates/);
+    expect(sectionOf(html, "Open")).toMatch(/Complete Family Budget Form/);
+    // Done, cancelled and another org's rows are not open work.
+    expect(html).not.toMatch(/Confirm Graduation Year|Register For Fall Camp|Squad Only Task/);
+    expect(hrefs(html)).toContain(`${staffBase}/${IDS.assignmentSubmitted}`);
+  });
+
+  it("the org list searches the title and the athlete's name once there are more than five rows, and says when nothing matches", async () => {
+    // Four open rows: no search box yet.
+    expect(await orgList()).not.toMatch(/type="search"|name="q"/);
+    const extra = data.assignments.find((a) => a.id === IDS.assignmentOverdue)!;
+    for (let i = 0; i < 3; i++) data.assignments.push({ ...extra, id: `extra${i}`, title: `Extra Task ${i}`, due_on: null });
+    const boxed = await orgList();
+    expect(boxed).toMatch(/name="q"/);
+    const byTitle = await orgList({ q: "showcase" });
+    expect(byTitle).toMatch(/Confirm Showcase Dates/);
+    expect(byTitle).not.toMatch(/Send Fall Transcript|Extra Task/);
+    expect(await orgList({ q: "fixture athlete" })).toMatch(/Send Fall Transcript/);
+    expect(await orgList({ q: "zzzz" })).toMatch(/Nothing Matches/);
+    // The box keeps what was searched.
+    expect(byTitle).toMatch(/value="showcase"/);
+  });
+
+  it("the org list with no open work says so, and never lists a removed athlete's rows", async () => {
+    data.assignments = [];
+    const empty = await orgList();
+    expect(empty).toMatch(/Nothing Open/);
+    expect(sectionLabels(empty)).toEqual([]);
+  });
+
+  it("a removed athlete's assignments leave the org list, Today and My Athletes", async () => {
+    data.athletes.find((a) => a.id === IDS.athlete)!.deleted_at = "2026-09-28T00:00:00.000Z";
+    expect(await orgList()).not.toMatch(/Send Fall Transcript|Upload Test Scores/);
+    const t = await today();
+    expect(t).not.toMatch(/>Submitted for Review<|>Overdue</);
+  });
+
+  it("Today shows Submitted for Review and Overdue after Needs Follow-Up and before Upcoming, and each only when it has a row", async () => {
+    const html = await today();
+    const labels = sectionLabels(html);
+    const review = labels.indexOf("Submitted for Review");
+    const late = labels.indexOf("Overdue");
+    expect(review).toBeGreaterThan(-1);
+    expect(late).toBe(review + 1);
+    expect(labels.indexOf("Needs Follow-Up")).toBeLessThan(review);
+    expect(labels.indexOf("Upcoming")).toBe(late + 1);
+    expect(sectionOf(html, "Submitted for Review")).toMatch(/Upload Test Scores[\s\S]*Fixture Athlete[\s\S]*Submitted/);
+    expect(sectionOf(html, "Overdue")).toMatch(/Send Fall Transcript[\s\S]*Fixture Athlete/);
+    expect(hrefs(html)).toContain(`/org/${slug}/assignments`);
+    expect(hrefs(html)).toContain(`${staffBase}/${IDS.assignmentSubmitted}`);
+    // Nothing waiting and nothing late: neither heading, no See All.
+    data.assignments = [];
+    const none = await today();
+    expect(sectionLabels(none)).not.toContain("Submitted for Review");
+    expect(sectionLabels(none)).not.toContain("Overdue");
+    expect(hrefs(none)).not.toContain(`/org/${slug}/assignments`);
+    // Only a submitted row: the review section and no Overdue.
+    data = buildFixture();
+    data.assignments = data.assignments.filter((a) => a.id === IDS.assignmentSubmitted);
+    const onlyReview = sectionLabels(await today());
+    expect(onlyReview).toContain("Submitted for Review");
+    expect(onlyReview).not.toContain("Overdue");
+    // Only a late row: Overdue and no review section.
+    data = buildFixture();
+    data.assignments = data.assignments.filter((a) => a.id === IDS.assignmentOverdue);
+    const onlyLate = sectionLabels(await today());
+    expect(onlyLate).toContain("Overdue");
+    expect(onlyLate).not.toContain("Submitted for Review");
+  });
+
+  it("Today lists five rows at most in a section and puts the whole count in its header", async () => {
+    const late = data.assignments.find((a) => a.id === IDS.assignmentOverdue)!;
+    for (let i = 0; i < 7; i++) data.assignments.push({ ...late, id: `late${i}`, title: `Late Task ${i}` });
+    const section = sectionOf(await today(), "Overdue");
+    expect((section.match(/data-kit="row"/g) ?? []).length).toBe(5);
+    expect(section).toMatch(/>8</);
+  });
+
+  it("My Athletes says how many open, overdue and to review, only the counts above zero", async () => {
+    const html = await mine();
+    expect(rowAfter(html, "Fixture Athlete")).toMatch(/3 open assignments · 1 overdue · 1 to review/);
+    // The other athlete has none, so nothing is said.
+    expect(rowAfter(html, "Fixture Unknown")).not.toMatch(/assignment|overdue|to review/);
+    // One open row, nothing late: "1 open assignment", singular, no other part.
+    data.assignments = data.assignments.filter((a) => a.id === IDS.assignmentDueSoon);
+    const one = rowAfter(await mine(), "Fixture Athlete");
+    expect(one).toMatch(/1 open assignment(?!s)/);
+    expect(one).not.toMatch(/overdue|to review/);
+  });
+
+  it("More offers Assignments under Program to an Admin, and to no one else", async () => {
+    const html = await render("@/app/org/[slug]/more/page", { params: p({ slug }) });
+    expect(hrefs(html)).toContain(`/org/${slug}/assignments`);
+    for (const who of [FAMILY_ID, MEMBER_ID]) {
+      currentUser = who;
+      const outcome = await render("@/app/org/[slug]/more/page", { params: p({ slug }) }).then(() => "rendered", (e: Error) => e.message);
+      expect(outcome, who).not.toBe("rendered");
+    }
+  });
+
+  // ── The Athlete login ─────────────────────────────────────────────
+
+  it("the athlete's page has Your Assignments above Your Advisor, urgent first, with exactly one button on each open row", async () => {
+    currentUser = FAMILY_ID;
+    const html = await familyHome();
+    const labels = sectionLabels(html);
+    expect(labels.indexOf("Your Assignments")).toBeGreaterThan(-1);
+    expect(labels.indexOf("Your Assignments")).toBeLessThan(labels.indexOf("Your Advisor"));
+    const section = sectionOf(html, "Your Assignments");
+    // Overdue, then due soon, then the sent-back row: each with one link
+    // to its own submit screen, and no form or button of any other kind.
+    const open: Array<[string, string, string]> = [
+      ["Send Fall Transcript", IDS.assignmentOverdue, "Submit"],
+      ["Confirm Showcase Dates", IDS.assignmentDueSoon, "Submit"],
+      ["Complete Family Budget Form", IDS.assignmentRevision, "Resubmit"],
+    ];
+    let last = -1;
+    for (const [title, id, word] of open) {
+      const at = section.indexOf(title);
+      expect(at, title).toBeGreaterThan(last);
+      last = at;
+      const row = rowChunk(section, title);
+      const links = hrefs(row);
+      expect(links, title).toEqual([`${familyBase}/assignments/${id}`]);
+      expect(row, title).toContain(`>${word}<`);
+      // The row's button is short (320 wide); the long form is on the screen it opens.
+      expect(row, title).not.toContain("Fix and Resubmit");
+      expect(row, title).not.toMatch(/<button|<form|<input/);
+    }
+    // No form anywhere on the page: the one write is on the submit screen.
+    expect(html).not.toMatch(/<form/);
+    expect(section).toMatch(/Overdue/);
+    expect(section).toMatch(/Needs a change/);
+  });
+
+  it("a submitted row opens its screen and has no button, complete rows are counted in one line of text, and cancelled rows are hidden", async () => {
+    currentUser = FAMILY_ID;
+    const section = sectionOf(await familyHome(), "Your Assignments");
+    const sent = rowChunk(section, "Upload Test Scores");
+    expect(sent).toMatch(/Sent\. With an Admin for review\./);
+    // A link to the screen that says it was sent, never a button or a form.
+    expect(hrefs(sent)).toEqual([`${familyBase}/assignments/${IDS.assignmentSubmitted}`]);
+    expect(sent).not.toMatch(/<button|<form|<input/);
+    expect(section).toMatch(/1 complete\. Reviewed and done\./);
+    // The finished ones are text, not a row that looks tappable and is not.
+    expect((section.match(/data-kit="row"/g) ?? []).length).toBe(4);
+    expect(section).not.toContain("Confirm Graduation Year");
+    expect(section).not.toContain("Register For Fall Camp");
+    // The count in the header is the open and submitted rows: four.
+    expect(section).toMatch(/>4</);
+  });
+
+  it("the athlete's page carries no Admin field: no reviewer comment, no family note, no other athlete's or org's work", async () => {
+    currentUser = FAMILY_ID;
+    const html = await familyHome();
+    expect(html).not.toContain("second parent");
+    expect(html).not.toContain("Sent the June score report");
+    expect(html).not.toContain("Filled in the budget");
+    expect(html).not.toContain("Squad Only Task");
+    expect(html).not.toMatch(/Reviewer|reviewed_by|created_by/);
+    // The other linked athlete has no work, so no section at all.
+    expect(sectionLabels(await familyHome(IDS.athleteNoGpa))).not.toContain("Your Assignments");
+  });
+
+  it("the section is not drawn for an athlete with nothing open, submitted or complete", async () => {
+    currentUser = FAMILY_ID;
+    data.assignments = data.assignments.filter((a) => a.status === "cancelled");
+    expect(sectionLabels(await familyHome())).not.toContain("Your Assignments");
+    data = buildFixture();
+    data.assignments = data.assignments.filter((a) => a.id === IDS.assignmentComplete);
+    const only = sectionOf(await familyHome(), "Your Assignments");
+    expect(only).toMatch(/1 complete\./);
+    expect(only).not.toMatch(/>Submit<|Resubmit/);
+  });
+
+  it("the submit screen: an open row asks for the answer, a sent-back row says what to change, a sent row and a done row have no form", async () => {
+    currentUser = FAMILY_ID;
+    const open = await familySubmit(IDS.assignmentOverdue);
+    expect(open).toMatch(/Send Fall Transcript[\s\S]*Overdue[\s\S]*Instructions[\s\S]*Upload your most recent transcript[\s\S]*type="file"[\s\S]*>Submit</);
+    expect((open.match(/<form/g) ?? []).length).toBe(1);
+    expect((open.match(/<button/g) ?? []).length).toBeLessThanOrEqual(1);
+    const back = await familySubmit(IDS.assignmentRevision);
+    expect(back).toMatch(/What to Change[\s\S]*second parent[\s\S]*Fix and Resubmit/);
+    expect(back).not.toMatch(/type="file"/);
+    const sent = await familySubmit(IDS.assignmentSubmitted);
+    expect(sent).toMatch(/Sent for Review/);
+    expect(sent).not.toMatch(/<form|<button/);
+    expect(sent).not.toContain("Sent the June score report");
+    const done = await familySubmit(IDS.assignmentComplete);
+    expect(done).toMatch(/Complete/);
+    expect(done).not.toMatch(/<form|<button/);
+  });
+
+  it("the submit screen shows the reviewer's comment only on a row sent back", async () => {
+    currentUser = FAMILY_ID;
+    for (const id of [IDS.assignmentOverdue, IDS.assignmentDueSoon, IDS.assignmentSubmitted, IDS.assignmentComplete]) {
+      expect(await familySubmit(id), id).not.toMatch(/What to Change|second parent/);
+    }
+    // A stray comment on a row that is not sent back is not shown.
+    data.assignments.find((a) => a.id === IDS.assignmentOverdue)!.reviewer_comment = "Old comment that must stay hidden.";
+    expect(await familySubmit(IDS.assignmentOverdue)).not.toContain("Old comment that must stay hidden");
+  });
+
+  it("a cancelled row, another org's row and another athlete's row are not found, and an unlinked athlete is not found either", async () => {
+    currentUser = FAMILY_ID;
+    await expect(familySubmit(IDS.assignmentCancelled)).rejects.toThrow(NOT_FOUND);
+    await expect(familySubmit(IDS.assignmentElite)).rejects.toThrow(NOT_FOUND);
+    await expect(familySubmit(IDS.assignmentOverdue, IDS.athleteTransfer)).rejects.toThrow(NOT_FOUND);
+    // A row of the linked athlete read through the other linked athlete.
+    await expect(familySubmit(IDS.assignmentOverdue, IDS.athleteNoGpa)).rejects.toThrow(NOT_FOUND);
+  });
+
+  it("every link on the Athlete login's assignment screens stays under /family", async () => {
+    currentUser = FAMILY_ID;
+    const pages = [await familyHome(), await familySubmit(IDS.assignmentOverdue), await familySubmit(IDS.assignmentRevision), await familySubmit(IDS.assignmentSubmitted), await familySubmit(IDS.assignmentComplete)];
+    for (const html of pages) {
+      const links = hrefs(html);
+      expect(links.length).toBeGreaterThan(0);
+      const inFamily = (l: string) => /^\/org\/[^/]+\/family(\/|$)/.test(l);
+      expect(links.filter((l) => l.startsWith("/org/") && !inFamily(l))).toEqual([]);
+    }
+    // And the submit screen's only way out is back to the athlete.
+    const submit = hrefs(await familySubmit(IDS.assignmentOverdue)).filter((l) => l.startsWith("/org/"));
+    expect(submit).toContain(familyBase);
+    // Every family screen in the list, however it is reached, has no link to an Admin assignment screen.
+    for (const page of PAGES.filter((x) => x.as === FAMILY_ID)) {
+      currentUser = FAMILY_ID;
+      const html = await render(page.path, page.props);
+      expect(hrefs(html).filter((l) => /\/roster\/[^/]+\/assignments|\/org\/[^/]+\/assignments/.test(l)), page.name).toEqual([]);
+    }
+  });
+
+  it("an Admin cannot open the Athlete login's assignment screen, and the family athlete page is theirs alone", async () => {
+    currentUser = OWNER_ID;
+    await expect(familySubmit(IDS.assignmentOverdue)).rejects.toThrow(REDIRECT + "/unauthorized");
+    currentUser = MEMBER_ID;
+    await expect(familySubmit(IDS.assignmentOverdue)).rejects.toThrow(REDIRECT + "/unauthorized");
+  });
+
+  // ── The Viewer ────────────────────────────────────────────────────
+
+  it("a Viewer is refused every assignment screen, the org list and the athlete's, and sees no button for them", async () => {
+    currentUser = MEMBER_ID;
+    const refused = [
+      () => athleteList(),
+      () => newForm(),
+      () => detail(IDS.assignmentSubmitted),
+      () => orgList(),
+      () => familySubmit(IDS.assignmentOverdue),
+      () => profile(),
+      () => today(),
+      () => mine(),
+    ];
+    for (const open of refused) {
+      const outcome = await open().then(() => "rendered", (e: Error) => e.message);
+      expect(outcome).toMatch(/^NEXT_REDIRECT:/);
+    }
+  });
+
+  it("no Viewer screen names an assignment, links to one or has a Submit button", async () => {
+    for (const page of PAGES.filter((x) => x.as === MEMBER_ID)) {
+      currentUser = MEMBER_ID;
+      const html = await render(page.path, page.props);
+      for (const title of TITLES) expect(html, `${page.name}: ${title}`).not.toContain(title);
+      expect(hrefs(html).filter((l) => /\/assignments/.test(l)), page.name).toEqual([]);
+      expect(html, page.name).not.toMatch(/Your Assignments|Submitted for Review|Fix and Resubmit/);
+    }
+  });
+
+  it("a login with no session opens none of it", async () => {
+    currentUser = null;
+    for (const open of [() => athleteList(), () => orgList(), () => detail(IDS.assignmentOverdue), () => familySubmit(IDS.assignmentOverdue)]) {
+      await expect(open()).rejects.toThrow(REDIRECT + "/login");
+    }
+  });
+
+  it("each org's Admin sees only that org's assignments, on the org list and on Today", async () => {
+    const eliteList = await render("@/app/org/[slug]/assignments/page", { params: p({ slug: ORG_WITHOUT_MODULES }), searchParams: p({}) });
+    expect(eliteList).toContain("Squad Only Task");
+    for (const title of TITLES.slice(0, 6)) expect(eliteList).not.toContain(title);
+    const eliteToday = await render("@/app/org/[slug]/page", { params: p({ slug: ORG_WITHOUT_MODULES }) });
+    expect(sectionOf(eliteToday, "Overdue")).toContain("Squad Only Task");
+    expect(eliteToday).not.toContain("Send Fall Transcript");
+    expect(await orgList()).not.toContain("Squad Only Task");
+    expect(await today()).not.toContain("Squad Only Task");
+  });
+});

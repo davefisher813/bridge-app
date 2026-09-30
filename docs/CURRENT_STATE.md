@@ -7,16 +7,17 @@ applied through 0040. The roles rework (three access levels with fixed
 names, a Title per person, migration 0041) and Stage 5 Phases 1 to 3
 (Matches, the advisor managed on the athlete's page, More as the
 control center; migrations 0042 and 0043) are built and verified
-locally on branch `claude/stage5-phase2-3`, and Phase 6 (the activity
-log, migration 0044) is built and verified locally on branch
-`claude/stage5-phase6-activity`, on top of them. Nothing is committed
-past the branch's WIP commit or deployed.
+locally, Phase 6 (the activity log, migration 0044) on top of them, and
+Phase 4 (assignments, migrations 0045 and 0046) on top of that, on
+branch `claude/stage5-phase4-assignments`. Nothing past the Phase 6
+merge is committed or deployed. Phase 5 (View As) is the one phase of
+Stage 5 not built.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three access levels, each with their own app on
 the same database: an Admin runs recruiting, fundraising, governance and
 the org itself; an Athlete login sees one athlete and writes only
-messages on that athlete's thread; a Viewer sees the program as stages
+messages on that athlete's thread and its own assignment submissions; a Viewer sees the program as stages
 and their own board seat. Every person can carry a Title (Head Coach,
 Board Chair) that shows next to their name. The
 matching engine scores every athlete against every school and stores
@@ -31,7 +32,7 @@ blank, staff keep notes on an athlete, an owner sets up the org and
 anyone signed in with no other role can start one, and nothing the
 stand-in reader read can ever be applied; an athlete's advisor is
 assigned from the athlete's own page, and More is grouped as the
-control center. 114 screens on one kit, 1,905 tests green, the app itself driven in a browser at
+control center. 121 screens on one kit, 2,129 tests green, the app itself driven in a browser at
 320, 375 and 390 in both themes with nothing past the edge, no row or
 tile that goes nowhere, and every link followed to a real screen.
 
@@ -60,8 +61,8 @@ tile that goes nowhere, and every link followed to a real screen.
 
 ## What exists
 
-**114 pages**, 43 migrations (40 applied), 1,905 tests in 71 files, 27 law
-files, the row-level-security suite green through the 0043 block.
+**121 pages**, 46 migrations (40 applied), 2,129 tests in 75 files, 29 law
+files, the row-level-security suite green through the 0046 block.
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
@@ -233,8 +234,9 @@ org's grading scales and approved lists are readable so the eligibility
 screen can explain itself; `private._member_org_ids()` now excludes the
 family role, so communications, contacts, documents, private school
 notes, fundraising and governance stay closed. A family member writes
-nothing but messages on their own athlete's thread and their own read
-marker (Stage 3, below). The users policy shows a family member the
+nothing but messages on their own athlete's thread, their own read
+marker (Stage 3, below) and an assignment submission (Stage 5 Phase 4,
+below). The users policy shows a family member the
 org's owner and staff and never another family. All of it is asserted
 in `scripts/rls_test.sql` and the suite fails when the
 exclusion is removed.
@@ -634,13 +636,14 @@ are in DECISIONS.md under the same date. Migration 0043, no RLS change.
 - **One rule**: `src/lib/org/advisors.ts` decides who may advise; the
   trigger `private.advisor_is_staff()` is its only twin.
 - **More** is six sections: People (Members, owner only; Advisors,
-  every Admin), Program (Documents), Reference (Schools, Grading
+  every Admin), Program (Assignments, Documents), Reference (Schools, Grading
   Scales, Approved Lists, Transfer Windows), Matching (preset,
   Recalculate All), Foundation (Fundraising, Board; the whole section
   gone when neither module is on), Organization (Settings, Doc AI
   Spending and its budget form, Start Another Organization, who you
   are, Your Name, Sign Out). Activity was added under Organization by
-  Phase 6; Assignments and View As arrive with Phases 4 and 5.
+  Phase 6, and Assignments joined Program with Phase 4; View As arrives
+  with Phase 5.
 - **Advisors** (`/advisors`): every Admin with "Title · N athletes",
   counting Active and Transferring athletes only (the reminder rule),
   the lede saying how many athletes have nobody, each row opening the
@@ -681,10 +684,9 @@ Admin is refused by RLS and by the trigger).
   Organization. An entry is a Row when it has somewhere to go and a plain
   card when it does not (a removed athlete, target or member, a discarded
   document); a week on, the date replaces "N days ago".
-- **Not yet.** Assignments and View As (Phases 4 and 5) must write their
-  own log rows in their migrations; the Activity rows they add are not
-  built. "Invited" for linking a guardian who already has a login reads
-  slightly off (one template line).
+- **Not yet.** View As (Phase 5) must write its own log rows in its
+  migration. "Invited" for linking a guardian who already has a login
+  reads slightly off (one template line).
 
 Laws: `activityLaws.test.ts`, the activity block of `actionRun.test.ts`,
 `moreLaws.test.ts`, the last block of `pageRender.test.ts`, and the 0044
@@ -693,6 +695,62 @@ block of `scripts/rls_test.sql`. Five entries in `src/testing/pages.ts`
 `athlete-activity`, `athlete-activity-empty`); the fixture holds six rows
 on the fixture athlete, one about the org and one for Elite, none on the
 transfer athlete so the empty state renders.
+
+### Assignments (Stage 5 Phase 4, 2026-09-27)
+
+- **Work with a due date.** Migration 0045 adds the `filed` document
+  status, alone in its file. Migration 0046 adds `assignments` (five
+  statuses, no in-progress; a kind, a category, a due date, the family's
+  note and the reviewer's comment), the coherence and honesty triggers,
+  the policies and `public.submit_assignment`. Admins read, create and
+  update; the Athlete login reads only its linked athlete's rows and
+  writes only by calling the function; a Viewer reads nothing; there is
+  no delete policy, Cancel is a status. **Overdue and Due Soon are
+  computed on every draw and never stored** (`src/lib/data/assignments.ts`,
+  Eastern time until an org carries a timezone).
+- **The Athlete login's path.** Your Assignments sits above Your Advisor
+  on the athlete's page: one link button per open row (Submit, or
+  Resubmit on a row sent back), a link row for one already sent, one
+  line of text for the complete ones, cancelled hidden. The answer
+  screen (`/family/[id]/assignments/[id]`) shows the instructions, the
+  reviewer's comment only on a row sent back, a file field for an upload
+  assignment, a note and one button. The file goes from the browser to
+  `<org>/family/<request>/<file>` in the `documents` bucket, the only
+  place a family may write, then `submitAssignment` reads the bytes with
+  the service role once (size, type, hash, duplicate check) and calls the
+  function, which files a `filed` document, links it and marks the row
+  Submitted. No Doc AI call, no email.
+- **The Admin's path.** The profile has an Assignments section after
+  Advisor (three most urgent, See All, New Assignment).
+  `/roster/[id]/assignments` groups Open, Submitted and Done; `/new`
+  creates; `/[assignmentId]` shows the submission, the file as a
+  Family Upload row on the document screen, and the review (Complete,
+  Needs Revision with a required comment, a confirmed Cancel).
+  `/org/[slug]/assignments` is the org-wide list (Submitted for Review,
+  Overdue, Due Soon, Open; search past five rows). Today shows Submitted
+  for Review and Overdue after Needs Follow-Up, each only when it has a
+  row. My Athletes says "N open assignments · N overdue · N to review".
+  More has an Assignments row under Program. The Documents list shows a
+  filed file under Family Upload with no Apply and never under Needs
+  Review.
+- **Logged.** Created, submitted, reviewed and cancelled write activity
+  lines from templates: names, kinds and dates only, never the note, the
+  comment or the title. The family's line is a literal per kind that
+  names nobody.
+- **Not verified against a real project.** The function's storage
+  `owner` check and the bucket limits are tested against the local stub
+  only; confirm the `owner` column is filled for a client upload before
+  this goes to production. A refused upload stays in the bucket.
+  `submit_assignment` does not refuse while an Admin is viewing as
+  someone (Phase 5 may need that).
+
+Laws: `assignmentLaws.test.ts` (48 cases), the last block of
+`pageRender.test.ts`, `moreLaws.test.ts`, and the 0046 block of
+`scripts/rls_test.sql` (Admin, a leftover staff row, the Athlete login
+for its own and another athlete, a Viewer, a second org, anon), each
+planted and seen to fail. `src/testing/pages.ts` gains eleven entries;
+the fixture holds seven assignment rows (one per status, a due-soon one,
+one for Elite), a filed document and a family storage object.
 
 ### Less text on every screen, 2026-09-25
 
@@ -834,9 +892,12 @@ Format examples stay, because they are the part a person acts on.
 
 ## Immediate next steps
 
-1. The roles rework and Stage 5 Phases 1 to 3 and 6 ship when Dave says
-   "go": commit, apply 0041 to 0044 to production (0041 changes no row
-   there; 0042 and 0043 add columns; 0044 adds the empty activity log),
+1. The roles rework and Stage 5 Phases 1 to 4 and 6 ship when Dave says
+   "go": commit, apply 0041 to 0046 to production (0041 changes no row
+   there; 0042 and 0043 add columns; 0044 adds the empty activity log;
+   0045 and 0046 add the `filed` status and the empty assignments
+   table, and 0045 must run before 0046), confirm the storage `owner`
+   column is filled for a client upload,
    deploy, run Recalculate All once
    so every stored match carries its net cost, then Dave sets each
    person's Title from their page under Members and checks the members
@@ -844,8 +905,8 @@ Format examples stay, because they are the part a person acts on.
    previews. Ship it."
 2. Dave assigns advisors from each athlete's page (Assign, then a tap on
    the Admin; Add Admin for Mike and Kev) and walks the edit and remove
-   screens on his phone. Stage 5 Phases 4 and 5 (Assignments, View As)
-   follow on the same plan, each writing its own activity rows.
+   screens on his phone. Stage 5 Phase 5 (View As) follows on the same
+   plan, writing its own activity rows.
 3. Load the high school directory (above), then set the AI key and
    discard, delete and re-upload the production documents.
 4. Dave exports his school sheet to the template and imports it, then

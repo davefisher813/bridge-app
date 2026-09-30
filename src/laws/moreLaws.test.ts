@@ -99,7 +99,7 @@ describe("LAW: More is six sections in the plan's order, each row where the plan
     expect(sectionLabels(html)).toEqual(["People", "Program", "Reference", "Matching", "Foundation", "Organization"]);
     const org = `/org/${ORG_WITH_MODULES}`;
     expect(hrefs(sectionOf(html, "People"))).toEqual([`${org}/members`, `${org}/advisors`]);
-    expect(hrefs(sectionOf(html, "Program"))).toEqual([`${org}/documents`]);
+    expect(hrefs(sectionOf(html, "Program"))).toEqual([`${org}/assignments`, `${org}/documents`]);
     expect(hrefs(sectionOf(html, "Reference"))).toEqual([`${org}/schools`, `${org}/grading-scales`, `${org}/approved-courses`, `${org}/transfer-windows`]);
     expect(sectionOf(html, "Matching")).toMatch(/Recalculate All Matches/);
     expect(hrefs(sectionOf(html, "Foundation"))).toEqual([`${org}/fundraising`, `${org}/board-governance`]);
@@ -135,7 +135,7 @@ describe("LAW: the owner-only rows stay the owner's; everything else is every Ad
     const staff = await more();
     expect(hrefs(staff).filter((l) => l.endsWith("/members") || l.endsWith("/settings"))).toEqual([]);
     expect(staff).not.toMatch(/>Members<|Organization Settings/);
-    for (const path of ["advisors", "activity", "documents", "schools", "grading-scales", "approved-courses", "transfer-windows"]) expect(hrefs(staff)).toContain(`${org}/${path}`);
+    for (const path of ["advisors", "activity", "assignments", "documents", "schools", "grading-scales", "approved-courses", "transfer-windows"]) expect(hrefs(staff)).toContain(`${org}/${path}`);
     expect(staff).toMatch(/Doc AI Spending/);
     // Every section still stands, Members or not.
     expect(sectionLabels(staff)).toEqual(["People", "Program", "Reference", "Matching", "Foundation", "Organization"]);

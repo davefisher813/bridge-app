@@ -66,7 +66,23 @@ export const IDS = {
   athleteDrafted: "00000000-0000-0000-0000-0000000000c8",
   athleteTransferring: "00000000-0000-0000-0000-0000000000c9",
   targetTransferring: "00000000-0000-0000-0000-000000000e7",
+  // Stage 5 Phase 4 (migration 0046): assignments on the fixture athlete,
+  // one per status plus one due soon, and the file a family filed.
+  documentFiled: "00000000-0000-0000-0000-000000000113",
+  assignmentOverdue: "00000000-0000-0000-0000-000000000151",
+  assignmentDueSoon: "00000000-0000-0000-0000-000000000152",
+  assignmentSubmitted: "00000000-0000-0000-0000-000000000153",
+  assignmentRevision: "00000000-0000-0000-0000-000000000154",
+  assignmentComplete: "00000000-0000-0000-0000-000000000155",
+  assignmentCancelled: "00000000-0000-0000-0000-000000000156",
+  assignmentElite: "00000000-0000-0000-0000-000000000157",
 } as const;
+
+// A day counted from whenever the fixture is built, as YYYY-MM-DD, so a
+// row meant to be due soon never drifts into overdue as the calendar
+// moves. An overdue row uses a fixed past date instead: it can only get
+// more overdue.
+const inDays = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
 
 export function buildFixture(): Dataset {
   return {
@@ -78,6 +94,16 @@ export function buildFixture(): Dataset {
         bucket: "documents",
         name: `${BRIDGE}/req_fixture/1-transcript.pdf`,
         base64: Buffer.from("%PDF-1.4\n%fixture\n1 0 obj << >> endobj\n%%EOF\n").toString("base64"),
+      },
+      // A file the family login put under its org's family folder
+      // (migration 0046): <org>/family/<request>/<file>, owned by the
+      // login that uploaded it, the one submit_assignment checks. The
+      // submitted fixture assignment's filed document points at it.
+      {
+        bucket: "documents",
+        name: `${BRIDGE}/family/req_fixture_family/1-june-score-report.pdf`,
+        owner: FAMILY,
+        base64: Buffer.from("%PDF-1.4\n%fixture score report\n1 0 obj << >> endobj\n%%EOF\n").toString("base64"),
       },
     ],
     users: [
@@ -789,6 +815,51 @@ export function buildFixture(): Dataset {
         read_by: null,
         created_at: "2026-06-03T10:00:00.000Z",
       },
+      // A file an Athlete login handed in with an assignment (migration
+      // 0046): status filed, never read by a model, never in Needs
+      // Review, never with an Apply button. The submitted assignment
+      // below links to it.
+      {
+        id: IDS.documentFiled,
+        org_id: BRIDGE,
+        athlete_id: IDS.athlete,
+        file_name: "june-score-report.pdf",
+        file_size: 1000,
+        media_type: "application/pdf",
+        source_role: "parent",
+        status: "filed",
+        route: null,
+        category: null,
+        provenance: null,
+        extracted: null,
+        confidence: null,
+        candidates: null,
+        failure_reason: null,
+        issues: null,
+        applied_at: null,
+        undone_at: null,
+        read_by: null,
+        storage_paths: [`${BRIDGE}/family/req_fixture_family/1-june-score-report.pdf`],
+        content_hash: "fixture-filed-hash",
+        created_at: "2026-09-22T20:00:00.000Z",
+      },
+    ],
+    // Assignments (migration 0046). On the fixture athlete, one in each
+    // status: overdue (assigned, a fixed date well past), due soon
+    // (assigned, three days out), submitted (with the filed document and
+    // the family's note), needs revision (with the reviewer's comment),
+    // complete, and cancelled. None on the transfer athlete, so the
+    // empty states render. One Elite row, so a leak across orgs shows as
+    // a wrong line rather than an empty screen. Admins and the athlete's
+    // own login only: no member page reads this table.
+    assignments: [
+      { id: IDS.assignmentOverdue, org_id: BRIDGE, athlete_id: IDS.athlete, title: "Send Fall Transcript", instructions: "Upload your most recent transcript as a PDF or a clear photo.", category: "academics", kind: "upload", due_on: "2026-09-01", status: "assigned", document_id: null, family_note: null, reviewer_comment: null, created_by: OWNER, reviewed_by: null, submitted_at: null, reviewed_at: null, created_at: "2026-08-25T14:00:00.000Z", updated_at: "2026-08-25T14:00:00.000Z" },
+      { id: IDS.assignmentDueSoon, org_id: BRIDGE, athlete_id: IDS.athlete, title: "Confirm Showcase Dates", instructions: "Look over the three dates and confirm you can make them.", category: "athletics", kind: "confirm", due_on: inDays(3), status: "assigned", document_id: null, family_note: null, reviewer_comment: null, created_by: OWNER, reviewed_by: null, submitted_at: null, reviewed_at: null, created_at: "2026-09-20T14:00:00.000Z", updated_at: "2026-09-20T14:00:00.000Z" },
+      { id: IDS.assignmentSubmitted, org_id: BRIDGE, athlete_id: IDS.athlete, title: "Upload Test Scores", instructions: "Send the official score report.", category: "eligibility", kind: "upload", due_on: "2026-09-25", status: "submitted", document_id: IDS.documentFiled, family_note: "Sent the June score report.", reviewer_comment: null, created_by: OWNER, reviewed_by: null, submitted_at: "2026-09-22T20:00:00.000Z", reviewed_at: null, created_at: "2026-09-15T14:00:00.000Z", updated_at: "2026-09-22T20:00:00.000Z" },
+      { id: IDS.assignmentRevision, org_id: BRIDGE, athlete_id: IDS.athlete, title: "Complete Family Budget Form", instructions: "Fill in what the family can spend per year.", category: "financial_aid", kind: "complete_info", due_on: inDays(20), status: "needs_revision", document_id: null, family_note: "Filled in the budget.", reviewer_comment: "Please add the second parent's contribution.", created_by: OWNER, reviewed_by: OWNER, submitted_at: "2026-09-18T20:00:00.000Z", reviewed_at: "2026-09-19T15:00:00.000Z", created_at: "2026-09-10T14:00:00.000Z", updated_at: "2026-09-19T15:00:00.000Z" },
+      { id: IDS.assignmentComplete, org_id: BRIDGE, athlete_id: IDS.athlete, title: "Confirm Graduation Year", instructions: null, category: "recruiting", kind: "confirm", due_on: "2026-08-30", status: "complete", document_id: null, family_note: "Confirmed, 2027.", reviewer_comment: null, created_by: OWNER, reviewed_by: OWNER, submitted_at: "2026-08-28T20:00:00.000Z", reviewed_at: "2026-08-29T15:00:00.000Z", created_at: "2026-08-20T14:00:00.000Z", updated_at: "2026-08-29T15:00:00.000Z" },
+      { id: IDS.assignmentCancelled, org_id: BRIDGE, athlete_id: IDS.athlete, title: "Register For Fall Camp", instructions: null, category: "other", kind: "other", due_on: null, status: "cancelled", document_id: null, family_note: null, reviewer_comment: null, created_by: OWNER, reviewed_by: null, submitted_at: null, reviewed_at: null, created_at: "2026-08-15T14:00:00.000Z", updated_at: "2026-08-16T14:00:00.000Z" },
+      { id: IDS.assignmentElite, org_id: ELITE, athlete_id: IDS.athleteElite, title: "Squad Only Task", instructions: null, category: "other", kind: "other", due_on: "2026-09-02", status: "assigned", document_id: null, family_note: null, reviewer_comment: null, created_by: OWNER, reviewed_by: null, submitted_at: null, reviewed_at: null, created_at: "2026-08-30T14:00:00.000Z", updated_at: "2026-08-30T14:00:00.000Z" },
     ],
     benchmark_sets: [],
     // The metrics log (migration 0021). Three fastball readings for the
