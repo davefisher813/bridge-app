@@ -3720,3 +3720,30 @@ bytes. The family folder is shared by every athlete login in an org; the
 owner check on submit is what protects it. `submit_assignment` trusts the
 caller's size, type and hash; a later hardening can cross-check the
 stored object.
+
+## 2026-09-30: View As (Phase 5) built and held until the end
+
+**Decision.** View As is built, adversarially reviewed and pushed on
+branch `claude/stage5-phase5-viewas` (migration 0047), and is not merged.
+Dave, 2026-09-30: "We will do that at the very end we don't need it right
+now." Production stays on migrations through 0046.
+
+**Reason.** It is the one Stage 5 change that rewrites access rules (nine
+helper functions, five read policies, 89 write policies including
+`storage.objects`), and nothing else depends on it. Holding it removes the
+riskiest step from this release.
+
+**Checked before holding.** 0047 was dry-run against the real production
+schema inside a statement that always rolls back: row counts for Admin,
+Athlete and Viewer across 20 tables were identical before and after; an
+Admin viewing as an Athlete saw the same rows the Athlete sees (0
+mismatches); an insert while viewing was refused and an update changed 0
+rows; nothing was left in production afterward.
+
+**Consequences.** When it is picked up: merge the branch, apply 0047, then
+check a file upload (the storage write rules change). No rollback
+migration is written yet; it would restore the old helper bodies and drop
+the extra "not viewing" condition. Open items from its reviews: activity
+lines carry role literals, not names; an expired session shows no "ended"
+notice; a removed-then-restored target resumes viewing within 30 minutes;
+root not-found and error pages lack the banner.
