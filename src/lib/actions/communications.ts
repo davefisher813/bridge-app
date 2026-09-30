@@ -7,6 +7,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { loadLiveTarget } from "@/lib/data/loadTarget";
 import { parseCommunicationForm } from "@/lib/validation/communication";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface CommunicationActionState {
   errors: Record<string, string>;
@@ -29,6 +30,7 @@ export async function logCommunication(
   _prevState: CommunicationActionState,
   formData: FormData
 ): Promise<CommunicationActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { errors: { form: "Org not found." } };
   await requireRole(org.id, STAFF_ROLES);
@@ -83,6 +85,7 @@ export async function updateCommunication(
   _prevState: CommunicationActionState,
   formData: FormData,
 ): Promise<CommunicationActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { errors: { form: "Org not found." } };
   await requireRole(org.id, STAFF_ROLES);
@@ -116,6 +119,7 @@ export async function updateCommunication(
 // Posted by the Remove button on an entry, through a ConfirmButton, the
 // Contacts pattern: bound to the ids, no client state.
 export async function removeCommunication(slug: string, targetId: string, entryId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);

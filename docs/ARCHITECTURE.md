@@ -373,6 +373,77 @@ asserts each of these.
   (`pageRender.test.ts`, last block). The three loaders drop removed
   athletes and any row outside the org.
 
+### Effective identity: View As (migration 0047)
+
+An Admin looks at the app as an Athlete login, a Viewer or another Admin,
+read only, for 30 minutes. The design keeps one identity for the caller
+and adds a second for the policies to evaluate; it never issues anything
+for the person being viewed.
+
+- **The switch** is one row in `view_as_sessions` (org, viewer, target,
+  `expires_at` at most 30 minutes out, `ended_at`, `end_reason`), one live
+  row per Admin. It has a select policy for the Admin who owns it and no
+  insert, update or delete policy, and the client write grants are revoked
+  as well; only `start_view_as` and `end_view_as` (SECURITY DEFINER,
+  `search_path = ''`) write it. A coherence trigger, fired for the service
+  role too, refuses a viewer who is not an owner of the row's org, a target
+  who is not a member of it, self and a session over 30 minutes, and lets a
+  row change only by ending, so a session cannot be extended or repointed.
+- **The identity** is `private._view_target()` (live means not ended, not
+  past `expires_at`, the viewer still an owner, the target still a member),
+  `_view_org()`, `_effective_uid() = coalesce(_view_target(), auth.uid())`,
+  `_viewing()` and `_owner_org_ids()`, which answers on the real uid for
+  the one policy that must not follow the switch. The caller's own
+  `auth.uid()` never changes.
+- **Reads follow the target.** The nine access helpers (`_any_org_ids`,
+  `_family_athlete_ids`, `_family_org_ids`, `_family_staff_ids`,
+  `_family_staff_rows`, `_member_org_ids`, `_observer_org_ids`,
+  `_observer_staff_rows`, `_staff_org_ids`) are re-created on
+  `_effective_uid()` and, while viewing, limited to the org being viewed;
+  the five read policies that compared the caller to a column inline are
+  rewritten by hand; `member_giving` reads the effective seat.
+- **Writes are refused.** A loop over the catalog appends `and not
+  private._viewing()` to every INSERT, UPDATE and DELETE policy in
+  `public` and `storage.objects`, so a table added later must carry it
+  itself (`viewAsLaws.test.ts` reads every policy written after 0047). The
+  functions that write as a definer, which no policy stands in front of,
+  refuse on their own: `create_org`, `log_family_message`,
+  `submit_assignment`. The app has one more guard because the service role
+  bypasses the database: `requireNotViewing()` is the first statement of
+  every exported server action.
+- **The equivalence proof** is in `scripts/rls_test.sql`, generated from
+  `pg_class` so a new table is covered without anyone listing it. For an
+  Admin, a Viewer and an Athlete target it hashes every row of every table
+  and of `storage.objects` (and the three member functions) as the Admin
+  with a live session, and as the target directly, and fails on any
+  difference. It would pass if every read came back empty, so it also
+  asserts that most tables held rows for the Admin and Viewer targets, that
+  the Athlete login read rows in the athlete-side tables, and that viewing
+  someone changed what the Admin read (43 tables carry rows for the Admin
+  target, 12 for the Viewer, 23 for the Athlete). `view_as_sessions` is the
+  one exemption, by design. The write loop attempts an insert, an update and a delete on
+  every table while viewing and demands each is refused or touches zero
+  rows, and runs the same attempt as the target Admin not viewing to show
+  those tables accept it, so a refusal is the gate and not an empty table.
+  Catalog checks fail on any write policy without the gate, any read policy
+  still on `auth.uid()`, any helper not on the effective identity and any
+  definer writer that does not refuse.
+- **The app** reads the row through the caller's own client
+  (`src/lib/data/viewAs.ts`, `getViewAs()`), applies the same rule in code,
+  and fails closed: any read error throws. `getCurrentUser` reads the seat
+  of the person viewed and returns `viewingAs`, so every `require*` and
+  the org layout answer for them, and in any other org there is nobody
+  (Not Authorized, which carries Return). `Chrome` and `Panel` take the
+  banner (`ViewAsBanner` in the kit). Return calls `end_view_as` through
+  the user client, the one write that works while viewing.
+- **What it is not:** no token, session or credential for the target
+  exists anywhere, nothing reads on anyone's behalf with the service role,
+  and no caller can set the effective identity to someone outside the org
+  or to a higher-privilege person than an Admin of that org. The fake
+  client and the fixture (`viewing` option, `withSecondAdmin`) are second
+  implementations for the render laws and the live driver; they prove the
+  page code, and the RLS suite proves the scope.
+
 ### Lookups and autofill
 
 `SuggestField` in the kit is the one way a screen offers suggestions:

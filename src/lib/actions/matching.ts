@@ -9,12 +9,14 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { PRESETS, type ScoringPreset } from "@/lib/fit/contract";
 import { recomputeFitsForOrg } from "@/lib/data/fits";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // docs/MATCHING_CONTRACT.md section 2: Add to Board on a match row makes
 // a target at the Target stage. Section 3: the org's scoring preset and
 // Recalculate All, both owner-only.
 
 export async function addMatchToBoard(slug: string, athleteId: string, schoolId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -59,6 +61,7 @@ export interface PresetActionState {
 }
 
 export async function setScoringPreset(slug: string, _prevState: PresetActionState, formData: FormData): Promise<PresetActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireOwner(org.id);
@@ -80,6 +83,7 @@ export async function setScoringPreset(slug: string, _prevState: PresetActionSta
 }
 
 export async function recalculateAllMatches(slug: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireOwner(org.id);

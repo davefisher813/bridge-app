@@ -1,4 +1,4 @@
-import { fakeRpc, fakeSubmitAssignment } from "./fakeRpc";
+import { ensureViewAsSession, fakeEndViewAs, fakeRpc, fakeStartViewAs, fakeSubmitAssignment } from "./fakeRpc";
 
 // An in-memory stand-in for the Supabase client, good enough to render a
 // page and nothing more.
@@ -210,6 +210,12 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
     private onUnsupported: (what: string) => never,
     private recorded: RecordedWrite[],
     private failOn: (table: string, op: string) => string | null,
+    // Refuses a write the way a row level security policy does, with the
+    // error a client sees. Set for a client that is viewing as someone
+    // (every write) and for view_as_sessions (always: only the two
+    // functions write it). A refused write is not recorded: it never
+    // happened.
+    private guard: (table: string, op: string) => { code: string; message: string } | null = () => null,
   ) {}
 
   select(list?: string) {
@@ -314,7 +320,7 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
           ? child.filter((c) => c[spec.foreignKey] === row.id)
           : child.filter((c) => c.id === row[spec.foreignKey]);
         const inner = related.map((c) => {
-          const q = new FakeQuery(this.data, spec.table, this.onUnsupported, this.recorded, this.failOn);
+          const q = new FakeQuery(this.data, spec.table, this.onUnsupported, this.recorded, this.failOn, this.guard);
           q.selectList = embed[2];
           return q.project(c);
         });
@@ -333,6 +339,8 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
     if (!table) this.onUnsupported(`table "${this.table}" is not in the fixture`);
 
     if (this.writes) {
+      const refused = this.guard(this.table, this.writes.op);
+      if (refused) return { data: null, error: refused };
       const forced = this.failOn(this.table, this.writes.op);
       if (forced) return { data: null, error: { message: forced } };
 
@@ -430,6 +438,24 @@ export interface FakeClientOptions {
   // branch of an action is reachable. Every action has one and none of
   // them had ever run.
   failOn?: (table: string, op: string) => string | null;
+  // The id of the person this user is viewing as (migration 0047), or
+  // null. This models the CALLER'S client, the one row level security
+  // applies to, and does three things the database does:
+  //   1. every insert, update, upsert and delete, and every storage
+  //      upload and remove, is refused with 42501 and not recorded, and
+  //      create_org, log_family_message and submit_assignment refuse with
+  //      42501 ("read only while viewing as someone else"), the gate on
+  //      every write policy and function;
+  //   2. the identity the read functions answer for (member_program and
+  //      the rest) is the target's, as private._effective_uid() makes it;
+  //   3. a live session for (userId, viewing) is in the dataset's
+  //      view_as_sessions, so the app's own read of it finds one.
+  // auth.getUser() still answers with the real user, as the database's
+  // auth.uid() does. Pass no `viewing` for a service-role client: it
+  // bypasses row level security in the database, so the only refusal
+  // there is the actor guard in the action, and a law that needs to see
+  // a missing guard needs the write to go through.
+  viewing?: string | null;
 }
 
 // public.create_org(name, slug), migration 0040, with the same refusals
@@ -529,10 +555,23 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
 
   const recorded = opts.recorded ?? [];
   const failOn = opts.failOn ?? (() => null);
+  const viewing = opts.viewing ?? null;
+  if (viewing) {
+    if (!opts.userId) throw new Error("fakeSupabase: viewing needs a signed-in user to be the viewer");
+    ensureViewAsSession(data, opts.userId, viewing);
+  }
+  // Whose eyes the read functions use: the target's while viewing.
+  const effectiveId = viewing ?? opts.userId;
+  const guard = (table: string, op: string): { code: string; message: string } | null => {
+    if (table === "view_as_sessions") return { code: "42501", message: `permission denied for table view_as_sessions (${op}): only start_view_as and end_view_as write it` };
+    if (viewing) return { code: "42501", message: `new row violates row-level security policy for table "${table}" (read only while viewing as someone else)` };
+    return null;
+  };
+  const viewingRefusal = (fn: string) => ({ data: null, error: { code: "42501", message: `${fn}: read only while viewing as someone else` } });
 
   return {
     from(table: string) {
-      return new FakeQuery(data, table, unsupported, recorded, failOn);
+      return new FakeQuery(data, table, unsupported, recorded, failOn, guard);
     },
     // The summary functions of migration 0031, mirrored in fakeRpc.ts.
     // Awaitable like a query, so a page writes `await supabase.rpc(...)`.
@@ -541,10 +580,16 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
     // read-only mirror; submit_assignment (0046) writes too and lives in
     // fakeRpc.ts beside the rest of the mirrors, handed the write log.
     async rpc(name: string, args: Record<string, unknown> = {}) {
+      // start_view_as and end_view_as read the REAL caller, and end_view_as
+      // is the one write allowed while viewing.
+      if (name === "start_view_as") return fakeStartViewAs(data, opts.userId, args, recorded, failOn);
+      if (name === "end_view_as") return fakeEndViewAs(data, opts.userId, recorded, failOn);
+      // The three write functions refuse while viewing, before anything else.
+      if (viewing && (name === "create_org" || name === "log_family_message" || name === "submit_assignment")) return viewingRefusal(name);
       if (name === "create_org") return fakeCreateOrg(data, opts.userId, args, recorded, failOn);
       if (name === "log_family_message") return fakeLogFamilyMessage(data, opts.userId, args, recorded, failOn);
       if (name === "submit_assignment") return fakeSubmitAssignment(data, opts.userId, args, recorded, failOn);
-      return fakeRpc(data, opts.userId, name, args);
+      return fakeRpc(data, effectiveId, name, args);
     },
     auth: {
       async getUser() {
@@ -598,10 +643,13 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
             return { data: new Blob([bytes]), error: null };
           },
           async upload(path: string, _body: unknown, options?: { contentType?: string }) {
+            if (viewing) return { data: null, error: { statusCode: "403", code: "42501", message: "new row violates row-level security policy (read only while viewing as someone else)" } };
             recorded.push({ op: "insert", table: `storage:${bucket}`, rows: [{ name: path, contentType: options?.contentType ?? null }], filters: [] });
             return { data: { path }, error: null };
           },
           async remove(paths: string[]) {
+            // A delete a policy hides finds no object; nothing is removed.
+            if (viewing) return { data: [], error: null };
             recorded.push({ op: "delete", table: `storage:${bucket}`, rows: paths.map((name) => ({ name })), filters: [] });
             return { data: paths.map((name) => ({ name })), error: null };
           },

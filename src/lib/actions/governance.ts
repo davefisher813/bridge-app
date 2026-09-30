@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { centsToDecimalString } from "@/lib/validation/gift";
 import { toCents } from "@/lib/fundraising/rollup";
 import { BOARD_KINDS, DEFAULT_GIVE_GET_CENTS, DEFAULT_SEATS, type BoardKind } from "@/lib/governance/giveGet";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface GovernanceActionState {
   errors: Record<string, string>;
@@ -70,6 +71,7 @@ export async function createBoard(
   _prevState: GovernanceActionState,
   formData: FormData
 ): Promise<GovernanceActionState> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
 
   const parsed = readBoardForm(formData);
@@ -91,6 +93,7 @@ export async function createBoard(
 // seats, the seat range and the description. A sitting member's own
 // commitment is copied onto their seat and does not move with this.
 export async function updateBoard(slug: string, boardId: string, _prevState: GovernanceActionState, formData: FormData): Promise<GovernanceActionState> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
 
   const parsed = readBoardForm(formData);
@@ -115,6 +118,7 @@ export async function updateBoard(slug: string, boardId: string, _prevState: Gov
 // with it, and a seat carries give/get history a chair still reports
 // on. Remove or move the seats first, then the board.
 export async function removeBoard(slug: string, boardId: string): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
   const back = `/org/${slug}/board-governance/${boardId}`;
 
@@ -221,6 +225,7 @@ export async function addBoardSeat(
   _prevState: GovernanceActionState,
   formData: FormData
 ): Promise<GovernanceActionState> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
 
   const supabase = await createClient();
@@ -239,6 +244,7 @@ export async function addBoardSeat(
 // Emeritus or Resigned, which keeps its history; Remove is for a seat
 // that should never have existed.
 export async function updateBoardSeat(slug: string, boardId: string, memberId: string, _prevState: GovernanceActionState, formData: FormData): Promise<GovernanceActionState> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
 
   const supabase = await createClient();
@@ -264,6 +270,7 @@ export async function updateBoardSeat(slug: string, boardId: string, memberId: s
 // Remove a seat. Gifts credited to it as brought in lose that credit
 // (the column is set null), which the confirm says before it happens.
 export async function removeBoardSeat(slug: string, boardId: string, memberId: string): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
 
   const supabase = await createClient();
@@ -284,6 +291,7 @@ export async function removeBoardSeat(slug: string, boardId: string, memberId: s
 // the app could set it. Staff pick the person from the org's members
 // (owner, staff or member; never a family login) or clear the link.
 export async function linkSeatSignIn(slug: string, boardId: string, memberId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
   const back = `/org/${slug}/board-governance/${boardId}/seats/${memberId}`;
   const userId = String(formData.get("userId") ?? "").trim() || null;

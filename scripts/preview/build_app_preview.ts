@@ -20,7 +20,7 @@ import { parseBranding } from "@/lib/org/branding";
 import { it, vi } from "vitest";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createElement, type ReactNode } from "react";
-import { buildFixture, FAMILY_ID, ORG_WITH_MODULES, OWNER_ID } from "@/testing/fixture";
+import { ADMIN_TWO_ID, buildFixture, FAMILY_ID, ORG_WITH_MODULES, OWNER_ID, withSecondAdmin } from "@/testing/fixture";
 import { createFakeClient } from "@/testing/fakeSupabase";
 import { PAGES, p, routeFor } from "@/testing/pages";
 
@@ -43,8 +43,15 @@ vi.mock("next/navigation", () => ({
 }));
 
 let currentUser: string = OWNER_ID;
+// Stage 5 Phase 5: the person the signed-in Admin is viewing as, for the
+// entries in PAGES that say so. The second Admin exists for those only.
+let currentViewing: string | null = null;
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => createFakeClient(buildFixture(), { userId: currentUser }),
+  createClient: async () => {
+    const data = buildFixture();
+    if (currentViewing === ADMIN_TWO_ID) withSecondAdmin(data);
+    return createFakeClient(data, { userId: currentUser, viewing: currentViewing });
+  },
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -84,13 +91,25 @@ it("builds the app preview from the real pages", async () => {
     const route = await routeFor(page);
     currentPath = route.split("?")[0];
     currentUser = page.as ?? OWNER_ID;
+    currentViewing = page.viewing ?? null;
     const tree = await renderPage(page.path, page.props);
     // Every org screen sits inside the org layout's chrome, so the
     // preview wraps it the same way rather than rendering the bare page.
+    // A screen shown while an Admin is viewing as someone goes through
+    // the real org layout instead, so the banner and the tab bar of the
+    // person viewed are the app's own; its address carries the person so
+    // it does not shadow the same screen seen directly.
     const inOrg = route.startsWith("/org/");
+    if (page.viewing) {
+      const layout = (await import("@/app/org/[slug]/layout")) as { default: (a: { children: ReactNode; params: unknown }) => Promise<ReactNode> };
+      const html = renderToStaticMarkup((await layout.default({ children: tree, params: page.props.params })) as never);
+      screens.push({ route: `${route}${route.includes("?") ? "&" : "?"}viewing=${page.name}`, name: page.name, html });
+      continue;
+    }
     const html = renderToStaticMarkup(inOrg ? createElement(Chrome, { orgName: String(org.name), slug: ORG_WITH_MODULES, logo: parseBranding(org.branding).logo, tabs: page.as === FAMILY_ID ? "family" : "org", children: tree }) : tree);
     screens.push({ route, name: page.name, html });
   }
+  currentViewing = null;
 
   // The screens outside an org: sign-in in both modes, and the gate.
   const loginMod = (await import("@/app/login/page")) as { default: PageFn };
@@ -103,8 +122,9 @@ it("builds the app preview from the real pages", async () => {
     const tree = await loginMod.default({ searchParams: p(search as Record<string, string>) });
     screens.push({ route, name, html: renderToStaticMarkup(tree) });
   }
-  const unauthorized = (await import("@/app/unauthorized/page")) as { default: () => ReactNode };
-  screens.push({ route: "/unauthorized", name: "unauthorized", html: renderToStaticMarkup(unauthorized.default()) });
+  // Async since Stage 5 Phase 5: it reads whether an Admin is viewing.
+  const unauthorized = (await import("@/app/unauthorized/page")) as { default: (a: object) => Promise<ReactNode> };
+  screens.push({ route: "/unauthorized", name: "unauthorized", html: renderToStaticMarkup((await unauthorized.default({})) as never) });
 
   // The marks under /public travel inside the one file.
   for (const s of screens) {

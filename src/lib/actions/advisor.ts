@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { setAthleteAdvisor } from "@/lib/actions/members";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // Assign, change or clear an athlete's advisor from the athlete page
 // (Stage 5, Phase 2). The Advisor sheet posts one field, advisorId: an
@@ -15,6 +16,7 @@ import { setAthleteAdvisor } from "@/lib/actions/members";
 const q = (s: string) => encodeURIComponent(s);
 
 export async function setAdvisorFromAthleteForm(slug: string, athleteId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const advisorId = String(formData.get("advisorId") ?? "").trim() || null;
   const r = await setAthleteAdvisor(slug, [athleteId], advisorId);
   const back = `/org/${slug}/roster/${athleteId}`;

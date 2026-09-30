@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getOrgMemberships } from "@/lib/org/membership";
 import { signout } from "@/lib/auth/actions";
+import { getViewAs } from "@/lib/data/viewAs";
+import { viewingBanner } from "@/lib/auth/viewingBanner";
 import { Button, Form, Heading, LinkButton, OrgMark, Panel, Prose, Row, Stack } from "@/components/kit";
 
 // Post-login landing: a person can belong to more than one org (a coach
@@ -12,8 +14,14 @@ import { Button, Form, Heading, LinkButton, OrgMark, Panel, Prose, Row, Stack } 
 // create_org would let through (migration 0040): in no org, or owner in
 // every org they belong to. Staff, a member or a family login is not
 // offered it.
+//
+// While an Admin is viewing as someone (Stage 5 Phase 5) the database
+// shows them only the org being viewed, so the one-org case sends them
+// straight back into it, where the banner and Return are. The two screens
+// here carry the banner too, so Return is reachable wherever they land.
 export default async function HomePage() {
-  const memberships = await getOrgMemberships();
+  const [memberships, viewingAs] = await Promise.all([getOrgMemberships(), getViewAs()]);
+  const viewing = viewingBanner(viewingAs?.orgSlug ?? "", viewingAs);
   const canCreate = memberships.every((m) => m.role === "owner");
 
   if (memberships.length === 1) {
@@ -22,7 +30,7 @@ export default async function HomePage() {
 
   if (memberships.length === 0) {
     return (
-      <Panel>
+      <Panel viewing={viewing}>
         <Stack gap={4}>
           <div className="text-center">
             <Heading>No Organization Access Yet</Heading>
@@ -38,7 +46,7 @@ export default async function HomePage() {
   }
 
   return (
-    <Panel>
+    <Panel viewing={viewing}>
       <Stack gap={4}>
         <Heading>Choose an Organization</Heading>
         <Stack gap={3}>

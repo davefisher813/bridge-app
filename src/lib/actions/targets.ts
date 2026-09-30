@@ -12,6 +12,7 @@ import { aidFromRow, parseTargetAidForm } from "@/lib/validation/targetAid";
 import { loadLiveTarget } from "@/lib/data/loadTarget";
 import { isClosedStatus } from "@/lib/placement";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface TargetActionState {
   errors: Record<string, string>;
@@ -54,6 +55,7 @@ async function targetNames(supabase: Supabase, orgId: string, targetId: string):
 }
 
 export async function createTarget(slug: string, _prevState: TargetActionState, formData: FormData): Promise<TargetActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -108,6 +110,7 @@ export async function createTarget(slug: string, _prevState: TargetActionState, 
 }
 
 export async function updateTarget(slug: string, targetId: string, _prevState: TargetActionState, formData: FormData): Promise<TargetActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -208,6 +211,7 @@ function revalidateTargetScreens(slug: string, targetId: string, athleteId: stri
 const PLACED_COMMITMENT_REFUSAL = "Reopen Recruiting first, then remove it.";
 
 export async function deleteTarget(slug: string, targetId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -254,6 +258,7 @@ export interface TargetAidActionState {
 // what it wrote. The athlete's matches are recomputed: a net cost is
 // the best money evidence the fit engine has.
 export async function saveTargetAid(slug: string, targetId: string, _prevState: TargetAidActionState, formData: FormData): Promise<TargetAidActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);
@@ -276,6 +281,7 @@ export async function saveTargetAid(slug: string, targetId: string, _prevState: 
 
 // Clear Award: the target goes back to scoring on the school's averages.
 export async function clearTargetAid(slug: string, targetId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);

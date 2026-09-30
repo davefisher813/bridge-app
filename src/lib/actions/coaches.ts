@@ -6,6 +6,7 @@ import { requireDirectoryEditor } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCoachForm } from "@/lib/validation/coach";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // The college coach directory (migration 0036) is shared by every org
 // and has no write policy, like schools: a directory editor (an owner
@@ -35,6 +36,7 @@ async function schoolRow(admin: ReturnType<typeof createAdminClient>, schoolId: 
 }
 
 export async function createCoach(slug: string, schoolId: string, _prevState: CoachActionState, formData: FormData): Promise<CoachActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireDirectoryEditor(org.id);
@@ -63,6 +65,7 @@ export async function createCoach(slug: string, schoolId: string, _prevState: Co
 }
 
 export async function updateCoach(slug: string, schoolId: string, coachId: string, _prevState: CoachActionState, formData: FormData): Promise<CoachActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireDirectoryEditor(org.id);
@@ -99,6 +102,7 @@ export async function updateCoach(slug: string, schoolId: string, coachId: strin
 }
 
 export async function deleteCoach(slug: string, schoolId: string, coachId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireDirectoryEditor(org.id);

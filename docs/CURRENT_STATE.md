@@ -1,6 +1,6 @@
 # Current state
 
-Last updated: 2026-09-29. Stages 3 (advisors, messages, check-ins) and
+Last updated: 2026-09-30. Stages 3 (advisors, messages, check-ins) and
 4 (autofill, the high school directory, athlete notes) and the add,
 edit and delete audit are deployed to production, with migrations
 applied through 0040. The roles rework (three access levels with fixed
@@ -8,10 +8,11 @@ names, a Title per person, migration 0041) and Stage 5 Phases 1 to 3
 (Matches, the advisor managed on the athlete's page, More as the
 control center; migrations 0042 and 0043) are built and verified
 locally, Phase 6 (the activity log, migration 0044) on top of them, and
-Phase 4 (assignments, migrations 0045 and 0046) on top of that, on
-branch `claude/stage5-phase4-assignments`. Nothing past the Phase 6
-merge is committed or deployed. Phase 5 (View As) is the one phase of
-Stage 5 not built.
+Phase 4 (assignments, migrations 0045 and 0046) on top of that, and
+Phase 5 (View As, migration 0047) on top of that, on branch
+`claude/stage5-phase5-viewas`. Every phase of Stage 5 except Spanish
+mode is now built and verified locally. Nothing past the Phase 6 merge
+is committed or deployed.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three access levels, each with their own app on
@@ -31,8 +32,10 @@ can be corrected and removed where it lives, a pick fills what is
 blank, staff keep notes on an athlete, an owner sets up the org and
 anyone signed in with no other role can start one, and nothing the
 stand-in reader read can ever be applied; an athlete's advisor is
-assigned from the athlete's own page, and More is grouped as the
-control center. 121 screens on one kit, 2,129 tests green, the app itself driven in a browser at
+assigned from the athlete's own page, More is grouped as the
+control center, and an Admin can look at the app as an Athlete login, a
+Viewer or another Admin, read only, for 30 minutes. 123 screens on one
+kit, 2,348 tests green, the app itself driven in a browser at
 320, 375 and 390 in both themes with nothing past the edge, no row or
 tile that goes nowhere, and every link followed to a real screen.
 
@@ -61,8 +64,9 @@ tile that goes nowhere, and every link followed to a real screen.
 
 ## What exists
 
-**121 pages**, 46 migrations (40 applied), 2,129 tests in 75 files, 29 law
-files, the row-level-security suite green through the 0046 block.
+**123 pages**, 47 migrations (40 applied), 2,348 tests in 76 files, 30 law
+files, the row-level-security suite green through the 0047 block (270
+PASS lines).
 
 ### The kit, 2026-09-19, and the catalog picks, 2026-09-20
 
@@ -642,8 +646,8 @@ are in DECISIONS.md under the same date. Migration 0043, no RLS change.
   gone when neither module is on), Organization (Settings, Doc AI
   Spending and its budget form, Start Another Organization, who you
   are, Your Name, Sign Out). Activity was added under Organization by
-  Phase 6, and Assignments joined Program with Phase 4; View As arrives
-  with Phase 5.
+  Phase 6, Assignments joined Program with Phase 4, and View As (Admin
+  only) sits after Activity with Phase 5.
 - **Advisors** (`/advisors`): every Admin with "Title · N athletes",
   counting Active and Transferring athletes only (the reminder rule),
   the lede saying how many athletes have nobody, each row opening the
@@ -684,8 +688,8 @@ Admin is refused by RLS and by the trigger).
   Organization. An entry is a Row when it has somewhere to go and a plain
   card when it does not (a removed athlete, target or member, a discarded
   document); a week on, the date replaces "N days ago".
-- **Not yet.** View As (Phase 5) must write its own log rows in its
-  migration. "Invited" for linking a guardian who already has a login
+- **View As writes its own lines** in migration 0047, by role and never
+  by name (see the View As section). "Invited" for linking a guardian who already has a login
   reads slightly off (one template line).
 
 Laws: `activityLaws.test.ts`, the activity block of `actionRun.test.ts`,
@@ -741,8 +745,8 @@ transfer athlete so the empty state renders.
   `owner` check and the bucket limits are tested against the local stub
   only; confirm the `owner` column is filled for a client upload before
   this goes to production. A refused upload stays in the bucket.
-  `submit_assignment` does not refuse while an Admin is viewing as
-  someone (Phase 5 may need that).
+  `submit_assignment` refuses while an Admin is viewing as someone
+  (migration 0047).
 
 Laws: `assignmentLaws.test.ts` (48 cases), the last block of
 `pageRender.test.ts`, `moreLaws.test.ts`, and the 0046 block of
@@ -751,6 +755,50 @@ for its own and another athlete, a Viewer, a second org, anon), each
 planted and seen to fail. `src/testing/pages.ts` gains eleven entries;
 the fixture holds seven assignment rows (one per status, a due-soon one,
 one for Elite), a filed document and a family storage object.
+
+### View As (Stage 5 Phase 5, 2026-09-30)
+
+- **What it is.** An Admin sees exactly what an Athlete login, a Viewer
+  or another Admin sees, read only, for at most 30 minutes, with a banner
+  ("Viewing as <name>", the level, Read only, minutes left, Return to
+  Admin) at the top of every org screen and on Not Authorized and the
+  organization picker. More has a View As row for Admins only; it opens
+  `/view-as` (three levels with counts) and `/view-as/[role]` (the people
+  of that level, each with a View As button; an Athlete login's row says
+  which athletes it sees). Starting lands on that person's own home.
+- **How.** Migration 0047, option D2 of the plan, on the Admin's own
+  token. A `view_as_sessions` row (written only by `start_view_as` and
+  `end_view_as`) makes the effective identity the person viewed: the nine
+  access helpers and five inline read policies follow it, every write
+  policy in `public` and `storage.objects` carries `and not
+  private._viewing()`, and the three definer functions that write refuse.
+  No token is minted for anyone and nothing reads with the service role
+  for another person. The app reads the row (`src/lib/data/viewAs.ts`,
+  fails closed), the guard reads the seat viewed, and
+  `requireNotViewing()` opens all 109 exported server actions. Design in
+  ARCHITECTURE.md, rules in BUSINESS_RULES.md, the choice and its
+  deviations in DECISIONS.md (2026-09-30).
+- **Proof.** The RLS suite hashes every table and `storage.objects` as
+  the Admin viewing and as the target directly, for an Admin, a Viewer
+  and an Athlete target, and attempts every write while viewing; the
+  render law renders every org screen through the layout while viewing
+  and compares it with the target's own render (banner aside), and checks
+  that no link leaves an Athlete login's or a Viewer's screens. Every plant
+  in the README (41 to 46) was seen to fail.
+- **Deviations and gaps.** The activity lines are role literals ("Started
+  viewing as a Viewer"), not the named templates, because the log law
+  holds SQL writers to literals. `signout()` does not end an open session
+  (bounded by the 30 minutes; Return works). The root not-found and error
+  screens carry no banner. The fixture has no second Admin by default
+  (`withSecondAdmin`). `getViewAs` adds one indexed query per request.
+  Unread counts do not clear while viewing.
+
+Laws: `viewAsLaws.test.ts`, the last blocks of `pageRender.test.ts`,
+`moreLaws.test.ts`, and the 0047 block of `scripts/rls_test.sql`. Eight
+entries in `src/testing/pages.ts` (the two screens and their three
+levels, plus a banner render of an Athlete's home and athlete page, a
+Viewer's home and another Admin's Today); the live driver opens them
+through a `fixture_view_as` cookie.
 
 ### Less text on every screen, 2026-09-25
 
@@ -772,7 +820,7 @@ Format examples stay, because they are the part a person acts on.
 ## How it is verified
 
 1. **Unit tests** over the pure modules.
-2. **Laws** (`src/laws/`, 28 files) encode the rules from CLAUDE.md,
+2. **Laws** (`src/laws/`, 30 files) encode the rules from CLAUDE.md,
    BUSINESS_RULES.md, STYLING_CATALOG.md and MATCHING_CONTRACT.md as
    executable checks, each planted, watched to fail, and reverted
    before it counts.
@@ -892,12 +940,14 @@ Format examples stay, because they are the part a person acts on.
 
 ## Immediate next steps
 
-1. The roles rework and Stage 5 Phases 1 to 4 and 6 ship when Dave says
-   "go": commit, apply 0041 to 0046 to production (0041 changes no row
+1. The roles rework and Stage 5 Phases 1 to 6 ship when Dave says
+   "go": commit, apply 0041 to 0047 to production (0041 changes no row
    there; 0042 and 0043 add columns; 0044 adds the empty activity log;
    0045 and 0046 add the `filed` status and the empty assignments
-   table, and 0045 must run before 0046), confirm the storage `owner`
-   column is filled for a client upload,
+   table, and 0045 must run before 0046; 0047 adds the empty
+   `view_as_sessions` table and rewrites the access helpers and every
+   write policy, so run the RLS suite against a copy first), confirm the
+   storage `owner` column is filled for a client upload,
    deploy, run Recalculate All once
    so every stored match carries its net cost, then Dave sets each
    person's Title from their page under Members and checks the members
@@ -905,8 +955,8 @@ Format examples stay, because they are the part a person acts on.
    previews. Ship it."
 2. Dave assigns advisors from each athlete's page (Assign, then a tap on
    the Admin; Add Admin for Mike and Kev) and walks the edit and remove
-   screens on his phone. Stage 5 Phase 5 (View As) follows on the same
-   plan, writing its own activity rows.
+   screens on his phone, then tries View As on an Athlete login, a Viewer
+   and another Admin, and checks Return on his phone.
 3. Load the high school directory (above), then set the AI key and
    discard, delete and re-upload the production documents.
 4. Dave exports his school sheet to the template and imports it, then

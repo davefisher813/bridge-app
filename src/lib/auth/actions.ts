@@ -63,6 +63,13 @@ export async function sendMagicLink(_prev: MagicLinkState, formData: FormData): 
 
 export async function signout() {
   const supabase = await createClient();
+  // A View As (Stage 5 Phase 5) belongs to the Admin, not to the browser:
+  // left open, signing back in within 30 minutes would land straight back
+  // inside someone else's screens. end_view_as answers for the real
+  // caller, works while viewing, and does nothing when nothing is open.
+  // Its result is ignored: a database without migration 0047 has no such
+  // function, and signing out must still work.
+  await supabase.rpc("end_view_as");
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/login");

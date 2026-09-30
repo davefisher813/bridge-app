@@ -15,28 +15,30 @@ const page = await ctx.newPage();
 
 // link -> the screen and login it was found on
 const found = new Map();
-for (const { name, route, as } of routes) {
+for (const { name, route, as, viewing } of routes) {
   await ctx.clearCookies();
   if (as) await ctx.addCookies([{ name: "fixture_user", value: as, url: BASE }]);
+  if (viewing) await ctx.addCookies([{ name: "fixture_view_as", value: viewing, url: BASE }]);
   const res = await page.goto(BASE + route, { waitUntil: "load", timeout: 60000 });
   if (!res || res.status() >= 400) continue;
   const hrefs = await page.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")));
   for (const h of hrefs) {
     if (!h || !h.startsWith("/")) continue; // mailto and tel are for the phone to answer
-    const key = `${as ?? ""}|${h}`;
-    if (!found.has(key)) found.set(key, { href: h, as, from: name });
+    const key = `${as ?? ""}|${viewing ?? ""}|${h}`;
+    if (!found.has(key)) found.set(key, { href: h, as, viewing, from: name });
   }
 }
 
 const broken = [];
-for (const { href, as, from } of found.values()) {
+for (const { href, as, viewing, from } of found.values()) {
   await ctx.clearCookies();
   if (as) await ctx.addCookies([{ name: "fixture_user", value: as, url: BASE }]);
+  if (viewing) await ctx.addCookies([{ name: "fixture_view_as", value: viewing, url: BASE }]);
   // A file the browser downloads rather than renders (the CSV template)
   // is checked with a plain request instead of a navigation.
   if (/\.(csv|pdf|png|jpg|webmanifest|ico)$/i.test(href)) {
     const r = await ctx.request.get(BASE + href);
-    if (!r.ok()) broken.push({ href, from, as: as ?? "owner", status: r.status(), landed: href, why: `HTTP ${r.status()}` });
+    if (!r.ok()) broken.push({ href, from, as: viewing ? `owner viewing ${viewing}` : (as ?? "owner"), status: r.status(), landed: href, why: `HTTP ${r.status()}` });
     continue;
   }
   const res = await page.goto(BASE + href, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -48,7 +50,7 @@ for (const { href, as, from } of found.values()) {
   const refused = landed === "/unauthorized" || landed === "/login";
   const text = await page.evaluate(() => document.body.innerText.slice(0, 80));
   const broke = /Something broke on this screen/i.test(text);
-  if (status >= 400 || refused || broke) broken.push({ href, from, as: as ?? "owner", status, landed, why: broke ? "error screen" : refused ? "refused" : `HTTP ${status}` });
+  if (status >= 400 || refused || broke) broken.push({ href, from, as: viewing ? `owner viewing ${viewing}` : (as ?? "owner"), status, landed, why: broke ? "error screen" : refused ? "refused" : `HTTP ${status}` });
 }
 await browser.close();
 

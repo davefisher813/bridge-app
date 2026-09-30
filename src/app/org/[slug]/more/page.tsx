@@ -52,9 +52,9 @@ export default async function MorePage({ params, searchParams }: { params: Promi
           Program, Reference, Matching, Foundation, Organization. Foundation
           is Bridge's two modules and is left out entirely when neither is
           on (docs/STYLING_CATALOG.md: modules off are hidden from More).
-          Assignments joined Program with Stage 5 Phase 4; View As joins
-          Organization with the phase that builds it. A row before its
-          page fails the links check. */}
+          Assignments joined Program with Stage 5 Phase 4; View As joined
+          Organization with Phase 5. A row before its page fails the links
+          check. */}
       <Section label="People" role="people" kind="people">
         {user.role === "owner" && <Row href={`/org/${slug}/members`} kind="people" role="people" title="Members" meta="Who can sign in, and what each person can do" wrap />}
         {canEdit && <Row href={`/org/${slug}/advisors`} kind="athlete" role="contact" title="Advisors" meta="Each Admin and how many athletes they advise" wrap />}
@@ -106,6 +106,9 @@ export default async function MorePage({ params, searchParams }: { params: Promi
         {/* Who did what, org-wide (migration 0044). Admins only: the
             log is read by nobody else. */}
         {canEdit && <Row href={`/org/${slug}/activity`} kind="clock" role="time" title="Activity" meta="Who did what, across every athlete" wrap />}
+        {/* See what one person sees, read only for 30 minutes (Stage 5
+            Phase 5). Admins only, and only an owner can start one. */}
+        {user.role === "owner" && <Row href={`/org/${slug}/view-as`} kind="athlete" role="contact" title="View As" meta="See exactly what an Athlete, a Viewer or another Admin sees" wrap />}
         {/* What reading documents has cost this month, against the cap.
             Every Admin sees the number; an owner sets the cap. */}
         {canEdit && (

@@ -15,6 +15,7 @@ import { isUsStateCode } from "@/lib/lookup/states";
 import { isEligibleAdvisor } from "@/lib/org/advisors";
 import { activitySummary, logActivity } from "@/lib/data/activity";
 import type { AthleteFormResult } from "@/lib/validation/athlete";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // Athlete add/edit was the top ROADMAP.md item once roster/board existed
 // as read-only screens - there was no way to get real data in short of
@@ -72,6 +73,7 @@ async function fillFromDirectory(supabase: Supabase, parsed: AthleteFormResult):
 }
 
 export async function createAthlete(slug: string, _prevState: AthleteActionState, formData: FormData): Promise<AthleteActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -202,6 +204,7 @@ export async function updateAthlete(
   _prevState: AthleteActionState,
   formData: FormData
 ): Promise<AthleteActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -343,6 +346,7 @@ export interface NoteActionState {
 }
 
 export async function addNote(slug: string, athleteId: string, _prevState: NoteActionState, formData: FormData): Promise<NoteActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -364,6 +368,7 @@ export async function addNote(slug: string, athleteId: string, _prevState: NoteA
 // Staff delete a note; nobody edits one. Scoped to this org and this
 // athlete, so another org's or another athlete's note id removes nothing.
 export async function removeNote(slug: string, athleteId: string, noteId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);
@@ -380,6 +385,7 @@ export async function removeNote(slug: string, athleteId: string, noteId: string
 // with it, since nothing should rank schools for someone who is gone.
 // Scoped to this org, so another org's athlete id changes nothing.
 export async function removeAthlete(slug: string, athleteId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);

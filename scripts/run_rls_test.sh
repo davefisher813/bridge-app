@@ -79,6 +79,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0043_advisor_assign
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0044_activity_log.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0045_doc_status_filed.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0046_assignments.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0047_view_as.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

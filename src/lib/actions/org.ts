@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOwner } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { mergeModules, parseCreateOrgForm, parseOrgSettingsForm, slugify, SLUG_MAX } from "@/lib/validation/org";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // An organization's own settings, and starting a new one (audit wired
 // F4). Before this a new org, or a rename, was hand-written SQL.
@@ -54,6 +55,7 @@ function candidates(base: string): string[] {
 }
 
 export async function createOrg(_prev: OrgActionState, formData: FormData): Promise<OrgActionState> {
+  await requireNotViewing();
   const supabase = await createClient();
   const {
     data: { user },
@@ -97,6 +99,7 @@ export async function createOrg(_prev: OrgActionState, formData: FormData): Prom
 }
 
 export async function updateOrgSettings(slug: string, _prev: OrgActionState, formData: FormData): Promise<OrgActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireOwner(org.id);

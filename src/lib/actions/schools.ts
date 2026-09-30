@@ -13,6 +13,7 @@ import { parseOrgSchoolNoteForm, parsePositionsOfNeed, type PositionOfNeed } fro
 import { TARGET_STATUSES } from "@/lib/validation/target";
 import { parseSchoolsCsv, type ImportProblem } from "@/lib/schools/csv";
 import { recomputeFitsForOrgSchool, recomputeFitsForSchools } from "@/lib/data/fits";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface SchoolActionState {
   errors: Record<string, string>;
@@ -51,6 +52,7 @@ function duplicateState(hit: { id: string; name: string }): SchoolActionState {
 // touched. See docs/DECISIONS.md. Every write recomputes the stored fits for every
 // athlete in every org against the school (docs/MATCHING_CONTRACT.md).
 export async function createSchool(slug: string, _prevState: SchoolActionState, formData: FormData): Promise<SchoolActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireDirectoryEditor(org.id);
@@ -78,6 +80,7 @@ export async function createSchool(slug: string, _prevState: SchoolActionState, 
 }
 
 export async function updateSchool(slug: string, schoolId: string, _prevState: SchoolActionState, formData: FormData): Promise<SchoolActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireDirectoryEditor(org.id);
@@ -108,6 +111,7 @@ export async function updateSchool(slug: string, schoolId: string, _prevState: S
 // (org_school_notes RLS), and it recomputes this org's fits against the
 // school because positions of need move the score.
 export async function saveOrgSchoolNote(slug: string, schoolId: string, _prevState: SchoolActionState, formData: FormData): Promise<SchoolActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);
@@ -158,6 +162,7 @@ export interface ImportActionState {
 // the same name is updated, not duplicated; the coach fields land on
 // this org's overlay, not the shared row.
 export async function importSchools(slug: string, _prevState: ImportActionState, formData: FormData): Promise<ImportActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireDirectoryEditor(org.id);
@@ -281,6 +286,7 @@ function revalidateSchools(slug: string, ...ids: string[]) {
 // org's notes, a directory coach or a contact. Merge is the tool for a
 // duplicate that is in use; this is for a row nobody relies on.
 export async function deleteSchool(slug: string, schoolId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireDirectoryEditor(org.id);
@@ -388,6 +394,7 @@ interface NoteRef {
 //   someone by that name.
 // - Contacts and a transfer's Current School follow the kept school.
 export async function mergeSchool(slug: string, sourceId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireDirectoryEditor(org.id);

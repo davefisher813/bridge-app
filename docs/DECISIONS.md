@@ -3720,3 +3720,100 @@ bytes. The family folder is shared by every athlete login in an org; the
 owner check on submit is what protects it. `submit_assignment` trusts the
 caller's size, type and hash; a later hardening can cross-check the
 stored object.
+
+## 2026-09-30: View As, an effective identity in the database (Stage 5 Phase 5)
+
+**Decision.** Dave approved the whole plan on 2026-09-27 and said to
+finish and merge everything, so the recommendations in
+`docs/PLAN_STAGE5.md` "Phase 5: View As" are the decisions. An Admin sees
+exactly what an Athlete login, a Viewer or another Admin sees, read only,
+for 30 minutes at most, with a banner and a Return.
+
+The mechanism is the plan's option D2. A row in `view_as_sessions`
+(migration 0047) makes `private._effective_uid()` the person being viewed
+for the Admin's own session. The Admin stays signed in on their own token
+the whole time. The nine access helpers (the plan counted seven; the
+catalog holds nine) are re-created on the effective identity, the five
+read policies that compared the caller inline are rewritten by hand, and a
+loop over the catalog appends `and not private._viewing()` to every
+INSERT, UPDATE and DELETE policy in `public` and `storage.objects` (89
+policies when it ran). The equivalence between what the Admin reads while
+viewing and what the target reads directly is not argued from a grep; it
+is a loop in `scripts/rls_test.sql` generated from `pg_class` that hashes
+every table and `storage.objects` both ways and fails on any difference.
+
+**Why no token is minted.** The alternative was option A: mint a real
+session for the target (an admin `generateLink` with `verifyOtp`, or a JWT
+signed with the project secret). Not built, and not to be built without
+Tony's written sign-off on that specific design. It signs the Admin out
+(one session per cookie jar), so Return needs a second minted credential;
+`verifyOtp` records a real sign-in and flips `users.last_sign_in_at`, which
+Members reads as Invited versus signed in, so viewing someone would change
+what an Admin sees about them; a custom JWT needs a god secret in the
+environment and breaks under asymmetric keys (`DECISIONS.md` already
+declined JWT-claims approaches). Above all it is acting as another
+person's credential. Option B (service role plus an app-side filter) is a
+second implementation of forty migrations of policy whose equivalence
+cannot be proved and puts every page against the render law that forbids
+the service-role client. Option C (a fixture-style client) shows nobody
+real. Nothing in the app mints, forges or reads on anyone's behalf, and a
+law greps for it.
+
+**Targets, scope, banner.** Targets are Athlete logins, Viewers and other
+Admins, never a person who is not in the org: the start function and a
+coherence trigger each refuse one, and both dropped fails the suite. The
+switch is one row per Admin, account wide for its 30 minutes (every tab
+and device, including the browser client), which is why the banner with
+Return is in flow at the top of Chrome and also on `/` and
+`/unauthorized`. Storage policies are in the rewrite and in the
+equivalence loop. Expiry is lazy: the database applies the clock itself,
+and the next start or end closes an expired row with the reason
+`expired` and its log line, so nothing sweeps.
+
+**Deviations from the plan, each on purpose.**
+
+- **Org scope while viewing.** Every helper and every org-carrying read
+  policy is limited to the org being viewed. A person who also belongs to a
+  second org shows the Admin nothing of it. Stricter than the plan; the
+  multi-org block in the suite plants it.
+- **Log lines are role literals, not names.** The spec asked for the
+  branded templates in `src/lib/data/activity.ts` (names only).
+  `src/laws/activityLaws.test.ts` fails any SQL function that writes the
+  log with a text parameter or a concatenation, and the writes here are in
+  SQL: a line from the app before `start_view_as` would precede anything
+  happening, one after it is refused by the gate, and the service role is
+  not allowed. So the lines are "Started viewing as an Admin" (or a Viewer,
+  an Athlete), "Stopped viewing as someone else" and "Viewing as someone
+  else ended after 30 minutes". `subject_id` is the session, which names
+  both people for the Admin who owns it. The `view_as_started` and
+  `view_as_ended` templates stay in `activity.ts` for the vocabulary and
+  are not called. Named lines would need the law to carry a documented
+  exception first; not done.
+- **Two `start_view_as` forms.** `(p_org, p_target)` is the plan's; the
+  one-argument form finds the one org the two people share and asks for the
+  org by name when there are two.
+- **The app fails closed.** `getViewAs()` reads the caller's own row
+  through the caller's own client and applies the SQL's rule (not ended,
+  not past `expires_at`, the viewer still an owner, the target still a
+  member). Any read error throws so `requireNotViewing()` refuses too; only
+  a missing table reads as not viewing. `requireNotViewing()` is the first
+  statement of every exported server action (109 functions in 26 files),
+  because the service role bypasses row level security and no policy stands
+  in front of it; a refused write returns to the referring page (its path
+  only, never a host) with the reason in `?error=`.
+- **The fake, and the render law, are second implementations.** The
+  `viewing` option on `createFakeClient` refuses every write and follows
+  the target for every read; the render law proves the page code, the RLS
+  suite proves the scope.
+
+**Consequences.** The second Admin is not in `buildFixture()`: a second
+Bridge owner breaks six "only owner" laws, so `withSecondAdmin(data)` adds
+one where an Admin target is wanted, for the View As entries only. A
+service-role fake must never be built with `viewing`, or the "skip the
+actor guard" plant cannot fail. Unread counts do not clear while viewing
+(`markThreadRead` is refused); the page still renders. Owed:
+`signout()` does not end an open session, so an Admin who signs out and
+back in within 30 minutes is still viewing as the target (bounded and
+visible, and Return works); the root `not-found.tsx` and `error.tsx` carry
+no banner (their way back leads to a screen that does); named log lines as
+above; `getViewAs` adds one indexed query per request.

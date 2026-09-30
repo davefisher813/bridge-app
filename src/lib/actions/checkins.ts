@@ -7,6 +7,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { parseCheckinForm } from "@/lib/validation/checkin";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // The check-in log (migration 0039). Staff only, to read and to write:
 // these athletes are minors and an advisor's call notes never reach a
@@ -34,6 +35,7 @@ function revalidateCheckins(slug: string, athleteId: string) {
 }
 
 export async function logCheckin(slug: string, athleteId: string, _prevState: CheckinActionState, formData: FormData): Promise<CheckinActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { errors: { form: "Org not found." } };
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -83,6 +85,7 @@ export async function logCheckin(slug: string, athleteId: string, _prevState: Ch
 // it and an edit does not move the credit. Scoped to the org and the
 // athlete, and a zero-row update says so rather than pretending it saved.
 export async function updateCheckin(slug: string, athleteId: string, checkinId: string, _prevState: CheckinActionState, formData: FormData): Promise<CheckinActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);
@@ -113,6 +116,7 @@ export async function updateCheckin(slug: string, athleteId: string, checkinId: 
 // Posted by the Remove button on a log entry, the Contacts pattern:
 // bound to the entry's id, no client state.
 export async function removeCheckin(slug: string, athleteId: string, checkinId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return;
   await requireRole(org.id, STAFF_ROLES);

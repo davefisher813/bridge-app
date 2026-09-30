@@ -20,7 +20,7 @@
 // counted as a pass.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { buildFixture, IDS, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID, MEMBER_ID, FAMILY_ID } from "@/testing/fixture";
+import { ADMIN_TWO_ID, buildFixture, IDS, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID, OUTSIDER_ID, MEMBER_ID, FAMILY_ID, withSecondAdmin } from "@/testing/fixture";
 import { PAGES, p } from "@/testing/pages";
 import { createFakeClient, type Dataset } from "@/testing/fakeSupabase";
 
@@ -28,6 +28,10 @@ const NOT_FOUND = "NEXT_NOT_FOUND";
 const REDIRECT = "NEXT_REDIRECT:";
 
 let currentUser: string | null = OWNER_ID;
+// Stage 5 Phase 5: the person the signed-in user is viewing as, or null.
+// Handed to the user's client only, as the database's own gate is; the
+// service-role client above never gets it (and a page may not open it).
+let viewing: string | null = null;
 // What the client components on a page (a filter, a sort) read as the
 // current address. Empty unless a law sets it before a render.
 let searchParams = new URLSearchParams();
@@ -58,7 +62,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => createFakeClient(data, { userId: currentUser }),
+  createClient: async () => createFakeClient(data, { userId: currentUser, viewing }),
 }));
 
 // The admin client is the service role. A page never uses it, so reaching
@@ -79,8 +83,28 @@ async function render(modulePath: string, props: Record<string, unknown>): Promi
 }
 
 
+// A render as the entry says: who is signed in and, for a View As entry,
+// who they are looking through. The second Admin is added for that one
+// entry only, so no other screen's counts change.
+function look(page: { as?: string; viewing?: string }) {
+  currentUser = page.as ?? OWNER_ID;
+  viewing = page.viewing ?? null;
+  if (viewing === ADMIN_TWO_ID) withSecondAdmin(data);
+}
+
+// The page inside the org layout, the way Next serves it: the layout is
+// where the banner lives, so a law about the banner renders through it.
+async function renderInLayout(modulePath: string, props: Record<string, unknown>): Promise<string> {
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const mod = (await import(/* @vite-ignore */ modulePath)) as { default: PageFn };
+  const layout = (await import("@/app/org/[slug]/layout")) as { default: (a: { children: unknown; params: unknown }) => Promise<unknown> };
+  const tree = await mod.default(props);
+  return renderToStaticMarkup((await layout.default({ children: tree, params: props.params })) as never);
+}
+
 beforeEach(() => {
   currentUser = OWNER_ID;
+  viewing = null;
   searchParams = new URLSearchParams();
   data = buildFixture();
 });
@@ -111,8 +135,8 @@ const ORG_SIDE_OF_A_SCHOOL = /Fixture (Athlete|Unknown|Transfer|Committed|Enroll
 describe("LAW: every page renders", () => {
   for (const page of PAGES) {
     it(`${page.name} renders without throwing`, async () => {
-      currentUser = page.as ?? OWNER_ID;
-      const html = await render(page.path, page.props);
+      look(page);
+      const html = page.viewing ? await renderInLayout(page.path, page.props) : await render(page.path, page.props);
       expect(html.length).toBeGreaterThan(200);
       expect(html).toMatch(page.expect);
     });
@@ -765,7 +789,7 @@ describe("LAW: the members screens are the owner's alone", () => {
 // member side, and staff cannot open them.
 describe("LAW: a member login opens member screens and nothing else, and staff cannot open them", () => {
   const member = PAGES.filter((x) => x.as === MEMBER_ID);
-  const everythingElse = PAGES.filter((x) => x.as !== MEMBER_ID && x.path.startsWith("@/app/org/"));
+  const everythingElse = PAGES.filter((x) => x.as !== MEMBER_ID && !x.viewing && x.path.startsWith("@/app/org/"));
 
   it("there are member screens to check", () => {
     expect(member.length).toBeGreaterThanOrEqual(5);
@@ -2248,5 +2272,227 @@ describe("LAW: assignments are the Admin's to give and review, the Athlete login
     expect(eliteToday).not.toContain("Send Fall Transcript");
     expect(await orgList()).not.toContain("Squad Only Task");
     expect(await today()).not.toContain("Squad Only Task");
+  });
+});
+
+// Stage 5 Phase 5, 2026-09-27: View As. An Admin sees exactly what an
+// Athlete login, a Viewer or another Admin sees, read only, and the
+// screens that start it are the Admin's alone. The database half is
+// proved in scripts/rls_test.sql; the actions in src/laws/viewAsLaws.test.ts.
+// What only a render can say, and this says, is what is ON the screen:
+// who may open the two View As screens, that the banner with Return is on
+// every org screen while viewing and on none otherwise, that what the
+// Admin sees is what the target sees (the same markup, the banner aside),
+// and that an Athlete login or a Viewer is never handed a link out of
+// their own screens because an Admin is looking.
+describe("LAW: only an Admin opens the View As screens", () => {
+  const viewAsPages = PAGES.filter((x) => x.path.startsWith("@/app/org/[slug]/view-as"));
+  const prefix = "@/app/org/[slug]/view-as";
+
+  it("both screens, and all three levels, are in the list", () => {
+    expect(viewAsPages.map((x) => x.name)).toEqual(["view-as", "view-as-athletes", "view-as-viewers", "view-as-admins"]);
+    expect(viewAsPages.every((x) => x.path.startsWith(prefix))).toBe(true);
+  });
+
+  for (const page of viewAsPages) {
+    it(`an Admin opens ${page.name}`, async () => {
+      look(page);
+      const html = await render(page.path, page.props);
+      expect(html).toMatch(page.expect);
+    });
+
+    it(`a Viewer, an Athlete login, and someone signed out cannot open ${page.name}`, async () => {
+      for (const who of [MEMBER_ID, FAMILY_ID]) {
+        currentUser = who;
+        await expect(render(page.path, page.props)).rejects.toThrow(REDIRECT + "/unauthorized");
+      }
+      currentUser = null;
+      await expect(render(page.path, page.props)).rejects.toThrow(REDIRECT + "/login");
+    });
+
+    it(`a person outside the org cannot open ${page.name}, and neither can an Admin viewing as an Athlete or a Viewer`, async () => {
+      currentUser = OUTSIDER_ID;
+      await expect(render(page.path, page.props)).rejects.toThrow(REDIRECT);
+      for (const target of [FAMILY_ID, MEMBER_ID]) {
+        currentUser = OWNER_ID;
+        viewing = target;
+        // One live session per Admin: a fresh switch for each target.
+        data.view_as_sessions = [];
+        await expect(render(page.path, page.props)).rejects.toThrow(REDIRECT + "/unauthorized");
+      }
+    });
+  }
+
+  it("a leftover staff row is not an Admin here: it is refused the start", async () => {
+    currentUser = OUTSIDER_ID;
+    const params = p({ slug: ORG_WITHOUT_MODULES });
+    await expect(render("@/app/org/[slug]/view-as/page", { params })).rejects.toThrow(REDIRECT + "/unauthorized");
+  });
+
+  it("the lists hold only people of this org, never the Admin looking, and never anyone outside", async () => {
+    const html = await render("@/app/org/[slug]/view-as/[role]/page", { params: p({ slug: ORG_WITH_MODULES, role: "admin" }) });
+    expect(html).not.toMatch(/Example Owner|Example Outsider/);
+    for (const role of ["athlete", "viewer"]) {
+      const list = await render("@/app/org/[slug]/view-as/[role]/page", { params: p({ slug: ORG_WITH_MODULES, role }) });
+      expect(list).not.toMatch(/Example Owner|Example Outsider/);
+    }
+    // A second Admin appears in the Admin list and nowhere else.
+    withSecondAdmin(data);
+    const admins = await render("@/app/org/[slug]/view-as/[role]/page", { params: p({ slug: ORG_WITH_MODULES, role: "admin" }) });
+    expect(admins).toMatch(/Fixture Second Admin[\s\S]*View As/);
+    const viewers = await render("@/app/org/[slug]/view-as/[role]/page", { params: p({ slug: ORG_WITH_MODULES, role: "viewer" }) });
+    expect(viewers).not.toMatch(/Fixture Second Admin/);
+  });
+
+  it("an Admin viewing as another Admin is told to Return first, not shown a list that would refuse them", async () => {
+    currentUser = OWNER_ID;
+    viewing = ADMIN_TWO_ID;
+    withSecondAdmin(data);
+    for (const page of viewAsPages) {
+      const html = await render(page.path, page.props);
+      expect(html).toMatch(/Return to Admin First/);
+      expect(html).not.toMatch(/View As<\/button>/);
+    }
+  });
+});
+
+describe("LAW: the banner is on every org screen while viewing, and on none otherwise", () => {
+  // The org screens of the fixture org that has modules, which is the org
+  // a View As is started in. The banner is in Chrome, in the org layout,
+  // so a bare page render never carries it and a layout render must.
+  const orgPages = PAGES.filter((x) => x.path.startsWith("@/app/org/[slug]/") && !x.viewing && !x.path.includes("/view-as"));
+  const bridge = async (x: (typeof PAGES)[number]) => (((await x.props.params) as { slug?: string }).slug === ORG_WITH_MODULES);
+
+  // The Return control and the words, whole: a banner with the name and
+  // no way out is the failure this exists to prevent.
+  const BANNER = /data-kit="view-as-banner"[\s\S]*Viewing as [^<]+[\s\S]*Read only[\s\S]*Return to Admin/;
+  // Equal markup, or the first place they part, so a difference is a
+  // sentence and not two walls of HTML.
+  // The inline script that carries a form's action is emitted once, by the
+  // first form on the page, which is the banner's Return while viewing;
+  // it is the same script wherever it lands, so it is set aside.
+  const noScript = (html: string) => html.replace(/<script>addEventListener\("submit"[\s\S]*?<\/script>/g, "");
+  const sameScreen = (seenRaw: string, directRaw: string, name: string) => {
+    const seen = noScript(seenRaw);
+    const direct = noScript(directRaw);
+    let at = 0;
+    while (at < seen.length && seen[at] === direct[at]) at++;
+    const context = seen === direct ? "" : `${name}: parts at ${at}: viewing ...${seen.slice(Math.max(0, at - 80), at + 160)} ... direct ...${direct.slice(Math.max(0, at - 80), at + 160)}`;
+    expect(context).toBe("");
+  };
+  const WITHOUT_BANNER = (html: string) => html.replace(/<div class="px-4 pt-3"><div[^>]*data-kit="view-as-banner"[\s\S]*?<\/form><\/div><\/div>/, "");
+
+  it("there are screens for every kind of login to check", () => {
+    expect(orgPages.length).toBeGreaterThan(100);
+    expect(orgPages.filter((x) => x.as === FAMILY_ID).length).toBeGreaterThan(5);
+    expect(orgPages.filter((x) => x.as === MEMBER_ID).length).toBeGreaterThan(5);
+    expect(orgPages.filter((x) => !x.as).length).toBeGreaterThan(20);
+  });
+
+  it("no org screen carries a banner when nobody is viewing", async () => {
+    for (const page of orgPages) {
+      look(page);
+      const html = await renderInLayout(page.path, page.props);
+      expect(html, page.name).not.toMatch(/view-as-banner|Viewing as|Return to Admin/);
+    }
+  });
+
+  // An Athlete login's screens, viewed: the banner is there, and what is
+  // under it is what the Athlete login sees, screen for screen.
+  for (const [label, target, as] of [
+    ["an Athlete login", FAMILY_ID, FAMILY_ID],
+    ["a Viewer", MEMBER_ID, MEMBER_ID],
+  ] as const) {
+    it(`viewing as ${label}: the banner is on every one of their screens, and the screen is theirs`, async () => {
+      const theirs = orgPages.filter((x) => x.as === as);
+      expect(theirs.length).toBeGreaterThan(5);
+      for (const page of theirs) {
+        if (!(await bridge(page))) continue;
+        // The Admin looking, first (a render of the target may leave a read mark behind).
+        currentUser = OWNER_ID;
+        viewing = target;
+        const seen = await renderInLayout(page.path, page.props);
+        expect(seen, page.name).toMatch(BANNER);
+        expect(seen, page.name).toContain(target === FAMILY_ID ? "Viewing as Fixture Parent" : "Viewing as Example Member");
+        currentUser = as;
+        viewing = null;
+        const direct = await renderInLayout(page.path, page.props);
+        sameScreen(WITHOUT_BANNER(seen), direct, page.name);
+      }
+    });
+
+    it(`viewing as ${label}: no link leaves the screens they have, and nothing starts or changes anything`, async () => {
+      const inside = target === FAMILY_ID ? "/family" : "/member";
+      for (const page of orgPages.filter((x) => x.as === as)) {
+        if (!(await bridge(page))) continue;
+        currentUser = OWNER_ID;
+        viewing = target;
+        const html = WITHOUT_BANNER(await renderInLayout(page.path, page.props));
+        const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+        expect(links.filter((l) => l.startsWith("/org/") && !l.includes(inside)), page.name).toEqual([]);
+        // The Admin's own doors are not here: nothing to start a View As,
+        // nothing to Return from except the banner.
+        expect(html, page.name).not.toMatch(/view-as|View As/);
+      }
+    });
+  }
+
+  it("viewing as another Admin: the banner is on every org screen, and the screen is that Admin's", async () => {
+    const staff = orgPages.filter((x) => !x.as);
+    let checked = 0;
+    for (const page of staff) {
+      if (!(await bridge(page))) continue;
+      withSecondAdmin(data);
+      currentUser = OWNER_ID;
+      viewing = ADMIN_TWO_ID;
+      let seen: string;
+      try {
+        seen = await renderInLayout(page.path, page.props);
+      } catch (e) {
+        // A screen that refuses the other Admin refuses them directly too.
+        currentUser = ADMIN_TWO_ID;
+        viewing = null;
+        await expect(renderInLayout(page.path, page.props), page.name).rejects.toThrow((e as Error).message);
+        continue;
+      }
+      expect(seen, page.name).toMatch(BANNER);
+      expect(seen, page.name).toContain("Viewing as Fixture Second Admin");
+      currentUser = ADMIN_TWO_ID;
+      viewing = null;
+      const direct = await renderInLayout(page.path, page.props);
+      sameScreen(WITHOUT_BANNER(seen), direct, page.name);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(50);
+  });
+
+  // The entries the list itself carries for the banner: a staff, an
+  // Athlete and a Viewer screen (the render law above ran them).
+  it("the list carries one banner entry per level, each rendered through the layout", () => {
+    const entries = PAGES.filter((x) => x.viewing);
+    expect(entries.map((x) => x.viewing).sort()).toEqual([ADMIN_TWO_ID, FAMILY_ID, FAMILY_ID, MEMBER_ID].sort());
+    expect(entries.every((x) => x.as === OWNER_ID)).toBe(true);
+    expect(entries.every((x) => /Viewing as/.test(x.expect.source))).toBe(true);
+  });
+});
+
+// scripts/live/routes.mjs reads src/testing/pages.ts with one pattern (the
+// live driver opens what it finds). A key written out of order, or an
+// entry the pattern cannot read, would drop that screen from the live
+// checks with nothing to say so; this counts, and compares who is
+// signed in and who they are viewing.
+describe("LAW: the live driver's route list is the page list", () => {
+  it("every entry in PAGES is a route, with the same login and the same person viewed, plus the three screens outside an org", async () => {
+    const { routes } = (await import(/* @vite-ignore */ `${process.cwd().replace(/\\/g, "/")}/scripts/live/routes.mjs`)) as {
+      routes: Array<{ name: string; route: string; as?: string | null; viewing?: string | null }>;
+    };
+    expect(routes.length).toBe(PAGES.length + 3);
+    for (const page of PAGES) {
+      const route = routes.find((r) => r.name === page.name);
+      expect(route, page.name).toBeDefined();
+      expect(route!.as ?? null, page.name).toBe(page.as ?? null);
+      expect(route!.viewing ?? null, page.name).toBe(page.viewing ?? null);
+    }
+    expect(routes.filter((r) => r.viewing).length).toBe(PAGES.filter((x) => x.viewing).length);
   });
 });

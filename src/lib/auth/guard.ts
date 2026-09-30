@@ -1,6 +1,8 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth/session";
+import { getViewAs } from "@/lib/data/viewAs";
 
 // Role names are generic on purpose. What a screen calls each one is
 // fixed (src/lib/org/roleLabels.ts): owner is Admin, member is Viewer,
@@ -29,36 +31,54 @@ export const ORG_WIDE_ROLES: OrgRole[] = ["owner", "staff"];
 export const MEMBER_ROLES: OrgRole[] = ["member"];
 export const FAMILY_ROLES: OrgRole[] = ["family"];
 
+// Set while an Admin is viewing as someone else (migration 0047, Phase 5
+// of docs/PLAN_STAGE5.md): the person, and when it ends. The CurrentUser
+// it rides on is THAT person, seat and all, so every screen and every
+// role check answers for them; the Admin behind the glass is only ever
+// the caller of start and end.
+export interface ViewingAs {
+  sessionId: string;
+  // The real Admin.
+  viewerId: string;
+  name: string;
+  role: OrgRole;
+  // Admin, Viewer or Athlete.
+  roleLabel: string;
+  expiresAt: string;
+}
+
 export interface CurrentUser {
   id: string;
   email: string;
   full_name: string;
   org_id: string;
   role: OrgRole;
+  // null unless this is a View As, in which case every other field is the
+  // person being viewed. Nothing is written while it is set.
+  viewingAs: ViewingAs | null;
 }
 
 // A signed-in person can belong to more than one org (a coach at Elite Squad
 // who also volunteers for Bridge, say). activeOrgId narrows to the org they
 // are currently working in; it comes from the session, not guessed.
-// The auth check is a network call to Supabase Auth, not a cookie read,
-// and it used to run once per lookup. Once per request now.
-const getAuthUser = cache(async () => {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
-});
-
+//
+// Identity comes from the session, and from one database row bound to it:
+// a live view_as_sessions row (src/lib/data/viewAs.ts) makes the seat that
+// is read the target's, exactly as the database makes every policy answer
+// for the target. The database limits a session to the org it was started
+// in, so in any other org there is nobody to be, and the answer is null.
 export const getCurrentUser = cache(async function getCurrentUser(activeOrgId: string): Promise<CurrentUser | null> {
   const supabase = await createClient();
   const user = await getAuthUser();
   if (!user) return null;
 
+  const viewing = await getViewAs();
+  if (viewing && viewing.orgId !== activeOrgId) return null;
+
   const { data, error } = await supabase
     .from("org_members")
     .select("user_id, org_id, role, users(email, full_name)")
-    .eq("user_id", user.id)
+    .eq("user_id", viewing ? viewing.targetId : user.id)
     .eq("org_id", activeOrgId)
     .single();
 
@@ -73,8 +93,18 @@ export const getCurrentUser = cache(async function getCurrentUser(activeOrgId: s
     role: data.role as OrgRole,
     email: userRow?.email ?? "",
     full_name: userRow?.full_name ?? "",
+    viewingAs: viewing ? { sessionId: viewing.sessionId, viewerId: viewing.viewerId, name: viewing.name, role: viewing.role, roleLabel: viewing.roleLabel, expiresAt: viewing.expiresAt } : null,
   };
 });
+
+// Nobody to be here. Signed out goes to sign in; a View As that has no
+// seat in this org (the org is not the one being viewed) goes to Not
+// Authorized, which carries the Return control, because a sign-in screen
+// would strand an Admin who is already signed in.
+async function noOneHere(): Promise<never> {
+  if (await getViewAs()) redirect("/unauthorized");
+  redirect("/login");
+}
 
 export async function requireRole(
   activeOrgId: string,
@@ -82,7 +112,7 @@ export async function requireRole(
 ): Promise<CurrentUser> {
   const user = await getCurrentUser(activeOrgId);
   if (!user) {
-    redirect("/login");
+    return noOneHere();
   }
   if (!allowed.includes(user.role)) {
     redirect("/unauthorized");
@@ -141,7 +171,7 @@ export function athleteHome(slug: string, athleteId: string, role: OrgRole): str
 // org; a family has their athlete.
 export async function requireMember(activeOrgId: string): Promise<CurrentUser> {
   const user = await getCurrentUser(activeOrgId);
-  if (!user) redirect("/login");
+  if (!user) return noOneHere();
   if (user.role !== "member") redirect("/unauthorized");
   return user;
 }

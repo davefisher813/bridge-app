@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDirectoryEditor } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { parseTransferWindowForm } from "@/lib/validation/transferWindow";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // Transfer portal windows are shared reference data, like schools: every
 // org reads them and the table has no write policy, so a directory
@@ -37,6 +38,7 @@ function notesFrom(formData: FormData): { notes: string | null; error?: string }
 }
 
 export async function createTransferWindow(slug: string, _prev: TransferWindowActionState, formData: FormData): Promise<TransferWindowActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireDirectoryEditor(org.id);
@@ -96,6 +98,7 @@ export async function createTransferWindow(slug: string, _prev: TransferWindowAc
 // duplicate check. Stored matches read the window live through the
 // engine's timing, so nothing is recomputed here, the same as adding.
 export async function updateTransferWindow(slug: string, windowId: string, _prev: TransferWindowActionState, formData: FormData): Promise<TransferWindowActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireDirectoryEditor(org.id);
@@ -147,6 +150,7 @@ export async function updateTransferWindow(slug: string, windowId: string, _prev
 }
 
 export async function deleteTransferWindow(slug: string, windowId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireDirectoryEditor(org.id);

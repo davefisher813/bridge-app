@@ -20,6 +20,7 @@ import {
 } from "@/lib/data/assignments";
 import { parseAssignmentForm, parseReview, parseSubmissionNote } from "@/lib/validation/assignment";
 import { checkIngestedRecord } from "@/lib/docai/acceptance";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // Assignments (migration 0046). An Admin creates, reviews and cancels;
 // the Athlete login for the athlete submits, through one database
@@ -75,6 +76,7 @@ function revalidateAssignments(slug: string, athleteId: string, assignmentId?: s
 // ── Admin: create ────────────────────────────────────────────────────
 
 export async function createAssignment(slug: string, athleteId: string, _prevState: AssignmentActionState, formData: FormData): Promise<AssignmentActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { errors: { form: "Org not found." } };
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -132,6 +134,7 @@ export async function reviewAssignment(
   decision: string,
   comment: string | null | undefined,
 ): Promise<AssignmentActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -196,6 +199,7 @@ export async function reviewAssignmentForm(
   _prevState: AssignmentActionState,
   formData: FormData,
 ): Promise<AssignmentActionState> {
+  await requireNotViewing();
   return reviewAssignment(slug, athleteId, assignmentId, decision, String(formData.get("comment") ?? ""));
 }
 
@@ -203,6 +207,7 @@ export async function reviewAssignmentForm(
 // (not submitted, not this athlete's) changes nothing and the screen
 // simply shows the row as it is.
 export async function completeAssignment(slug: string, athleteId: string, assignmentId: string): Promise<void> {
+  await requireNotViewing();
   await reviewAssignment(slug, athleteId, assignmentId, "complete", null);
 }
 
@@ -212,6 +217,7 @@ export async function completeAssignment(slug: string, athleteId: string, assign
 // so is one already cancelled; both change nothing. Posted by the Cancel
 // button behind a confirm, so it returns nothing.
 export async function cancelAssignment(slug: string, athleteId: string, assignmentId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -290,6 +296,7 @@ export async function submitAssignment(
   _prevState: AssignmentActionState,
   formData: FormData,
 ): Promise<AssignmentActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireFamily(org.id);

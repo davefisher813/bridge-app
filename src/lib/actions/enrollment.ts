@@ -12,6 +12,7 @@ import { applyCloseOut, applyEnrollment, closeOutNotice, enrollmentNotice } from
 import { currentSchoolOf, nextOutcomes } from "@/lib/placement";
 import { addAthleteNote, NOTE_MAX_LENGTH, type AthleteNoteContext } from "@/lib/data/athleteNotes";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface EnrollActionState {
   errors: Record<string, string>;
@@ -71,6 +72,7 @@ async function logStatusChange(supabase: any, orgId: string, actorId: string, at
 // says enrolled, doesn't even say what school"). See
 // src/lib/data/enrollment.ts for what actually happens.
 export async function markEnrolled(slug: string, athleteId: string, _prev: EnrollActionState, formData: FormData): Promise<EnrollActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -156,6 +158,7 @@ function revalidateAthlete(slug: string, athleteId: string) {
 // Graduated from college: only after Enrolled, named by the same school.
 // Dave, 2026-09-26.
 export async function markGraduated(slug: string, athleteId: string, _prev: EnrollActionState, formData: FormData): Promise<EnrollActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -195,6 +198,7 @@ export async function markGraduated(slug: string, athleteId: string, _prev: Enro
 // other status. On an athlete already Drafted it only corrects the
 // details, with nothing left to close.
 export async function markDrafted(slug: string, athleteId: string, _prev: EnrollActionState, formData: FormData): Promise<EnrollActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);

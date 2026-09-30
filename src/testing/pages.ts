@@ -8,7 +8,7 @@
 // without anybody deciding what its arguments are, which is the same as
 // not testing it. The render law checks the list against the filesystem.
 
-import { FAMILY_ID, IDS, LONG_INVITE_ID, MEMBER_ID, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID } from "@/testing/fixture";
+import { ADMIN_TWO_ID, FAMILY_ID, IDS, LONG_INVITE_ID, MEMBER_ID, ORG_WITH_MODULES, ORG_WITHOUT_MODULES, OWNER_ID } from "@/testing/fixture";
 
 export const p = (o: Record<string, string>) => Promise.resolve(o);
 
@@ -19,7 +19,14 @@ export const p = (o: Record<string, string>) => Promise.resolve(o);
 // `as` is the fixture user the page renders for. Omitted means the
 // fixture owner. The family screens render as the family login, and
 // the render law also proves the two roles cannot open each other's.
-export const PAGES: Array<{ name: string; path: string; props: Record<string, unknown>; expect: RegExp; as?: string }> = [
+// `viewing` (Stage 5 Phase 5, View As) is the person the signed-in user
+// is looking through: the entry renders as `as` (the fixture Admin) with
+// a live View As session on that person, inside the org layout so the
+// banner is on the screen. ADMIN_TWO_ID is the fixture's second Admin,
+// added for these entries only (withSecondAdmin in src/testing/fixture.ts).
+// Keys stay in this order (name, path, props, expect, as, viewing):
+// scripts/live/routes.mjs reads them with one pattern.
+export const PAGES: Array<{ name: string; path: string; props: Record<string, unknown>; expect: RegExp; as?: string; viewing?: string }> = [
   { name: "today", path: "@/app/org/[slug]/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture/ },
   // Stage 3, 2026-09-26: the staff member's own athletes, the one never
   // checked in with first.
@@ -259,6 +266,17 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "edit-gift", path: "@/app/org/[slug]/fundraising/gifts/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "gf1" }), searchParams: p({}) }, expect: /Edit Gift[\s\S]*Remove Gift/ },
   { name: "edit-pledge", path: "@/app/org/[slug]/fundraising/pledges/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "pl1" }), searchParams: p({}) }, expect: /Edit Pledge[\s\S]*Fixture Donor[\s\S]*Remove Pledge/ },
   { name: "edit-grant", path: "@/app/org/[slug]/fundraising/grants/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "gr1" }), searchParams: p({}) }, expect: /Edit Grant[\s\S]*Fixture Trust[\s\S]*Remove Grant/ },
+  // Stage 5 Phase 5, 2026-09-27: View As. The two Admin-only screens that
+  // start it, and the banner on a staff, an Athlete and a Viewer screen
+  // while one is live.
+  { name: "view-as", path: "@/app/org/[slug]/view-as/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Choose a Level[\s\S]*Athlete[\s\S]*Viewer[\s\S]*Admin/ },
+  { name: "view-as-athletes", path: "@/app/org/[slug]/view-as/[role]/page", props: { params: p({ slug: ORG_WITH_MODULES, role: "athlete" }) }, expect: /Fixture Parent[\s\S]*Fixture Athlete[\s\S]*View As/ },
+  { name: "view-as-viewers", path: "@/app/org/[slug]/view-as/[role]/page", props: { params: p({ slug: ORG_WITH_MODULES, role: "viewer" }) }, expect: /Example Member[\s\S]*View As/ },
+  { name: "view-as-admins", path: "@/app/org/[slug]/view-as/[role]/page", props: { params: p({ slug: ORG_WITH_MODULES, role: "admin" }) }, expect: /No Other Admins/ },
+  { name: "viewing-family", path: "@/app/org/[slug]/family/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Viewing as Fixture Parent[\s\S]*Your Athletes[\s\S]*Fixture Athlete/, as: OWNER_ID, viewing: FAMILY_ID },
+  { name: "viewing-family-athlete", path: "@/app/org/[slug]/family/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Viewing as Fixture Parent[\s\S]*Your Assignments[\s\S]*Your Advisor/, as: OWNER_ID, viewing: FAMILY_ID },
+  { name: "viewing-member", path: "@/app/org/[slug]/member/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Viewing as Example Member[\s\S]*Athletes[\s\S]*Your Seat/, as: OWNER_ID, viewing: MEMBER_ID },
+  { name: "viewing-admin", path: "@/app/org/[slug]/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Viewing as Fixture Second Admin[\s\S]*Fixture/, as: OWNER_ID, viewing: ADMIN_TWO_ID },
 ];
 
 // The URL a page entry answers to, for the preview's link routing.

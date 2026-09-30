@@ -107,7 +107,12 @@ or error below, filled paper, 16px, 48px tall), `CheckField`,
 `ChoiceRow` and `Choice` (chips, chosen one carries a ring), `Form`
 (the stack, with the whole-form error on top).
 
-**Chrome:** `Chrome` (org name above, `TabBar` fixed below).
+**Chrome:** `Chrome` (org name above, `TabBar` fixed below). While an
+Admin is viewing as someone (Stage 5 Phase 5) `Chrome` and `Panel` take a
+`viewing` prop and show `ViewAsBanner` first in the column, in the flow:
+a paper card, "Viewing as Name", the level, Read only and minutes left,
+and a Return to Admin button that sits under the name on a phone. It never
+overlaps the org mark or the fixed tab bar.
 
 The eligibility verdict (`VerdictCard`, `GpaPair`, `SubjectRow`, `Note`)
 and the `JourneyStepper` are composed from the kit in

@@ -9,6 +9,7 @@ import { requireFamilyAthlete } from "@/lib/data/family";
 import { markThreadRead } from "@/lib/data/messages";
 import { parseMessageForm } from "@/lib/validation/message";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // A message on an athlete's thread (migration 0039). The one thing a
 // family login may write: a message on its own athlete's thread, as
@@ -42,6 +43,7 @@ function revalidateThread(slug: string, athleteId: string) {
 }
 
 export async function sendMessage(slug: string, athleteId: string, _prevState: MessageActionState, formData: FormData): Promise<MessageActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await getCurrentUser(org.id);
@@ -112,6 +114,7 @@ export async function sendMessage(slug: string, athleteId: string, _prevState: M
 // the athlete, so another org's or another thread's message id removes
 // nothing. Posted by the Remove button on a message, behind a confirm.
 export async function deleteMessage(slug: string, athleteId: string, messageId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);

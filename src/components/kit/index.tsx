@@ -128,9 +128,18 @@ export function Screen({
 
 // A screen with no org chrome around it: sign-in, the org picker, the
 // error pages. One paper panel, centred.
-export function Panel({ children }: { children: ReactNode }) {
+//
+// `viewing` puts the View As banner above the panel, so Return is
+// reachable wherever an Admin who is viewing as someone lands (Not
+// Authorized, the start, the org picker).
+export function Panel({ children, viewing }: { children: ReactNode; viewing?: ViewAsBannerProps | null }) {
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-8">
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-4 py-8">
+      {viewing && (
+        <div className="w-full max-w-md">
+          <ViewAsBanner {...viewing} />
+        </div>
+      )}
       <div className="w-full max-w-md rounded border border-line bg-paper p-6">{children}</div>
     </main>
   );
@@ -620,23 +629,91 @@ export function Form({ action, error, children, onPaper = false }: { action: (fo
 // What every org screen sits inside: the org's wordmark in the top
 // right corner, the fixed tab bar below. The screen itself pads for the
 // bar, and reserves the corner so a title never runs under the mark.
-export function Chrome({ orgName, slug, logo, tabs = "org", children }: { orgName: string; slug: string; logo?: string | null; tabs?: TabBarVariant; children: ReactNode }) {
+//
+// While an Admin is viewing as someone (Stage 5 Phase 5) the banner is the
+// first thing in the column, in the flow, so it pushes the screen down
+// and never overlaps the mark or the fixed tab bar. The mark's corner
+// is measured from under the banner, not from the top of the screen.
+export function Chrome({
+  orgName,
+  slug,
+  logo,
+  tabs = "org",
+  viewing,
+  children,
+}: {
+  orgName: string;
+  slug: string;
+  logo?: string | null;
+  tabs?: TabBarVariant;
+  viewing?: ViewAsBannerProps | null;
+  children: ReactNode;
+}) {
   return (
     <div className="min-h-dvh bg-bg">
       {/* 672 wide on a laptop, the whole screen on a phone. Dave's
           pick, 2026-09-20, over the 448 phone column. */}
-      <div className="relative mx-auto max-w-2xl">
-        {/* The mark alone, small, in the corner: no wordmark, and the
-            screen's content starts under it (Dave, 2026-09-21, after the
-            lockup beside the title read as clutter). Out of the flow;
-            Screen leaves the first line to it. */}
-        <div className="absolute right-4 top-3 z-10">
-          {logo ? <OrgMark src={logo} size="sm" /> : null}
-          <span className="sr-only">{orgName}</span>
+      <div className="mx-auto max-w-2xl">
+        {viewing && (
+          <div className="px-4 pt-3">
+            <ViewAsBanner {...viewing} />
+          </div>
+        )}
+        <div className="relative">
+          {/* The mark alone, small, in the corner: no wordmark, and the
+              screen's content starts under it (Dave, 2026-09-21, after the
+              lockup beside the title read as clutter). Out of the flow;
+              Screen leaves the first line to it. */}
+          <div className="absolute right-4 top-3 z-10">
+            {logo ? <OrgMark src={logo} size="sm" /> : null}
+            <span className="sr-only">{orgName}</span>
+          </div>
+          {children}
         </div>
-        {children}
       </div>
       <TabBar slug={slug} variant={tabs} />
+    </div>
+  );
+}
+
+// ── View As banner ───────────────────────────────────────────────────
+// "Viewing as <name>" with a Return control, in the flow at the top of
+// every screen while an Admin is looking through someone else's eyes
+// (docs/PLAN_STAGE5.md Phase 5, Dave's approval 2026-09-27). Notice
+// styled: a paper card with a glyph. `action` is the Return: a server
+// action that ends the session, posted by the button, so it works
+// without any script. On a phone the button sits under the name, full
+// width, so it is a real tap target and the name never shares a line with
+// it (a shared line at 320 broke "Viewing" in half); from a tablet up it
+// sits beside the name. A long name breaks inside the card.
+export interface ViewAsBannerProps {
+  name: string;
+  // Admin, Viewer or Athlete.
+  roleLabel: string;
+  // Whole minutes left in the session.
+  minutes: number;
+  action: (formData: FormData) => void | Promise<void>;
+}
+
+export function ViewAsBanner({ name, roleLabel, minutes, action }: ViewAsBannerProps) {
+  return (
+    <div className="flex flex-col gap-3 rounded border border-line bg-paper px-4 py-3 sm:flex-row sm:items-center" role="status" data-kit="view-as-banner">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <span className="pt-px">
+          <RowGlyph kind="info" role="time" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="break-words text-body font-bold text-ink">Viewing as {name}</div>
+          <div className="text-label text-muted">
+            {roleLabel} · Read only · {minutes} {minutes === 1 ? "minute" : "minutes"} left
+          </div>
+        </div>
+      </div>
+      <Form action={action}>
+        <Button variant="secondary" inline>
+          Return to Admin
+        </Button>
+      </Form>
     </div>
   );
 }

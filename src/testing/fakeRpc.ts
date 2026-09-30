@@ -45,6 +45,28 @@
 //     kind, signed as the caller. Returns the assignment's id. An upload
 //     assignment with no file, and none attached earlier, is 23514.
 
+// Two more write functions, start_view_as and end_view_as (migration
+// 0047), live at the bottom with their rules in plain words. The fake
+// also models what View As does to everything else: see FakeClientOptions
+// .viewing in fakeSupabase.ts.
+//
+//   start_view_as(p_org, p_target) and start_view_as(p_target): signed in
+//     (else 42501); a session of the caller's past its time and never
+//     closed is closed first, as expired, with its line; the caller is an
+//     owner of the org (else 42501; a leftover staff row is not an owner);
+//     the target is not the caller (23514); the caller has no session
+//     still open (55000); the target is a member of that org (42501, one
+//     answer for a stranger and for someone outside the org). The
+//     one-argument form finds the one org the caller owns that the target
+//     belongs to (none is 42501, two is 23514). It writes a session of 30
+//     minutes and a log line, a literal by the role viewed ("Started
+//     viewing as an Admin", "a Viewer", "an Athlete"), signed by the real
+//     caller, and returns the session id.
+//   end_view_as(): signed in (else 42501); closes the caller's open
+//     session as returned, or expired when its time had run out, and logs
+//     "Stopped viewing as someone else" or "Viewing as someone else ended
+//     after 30 minutes"; nothing open is not an error and writes nothing.
+
 import type { Dataset, RecordedWrite } from "./fakeSupabase";
 
 type Row = Record<string, unknown>;
@@ -250,4 +272,160 @@ export function fakeSubmitAssignment(
   log.push(line);
   recorded.push({ op: "insert", table: "activity_log", rows: [line], filters: [], via: "rpc:submit_assignment" });
   return { data: String(a.id), error: null };
+}
+
+
+// ── View As (migration 0047) ─────────────────────────────────────────
+
+// A session is live for this long, and no longer.
+export const VIEW_AS_MINUTES = 30;
+
+// Whether a session row still applies: not ended and not past its time.
+// (The database also requires the viewer to still be an owner of the org
+// and the target still a member of it; the fake checks that too.)
+export function viewAsIsLive(data: Dataset, s: Row, now = Date.now()): boolean {
+  if (s.ended_at) return false;
+  if (new Date(String(s.expires_at)).getTime() <= now) return false;
+  const members = data.org_members ?? [];
+  return (
+    members.some((m) => m.user_id === s.viewer_id && m.org_id === s.org_id && m.role === "owner") &&
+    members.some((m) => m.user_id === s.target_id && m.org_id === s.org_id)
+  );
+}
+
+// The live session of a caller, if any: what private._view_target() reads.
+export function liveViewAsSession(data: Dataset, viewerId: string | null): Row | null {
+  if (!viewerId) return null;
+  return (data.view_as_sessions ?? []).find((s) => s.viewer_id === viewerId && viewAsIsLive(data, s)) ?? null;
+}
+
+// Puts a live session for (viewer, target) into the dataset when there is
+// none, in the one org the viewer owns that the target belongs to (the
+// first, in fixture order, when there are two), and returns it. This is
+// how a harness renders "the owner, viewing as the family login" without
+// calling start_view_as first. Throws when the two share no org the
+// viewer owns: a session the database would refuse to record.
+export function ensureViewAsSession(data: Dataset, viewerId: string, targetId: string): Row {
+  const existing = liveViewAsSession(data, viewerId);
+  if (existing) {
+    if (existing.target_id !== targetId) throw new Error(`fakeSupabase: ${viewerId} is already viewing ${String(existing.target_id)}, not ${targetId}`);
+    return existing;
+  }
+  const members = data.org_members ?? [];
+  const org = members.find((m) => m.user_id === viewerId && m.role === "owner" && members.some((t) => t.user_id === targetId && t.org_id === m.org_id))?.org_id;
+  if (!org) throw new Error(`fakeSupabase: ${viewerId} owns no org that ${targetId} belongs to, so the database would refuse this View As`);
+  const sessions = data.view_as_sessions ?? (data.view_as_sessions = []);
+  const now = Date.now();
+  const row: Row = {
+    id: `fake-view_as_sessions-${sessions.length + 1}`,
+    org_id: org,
+    viewer_id: viewerId,
+    target_id: targetId,
+    started_at: new Date(now).toISOString(),
+    expires_at: new Date(now + VIEW_AS_MINUTES * 60_000).toISOString(),
+    ended_at: null,
+    end_reason: null,
+  };
+  sessions.push(row);
+  return row;
+}
+
+type ViewAsResult<T> = { data: T | null; error: { message: string; code: string } | null };
+
+function logViewAs(data: Dataset, recorded: RecordedWrite[], via: string, s: Row, action: "view_as_started" | "view_as_ended", summary: string): void {
+  const log = data.activity_log ?? (data.activity_log = []);
+  const line: Row = {
+    id: `fake-activity_log-${log.length + 1}`,
+    org_id: s.org_id,
+    athlete_id: null,
+    actor_id: s.viewer_id,
+    action,
+    subject_type: "view_as",
+    subject_id: s.id,
+    summary,
+    created_at: new Date().toISOString(),
+  };
+  log.push(line);
+  recorded.push({ op: "insert", table: "activity_log", rows: [line], filters: [], via });
+}
+
+// private._close_view_as(session, expired): the update and its line.
+function closeViewAs(data: Dataset, recorded: RecordedWrite[], via: string, s: Row, expired: boolean): void {
+  if (s.ended_at) return;
+  const patch: Row = { ended_at: new Date().toISOString(), end_reason: expired ? "expired" : "returned" };
+  Object.assign(s, patch);
+  recorded.push({ op: "update", table: "view_as_sessions", rows: [patch], filters: [{ column: "id", value: s.id }], via });
+  logViewAs(data, recorded, via, s, "view_as_ended", expired ? "Viewing as someone else ended after 30 minutes" : "Stopped viewing as someone else");
+}
+
+// public.start_view_as(...), both forms. See the header for the rules.
+export function fakeStartViewAs(
+  data: Dataset,
+  userId: string | null,
+  args: Record<string, unknown>,
+  recorded: RecordedWrite[],
+  failOn: (table: string, op: string) => string | null,
+): ViewAsResult<string> {
+  const refuse = (code: string, message: string) => ({ data: null, error: { code, message: `start_view_as: ${message}` } });
+  if (!userId) return refuse("42501", "sign in first");
+  const via = "rpc:start_view_as";
+  const sessions = data.view_as_sessions ?? (data.view_as_sessions = []);
+  const members = data.org_members ?? [];
+  const target = typeof args.p_target === "string" ? args.p_target : null;
+  const notOwner = () => refuse("42501", "only an owner of the organization can view as someone in it");
+
+  // Lazy expiry, before anything else is decided.
+  for (const s of sessions) {
+    if (s.viewer_id === userId && !s.ended_at && new Date(String(s.expires_at)).getTime() <= Date.now()) closeViewAs(data, recorded, via, s, true);
+  }
+
+  let org: string | null;
+  if ("p_org" in args) {
+    org = typeof args.p_org === "string" ? args.p_org : null;
+    if (!org || !members.some((m) => m.user_id === userId && m.org_id === org && m.role === "owner")) return notOwner();
+  } else {
+    const shared = [...new Set(members.filter((o) => o.user_id === userId && o.role === "owner" && members.some((t) => t.user_id === target && t.org_id === o.org_id)).map((o) => String(o.org_id)))];
+    if (shared.length === 0) return notOwner();
+    if (shared.length > 1) return refuse("23514", "you share more than one organization with that person; name the organization");
+    org = shared[0];
+  }
+  if (!target || target === userId) return refuse("23514", "choose someone other than yourself");
+  if (sessions.some((s) => s.viewer_id === userId && !s.ended_at)) return refuse("55000", "you are already viewing as someone; return first");
+  const targetRole = members.find((m) => m.org_id === org && m.user_id === target)?.role;
+  if (!targetRole) return refuse("42501", "that person is not in this organization");
+
+  const forced = failOn("view_as_sessions", "insert");
+  if (forced) return { data: null, error: { code: "XX000", message: forced } };
+  const now = Date.now();
+  const row: Row = {
+    id: `fake-view_as_sessions-${sessions.length + 1}`,
+    org_id: org,
+    viewer_id: userId,
+    target_id: target,
+    started_at: new Date(now).toISOString(),
+    expires_at: new Date(now + VIEW_AS_MINUTES * 60_000).toISOString(),
+    ended_at: null,
+    end_reason: null,
+  };
+  sessions.push(row);
+  recorded.push({ op: "insert", table: "view_as_sessions", rows: [row], filters: [], via });
+  const summary = targetRole === "member" ? "Started viewing as a Viewer" : targetRole === "family" ? "Started viewing as an Athlete" : "Started viewing as an Admin";
+  logViewAs(data, recorded, via, row, "view_as_started", summary);
+  return { data: String(row.id), error: null };
+}
+
+// public.end_view_as(). Nothing open is not an error and writes nothing.
+export function fakeEndViewAs(
+  data: Dataset,
+  userId: string | null,
+  recorded: RecordedWrite[],
+  failOn: (table: string, op: string) => string | null,
+): ViewAsResult<null> {
+  if (!userId) return { data: null, error: { code: "42501", message: "end_view_as: sign in first" } };
+  const open = (data.view_as_sessions ?? []).find((s) => s.viewer_id === userId && !s.ended_at);
+  if (!open) return { data: null, error: null };
+  const forced = failOn("view_as_sessions", "update");
+  if (forced) return { data: null, error: { code: "XX000", message: forced } };
+  closeViewAs(data, recorded, "rpc:end_view_as", open, new Date(String(open.expires_at)).getTime() <= Date.now());
+  return { data: null, error: null };
 }

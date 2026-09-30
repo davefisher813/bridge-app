@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOwner } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { parseBudgetDollars } from "@/lib/validation/docaiBudget";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // How much the org may spend on document reading each month. Owner
 // only, in whole dollars on the form and cents in the column. Zero turns
@@ -16,6 +17,7 @@ export interface BudgetActionState {
 }
 
 export async function setDocaiBudget(slug: string, _prev: BudgetActionState, formData: FormData): Promise<BudgetActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireOwner(org.id);

@@ -1222,7 +1222,14 @@ declare
   -- own org. There is no invitation flow yet; when there is, it belongs
   -- behind the service role or a SECURITY DEFINER function that cannot be
   -- handed a role, not behind an ordinary policy.
-  write_exempt text[] := array['org_members'];
+  --
+  -- view_as_sessions (0047) is the other, for a different reason: it
+  -- decides whose identity every policy evaluates, so a policy that let
+  -- a client write a row would let an Admin name anyone. Its only writers
+  -- are start_view_as and end_view_as, SECURITY DEFINER, which check the
+  -- real caller; the RLS block for 0047 asserts nobody inserts, updates
+  -- or deletes a row directly and that the grants are gone as well.
+  write_exempt text[] := array['org_members', 'view_as_sessions'];
 begin
   for t in
     select c.relname as name
@@ -4124,3 +4131,1279 @@ end $$;
 reset role;
 
 \echo 'ALL 0046 ASSERTIONS PASSED'
+
+-- ═══════════════════════════════════════════════════════════════════
+-- View As (migration 0047)
+-- ═══════════════════════════════════════════════════════════════════
+-- An Admin evaluates the org's policies as a chosen Athlete login,
+-- Viewer or other Admin, read only, for at most 30 minutes, on their own
+-- token. The people, by id suffix:
+--   e0001 Admin One    owner of Bridge, the one who views
+--   e0002 Admin Two    owner of Bridge, a target
+--   e0003 Viewer       member of Bridge, a target
+--   e0004 Athlete      family in Bridge, linked to athlete 110, a target
+--   e0005 Leftover     a staff row in Bridge (0041 moved them all to
+--                      owner; this one is the retired role, and reads as
+--                      an Admin but cannot start View As)
+--   e0006 Both         family in Bridge (linked to athlete 111) and a
+--                      Viewer in Elite Squad: a target who is in two orgs
+--   e0007 Outsider     owner of Elite Squad and of a second Elite org,
+--                      in no Bridge org
+--   e0008 Nobody       in no org at all
+-- Bridge is the seeded org from the top of this file, so every table the
+-- earlier blocks filled has rows for the loops below to compare.
+--
+-- Planted and reverted (2026-09-28), each failing where named:
+--   one write policy left out of the gating loop ......... the catalog
+--     check names it (and, for the tables a copied row can reach, the
+--     write loop would too);
+--   the gate present in a policy's text but defeated
+--     ("or true") on an insert, a delete and a storage
+--     policy ................................................. the write
+--     loop alone, by behaviour;
+--   one helper left on auth.uid() ......................... the catalog
+--     check; spelled "auth . uid ()" to slip past that, the
+--     equivalence loop or the count of nine;
+--   the org scope dropped from _any_org_ids, and from
+--     _observer_org_ids ..................................... the
+--     multi-org block;
+--   start_view_as with its owner check dropped ............ the
+--     refusals (the table's trigger is a second lock, and a
+--     refusal that comes from it fails there too); both dropped
+--     lets a Viewer start and fails the same block;
+--   a target outside the org ................................ either
+--     lock alone still refuses (the function's check, the trigger's);
+--     both dropped fails the refusals, and the trigger alone dropped
+--     fails the direct insert;
+--   the expires_at clause dropped from _view_target ......... the clock
+--     block;
+--   the view_as_sessions read policy widened to _any_org_ids
+--     .......................................................... the
+--     reads by the other Admin, the Viewer and the Athlete;
+--   create_org's viewing check emptied ...................... the catalog
+--     check and the create_org call.
+-- Added and planted in the 2026-09-30 adversarial review:
+--   the write gate written bare, "not private._viewing()", which runs
+--     once per row (a 50,000 row delete: 9 s, against 21 ms wrapped)
+--     .......................................................... the
+--     catalog check for the wrapped form;
+--   a table in public with row level security off ........... the
+--     catalog check, since every loop below is taken from RLS tables;
+--   start_view_as closing only expired rows, so a session on a
+--     removed target holds the Admin's slot ................. the
+--     dead-session block.
+reset role;
+
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000e0001', 'admin1@viewas.example'),
+  ('00000000-0000-0000-0000-0000000e0002', 'admin2@viewas.example'),
+  ('00000000-0000-0000-0000-0000000e0003', 'viewer@viewas.example'),
+  ('00000000-0000-0000-0000-0000000e0004', 'athlete@viewas.example'),
+  ('00000000-0000-0000-0000-0000000e0005', 'leftover@viewas.example'),
+  ('00000000-0000-0000-0000-0000000e0006', 'both@viewas.example'),
+  ('00000000-0000-0000-0000-0000000e0007', 'outsider@viewas.example'),
+  ('00000000-0000-0000-0000-0000000e0008', 'nobody@viewas.example');
+insert into users (id, email, full_name) values
+  ('00000000-0000-0000-0000-0000000e0001', 'admin1@viewas.example', 'View As Admin One'),
+  ('00000000-0000-0000-0000-0000000e0002', 'admin2@viewas.example', 'View As Admin Two'),
+  ('00000000-0000-0000-0000-0000000e0003', 'viewer@viewas.example', 'View As Viewer'),
+  ('00000000-0000-0000-0000-0000000e0004', 'athlete@viewas.example', 'View As Athlete'),
+  ('00000000-0000-0000-0000-0000000e0005', 'leftover@viewas.example', 'View As Leftover'),
+  ('00000000-0000-0000-0000-0000000e0006', 'both@viewas.example', 'View As Both'),
+  ('00000000-0000-0000-0000-0000000e0007', 'outsider@viewas.example', 'View As Outsider'),
+  ('00000000-0000-0000-0000-0000000e0008', 'nobody@viewas.example', 'View As Nobody')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into orgs (id, name, slug) values
+  ('00000000-0000-0000-0000-0000000e0030', 'View As Second Squad', 'view-as-second-squad');
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-0000000e0001', '00000000-0000-0000-0000-000000000010', 'owner'),
+  ('00000000-0000-0000-0000-0000000e0002', '00000000-0000-0000-0000-000000000010', 'owner'),
+  ('00000000-0000-0000-0000-0000000e0003', '00000000-0000-0000-0000-000000000010', 'member'),
+  ('00000000-0000-0000-0000-0000000e0004', '00000000-0000-0000-0000-000000000010', 'family'),
+  ('00000000-0000-0000-0000-0000000e0005', '00000000-0000-0000-0000-000000000010', 'staff'),
+  ('00000000-0000-0000-0000-0000000e0006', '00000000-0000-0000-0000-000000000010', 'family'),
+  ('00000000-0000-0000-0000-0000000e0006', '00000000-0000-0000-0000-000000000020', 'member'),
+  ('00000000-0000-0000-0000-0000000e0007', '00000000-0000-0000-0000-000000000020', 'owner'),
+  ('00000000-0000-0000-0000-0000000e0007', '00000000-0000-0000-0000-0000000e0030', 'owner'),
+  ('00000000-0000-0000-0000-0000000e0006', '00000000-0000-0000-0000-0000000e0030', 'member');
+insert into athlete_guardians (org_id, athlete_id, user_id, relationship) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-0000000e0004', 'parent'),
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-0000000e0006', 'parent');
+-- The athlete-side rows an Athlete login reads, so its loop is not empty.
+insert into athlete_messages (org_id, athlete_id, author_id, body) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-0000000e0001', 'Admin note on the thread'),
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-0000000e0001', 'Second athlete thread');
+insert into athlete_message_reads (org_id, athlete_id, user_id) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-0000000e0004'),
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-0000000e0002');
+insert into athlete_checkins (org_id, athlete_id, advisor_id, kind, notes) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-0000000e0002', 'call', 'View as check-in');
+insert into athlete_notes (org_id, athlete_id, author_id, body) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-0000000e0001', 'View as staff note');
+
+-- ── The shape, asked of the catalog ──────────────────────────────────
+-- Not of the migration's text: a policy made later, in a DO loop or in a
+-- file that never heard of View As, is caught here or nowhere.
+--
+-- 1. Every INSERT, UPDATE and DELETE policy in public and on
+--    storage.objects carries the gate. A write policy without it is a
+--    door a viewing Admin walks through.
+-- 2. No SELECT policy reads auth.uid() but the one that must not follow
+--    the switch (view_as_sessions_read). One that does is a read policy
+--    still answering for the Admin while the screen says it answers for
+--    someone else.
+-- 3. No helper in private reads auth.uid() but the four that define the
+--    identity. The nine access helpers read _effective_uid().
+-- 4. Every function in public that writes or reads as the caller is
+--    either View As itself or refuses while viewing (create_org,
+--    log_family_message, submit_assignment) or reads the effective
+--    identity (member_giving). SECURITY DEFINER bypasses every policy, so
+--    only the function's own check stands in front of it.
+do $$
+declare
+  ungated text[];
+  reading text[];
+  helpers text[];
+  fns text[];
+  n int;
+begin
+  select coalesce(array_agg(pol.schemaname || '.' || pol.tablename || '.' || pol.policyname order by pol.tablename, pol.policyname), '{}') into ungated
+    from pg_policies pol
+    where pol.schemaname in ('public', 'storage')
+      and pol.cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')
+      and coalesce(pol.qual, '') || coalesce(pol.with_check, '') not like '%_viewing()%';
+  if array_length(ungated, 1) > 0 then
+    raise exception 'FAIL: % write polic(ies) without "not private._viewing()": %', array_length(ungated, 1), array_to_string(ungated, ', ');
+  end if;
+  select count(*) into n from pg_policies pol where pol.schemaname in ('public', 'storage') and pol.cmd in ('INSERT', 'UPDATE', 'DELETE');
+  if n < 80 then raise exception 'FAIL: the catalog check looked at only % write policies', n; end if;
+
+  -- The gate is an initplan, "(select private._viewing())", not a bare
+  -- call: a bare STABLE function in a policy runs once per row, and a
+  -- 50,000 row delete then took 9 seconds instead of 21 ms.
+  select coalesce(array_agg(pol.schemaname || '.' || pol.tablename || '.' || pol.policyname order by pol.tablename, pol.policyname), '{}') into ungated
+    from pg_policies pol
+    where pol.schemaname in ('public', 'storage')
+      and pol.cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')
+      and coalesce(pol.qual, '') || coalesce(pol.with_check, '') !~* 'select\s+private\._viewing\(\)';
+  if array_length(ungated, 1) > 0 then
+    raise exception 'FAIL: % write polic(ies) gate on a bare private._viewing() (called once per row), wrap it as (select private._viewing()): %', array_length(ungated, 1), array_to_string(ungated, ', ');
+  end if;
+
+  -- Every ordinary table in public has row level security on. A table
+  -- without it is written and read by any signed-in role whatever the
+  -- policies say, so a viewing Admin would walk through it, and it is in
+  -- none of the loops below (they are taken from the tables that have RLS).
+  select coalesce(array_agg(c.relname order by c.relname), '{}') into reading
+    from pg_class c join pg_namespace ns on ns.oid = c.relnamespace
+    where ns.nspname = 'public' and c.relkind in ('r', 'p') and not c.relrowsecurity;
+  if array_length(reading, 1) > 0 then
+    raise exception 'FAIL: table(s) in public with row level security off, outside every View As guarantee: %', array_to_string(reading, ', ');
+  end if;
+  reading := '{}';
+
+  select coalesce(array_agg(pol.tablename || '.' || pol.policyname), '{}') into reading
+    from pg_policies pol
+    where pol.schemaname in ('public', 'storage')
+      and pol.cmd = 'SELECT'
+      and coalesce(pol.qual, '') like '%auth.uid()%'
+      and pol.policyname <> 'view_as_sessions_read';
+  if array_length(reading, 1) > 0 then
+    raise exception 'FAIL: read polic(ies) still reading auth.uid() instead of the effective identity: %', array_to_string(reading, ', ');
+  end if;
+
+  select coalesce(array_agg(p.proname order by p.proname), '{}') into helpers
+    from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+    where ns.nspname = 'private' and p.prokind = 'f'
+      and p.prosrc like '%auth.uid()%'
+      and p.proname not in (
+        -- The identity itself, and the one owner lookup that must use the
+        -- real caller.
+        '_view_target', '_view_org', '_effective_uid', '_owner_org_ids',
+        -- Writers that sign a line as the real caller, and whose only
+        -- callers are guarded: submit_assignment (checked below) and the
+        -- honesty triggers on writes a viewing Admin cannot make.
+        'log_assignment_submitted', 'activity_is_honest', 'assignment_is_honest');
+  if array_length(helpers, 1) > 0 then
+    raise exception 'FAIL: private function(s) still reading auth.uid() directly: %', array_to_string(helpers, ', ');
+  end if;
+  select count(*) into n from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+    where ns.nspname = 'private' and p.proname in ('_any_org_ids', '_family_athlete_ids', '_family_org_ids', '_family_staff_ids', '_family_staff_rows', '_member_org_ids', '_observer_org_ids', '_observer_staff_rows', '_staff_org_ids')
+      and p.prosrc like '%_effective_uid()%';
+  if n <> 9 then raise exception 'FAIL: % of the 9 access helpers read the effective identity', n; end if;
+
+  select coalesce(array_agg(p.proname order by p.proname), '{}') into fns
+    from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+    where ns.nspname = 'public' and p.prokind = 'f'
+      and p.prosrc like '%auth.uid()%'
+      and p.prosrc not like '%_viewing()%'
+      and p.prosrc not like '%_effective_uid()%'
+      and p.proname not in ('start_view_as', 'end_view_as');
+  if array_length(fns, 1) > 0 then
+    raise exception 'FAIL: public function(s) that read the caller without refusing or following View As: %', array_to_string(fns, ', ');
+  end if;
+  -- A function in public that writes rows and does not refuse while
+  -- viewing. Trigger functions run on a write that is already refused.
+  select coalesce(array_agg(p.proname order by p.proname), '{}') into fns
+    from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+    where ns.nspname = 'public' and p.prokind = 'f' and p.prosecdef
+      and p.prorettype <> 'trigger'::regtype
+      and p.prosrc ~* '(insert\s+into|update\s+public\.|delete\s+from)'
+      and p.prosrc not like '%_viewing()%'
+      and p.proname not in ('start_view_as', 'end_view_as');
+  if array_length(fns, 1) > 0 then
+    raise exception 'FAIL: SECURITY DEFINER function(s) that write and do not refuse while viewing: %', array_to_string(fns, ', ');
+  end if;
+  raise notice 'PASS: every write policy is gated, no read policy or helper reads auth.uid() but the identity itself, and every writing function refuses while viewing';
+end $$;
+
+-- The table and its grants: RLS on, one SELECT policy and nothing else,
+-- nothing for anon, nothing but select for a signed-in role, the two
+-- functions for signed-in callers only, the private writers for nobody.
+do $$
+declare cmds text[];
+begin
+  if not (select c.relrowsecurity from pg_class c where c.oid = 'public.view_as_sessions'::regclass) then
+    raise exception 'FAIL: view_as_sessions has row level security off';
+  end if;
+  select coalesce(array_agg(distinct p.cmd::text), '{}') into cmds from pg_policies p where p.schemaname = 'public' and p.tablename = 'view_as_sessions';
+  if cmds <> array['SELECT'] then raise exception 'FAIL: view_as_sessions policies are %, expected SELECT only', cmds; end if;
+  if has_table_privilege('anon', 'public.view_as_sessions', 'select') then raise exception 'FAIL: anon can read view_as_sessions'; end if;
+  if has_table_privilege('authenticated', 'public.view_as_sessions', 'insert')
+     or has_table_privilege('authenticated', 'public.view_as_sessions', 'update')
+     or has_table_privilege('authenticated', 'public.view_as_sessions', 'delete')
+     or has_table_privilege('authenticated', 'public.view_as_sessions', 'truncate') then
+    raise exception 'FAIL: a signed-in role holds a write grant on view_as_sessions';
+  end if;
+  if has_function_privilege('anon', 'public.start_view_as(uuid, uuid)', 'execute')
+     or has_function_privilege('anon', 'public.start_view_as(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.end_view_as()', 'execute') then
+    raise exception 'FAIL: anon can execute View As';
+  end if;
+  if has_function_privilege('public', 'public.start_view_as(uuid, uuid)', 'execute')
+     or has_function_privilege('public', 'public.end_view_as()', 'execute') then
+    raise exception 'FAIL: View As is still granted to PUBLIC';
+  end if;
+  if not has_function_privilege('authenticated', 'public.start_view_as(uuid, uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.end_view_as()', 'execute') then
+    raise exception 'FAIL: a signed-in caller cannot execute View As';
+  end if;
+  if has_function_privilege('authenticated', 'private._close_view_as(uuid, boolean)', 'execute')
+     or has_function_privilege('anon', 'private._close_view_as(uuid, boolean)', 'execute') then
+    raise exception 'FAIL: the private session closer is callable by a client role';
+  end if;
+  raise notice 'PASS: view_as_sessions is select-only through policy and grant, and View As is for signed-in callers only';
+end $$;
+
+-- ── Who may start: an Admin of the org, for a member of that org ─────
+-- Refused, each with its own message: a signed-out caller, a Viewer, an
+-- Athlete login, a leftover staff row, an owner of another org (for a
+-- Bridge person, by either form of the call), someone in no org, self, a
+-- target outside the org, a target named as null. Nothing is written by
+-- any refusal, and the log line for a refusal does not exist.
+set role app_user;
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  elite uuid := '00000000-0000-0000-0000-000000000020';
+  a1 uuid := '00000000-0000-0000-0000-0000000e0001';
+  a2 uuid := '00000000-0000-0000-0000-0000000e0002';
+  v uuid := '00000000-0000-0000-0000-0000000e0003';
+  f uuid := '00000000-0000-0000-0000-0000000e0004';
+  callers uuid[] := array[
+    '00000000-0000-0000-0000-0000000e0003',  -- a Viewer
+    '00000000-0000-0000-0000-0000000e0004',  -- an Athlete login
+    '00000000-0000-0000-0000-0000000e0005',  -- a leftover staff row
+    '00000000-0000-0000-0000-0000000e0007',  -- an owner of other orgs
+    '00000000-0000-0000-0000-0000000e0008']; -- in no org
+  who uuid;
+  n int;
+begin
+  -- Signed out.
+  perform set_test_user(null);
+  begin
+    perform start_view_as(bridge, v);
+    raise exception 'FAIL: a signed-out caller started View As';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform end_view_as();
+    raise exception 'FAIL: a signed-out caller ended View As';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- The function's own owner check has to be what stops these. The
+  -- table's trigger would also refuse a non-owner, as a second lock, but
+  -- a function that leaned on it would be one edit from a hole, so an
+  -- answer from the trigger fails here.
+  foreach who in array callers loop
+    perform set_test_user(who);
+    begin
+      perform start_view_as(bridge, a2);
+      raise exception 'FAIL: % started View As on Bridge', who;
+    exception when insufficient_privilege then null;
+              when check_violation then raise exception 'FAIL: % was stopped by the table''s trigger, not by start_view_as itself', who;
+    end;
+    begin
+      perform start_view_as(bridge, v);
+      raise exception 'FAIL: % started View As on a Bridge Viewer', who;
+    exception when insufficient_privilege then null;
+              when check_violation then raise exception 'FAIL: % was stopped by the table''s trigger, not by start_view_as itself', who;
+    end;
+    begin
+      perform start_view_as(f);
+      raise exception 'FAIL: % started View As by the one-argument form', who;
+    exception when insufficient_privilege then null;
+              when check_violation then raise exception 'FAIL: % was stopped by the table''s trigger, not by start_view_as itself', who;
+    end;
+  end loop;
+
+  perform set_test_user(a1);
+  -- Self, by both forms and in Bridge.
+  begin
+    perform start_view_as(bridge, a1);
+    raise exception 'FAIL: an Admin viewed as themself';
+  exception when check_violation then null;
+  end;
+  begin
+    perform start_view_as(bridge, null);
+    raise exception 'FAIL: a null target was accepted';
+  exception when check_violation then null;
+  end;
+  -- Someone in a different org, and someone who is in no org.
+  begin
+    perform start_view_as(bridge, '00000000-0000-0000-0000-0000000e0007');
+    raise exception 'FAIL: an Admin viewed as an owner of another org (named for Bridge)';
+  -- Two locks on this door, each enough alone: the function's own check
+  -- (42501) and the table's coherence trigger (23514). Removing either
+  -- one leaves the other, so either answer is a refusal; removing both
+  -- fails here.
+  exception when insufficient_privilege or check_violation then null;
+  end;
+  begin
+    perform start_view_as(bridge, '00000000-0000-0000-0000-0000000e0008');
+    raise exception 'FAIL: an Admin viewed as a person in no org';
+  exception when insufficient_privilege or check_violation then null;
+  end;
+  begin
+    perform start_view_as(bridge, gen_random_uuid());
+    raise exception 'FAIL: an Admin viewed as a person who does not exist';
+  exception when insufficient_privilege or check_violation then null;
+  end;
+  -- An org the caller does not own, for a person who is in it.
+  begin
+    perform start_view_as(elite, '00000000-0000-0000-0000-0000000e0006');
+    raise exception 'FAIL: a Bridge Admin viewed as an Elite Squad Viewer, in Elite Squad';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform start_view_as(null, v);
+    raise exception 'FAIL: a null org was accepted';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform start_view_as('00000000-0000-0000-0000-0000000e0007');
+    raise exception 'FAIL: the one-argument form found an org with a person from elsewhere';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_test_user(null);
+
+  reset role;
+  select count(*) into n from view_as_sessions;
+  if n <> 0 then raise exception 'FAIL: % session row(s) exist after nothing but refusals', n; end if;
+  select count(*) into n from activity_log where action in ('view_as_started', 'view_as_ended');
+  if n <> 0 then raise exception 'FAIL: % View As line(s) logged after nothing but refusals', n; end if;
+  raise notice 'PASS: View As is refused for a signed-out caller, a Viewer, an Athlete login, a leftover staff row, an owner of another org, someone in no org, self and a target outside the org; nothing written';
+end $$;
+reset role;
+
+-- ── Start and end write their line, and the row says why it ended ────
+set role app_user;
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  a1 uuid := '00000000-0000-0000-0000-0000000e0001';
+  v uuid := '00000000-0000-0000-0000-0000000e0003';
+  sid uuid; sid2 uuid; n int; s text; r text;
+begin
+  perform set_test_user(a1);
+  sid := start_view_as(bridge, v);
+  if sid is null then raise exception 'FAIL: start_view_as returned no session id'; end if;
+  -- One live session: a second start is refused, by either form, and so
+  -- is starting for someone else while viewing.
+  begin
+    perform start_view_as(bridge, '00000000-0000-0000-0000-0000000e0002');
+    raise exception 'FAIL: a second View As started while one was live';
+  exception when object_not_in_prerequisite_state then null;
+  end;
+  begin
+    perform start_view_as('00000000-0000-0000-0000-0000000e0004');
+    raise exception 'FAIL: a second View As started by the one-argument form while one was live';
+  exception when object_not_in_prerequisite_state then null;
+  end;
+  -- The Admin reads their own session while viewing (the banner needs it).
+  select count(*) into n from view_as_sessions where id = sid and viewer_id = a1 and target_id = v and org_id = bridge and ended_at is null and expires_at <= now() + interval '30 minutes' and expires_at > now() + interval '29 minutes';
+  if n <> 1 then raise exception 'FAIL: the Admin does not read their own live session while viewing (%)', n; end if;
+  perform end_view_as();
+  select count(*) into n from view_as_sessions where id = sid and ended_at is not null and end_reason = 'returned';
+  if n <> 1 then raise exception 'FAIL: end_view_as did not close the session as returned'; end if;
+  -- Ending again, or with nothing live, is not an error and writes nothing.
+  perform end_view_as();
+  perform end_view_as();
+  -- After it ends, a start is allowed again, by the one-argument form too.
+  sid2 := start_view_as('00000000-0000-0000-0000-0000000e0004');
+  perform end_view_as();
+  perform set_test_user(null);
+
+  reset role;
+  select summary into s from activity_log where subject_id = sid and action = 'view_as_started';
+  if s is distinct from 'Started viewing as a Viewer' then raise exception 'FAIL: the start line reads "%"', s; end if;
+  select summary into s from activity_log where subject_id = sid and action = 'view_as_ended';
+  if s is distinct from 'Stopped viewing as someone else' then raise exception 'FAIL: the end line reads "%"', s; end if;
+  select summary into s from activity_log where subject_id = sid2 and action = 'view_as_started';
+  if s is distinct from 'Started viewing as an Athlete' then raise exception 'FAIL: the Athlete start line reads "%"', s; end if;
+  select count(*) into n from activity_log where subject_id in (sid, sid2);
+  if n <> 4 then raise exception 'FAIL: % line(s) for two sessions, expected 4 (a start and an end each)', n; end if;
+  select count(*) into n from activity_log where subject_id in (sid, sid2) and actor_id = a1 and org_id = bridge and subject_type = 'view_as' and athlete_id is null;
+  if n <> 4 then raise exception 'FAIL: a View As line is not signed by the real Admin, on the org, about no athlete'; end if;
+  -- No name, id or email in a line: the sentences are literals (the
+  -- activity log law holds every function that writes the log to that).
+  select count(*) into n from activity_log where subject_id in (sid, sid2) and (summary ~* '[0-9a-f]{8}-' or summary like '%@%' or summary like '%View As %');
+  if n <> 0 then raise exception 'FAIL: a View As line carries a name, an id or an email'; end if;
+  raise notice 'PASS: start and end each write one literal line, signed by the real Admin; a second start is refused while one is live; ending twice is quiet';
+
+  -- Another Admin as a target of the Admin role, for the Admin label.
+  set role app_user;
+  perform set_test_user(a1);
+  sid := start_view_as(bridge, '00000000-0000-0000-0000-0000000e0002');
+  perform end_view_as();
+  perform set_test_user(null);
+  reset role;
+  select summary into s from activity_log where subject_id = sid and action = 'view_as_started';
+  if s is distinct from 'Started viewing as an Admin' then raise exception 'FAIL: the Admin start line reads "%"', s; end if;
+  raise notice 'PASS: a target Admin reads "an Admin" in the line';
+end $$;
+reset role;
+
+-- ── Who reads view_as_sessions, and who writes it ────────────────────
+-- The Admin reads their own rows and nobody else's: not another Admin's
+-- of the same org, not a Viewer, not an Athlete login, not another org's
+-- owner, not a leftover staff row. Nobody inserts, updates or deletes a
+-- row through the API, the starting Admin included.
+set role app_user;
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  who uuid; n int;
+  readers uuid[] := array[
+    '00000000-0000-0000-0000-0000000e0002', '00000000-0000-0000-0000-0000000e0003',
+    '00000000-0000-0000-0000-0000000e0004', '00000000-0000-0000-0000-0000000e0005',
+    '00000000-0000-0000-0000-0000000e0006', '00000000-0000-0000-0000-0000000e0007',
+    '00000000-0000-0000-0000-0000000e0008'];
+  writers uuid[] := array[
+    '00000000-0000-0000-0000-0000000e0001', '00000000-0000-0000-0000-0000000e0002',
+    '00000000-0000-0000-0000-0000000e0003', '00000000-0000-0000-0000-0000000e0004'];
+  sid uuid;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000e0001');
+  select count(*) into n from view_as_sessions;
+  if n <> 3 then raise exception 'FAIL: the Admin reads % of their 3 sessions', n; end if;
+
+  foreach who in array readers loop
+    perform set_test_user(who);
+    select count(*) into n from view_as_sessions;
+    if n <> 0 then raise exception 'FAIL: % read % view_as_sessions row(s) that are not theirs', who, n; end if;
+  end loop;
+
+  foreach who in array writers loop
+    perform set_test_user(who);
+    begin
+      insert into view_as_sessions (org_id, viewer_id, target_id, expires_at)
+        values (bridge, who, '00000000-0000-0000-0000-0000000e0003', now() + interval '10 minutes');
+      raise exception 'FAIL: % inserted a view_as_sessions row directly', who;
+    -- The two owners are stopped by the policy (a row that is coherent
+    -- in every other way); a Viewer or an Athlete login is stopped first
+    -- by the coherence trigger, which runs before the policy check.
+    exception when insufficient_privilege then null;
+              when check_violation then
+      if who in ('00000000-0000-0000-0000-0000000e0001', '00000000-0000-0000-0000-0000000e0002') then
+        raise exception 'FAIL: an owner''s direct insert was stopped by the trigger, not the policy (%)', who;
+      end if;
+    end;
+  end loop;
+  -- An Admin cannot end, extend or delete a row directly either: the
+  -- functions are the only way.
+  perform set_test_user('00000000-0000-0000-0000-0000000e0001');
+  select id into sid from view_as_sessions limit 1;
+  update view_as_sessions set expires_at = now() + interval '1 day' where id = sid;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Admin updated a view_as_sessions row directly'; end if;
+  delete from view_as_sessions where id = sid;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Admin deleted a view_as_sessions row directly'; end if;
+  perform set_test_user(null);
+  select count(*) into n from view_as_sessions;
+  if n <> 0 then raise exception 'FAIL: a signed-out caller read view_as_sessions'; end if;
+  raise notice 'PASS: only the starting Admin reads their sessions; nobody writes the table directly';
+end $$;
+reset role;
+
+-- ── The row itself refuses a bad identity, for every writer ──────────
+-- As the superuser, so no policy is what stops these: the trigger is.
+-- The identity can never be set to someone outside the org, by a
+-- non-owner, for more than 30 minutes, or changed after the fact.
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  sid uuid; stamp timestamptz;
+begin
+  begin
+    insert into view_as_sessions (org_id, viewer_id, target_id, expires_at)
+      values (bridge, '00000000-0000-0000-0000-0000000e0003', '00000000-0000-0000-0000-0000000e0002', now() + interval '10 minutes');
+    raise exception 'FAIL: a Viewer was recorded as the viewer of a session';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into view_as_sessions (org_id, viewer_id, target_id, expires_at)
+      values (bridge, '00000000-0000-0000-0000-0000000e0004', '00000000-0000-0000-0000-0000000e0002', now() + interval '10 minutes');
+    raise exception 'FAIL: an Athlete login was recorded as the viewer of a session';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into view_as_sessions (org_id, viewer_id, target_id, expires_at)
+      values (bridge, '00000000-0000-0000-0000-0000000e0005', '00000000-0000-0000-0000-0000000e0002', now() + interval '10 minutes');
+    raise exception 'FAIL: a leftover staff row was recorded as the viewer of a session';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into view_as_sessions (org_id, viewer_id, target_id, expires_at)
+      values (bridge, '00000000-0000-0000-0000-0000000e0001', '00000000-0000-0000-0000-0000000e0007', now() + interval '10 minutes');
+    raise exception 'FAIL: a target outside the org was recorded';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into view_as_sessions (org_id, viewer_id, target_id, expires_at)
+      values (bridge, '00000000-0000-0000-0000-0000000e0001', '00000000-0000-0000-0000-0000000e0008', now() + interval '10 minutes');
+    raise exception 'FAIL: a person in no org was recorded as a target';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into view_as_sessions (org_id, viewer_id, target_id, expires_at)
+      values ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-0000000e0001', '00000000-0000-0000-0000-0000000e0006', now() + interval '10 minutes');
+    raise exception 'FAIL: a Bridge Admin was recorded as the viewer of an Elite Squad session';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into view_as_sessions (org_id, viewer_id, target_id, expires_at)
+      values (bridge, '00000000-0000-0000-0000-0000000e0001', '00000000-0000-0000-0000-0000000e0001', now() + interval '10 minutes');
+    raise exception 'FAIL: a session naming its own viewer as the target was recorded';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into view_as_sessions (org_id, viewer_id, target_id, expires_at)
+      values (bridge, '00000000-0000-0000-0000-0000000e0001', '00000000-0000-0000-0000-0000000e0003', now() + interval '31 minutes');
+    raise exception 'FAIL: a session longer than 30 minutes was recorded';
+  exception when check_violation then null;
+  end;
+  -- The clock is the server's: a start dated into the past or the future
+  -- lands now.
+  insert into view_as_sessions (org_id, viewer_id, target_id, started_at, expires_at)
+    values (bridge, '00000000-0000-0000-0000-0000000e0001', '00000000-0000-0000-0000-0000000e0003', '2099-01-01', now() + interval '5 minutes')
+    returning id, started_at into sid, stamp;
+  if stamp > now() + interval '1 minute' or stamp < now() - interval '1 minute' then raise exception 'FAIL: a session kept the caller''s start time (%)', stamp; end if;
+  -- A second live row for the same Admin is refused.
+  begin
+    insert into view_as_sessions (org_id, viewer_id, target_id, expires_at)
+      values (bridge, '00000000-0000-0000-0000-0000000e0001', '00000000-0000-0000-0000-0000000e0004', now() + interval '5 minutes');
+    raise exception 'FAIL: a second live session was recorded for one Admin';
+  exception when unique_violation then null;
+  end;
+  -- Nothing but ending changes a row: not the target, not the expiry.
+  begin
+    update view_as_sessions set target_id = '00000000-0000-0000-0000-0000000e0002' where id = sid;
+    raise exception 'FAIL: a live session was pointed at someone else';
+  exception when check_violation then null;
+  end;
+  begin
+    update view_as_sessions set expires_at = now() + interval '5 hours' where id = sid;
+    raise exception 'FAIL: a live session was extended';
+  exception when check_violation then null;
+  end;
+  update view_as_sessions set ended_at = now(), end_reason = 'returned' where id = sid;
+  begin
+    update view_as_sessions set ended_at = null, end_reason = null where id = sid;
+    raise exception 'FAIL: an ended session was reopened';
+  exception when check_violation then null;
+  end;
+  begin
+    update view_as_sessions set end_reason = 'expired' where id = sid;
+    raise exception 'FAIL: an ended session had its reason rewritten';
+  exception when check_violation then null;
+  end;
+  delete from view_as_sessions where id = sid;
+  raise notice 'PASS: the row refuses a Viewer, an Athlete login, a staff row, a target outside the org, self, a long session, a second live one and any change but ending';
+end $$;
+
+-- ── Reads while viewing equal what the target reads ──────────────────
+-- The proof that matters. For every table with row level security in
+-- public and for storage.objects, taken from pg_class so a table added
+-- next month is in the loop without anyone editing this file, and for
+-- each of the three roles View As can show:
+--
+--   what the Admin reads while viewing that person
+--     ==  what that person reads directly
+--
+-- compared as a hash of every row's text in order, plus the row count,
+-- and for the three member summary functions the same way. Row text is
+-- stricter than ids: a column that differs fails too.
+--
+-- The one table left out is view_as_sessions, and it is out on purpose:
+-- it answers for the real caller (an Admin must keep reading their own
+-- session to see the banner and press Return), so it differs from the
+-- target's by design. It is asserted on its own above.
+--
+-- The loop would pass if every read came back empty, so it also asserts
+-- that most tables held rows for the Admin and Viewer targets, that the
+-- Athlete login saw rows in the athlete-side tables, and that viewing
+-- someone changed what the Admin read (the Admin's own hash is not the
+-- Athlete's).
+create function public.zz_view_hash(p_org uuid, p_athletes uuid[]) returns jsonb
+  language plpgsql as $$
+declare
+  t record;
+  h text;
+  n bigint;
+  a uuid;
+  out jsonb := '{}';
+begin
+  for t in
+    select ns.nspname || '.' || c.relname as q
+    from pg_class c join pg_namespace ns on ns.oid = c.relnamespace
+    where c.relkind = 'r' and c.relrowsecurity
+      and (ns.nspname = 'public' or (ns.nspname = 'storage' and c.relname = 'objects'))
+      and c.relname <> 'view_as_sessions'
+    order by 1
+  loop
+    execute format('select md5(coalesce(string_agg(x::text, E''\n'' order by x::text), '''')), count(*) from %s x', t.q) into h, n;
+    out := out || jsonb_build_object(t.q, jsonb_build_array(h, n));
+  end loop;
+  select md5(coalesce(string_agg(r::text, E'\n' order by r::text), '')), count(*) into h, n from member_program(p_org) r;
+  out := out || jsonb_build_object('rpc.member_program', jsonb_build_array(h, n));
+  select md5(coalesce(string_agg(r::text, E'\n' order by r::text), '')), count(*) into h, n
+    from unnest(p_athletes) a2, lateral member_program_schools(p_org, a2) r;
+  out := out || jsonb_build_object('rpc.member_program_schools', jsonb_build_array(h, n));
+  select md5(coalesce(member_giving(p_org)::text, '')), case when member_giving(p_org) is null then 0 else 1 end into h, n;
+  out := out || jsonb_build_object('rpc.member_giving', jsonb_build_array(h, n));
+  return out;
+end $$;
+
+-- The keys whose hash or count differ between two of the above.
+create function public.zz_view_diff(a jsonb, b jsonb) returns text[]
+  language sql immutable as $$
+  select coalesce(array_agg(k order by k), '{}')
+  from (select jsonb_object_keys(a) as k union select jsonb_object_keys(b)) keys
+  where (a -> k) is distinct from (b -> k)
+$$;
+grant execute on function public.zz_view_hash(uuid, uuid[]) to app_user;
+grant execute on function public.zz_view_diff(jsonb, jsonb) to app_user;
+
+create table zz_view_results (label text primary key, hashes jsonb not null);
+grant select, insert on zz_view_results to app_user;
+
+set role app_user;
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  a1 uuid := '00000000-0000-0000-0000-0000000e0001';
+  athletes uuid[];
+  tgt record;
+  viewing jsonb;
+  direct jsonb;
+  diff text[];
+  own jsonb;
+  nonempty int;
+  tables int;
+  athlete_side int;
+begin
+  perform set_test_user(a1);
+  select array_agg(id) into athletes from athletes where org_id = bridge;
+  own := zz_view_hash(bridge, athletes);
+  insert into zz_view_results values ('own', own);
+  select count(*) into tables from jsonb_object_keys(own);
+  if tables < 40 then raise exception 'FAIL: the loop hashed only % tables and functions', tables; end if;
+
+  for tgt in
+    select * from (values
+      ('admin',   '00000000-0000-0000-0000-0000000e0002'::uuid),
+      ('viewer',  '00000000-0000-0000-0000-0000000e0003'::uuid),
+      ('athlete', '00000000-0000-0000-0000-0000000e0004'::uuid)) as v(label, id)
+  loop
+    perform set_test_user(a1);
+    perform start_view_as(bridge, tgt.id);
+    viewing := zz_view_hash(bridge, athletes);
+
+    -- The target reads directly while the Admin's session is still live,
+    -- so both reads see the same activity log (the start line is in it,
+    -- the end line is not yet). A session is the Admin's, not the
+    -- target's: it changes nothing for the person being viewed.
+    perform set_test_user(tgt.id);
+    direct := zz_view_hash(bridge, athletes);
+    perform set_test_user(a1);
+    perform end_view_as();
+    perform set_test_user(null);
+
+    diff := zz_view_diff(viewing, direct);
+    if array_length(diff, 1) > 0 then
+      raise exception 'FAIL: viewing as the % differs from what they read directly in: %', tgt.label, array_to_string(diff, ', ');
+    end if;
+    insert into zz_view_results values (tgt.label, direct);
+
+    select count(*) into nonempty from jsonb_each(direct) e where (e.value -> 1)::text::bigint > 0;
+    raise notice 'PASS: viewing as the % reads exactly what they read directly, on % tables and functions (% with rows)', tgt.label, tables, nonempty;
+  end loop;
+end $$;
+reset role;
+
+-- Not vacuous: rows on most tables for the Admin and the Viewer, the
+-- Athlete login's own athlete-side rows, and a different answer from the
+-- Admin's own.
+do $$
+declare
+  own jsonb; adm jsonb; vw jsonb; ath jsonb;
+  n_adm int; n_vw int; n_ath int;
+begin
+  select hashes into own from zz_view_results where label = 'own';
+  select hashes into adm from zz_view_results where label = 'admin';
+  select hashes into vw from zz_view_results where label = 'viewer';
+  select hashes into ath from zz_view_results where label = 'athlete';
+  select count(*) into n_adm from jsonb_each(adm) e where (e.value -> 1)::text::bigint > 0;
+  select count(*) into n_vw from jsonb_each(vw) e where (e.value -> 1)::text::bigint > 0;
+  select count(*) into n_ath from jsonb_each(ath) e where (e.value -> 1)::text::bigint > 0;
+  if n_adm < 25 then raise exception 'FAIL: the Admin target read rows on only % tables, the loop is too thin', n_adm; end if;
+  if n_vw < 5 then raise exception 'FAIL: the Viewer target read rows on only % tables', n_vw; end if;
+  if n_ath < 8 then raise exception 'FAIL: the Athlete target read rows on only % tables', n_ath; end if;
+  if (ath -> 'public.athletes' -> 1)::text::bigint <> 1 then raise exception 'FAIL: the Athlete login did not read exactly its one athlete (%)', ath -> 'public.athletes' -> 1; end if;
+  if (ath -> 'public.athlete_guardians' -> 1)::text::bigint <> 1 then raise exception 'FAIL: the Athlete login did not read exactly its own guardian link'; end if;
+  if (vw -> 'public.athletes' -> 1)::text::bigint <> 0 then raise exception 'FAIL: the Viewer read athlete rows'; end if;
+  if (vw -> 'rpc.member_program' -> 1)::text::bigint = 0 then raise exception 'FAIL: the Viewer read no program rows through member_program'; end if;
+  if (adm -> 'public.athletes' -> 1)::text::bigint < 2 then raise exception 'FAIL: the Admin target read fewer than 2 athletes'; end if;
+  if array_length(zz_view_diff(own, ath), 1) is null then raise exception 'FAIL: the Admin''s own reads equal the Athlete login''s, so nothing showed that viewing switched anything'; end if;
+  if array_length(zz_view_diff(adm, vw), 1) is null then raise exception 'FAIL: the Admin target and the Viewer target read the same'; end if;
+  raise notice 'PASS: the equivalence loop is not vacuous (Admin target % tables with rows, Viewer target %, Athlete target %)', n_adm, n_vw, n_ath;
+end $$;
+
+-- ── While viewing, every write is refused ────────────────────────────
+-- For every table with row level security and for storage.objects,
+-- again from pg_class: as the Admin, viewing each of the three roles, an
+-- INSERT (a real row of the table, copied from a sample taken here as the
+-- superuser), an UPDATE of every row the Admin can see and a DELETE of
+-- every row the Admin can see. The insert must be refused by the
+-- policy (42501), the update and the delete must affect 0 rows. Every
+-- statement runs in a block that is rolled back, so nothing the loop
+-- reaches survives it.
+--
+-- The same probe is run once as the target Admin directly, not viewing,
+-- as the control: on how many tables does the same statement get
+-- through? Without the control the loop could be refused for a reason
+-- that has nothing to do with the gate (a table with no rows, a role
+-- with no policy). The control has to reach most tables, and the
+-- viewing run has to reach none.
+create table zz_samples (q text primary key, row_json jsonb not null);
+do $$
+declare
+  t record;
+  smp jsonb;
+begin
+  for t in
+    select ns.nspname || '.' || c.relname as q,
+           exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = 'org_id' and a.attnum > 0 and not a.attisdropped) as has_org
+    from pg_class c join pg_namespace ns on ns.oid = c.relnamespace
+    where c.relkind = 'r' and c.relrowsecurity
+      and (ns.nspname = 'public' or (ns.nspname = 'storage' and c.relname = 'objects'))
+    order by 1
+  loop
+    if t.has_org then
+      execute format('select to_jsonb(x) from %s x order by (x.org_id = %L) desc limit 1', t.q, '00000000-0000-0000-0000-000000000010') into smp;
+    else
+      execute format('select to_jsonb(x) from %s x limit 1', t.q) into smp;
+    end if;
+    if smp is not null then insert into zz_samples values (t.q, smp); end if;
+  end loop;
+end $$;
+-- A guardian link is coherence-checked by a trigger that runs before the
+-- policy does (the person must be a family member of the athlete's org),
+-- and by now the first link the query finds belongs to someone whose
+-- membership an earlier block removed. This one is whole.
+update zz_samples set row_json = (select to_jsonb(g) from athlete_guardians g where g.user_id = '00000000-0000-0000-0000-0000000e0004')
+  where q = 'public.athlete_guardians';
+grant select on zz_samples to app_user;
+
+create function public.zz_write_probe(p_uid uuid) returns jsonb
+  language plpgsql as $$
+declare
+  t record;
+  out jsonb := '{}';
+  smp jsonb;
+  ins text;
+  upd text;
+  del text;
+  n bigint;
+begin
+  for t in
+    select ns.nspname || '.' || c.relname as q,
+           (select a.attname from pg_attribute a where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped and a.attgenerated = '' order by a.attnum limit 1) as col,
+           -- Generated columns cannot be given a value, so the copy leaves them out.
+           (select string_agg(quote_ident(a.attname), ', ' order by a.attnum) from pg_attribute a where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped and a.attgenerated = '') as cols
+    from pg_class c join pg_namespace ns on ns.oid = c.relnamespace
+    where c.relkind = 'r' and c.relrowsecurity
+      and (ns.nspname = 'public' or (ns.nspname = 'storage' and c.relname = 'objects'))
+    order by 1
+  loop
+    select s.row_json into smp from zz_samples s where s.q = t.q;
+    ins := 'no sample'; upd := '?'; del := '?';
+    if smp is not null then
+      -- A copied row is signed by whoever wrote it. Several insert
+      -- policies want the row signed by the caller, so a foreign
+      -- signature would be refused for that and prove nothing about the
+      -- gate. The signature columns are set to the caller.
+      if smp ? 'author_id' then smp := jsonb_set(smp, '{author_id}', to_jsonb(p_uid)); end if;
+      if smp ? 'actor_id' then smp := jsonb_set(smp, '{actor_id}', to_jsonb(p_uid)); end if;
+      if smp ? 'created_by' then smp := jsonb_set(smp, '{created_by}', to_jsonb(p_uid)); end if;
+      if smp ? 'advisor_id' then smp := jsonb_set(smp, '{advisor_id}', 'null'::jsonb); end if;
+      if t.q = 'public.athlete_message_reads' then smp := jsonb_set(smp, '{user_id}', to_jsonb(p_uid)); end if;
+      begin
+        execute format('insert into %s (%s) select %s from jsonb_populate_record(null::%s, $1)', t.q, t.cols, t.cols, t.q) using smp;
+        ins := 'reached';
+        raise exception using errcode = 'ZZ001', message = 'rolled back on purpose';
+      exception
+        when sqlstate 'ZZ001' then null;
+        when insufficient_privilege then ins := 'refused';
+        when others then ins := 'error ' || sqlstate;
+      end;
+    end if;
+    begin
+      execute format('update %s set %I = %I', t.q, t.col, t.col);
+      get diagnostics n = row_count;
+      upd := n::text;
+      raise exception using errcode = 'ZZ001', message = 'rolled back on purpose';
+    exception
+      when sqlstate 'ZZ001' then null;
+      when others then upd := 'error ' || sqlstate;
+    end;
+    begin
+      execute format('delete from %s', t.q);
+      get diagnostics n = row_count;
+      del := n::text;
+      raise exception using errcode = 'ZZ001', message = 'rolled back on purpose';
+    exception
+      when sqlstate 'ZZ001' then null;
+      when others then del := 'error ' || sqlstate;
+    end;
+    out := out || jsonb_build_object(t.q, jsonb_build_array(ins, upd, del));
+  end loop;
+  return out;
+end $$;
+grant execute on function public.zz_write_probe(uuid) to app_user;
+
+set role app_user;
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  a1 uuid := '00000000-0000-0000-0000-0000000e0001';
+  a2 uuid := '00000000-0000-0000-0000-0000000e0002';
+  tgt record;
+  probe jsonb;
+  control jsonb;
+  r record;
+  bad text[];
+  reached_ins int; reached_upd int; reached_del int;
+  tables int; no_sample text[];
+begin
+  -- The control: the target Admin, not viewing.
+  perform set_test_user(a2);
+  control := zz_write_probe(a2);
+  select count(*) into reached_ins from jsonb_each(control) e where e.value ->> 0 <> 'refused' and e.value ->> 0 <> 'no sample';
+  select count(*) into reached_upd from jsonb_each(control) e where e.value ->> 1 <> '0';
+  select count(*) into reached_del from jsonb_each(control) e where e.value ->> 2 <> '0';
+  if reached_ins < 20 or reached_upd < 20 or reached_del < 15 then
+    raise exception 'FAIL: the control Admin got an insert through on % tables, an update on % and a delete on % (expected at least 20, 20 and 15), so the write loop proves too little', reached_ins, reached_upd, reached_del;
+  end if;
+  raise notice 'INFO: the control Admin, not viewing, gets an insert through on % tables, an update on % and a delete on %', reached_ins, reached_upd, reached_del;
+  raise notice 'INFO: tables where the control insert is itself refused (no client insert policy at all, as the shared directory is written by the service role, or a signature a copied row cannot carry; the catalog check holds the gate on any policy that exists): %',
+    (select string_agg(e.key, ', ' order by e.key) from jsonb_each(control) e where e.value ->> 0 = 'refused');
+
+  for tgt in
+    select * from (values
+      ('admin',   '00000000-0000-0000-0000-0000000e0002'::uuid),
+      ('viewer',  '00000000-0000-0000-0000-0000000e0003'::uuid),
+      ('athlete', '00000000-0000-0000-0000-0000000e0004'::uuid)) as v(label, id)
+  loop
+    perform set_test_user(a1);
+    perform start_view_as(bridge, tgt.id);
+    probe := zz_write_probe(a1);
+    perform end_view_as();
+
+    bad := '{}';
+    for r in select * from jsonb_each(probe) loop
+      if r.value ->> 0 not in ('refused', 'no sample') then bad := bad || (r.key || ' insert: ' || (r.value ->> 0)); end if;
+      if r.value ->> 1 <> '0' then bad := bad || (r.key || ' update: ' || (r.value ->> 1)); end if;
+      if r.value ->> 2 <> '0' then bad := bad || (r.key || ' delete: ' || (r.value ->> 2)); end if;
+    end loop;
+    if array_length(bad, 1) > 0 then
+      raise exception 'FAIL: viewing as the % let a write through: %', tgt.label, array_to_string(bad, '; ');
+    end if;
+    select count(*) into tables from jsonb_object_keys(probe);
+    select coalesce(array_agg(e.key order by e.key), '{}') into no_sample from jsonb_each(probe) e where e.value ->> 0 = 'no sample';
+    raise notice 'PASS: viewing as the %, an insert, an update and a delete on each of % tables were all refused or affected 0 rows (no sample row, insert not probed: %)', tgt.label, tables, coalesce(array_to_string(no_sample, ', '), 'none');
+  end loop;
+  perform set_test_user(null);
+end $$;
+reset role;
+
+-- A viewing Admin's storage insert, the one write the documents bucket
+-- allows an Admin, in the org's own folder. Refused while viewing (as an
+-- Admin and as an Athlete login into its family folder); allowed the
+-- moment the session ends, so the refusal is the gate and not the path.
+set role app_user;
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  a1 uuid := '00000000-0000-0000-0000-0000000e0001';
+  n int;
+begin
+  perform set_test_user(a1);
+  perform start_view_as(bridge, '00000000-0000-0000-0000-0000000e0002');
+  begin
+    insert into storage.objects (bucket_id, name, owner) values ('documents', bridge::text || '/viewas-probe/a.pdf', a1);
+    raise exception 'FAIL: an Admin viewing another Admin inserted a storage object';
+  exception when insufficient_privilege then null;
+  end;
+  delete from storage.objects where bucket_id = 'documents' and name like bridge::text || '/%';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a viewing Admin deleted % storage object(s)', n; end if;
+  perform end_view_as();
+  perform start_view_as(bridge, '00000000-0000-0000-0000-0000000e0004');
+  begin
+    insert into storage.objects (bucket_id, name, owner) values ('documents', bridge::text || '/family/viewas-probe/a.pdf', '00000000-0000-0000-0000-0000000e0004');
+    raise exception 'FAIL: an Admin viewing an Athlete login inserted into the family folder';
+  exception when insufficient_privilege then null;
+  end;
+  perform end_view_as();
+  -- Control: with no session the same insert succeeds (and is undone).
+  begin
+    insert into storage.objects (bucket_id, name, owner) values ('documents', bridge::text || '/viewas-probe/a.pdf', a1);
+    raise exception using errcode = 'ZZ001', message = 'rolled back on purpose';
+  exception when sqlstate 'ZZ001' then null;
+    when insufficient_privilege then raise exception 'FAIL: the control storage insert was refused with no session, so the refusal above proves nothing';
+  end;
+  perform set_test_user(null);
+  raise notice 'PASS: the storage insert is refused while viewing and allowed the moment the session ends';
+end $$;
+reset role;
+
+-- The functions that are not policies, called as the Admin while viewing
+-- the person each of them would accept: create_org (an Admin is an
+-- owner, so it would pass), log_family_message and submit_assignment (an
+-- Athlete login), refused; the same calls with no session are not
+-- refused for viewing (they reach their own checks instead).
+set role app_user;
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  a1 uuid := '00000000-0000-0000-0000-0000000e0001';
+  msg text; n int;
+  after_orgs int;
+begin
+  perform set_test_user(a1);
+
+  perform start_view_as(bridge, '00000000-0000-0000-0000-0000000e0002');
+  begin
+    perform create_org('Viewing Made This', 'viewing-made-this');
+    raise exception 'FAIL: create_org ran while viewing';
+  exception when insufficient_privilege then
+    get stacked diagnostics msg = message_text;
+    if msg not like '%read only while viewing%' then raise exception 'FAIL: create_org refused for another reason: %', msg; end if;
+  end;
+  perform end_view_as();
+
+  perform start_view_as(bridge, '00000000-0000-0000-0000-0000000e0004');
+  begin
+    perform submit_assignment('00000000-0000-0000-0000-0000000a0001', 'submitted while viewing', null, null, null, null);
+    raise exception 'FAIL: submit_assignment ran while viewing as an Athlete login';
+  exception when insufficient_privilege then
+    get stacked diagnostics msg = message_text;
+    if msg not like '%read only while viewing%' then raise exception 'FAIL: submit_assignment refused for another reason: %', msg; end if;
+  end;
+  begin
+    perform log_family_message('00000000-0000-0000-0000-000000000110');
+    raise exception 'FAIL: log_family_message ran while viewing as an Athlete login';
+  exception when insufficient_privilege then
+    get stacked diagnostics msg = message_text;
+    if msg not like '%read only while viewing%' then raise exception 'FAIL: log_family_message refused for another reason: %', msg; end if;
+  end;
+  perform end_view_as();
+  perform set_test_user(null);
+
+  reset role;
+  select count(*) into after_orgs from orgs where slug = 'viewing-made-this';
+  if after_orgs <> 0 then raise exception 'FAIL: viewing created an org'; end if;
+  select count(*) into n from assignments where id = '00000000-0000-0000-0000-0000000a0001' and status = 'assigned';
+  if n <> 1 then raise exception 'FAIL: viewing changed an assignment'; end if;
+
+  -- The refusal is the viewing, not the function's own checks: as the
+  -- Athlete login itself the same call gets past the viewing check (it
+  -- stops at the next one, the message it has to have written).
+  set role app_user;
+  perform set_test_user('00000000-0000-0000-0000-0000000e0004');
+  begin
+    perform log_family_message('00000000-0000-0000-0000-000000000110');
+    raise exception 'FAIL: log_family_message logged with no unlogged message';
+  exception when insufficient_privilege then
+    get stacked diagnostics msg = message_text;
+    if msg like '%while viewing%' then raise exception 'FAIL: the Athlete login itself was told it is viewing'; end if;
+  end;
+  perform set_test_user(null);
+  raise notice 'PASS: create_org, submit_assignment and log_family_message refuse while viewing, and only for that reason';
+end $$;
+reset role;
+
+-- ── Someone in two orgs shows the Admin one of them ──────────────────
+-- e0006 is an Athlete login in Bridge and a Viewer in two Elite orgs.
+-- Viewing them from Bridge shows what they read in Bridge and nothing of
+-- Elite: the Admin owns Bridge, not Elite, and View As does not widen
+-- that. Read directly, the same person reads Elite too (the control).
+set role app_user;
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  elite uuid := '00000000-0000-0000-0000-000000000020';
+  a1 uuid := '00000000-0000-0000-0000-0000000e0001';
+  x uuid := '00000000-0000-0000-0000-0000000e0007';
+  m uuid := '00000000-0000-0000-0000-0000000e0006';
+  n int; n_direct int; sid uuid;
+begin
+  -- Direct: the control.
+  perform set_test_user(m);
+  select count(*) into n_direct from member_program(elite);
+  if n_direct = 0 then raise exception 'FAIL: the control person reads no Elite Squad program directly'; end if;
+  select count(*) into n_direct from org_members where org_id <> bridge;
+  if n_direct = 0 then raise exception 'FAIL: the control person reads no membership outside Bridge directly'; end if;
+  select count(*) into n_direct from orgs where id <> bridge;
+  if n_direct = 0 then raise exception 'FAIL: the control person reads no org but Bridge directly'; end if;
+
+  perform set_test_user(a1);
+  sid := start_view_as(m);
+  select count(*) into n from member_program(elite);
+  if n <> 0 then raise exception 'FAIL: viewing a person from Bridge read % Elite Squad program row(s)', n; end if;
+  select count(*) into n from org_members where org_id <> bridge;
+  if n <> 0 then raise exception 'FAIL: viewing a person from Bridge read % membership row(s) outside Bridge', n; end if;
+  select count(*) into n from orgs where id <> bridge;
+  if n <> 0 then raise exception 'FAIL: viewing a person from Bridge read % org(s) outside Bridge', n; end if;
+  select count(*) into n from athletes;
+  if n <> 1 then raise exception 'FAIL: viewing an Athlete login read % athletes, expected the 1 they are linked to', n; end if;
+  select count(*) into n from athlete_guardians where org_id <> bridge;
+  if n <> 0 then raise exception 'FAIL: viewing read guardian links outside Bridge'; end if;
+  perform end_view_as();
+
+  -- An owner of two orgs the person is in must say which; naming one works.
+  perform set_test_user(x);
+  begin
+    perform start_view_as(m);
+    raise exception 'FAIL: the one-argument form guessed between two shared organizations';
+  exception when check_violation then null;
+  end;
+  sid := start_view_as(elite, m);
+  select count(*) into n from org_members where org_id <> elite;
+  if n <> 0 then raise exception 'FAIL: viewing in Elite Squad read % membership row(s) outside it', n; end if;
+  perform end_view_as();
+  perform set_test_user(null);
+  raise notice 'PASS: viewing a person in several orgs shows only the org being viewed, and a shared pair of orgs must be named';
+end $$;
+reset role;
+
+-- ── The clock: 30 minutes, and what happens after ────────────────────
+-- A session past its time stops applying by itself (reads and writes are
+-- the Admin's own again) whether or not anything closed it. The next
+-- start or end closes it, as expired, with its line. The backdating is
+-- done as the superuser with the immutability trigger off for the one
+-- statement, since nothing else may move a session's clock.
+create function public.zz_expire(p_viewer uuid) returns void language plpgsql as $$
+begin
+  alter table view_as_sessions disable trigger view_as_sessions_coherent;
+  update view_as_sessions set started_at = now() - interval '40 minutes', expires_at = now() - interval '10 minutes'
+    where viewer_id = p_viewer and ended_at is null;
+  alter table view_as_sessions enable trigger view_as_sessions_coherent;
+end $$;
+
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  a1 uuid := '00000000-0000-0000-0000-0000000e0001';
+  f uuid := '00000000-0000-0000-0000-0000000e0004';
+  v uuid := '00000000-0000-0000-0000-0000000e0003';
+  sid uuid; sid2 uuid; n int; own_athletes int; s text; r text;
+begin
+  -- The Admin's own count of Bridge athletes.
+  select count(*) into own_athletes from athletes where org_id = bridge and deleted_at is null;
+  set local role app_user;
+  perform set_test_user(a1);
+  sid := start_view_as(bridge, f);
+  select count(*) into n from athletes;
+  if n <> 1 then raise exception 'FAIL: viewing an Athlete login read % athletes before the clock ran out', n; end if;
+  reset role;
+  perform zz_expire(a1);
+
+  set local role app_user;
+  perform set_test_user(a1);
+  select count(*) into n from athletes where org_id = bridge and deleted_at is null;
+  if n <> own_athletes then raise exception 'FAIL: an expired session still answered for the Athlete login (% athletes, expected the Admin''s own %)', n, own_athletes; end if;
+  if private._viewing() then raise exception 'FAIL: _viewing() is true after expiry'; end if;
+  -- And the Admin writes as themself again: the gate lifts with the session.
+  begin
+    insert into athlete_notes (org_id, athlete_id, author_id, body)
+      values (bridge, '00000000-0000-0000-0000-000000000110', a1, 'written after the session expired');
+    raise exception using errcode = 'ZZ001', message = 'rolled back on purpose';
+  exception when sqlstate 'ZZ001' then null;
+    when insufficient_privilege then raise exception 'FAIL: an Admin whose session expired is still refused writes';
+  end;
+  -- The row is still open until the next start or end closes it.
+  select count(*) into n from view_as_sessions where id = sid and ended_at is null;
+  if n <> 1 then raise exception 'FAIL: the expired row was closed with nobody asking'; end if;
+
+  -- The next start closes it as expired, with its line, and opens a new one.
+  sid2 := start_view_as(bridge, v);
+  select count(*) into n from view_as_sessions where id = sid and ended_at is not null and end_reason = 'expired';
+  if n <> 1 then raise exception 'FAIL: starting again did not close the expired session as expired'; end if;
+  select count(*) into n from view_as_sessions where id = sid2 and ended_at is null and expires_at > now() + interval '29 minutes';
+  if n <> 1 then raise exception 'FAIL: the new session is not live for 30 minutes'; end if;
+  perform end_view_as();
+  perform set_test_user(null);
+  reset role;
+  select count(*) into n from activity_log where subject_id = sid and action = 'view_as_ended' and summary = 'Viewing as someone else ended after 30 minutes';
+  if n <> 1 then raise exception 'FAIL: the lazy expiry wrote % end line(s), expected 1', n; end if;
+
+  -- end_view_as on an expired, unclosed session says expired, not returned.
+  set local role app_user;
+  perform set_test_user(a1);
+  sid := start_view_as(bridge, f);
+  reset role;
+  perform zz_expire(a1);
+  set local role app_user;
+  perform set_test_user(a1);
+  perform end_view_as();
+  perform set_test_user(null);
+  reset role;
+  select end_reason into r from view_as_sessions where id = sid;
+  if r is distinct from 'expired' then raise exception 'FAIL: ending an expired session recorded "%"', r; end if;
+  select count(*) into n from activity_log where subject_id = sid and action = 'view_as_ended';
+  if n <> 1 then raise exception 'FAIL: ending an expired session wrote % line(s)', n; end if;
+  raise notice 'PASS: a session stops applying at 30 minutes by itself, the next start or end closes it as expired with its line, and the Admin writes as themself again';
+end $$;
+
+-- A session lives only as long as what it stands on: the Admin an owner,
+-- the target a member. Demote the Admin, or remove the target, and the
+-- effect stops at once; restore either and a still-open session applies
+-- again until its own time is up.
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  a1 uuid := '00000000-0000-0000-0000-0000000e0001';
+  v uuid := '00000000-0000-0000-0000-0000000e0003';
+  n int; viewing boolean;
+begin
+  set local role app_user;
+  perform set_test_user(a1);
+  perform start_view_as(bridge, v);
+  select private._viewing() into viewing;
+  if not viewing then raise exception 'FAIL: not viewing right after start'; end if;
+  reset role;
+
+  update org_members set role = 'member' where user_id = a1 and org_id = bridge;
+  set local role app_user;
+  perform set_test_user(a1);
+  select private._viewing() into viewing;
+  if viewing then raise exception 'FAIL: a demoted Admin is still viewing'; end if;
+  select count(*) into n from athletes;
+  if n <> 0 then raise exception 'FAIL: a demoted Admin read % athletes through a session', n; end if;
+  reset role;
+  update org_members set role = 'owner' where user_id = a1 and org_id = bridge;
+
+  delete from org_members where user_id = v and org_id = bridge;
+  set local role app_user;
+  perform set_test_user(a1);
+  select private._viewing() into viewing;
+  if viewing then raise exception 'FAIL: a removed target is still being viewed'; end if;
+  reset role;
+  insert into org_members (user_id, org_id, role) values (v, bridge, 'member');
+
+  set local role app_user;
+  perform set_test_user(a1);
+  perform end_view_as();
+  select private._viewing() into viewing;
+  if viewing then raise exception 'FAIL: still viewing after Return'; end if;
+  perform set_test_user(null);
+  reset role;
+  raise notice 'PASS: demoting the Admin or removing the target ends the effect at once';
+end $$;
+reset role;
+
+-- A session whose target has left the org changes nobody's identity, but
+-- it is still an open row. It must not hold the Admin's one slot: the
+-- banner reads "not viewing", so no Return is on screen to close it, and
+-- "already viewing, return first" would be all the Admin was told for the
+-- rest of the half hour. The next start closes it, as returned, with its
+-- line, and opens the new one.
+do $$
+declare
+  bridge uuid := '00000000-0000-0000-0000-000000000010';
+  a1 uuid := '00000000-0000-0000-0000-0000000e0001';
+  a2 uuid := '00000000-0000-0000-0000-0000000e0002';
+  v uuid := '00000000-0000-0000-0000-0000000e0003';
+  dead uuid; fresh uuid; n int; r text;
+begin
+  set local role app_user;
+  perform set_test_user(a1);
+  dead := start_view_as(bridge, v);
+  reset role;
+  delete from org_members where user_id = v and org_id = bridge;
+
+  set local role app_user;
+  perform set_test_user(a1);
+  begin
+    fresh := start_view_as(bridge, a2);
+  exception when object_not_in_prerequisite_state then
+    raise exception 'FAIL: a session on a removed target still blocks starting another';
+  end;
+  perform end_view_as();
+  perform set_test_user(null);
+  reset role;
+  insert into org_members (user_id, org_id, role) values (v, bridge, 'member');
+
+  select end_reason into r from view_as_sessions where id = dead;
+  if r is distinct from 'returned' then raise exception 'FAIL: the dead session was closed as "%", expected returned', r; end if;
+  select count(*) into n from activity_log where subject_id = dead and action = 'view_as_ended' and summary = 'Stopped viewing as someone else';
+  if n <> 1 then raise exception 'FAIL: closing the dead session wrote % line(s), expected 1', n; end if;
+  select count(*) into n from view_as_sessions where id = fresh and target_id = a2;
+  if n <> 1 then raise exception 'FAIL: the new session was not opened on the new target'; end if;
+  raise notice 'PASS: a session whose target left the org does not hold the Admin''s slot';
+end $$;
+reset role;
+
+-- ── Test scaffolding out, and a last look ────────────────────────────
+drop function public.zz_view_hash(uuid, uuid[]);
+drop function public.zz_view_diff(jsonb, jsonb);
+drop function public.zz_write_probe(uuid);
+drop function public.zz_expire(uuid);
+drop table zz_view_results;
+drop table zz_samples;
+do $$
+declare n int;
+begin
+  select count(*) into n from view_as_sessions where ended_at is null;
+  if n <> 0 then raise exception 'FAIL: % View As session(s) left open by this block', n; end if;
+  select count(*) into n from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace where ns.nspname = 'public' and p.proname like 'zz\_%';
+  if n <> 0 then raise exception 'FAIL: test scaffolding left in public'; end if;
+  raise notice 'PASS: no session left open, no scaffolding left behind';
+end $$;
+
+\echo 'ALL 0047 ASSERTIONS PASSED'

@@ -7,6 +7,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
 import { approvedListProblem } from "@/lib/fit/ncaa/approvedCourses";
 import { parseApprovedListPaste } from "@/lib/fit/ncaa/approvedListPaste";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface ApprovedListActionState {
   errors: Record<string, string>;
@@ -25,6 +26,7 @@ export async function saveApprovedList(
   _prevState: ApprovedListActionState,
   formData: FormData,
 ): Promise<ApprovedListActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -140,6 +142,7 @@ export async function pickApprovedListSchool(slug: string, formData: FormData): 
 // id and org. A portal list is shared and never reaches this. Courses at
 // the school stop being confirmed by it at once.
 export async function deleteApprovedList(slug: string, listId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);
