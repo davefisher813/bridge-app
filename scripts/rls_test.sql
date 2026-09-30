@@ -3645,7 +3645,9 @@ begin
 
   perform set_test_user('00000000-0000-0000-0000-000000000005'); -- Athlete login, Elite, athlete 120 only
   select count(*) into n from assignments;
-  if n <> 7 then raise exception 'FAIL: an Athlete login read % assignments, expected 7 (its own athlete''s)', n; end if;
+  if n <> 6 then raise exception 'FAIL: an Athlete login read % assignments, expected 6 (its own athlete''s, cancelled ones hidden)', n; end if;
+  select count(*) into n from assignments where status = 'cancelled';
+  if n <> 0 then raise exception 'FAIL: an Athlete login read % cancelled assignments', n; end if;
   select count(*) into n from assignments where athlete_id <> '00000000-0000-0000-0000-000000000120';
   if n <> 0 then raise exception 'FAIL: an Athlete login read % assignments of another athlete', n; end if;
   select count(*) into n from assignments where org_id = '00000000-0000-0000-0000-000000000010';
@@ -3787,7 +3789,10 @@ begin
     '00000000-0000-0000-0000-000000000020/req9/f.pdf',
     '00000000-0000-0000-0000-000000000020/other/x/f.pdf',
     '00000000-0000-0000-0000-000000000010/family/x/f.pdf',
-    'loose-family-file.pdf'
+    'loose-family-file.pdf',
+    -- Flatter and deeper than <org>/family/<request>/<file>: refused too.
+    '00000000-0000-0000-0000-000000000020/family/flat.pdf',
+    '00000000-0000-0000-0000-000000000020/family/a/b/c.pdf'
   ] loop
     begin
       insert into storage.objects (bucket_id, name, owner) values ('documents', target, '00000000-0000-0000-0000-000000000005');
@@ -3795,6 +3800,14 @@ begin
     exception when insufficient_privilege then null;
     end;
   end loop;
+  -- Onto a name someone else already holds, in its own family folder: a
+  -- second object cannot take the name (no overwrite, no lookalike that
+  -- would carry the login's ownership into a submission).
+  begin
+    insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000000020/family/req3/theirs.pdf', '00000000-0000-0000-0000-000000000005');
+    raise exception 'FAIL: an Athlete login wrote a second object onto another person''s file name';
+  exception when unique_violation then null;
+  end;
   -- Its own upload is not readable, and it cannot remove one.
   select count(*) into n from storage.objects where bucket_id = 'documents';
   if n <> 0 then raise exception 'FAIL: an Athlete login read % objects from the documents bucket', n; end if;
@@ -3846,6 +3859,8 @@ declare
     array['00000000-0000-0000-0000-0000000a0009', '00000000-0000-0000-0000-000000000020/family/req4/third.pdf', 'application/pdf', '0', 'check'],
     array['00000000-0000-0000-0000-0000000a0005', '00000000-0000-0000-0000-000000000020/family/req4/third.pdf', 'application/pdf', '1000', 'check'],
     array['00000000-0000-0000-0000-0000000a0006', null, null, null, 'check'],
+    -- An upload assignment with no file and none attached before.
+    array['00000000-0000-0000-0000-0000000a0009', null, null, null, 'check'],
     array['00000000-0000-0000-0000-0000000a0003', '00000000-0000-0000-0000-000000000020/family/req4/third.pdf', 'application/pdf', '1000', 'priv'],
     array['00000000-0000-0000-0000-0000000a0003', null, null, null, 'priv'],
     array['00000000-0000-0000-0000-0000000a0001', null, null, null, 'priv'],

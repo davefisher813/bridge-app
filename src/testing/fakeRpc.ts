@@ -42,7 +42,8 @@
 //     document (status filed, source parent, never read), sets the row
 //     submitted with the trimmed note and the time (keeping an earlier
 //     document when no new file comes), and logs the literal line for the
-//     kind, signed as the caller. Returns the assignment's id.
+//     kind, signed as the caller. Returns the assignment's id. An upload
+//     assignment with no file, and none attached earlier, is 23514.
 
 import type { Dataset, RecordedWrite } from "./fakeSupabase";
 
@@ -190,6 +191,7 @@ export function fakeSubmitAssignment(
   const cleanNote = note.trim() || null;
 
   const path = typeof args.p_storage_path === "string" ? args.p_storage_path : null;
+  if (a.kind === "upload" && path === null && !a.document_id) return refuse("23514", "an upload assignment needs a file");
   const forced = failOn("assignments", "update");
   let docId: string | null = null;
   const documents = data.documents ?? (data.documents = []);

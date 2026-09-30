@@ -322,6 +322,8 @@ describe("LAW: a family upload lives at <org>/family/<request>/<file> and nowher
     expect(policy).toMatch(/bucket_id = 'documents'/);
     expect(policy).toMatch(/\(storage\.foldername\(name\)\)\[1\] in \(select org_id::text from private\._family_org_ids\(\) as org_id\)/);
     expect(policy).toMatch(/\(storage\.foldername\(name\)\)\[2\] = 'family'/);
+    // Exactly org, family, request: two folders and a file, no flatter and no deeper.
+    expect(policy).toMatch(/array_length\(storage\.foldername\(name\), 1\) = 3/);
     // The one storage policy this migration adds, and none altered.
     expect([...sql.matchAll(/create policy (\w+) on storage\.objects/gi)].map((m) => m[1])).toEqual(["documents_bucket_family_insert"]);
     expect(sql).not.toMatch(/alter policy|drop policy (?!if exists documents_bucket_family_insert)/i);
@@ -400,6 +402,8 @@ describe("LAW: a family upload lives at <org>/family/<request>/<file> and nowher
     expect(codeOf(await call(FAMILY_PATH, { p_media_type: "text/html" }))).toBe("23514");
     expect(codeOf(await call(FAMILY_PATH, { p_file_size: 10_485_761 }))).toBe("23514");
     expect(codeOf(await call(FAMILY_PATH, { p_file_size: 0 }))).toBe("23514");
+    // An upload assignment called with no file and none attached before, directly.
+    expect(codeOf(await call(null, { p_file_name: null, p_file_size: null, p_media_type: null }))).toBe("23514");
     expect(writes).toEqual([]);
     expect(data.assignments.find((a) => a.id === IDS.assignmentOverdue)?.status).toBe("assigned");
   });
@@ -574,6 +578,8 @@ describe("LAW: submitAssignment refuses an Admin, another athlete's login, and a
     expect(at(/private\._family_athlete_ids\(\)/)).toBeGreaterThan(at(/sign in first/));
     expect(at(/a\.status not in \('assigned', 'needs_revision'\)/)).toBeGreaterThan(at(/private\._family_athlete_ids\(\)/));
     expect(at(/o\.owner = caller/)).toBeGreaterThan(at(/a\.status not in/));
+    // An upload assignment needs a file (or one attached before), in the function as in the fake.
+    expect(body).toMatch(/a\.kind = 'upload' and p_storage_path is null and a\.document_id is null/);
     expect(sql).toMatch(/revoke execute on function public\.submit_assignment\(uuid, text, text, int, text, text, text\) from public, anon;/);
     expect(sql).toMatch(/grant execute on function public\.submit_assignment\(uuid, text, text, int, text, text, text\) to authenticated;/);
     expect(sql).toMatch(/revoke all on public\.assignments from anon;/);
@@ -775,6 +781,17 @@ describe("LAW: a filed document never renders in Needs Review or with an Apply b
     const heads = [...before.matchAll(/text-muted">(Being Read|Needs Review|Not Used|Applied|Discarded|Family Upload)</g)];
     expect(heads.length).toBeGreaterThan(0);
     expect(heads[heads.length - 1][1]).toBe("Family Upload");
+  });
+
+  // A filed row has no Discard, so a staff upload of the same bytes must
+  // not be refused as a twin of it (the message would send an Admin to a
+  // button that is not there). Verified this law bites: removed the
+  // .neq("status", "filed") line, watched it fail, reverted.
+  it("a staff upload is not refused as a twin of a family's filed copy", () => {
+    const src = readFileSync(join(SRC, "lib/actions/documents.ts"), "utf8");
+    const twin = src.match(/\.eq\("content_hash", hash\)([\s\S]*?)\.limit\(1\)/)?.[1] ?? "";
+    expect(twin).toMatch(/\.neq\("status", "discarded"\)/);
+    expect(twin).toMatch(/\.neq\("status", "filed"\)/);
   });
 
   it("the document's own page offers no Apply, and the pending reading is untouched", async () => {

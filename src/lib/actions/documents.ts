@@ -358,6 +358,11 @@ export async function processDocument(
     .eq("org_id", org.id)
     .eq("content_hash", hash)
     .neq("status", "discarded")
+    // A family's own copy, filed with an assignment and never read, is
+    // not a twin: an Admin who wants the file read uploads it, and a
+    // filed row has no Discard to clear the way (and its hash is the
+    // caller's word until the bytes are read again here).
+    .neq("status", "filed")
     .order("created_at", { ascending: false })
     .limit(1);
   const earlier = ((twin ?? []) as { id: string; file_name: string; status: string; created_at: string }[])[0];

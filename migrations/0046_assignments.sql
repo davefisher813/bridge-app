@@ -165,7 +165,7 @@ create trigger assignments_honest
 alter table assignments enable row level security;
 
 create policy assignments_read on assignments for select
-  using (org_id in (select private._staff_org_ids()) or athlete_id in (select private._family_athlete_ids()));
+  using (org_id in (select private._staff_org_ids()) or (athlete_id in (select private._family_athlete_ids()) and status <> 'cancelled'));
 
 -- Signed by the session, on the session's own org. The honesty trigger
 -- rewrites created_by to the session first, so an insert naming somebody
@@ -221,6 +221,8 @@ end $$;
 --     (private._family_athlete_ids(), which honours a link only while
 --     the family membership lives), and the athlete is not removed;
 --   - the row is assigned or needs_revision, nothing else;
+--   - an upload assignment carries a file (or already has one from an
+--     earlier submission that was sent back);
 --   - a file, when there is one, sits at <org>/family/<request>/<file>
 --     in the documents bucket, was put there by the caller, matches the
 --     bucket's own size and type limits, and has not been filed before.
@@ -280,6 +282,12 @@ begin
   end if;
   if length(coalesce(p_note, '')) > 4000 then
     raise exception 'submit_assignment: a note is 4,000 characters or fewer' using errcode = 'check_violation';
+  end if;
+
+  -- An upload assignment is answered with a file: this one, or the one an
+  -- earlier submission attached before it was sent back.
+  if a.kind = 'upload' and p_storage_path is null and a.document_id is null then
+    raise exception 'submit_assignment: an upload assignment needs a file' using errcode = 'check_violation';
   end if;
 
   -- 3. A file, when there is one.
@@ -343,6 +351,10 @@ create policy documents_bucket_family_insert on storage.objects for insert
     bucket_id = 'documents'
     and (storage.foldername(name))[1] in (select org_id::text from private._family_org_ids() as org_id)
     and (storage.foldername(name))[2] = 'family'
+    -- Exactly <org>/family/<request>/<file>: the two folders above and a
+    -- file, nothing flatter (a name that would read as a staff request's
+    -- own path) and nothing deeper. submit_assignment holds the same shape.
+    and array_length(storage.foldername(name), 1) = 3
   );
 
 -- ── Grants ───────────────────────────────────────────────────────────

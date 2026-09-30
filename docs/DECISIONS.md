@@ -3701,3 +3701,22 @@ real project confirm it is filled for client uploads; a Viewer's View As
 later migration; a refused upload stays in the bucket because the action
 cannot prove whose file it is; `todayIso()` needs a per-org timezone the
 first time an org outside the Eastern zone joins.
+
+## 2026-09-29: assignments hardening found in review
+
+**Decision.** Three changes came out of the adversarial review of Phase
+4. The Athlete login's storage insert policy admits only
+`<org>/family/<request>/<file>`, exactly three segments, matching the
+function's and the app's path pattern; a flat or deeper name is refused.
+`submit_assignment` refuses an upload-kind row with no file and no earlier
+one. An Athlete login cannot read a cancelled assignment through the API
+(the read policy excludes it), not only on screen. Separately, the
+Admin upload's duplicate check ignores a family's filed copy, since a
+filed row has no Discard button and would strand the Admin.
+
+**Consequences.** A filed document is still not removable by an Admin;
+if that is wanted, `deleteDocument` must also clear the 4-segment family
+bytes. The family folder is shared by every athlete login in an org; the
+owner check on submit is what protects it. `submit_assignment` trusts the
+caller's size, type and hash; a later hardening can cross-check the
+stored object.
