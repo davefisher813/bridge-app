@@ -17,7 +17,7 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
   const { slug } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireRole(org.id, STAFF_ROLES);
+  const me = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
   const [staff, counts] = await Promise.all([loadStaff(supabase, org.id), loadAdvisorCounts(supabase, org.id)]);
@@ -25,18 +25,30 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
   const athletes = (n: number) => `${n} ${n === 1 ? "athlete" : "athletes"}`;
   const unassigned = counts.unassigned === 0 ? "Every one of them has an advisor." : `${athletes(counts.unassigned)} ${counts.unassigned === 1 ? "has" : "have"} no advisor yet.`;
 
+  // The same split as Members: someone who has never signed in is
+  // invited, not yet one of the Admins, so the two screens count alike.
+  // The caller is always in, they are reading this.
+  const active = staff.filter((p) => p.signedIn || p.id === me.id);
+  const invited = staff.filter((p) => !(p.signedIn || p.id === me.id));
+  const row = (p: (typeof staff)[number]) => (
+    <Row key={p.id} href={`/org/${slug}/members/${p.id}`} leading={<Avatar name={p.name} />} title={p.name} meta={`${personLabel(p)} · ${athletes(counts.byAdvisor.get(p.id) ?? 0)}`} trailing={<Chevron />} wrap />
+  );
+
   return (
     <Screen title="Advisors" back={{ href: `/org/${slug}/more`, label: "More" }} lede={`Active and Transferring athletes each Admin advises. ${unassigned}`}>
-      <Section label="Admins" count={staff.length} role="people" kind="people">
-        {staff.map((p) => (
-          <Row key={p.id} href={`/org/${slug}/members/${p.id}`} leading={<Avatar name={p.name} />} title={p.name} meta={`${personLabel(p)} · ${athletes(counts.byAdvisor.get(p.id) ?? 0)}`} trailing={<Chevron />} wrap />
-        ))}
-        {staff.length === 0 && (
+      <Section label="Admins" count={active.length} role="people" kind="people">
+        {active.map(row)}
+        {active.length === 0 && (
           <EmptyState kind="people" title="No Admins Yet">
             Which cannot be right, since you are reading this.
           </EmptyState>
         )}
       </Section>
+      {invited.length > 0 && (
+        <Section label="Invited" count={invited.length} role="time" kind="clock">
+          {invited.map(row)}
+        </Section>
+      )}
     </Screen>
   );
 }

@@ -281,6 +281,20 @@ describe("LAW: the sheet lists Admins most recently used first, then by name, ne
     expect(list.map((c) => c.id)).not.toContain(OUTSIDER_ID);
   });
 
+  it("the Advisors screen counts Admins the way Members does: someone never signed in is Invited, not an Admin", async () => {
+    secondAdmin();
+    const { loadStaff } = await import("@/lib/data/staff");
+    const staff = await loadStaff((createFakeClient(data, { userId: OWNER_ID }) as never), BRIDGE_ID());
+    expect(staff.find((p) => p.id === OWNER_ID)!.signedIn).toBe(true);
+    expect(staff.find((p) => p.id === LONG_INVITE_ID)!.signedIn).toBe(false);
+    const { default: AdvisorsPage } = await import("@/app/org/[slug]/advisors/page");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const html = renderToStaticMarkup(await AdvisorsPage({ params: Promise.resolve({ slug: ORG_WITH_MODULES }) }));
+    // One Admin, one Invited, and nobody listed twice.
+    expect(html).toMatch(/Admins[\s\S]*Example Owner[\s\S]*Invited[\s\S]*an\.unusually\.long\.invited\.address/);
+    expect(html.match(/Example Owner/g)!.length).toBe(1);
+  });
+
   it("an Admin never assigned sorts last, ties go A to Z", async () => {
     const { sortAdvisorChoices } = await import("@/lib/org/advisors");
     const sorted = sortAdvisorChoices([

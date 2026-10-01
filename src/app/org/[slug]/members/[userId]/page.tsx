@@ -270,7 +270,7 @@ export default async function MemberPage({
         >
           {advises.length === 0 && (
             <EmptyState kind="athlete" title="Nobody Yet">
-              Tick athletes below to make {name} their advisor.
+              {`Tick athletes below to make ${name} their advisor.`}
             </EmptyState>
           )}
           {advises.map((a) => (
