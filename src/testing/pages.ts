@@ -169,6 +169,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // Stage 5 Phase 3, 2026-09-27: More for the org with no modules has
   // no Foundation section, and Advisors lists every Admin with a count.
   { name: "more-lite", path: "@/app/org/[slug]/more/page", props: { params: p({ slug: ORG_WITHOUT_MODULES }) }, expect: /^(?![\s\S]*Foundation)[\s\S]*Organization[\s\S]*Sign Out/ },
+  { name: "doc-ai-spending", path: "@/app/org/[slug]/doc-ai-spending/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Doc AI Spending[\s\S]*\$0\.01 of \$20\.00 this month, 1 call[\s\S]*This Month[\s\S]*\$0\.01/ },
   { name: "advisors", path: "@/app/org/[slug]/advisors/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Advisors[\s\S]*Example Owner[\s\S]*Head of Recruiting<\/span> · 2 athletes/ },
   // Stage 5 Phase 6, 2026-09-27: the activity log, Admins only. The org
   // screen lists every entry newest first and searches the summary and

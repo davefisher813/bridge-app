@@ -110,7 +110,7 @@ export default async function MorePage({ params, searchParams }: { params: Promi
             Every Admin sees the number; an owner sets the cap. */}
         {canEdit && (
           <Row
-            href={`/org/${slug}/documents`}
+            href={`/org/${slug}/doc-ai-spending`}
             kind="money"
             role={spend.exhausted ? "danger" : "contact"}
             title="Doc AI Spending"

@@ -36,3 +36,42 @@ export async function loadMonthSpend(client: Client, orgId: string, now = new Da
 export function dollars(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
+
+// One model call, for the spending screen: when, which model, what it
+// cost, and the document it read while that document still exists.
+export interface UsageCall {
+  id: string;
+  createdAt: string;
+  model: string;
+  costCents: number;
+  inputTokens: number;
+  outputTokens: number;
+  documentId: string | null;
+  documentName: string | null;
+}
+
+// This month's calls, newest first, capped at 100 rows (a month at the
+// default budget is on the order of a hundred reads).
+export async function loadMonthCalls(client: Client, orgId: string, now = new Date()): Promise<UsageCall[]> {
+  const { data } = await client
+    .from("docai_usage")
+    .select("id, created_at, model, cost_cents, input_tokens, output_tokens, document_id")
+    .eq("org_id", orgId)
+    .gte("created_at", monthStart(now))
+    .order("created_at", { ascending: false })
+    .limit(100);
+  const rows = (data ?? []) as { id: string; created_at: string; model: string; cost_cents: number | string; input_tokens: number; output_tokens: number; document_id: string | null }[];
+  const ids = [...new Set(rows.map((r) => r.document_id).filter((v): v is string => !!v))];
+  const { data: docs } = ids.length ? await client.from("documents").select("id, file_name").eq("org_id", orgId).in("id", ids) : { data: [] as { id: string; file_name: string }[] };
+  const names = new Map(((docs ?? []) as { id: string; file_name: string }[]).map((d) => [d.id, d.file_name]));
+  return rows.map((r) => ({
+    id: r.id,
+    createdAt: r.created_at,
+    model: r.model,
+    costCents: Number(r.cost_cents),
+    inputTokens: r.input_tokens,
+    outputTokens: r.output_tokens,
+    documentId: r.document_id,
+    documentName: r.document_id ? (names.get(r.document_id) ?? null) : null,
+  }));
+}
