@@ -20,6 +20,8 @@ const seams: Record<string, string> = fixture
   ? {
       "@/lib/supabase/server": "src/testing/fixtureServer.ts",
       "@/lib/supabase/middleware": "src/testing/fixtureMiddleware.ts",
+      // The model: the stub, so a fixture build cannot spend anything.
+      "@/lib/ai/anthropicCaller": "src/testing/fixtureAnthropicCaller.ts",
     }
   : {};
 
