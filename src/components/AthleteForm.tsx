@@ -75,7 +75,11 @@ function field(state: AthleteActionState, initial: AthleteFormInitialValues, key
   const fromState = state.values[key];
   if (fromState !== undefined) return String(fromState);
   const fromInitial = (initial as Record<string, unknown>)[key];
-  return fromInitial === undefined || fromInitial === null ? "" : String(fromInitial);
+  if (fromInitial === undefined || fromInitial === null) return "";
+  // A decimal that reached the form with a binary tail (3.900000095367432)
+  // is shown to two places, so Edit reads back what was typed.
+  if (typeof fromInitial === "number" && !Number.isInteger(fromInitial)) return String(Math.round(fromInitial * 100) / 100);
+  return String(fromInitial);
 }
 
 // `advisors` is the org's Admins (src/lib/data/staff.ts), the only

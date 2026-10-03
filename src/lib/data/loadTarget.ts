@@ -28,7 +28,7 @@ import {
   type TransferWindowRow,
 } from "@/lib/data/fitAdapters";
 import { scoreFit } from "@/lib/fit/score";
-import { loadFitsForPairs, rowToFit } from "@/lib/data/fits";
+import { loadFitForPair } from "@/lib/data/fits";
 import type { Athlete, FitResult, School } from "@/lib/fit/types";
 
 export interface CommunicationRow {
@@ -135,17 +135,15 @@ export async function loadTarget(orgId: string, targetId: string): Promise<Targe
     offer: targetOfferToSignal(row),
   };
 
-  const stored = (await loadFitsForPairs(supabase, orgId, [{ athleteId: athlete.id, schoolId: school.id }])).get(`${athlete.id}:${school.id}`);
-  const fit: FitResult = stored
-    ? { ...rowToFit(stored), signals }
-    : scoreFit(athlete, school, {
-        // A committed target is not still being evaluated. Scoring one
-        // produces a number that reads as a recommendation about a
-        // decision that has already been made.
-        isPlaced: row.status === "Committed",
-        transferWindows: ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit),
-        signals,
-      });
+  const fit: FitResult =
+    (await loadFitForPair(supabase, orgId, athlete.id, school.id, signals)) ??
+    // Nothing stored and nothing loadable (a row that vanished between
+    // the two reads): the bare engine with what this screen has.
+    scoreFit(athlete, school, {
+      isPlaced: row.status === "Committed",
+      transferWindows: ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit),
+      signals,
+    });
 
   return {
     target: {

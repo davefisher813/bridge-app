@@ -35,6 +35,7 @@ async function html(modulePath: string, props: unknown): Promise<string> {
   return renderToStaticMarkup(await mod.default(props));
 }
 
+const BRIDGE_ORG = "00000000-0000-0000-0000-0000000000a1";
 const params = (extra: Record<string, string> = {}) => Promise.resolve({ slug: ORG_WITH_MODULES, ...extra });
 const count = (s: string, needle: string) => s.split(needle).length - 1;
 
@@ -153,5 +154,104 @@ describe("a refused document delete says why on the screen it lands on", () => {
   it("the reason is text, never markup", async () => {
     const out = await html(LIST, { params: params(), searchParams: Promise.resolve({ error: "<script>alert(1)</script>" }) });
     expect(out).not.toContain("<script>alert(1)</script>");
+  });
+});
+
+// The 2026-10-03 functional QA (round 3).
+
+describe("one athlete and school show one fit score everywhere", () => {
+  const TARGET = "@/app/org/[slug]/board/[id]/page";
+
+  it("the target page headline is the stored score the lists show", async () => {
+    const stored = (data.athlete_school_fits ?? []).find((f) => f.athlete_id === IDS.athlete && f.school_id === IDS.school)!;
+    const out = await html(TARGET, { params: params({ id: IDS.target }) });
+    expect(out).toContain(`>${stored.score}<`);
+  });
+
+  it("with nothing stored, the live compute reads the same inputs a recompute stores", async () => {
+    const { loadFitForPair, recomputeFitsForAthlete } = await import("@/lib/data/fits");
+    const client = createFakeClient(data, { userId: OWNER_ID });
+    data.athlete_school_fits = (data.athlete_school_fits ?? []).filter((f) => !(f.athlete_id === IDS.athlete && f.school_id === IDS.school));
+    const live = await loadFitForPair(client as never, BRIDGE_ORG, IDS.athlete, IDS.school);
+    const re = await recomputeFitsForAthlete(client as never, BRIDGE_ORG, IDS.athlete);
+    expect(re.error).toBeNull();
+    const stored = (data.athlete_school_fits ?? []).find((f) => f.athlete_id === IDS.athlete && f.school_id === IDS.school)!;
+    expect(live).not.toBeNull();
+    expect(live!.score).toBe(stored.score);
+  });
+});
+
+describe("a logged number that does not apply is not reported as nothing on file", () => {
+  const school = {
+    id: "s",
+    name: "Fixture State University",
+    division: "D2",
+    state: "CT",
+    sportsSponsored: ["baseball"],
+    academics: { gpaMin: 2.5, gpaAvg: 3.2 },
+    financials: { athleticScholarship: "partial", avgAthleticAid: 9000, avgMeritAid: 6000, avgNeedAid: 4000, outstateTotal: 38000, instateTotal: 24000 },
+  };
+  const athlete = (position: string, measurables: Record<string, number>) => ({ id: "a", orgId: "o", recruitType: "hs", name: "T", sport: "baseball", position, gpa: 3.4, gpaVerified: true, detail: { kind: "hs", gradYear: 2027 }, measurables });
+
+  it("FB velo on a shortstop says it is not scored for that position and names what is", async () => {
+    const { scoreAthletic } = await import("@/lib/fit/athletic");
+    const r = scoreAthletic(athlete("SS", { fbVelo: 88 }) as never, school as never);
+    const text = r.warnings.join(" ");
+    expect(text).not.toMatch(/No measurables on file/);
+    expect(text).toMatch(/not ones this position is scored on/);
+    expect(text).toMatch(/60 time/);
+  });
+
+  it("nothing logged still says nothing is on file", async () => {
+    const { scoreAthletic } = await import("@/lib/fit/athletic");
+    const r = scoreAthletic(athlete("SS", {}) as never, school as never);
+    expect(r.warnings.join(" ")).toMatch(/No measurables on file/);
+  });
+
+  it("FB velo on a pitcher counts, with no such warning", async () => {
+    const { scoreAthletic } = await import("@/lib/fit/athletic");
+    const r = scoreAthletic(athlete("RHP", { fbVelo: 88 }) as never, school as never);
+    expect(r.warnings.join(" ")).not.toMatch(/No measurables|not ones this position/);
+  });
+});
+
+describe("a GPA reads back as typed, never with a binary tail", () => {
+  it("3.900000095367432 is stored and shown as 3.9", async () => {
+    const { parseAthleteForm } = await import("@/lib/validation/athlete");
+    const fd = new FormData();
+    fd.set("name", "Test Athlete");
+    fd.set("sport", "baseball");
+    fd.set("recruitType", "hs");
+    fd.set("gpa", "3.900000095367432");
+    const r = parseAthleteForm(fd);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.values.gpa).toBe(3.9);
+  });
+
+  it("the Edit form shows a float32 tail to two places", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { createElement } = await import("react");
+    const { AthleteForm } = await import("@/components/AthleteForm");
+    const out = renderToStaticMarkup(createElement(AthleteForm, { action: async () => ({ errors: {}, values: {} }), submitLabel: "Save", editing: true, initialValues: { name: "T", sport: "baseball", recruitType: "hs", gpa: 3.900000095367432 }} as never));
+    expect(out).toContain('value="3.9"');
+    expect(out).not.toContain("3.9000000");
+  });
+});
+
+describe("how long since a target changed is said like a person would", () => {
+  it("today reads updated today, never 0 days", async () => {
+    const { noUpdateText } = await import("@/lib/datetime/since");
+    expect(noUpdateText(0)).toBe("updated today");
+    expect(noUpdateText(1)).toBe("no update in 1 day");
+    expect(noUpdateText(9)).toBe("no update in 9 days");
+  });
+});
+
+describe("two Admins with one name can be told apart in the Advisor picker", () => {
+  it("the add-athlete label carries the email, and not twice when the name is the email", async () => {
+    const { advisorOptionLabel } = await import("@/lib/data/staff");
+    expect(advisorOptionLabel({ name: "Dave Fisher", email: "dave@bffsa.org" })).toBe("Dave Fisher (dave@bffsa.org)");
+    expect(advisorOptionLabel({ name: "Dave Fisher", email: "dfisher2424@icloud.com", title: "Director" })).toBe("Dave Fisher, Director (dfisher2424@icloud.com)");
+    expect(advisorOptionLabel({ name: "a@b.org", email: "a@b.org" })).toBe("a@b.org");
   });
 });

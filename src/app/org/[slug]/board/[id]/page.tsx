@@ -26,13 +26,11 @@ import {
   communicationsToSignals,
   schoolRowToFitSchool,
   targetOfferToSignal,
-  transferWindowRowToFit,
   visitsToVisitCount,
   type AthleteRow,
   type SchoolRow,
-  type TransferWindowRow,
 } from "@/lib/data/fitAdapters";
-import { scoreFit } from "@/lib/fit/score";
+import { loadFitForPair } from "@/lib/data/fits";
 import type { DimensionResult, FitResult } from "@/lib/fit/types";
 import { closedSentence, isPlacedStatus, isScoredStatus, placedSentence, placementAthlete, placementOf } from "@/lib/placement";
 import { Body, Figure, Label, LinkButton, Row, Screen, Section, Stack } from "@/components/kit";
@@ -69,7 +67,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
 
   const supabase = await createClient();
 
-  const [{ data: target }, { data: windowRows }, { data: commRows }, { data: visitRows }] = await Promise.all([
+  const [{ data: target }, { data: commRows }, { data: visitRows }] = await Promise.all([
     supabase
       .from("recruiting_targets")
       .select(
@@ -78,7 +76,6 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
       .eq("id", id)
       .eq("org_id", org.id)
       .single(),
-    supabase.from("transfer_windows").select("sport, division, season_year, window_label, opens_on, closes_on"),
     supabase.from("target_communications").select("target_id, kind, notes, occurred_on").eq("target_id", id).eq("org_id", org.id).order("occurred_on", { ascending: false }),
     supabase.from("target_visits").select("target_id, visit_type, impression, visit_date").eq("target_id", id).eq("org_id", org.id).order("visit_date", { ascending: false }),
   ]);
@@ -119,16 +116,14 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
     placedLine = p ? placedSentence(p.state, p.name, p) : isPlacedStatus(athleteRow.status) ? placedSentence(athleteRow.status, null) : closedSentence(athleteRow.status, athlete.name);
   }
 
+  // The stored fit the lists show, so the headline here is the same
+  // number as on Targets and Matches (src/lib/data/fits.ts).
   const fit: FitResult | null = quiet
     ? null
-    : scoreFit(athlete, school, {
-        isPlaced: (target as { status: string }).status === "Committed",
-        transferWindows: ((windowRows ?? []) as TransferWindowRow[]).map(transferWindowRowToFit),
-        signals: {
-          ...communicationsToSignals(comms.map((c) => ({ target_id: c.target_id, kind: c.kind }))),
-          visitCount: visitsToVisitCount(visits.map((v) => ({ target_id: v.target_id }))),
-          offer: targetOfferToSignal(target as { offer_type: string | null; offer_scholarship_percent: number | null }),
-        },
+    : await loadFitForPair(supabase, org.id, athlete.id, school.id, {
+        ...communicationsToSignals(comms.map((c) => ({ target_id: c.target_id, kind: c.kind }))),
+        visitCount: visitsToVisitCount(visits.map((v) => ({ target_id: v.target_id }))),
+        offer: targetOfferToSignal(target as { offer_type: string | null; offer_scholarship_percent: number | null }),
       });
 
   const status = (target as { status: string }).status;
