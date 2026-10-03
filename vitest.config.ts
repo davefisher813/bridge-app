@@ -14,5 +14,12 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    // The default is 5 seconds. The first test in a file that renders a page
+    // or an action pays for compiling the app's modules, which on a cold
+    // machine or a busy one runs past that: four laws timed out at exactly
+    // 5000ms on a run where every one of them passes in well under a second
+    // once warm. A slow first import is not a failure, so allow for it.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });
