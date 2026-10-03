@@ -153,6 +153,9 @@ export function scoreAthletic(athlete: Athlete, school: School): DimensionResult
   let rawScore = 0;
   let hasConflict = false;
   const used: string[] = [];
+  // What this position is scored on, for the message when numbers are
+  // logged but none of them is one of these.
+  let scoredOn: string[] = [];
 
   const record = (r: CheckResult | null, key?: string) => {
     if (!r) return;
@@ -179,6 +182,7 @@ export function scoreAthletic(athlete: Athlete, school: School): DimensionResult
     if (!tierBm) {
       return { score: 50, confidence: "unknown", veto: false, reasons, warnings: ["No benchmarks for this position/division"] };
     }
+    scoredOn = posGroup === "rhp" || posGroup === "lhp" ? ["FB velo", "Strike %"] : posGroup === "catcher" ? ["60 time", "Exit velo", "Arm strength", "Pop time"] : ["60 time", "Exit velo", "Arm strength"];
     const floor = primaryFloor(posGroup, m, tierBm);
     if (floor) {
       return { score: 15, confidence: combinedConfidence(posGroup === "rhp" || posGroup === "lhp" ? ["fbVelo"] : posGroup === "catcher" ? ["popTime"] : ["sixty"], athlete.measurableConfidence ?? {}), veto: true, reasons, warnings: [floor] };
@@ -204,6 +208,7 @@ export function scoreAthletic(athlete: Athlete, school: School): DimensionResult
     if (specs.length === 0) {
       return { score: 50, confidence: "unknown", veto: false, reasons, warnings: [`Athletic benchmarks for ${sport || "this sport"} are not yet modeled: academic and financial fit still apply`] };
     }
+    scoredOn = specs.map((spec) => spec.label);
     for (const spec of specs) {
       const actual = m[spec.key];
       record(runCheck(actual, spec.threshold * mult, spec.lowerIsBetter, spec.label, spec.unit), spec.key);
@@ -214,11 +219,18 @@ export function scoreAthletic(athlete: Athlete, school: School): DimensionResult
   const grades = gradeBlend(athlete, posGroupForGrades);
 
   if (checks === 0) {
+    // Numbers can be logged and still not count: a pitcher's FB velo on
+    // a position player, say. Say that, and what this position is scored
+    // on, instead of claiming nothing is on file.
+    const logged = Object.values(m).some((v) => Number.isFinite(v));
+    const why = logged
+      ? `The logged numbers are not ones this position is scored on${scoredOn.length ? ` (${scoredOn.join(", ")})` : ""}`
+      : "No measurables on file";
     if (grades) {
       reasons.push(grades.note);
-      return { score: clampScore(grades.score), confidence: "low", veto: false, reasons, warnings: ["No measurables on file: the athletic score is the staff grades alone"] };
+      return { score: clampScore(grades.score), confidence: "low", veto: false, reasons, warnings: [`${why}: the athletic score is the staff grades alone`] };
     }
-    return { score: 50, confidence: "unknown", veto: false, reasons, warnings: ["No measurables on file: enter stats for an accurate athletic fit"] };
+    return { score: 50, confidence: "unknown", veto: false, reasons, warnings: [`${why}: enter stats for an accurate athletic fit`] };
   }
 
   const metricScore = (rawScore / (checks * 2)) * 100;

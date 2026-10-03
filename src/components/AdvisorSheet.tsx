@@ -71,7 +71,7 @@ export function AdvisorSheet({
         <Form action={action}>
           <Stack gap={3}>
             {shown.map((c) => (
-              <Option key={c.id} name={field} value={c.id} selected={c.id === currentId} title={c.title} meta={c.id === currentId ? "Assigned Now" : c.meta} />
+              <Option key={c.id} name={field} value={c.id} selected={c.id === currentId} title={c.title} meta={c.id === currentId ? `Assigned Now${c.meta ? ` · ${c.meta}` : ""}` : c.meta} />
             ))}
             {shown.length === 0 && <Label>{choices.length === 0 ? empty : "Nobody matches that search."}</Label>}
             {currentId && clearLabel && (

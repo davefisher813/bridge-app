@@ -300,3 +300,36 @@ export async function loadFitsForPairs(client: Client, orgId: string, pairs: { a
   for (const r of (data ?? []) as FitRow[]) out.set(`${r.athlete_id}:${r.school_id}`, r);
   return out;
 }
+
+// The one fit a target screen shows for one athlete and school: the
+// stored row when there is one (what the lists, Matches and the
+// dimension pages read), else a compute with the SAME inputs the stored
+// rows are built from (logged metrics, grades, goal, the org's preset,
+// positional need, an applied award letter, transfer windows). A screen
+// that scored with fewer inputs showed 68 for a pair every list showed
+// as 78. `signals` (offers, visits, comms) ride along either way; they
+// are shown, never blended into the score.
+export async function loadFitForPair(client: Client, orgId: string, athleteId: string, schoolId: string, signals?: FitResult["signals"], now = new Date()): Promise<FitResult | null> {
+  const stored = (await loadFitsForPairs(client, orgId, [{ athleteId, schoolId }])).get(`${athleteId}:${schoolId}`);
+  if (stored) return { ...rowToFit(stored), signals };
+  const [ctx, { data: athleteRow }, schools] = await Promise.all([
+    loadOrgContext(client, orgId),
+    client.from("athletes").select(ATHLETE_FIT_COLUMNS).eq("id", athleteId).eq("org_id", orgId).maybeSingle(),
+    loadSchools(client, schoolId),
+  ]);
+  const school = schools[0];
+  if (!athleteRow || !school) return null;
+  const { data: metricRows } = await client.from("athlete_metrics").select("id, athlete_id, metric, value, measured_on, source").eq("athlete_id", athleteId);
+  const athlete = athleteRowToFitAthlete(athleteRow as AthleteRow, (metricRows ?? []) as MetricRow[]);
+  const status = ctx.targetStatusByPair.get(`${athleteId}:${schoolId}`);
+  const fit = scoreFit(athlete, school, {
+    preset: ctx.preset,
+    positionalNeed: ctx.needBySchool.get(school.id) ?? [],
+    transferWindows: ctx.windows,
+    isPlaced: status === "Committed",
+    today: now,
+    aid: ctx.aidByPair.get(`${athleteId}:${schoolId}`),
+    signals,
+  });
+  return fit;
+}

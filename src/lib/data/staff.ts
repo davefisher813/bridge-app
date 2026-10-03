@@ -63,8 +63,12 @@ export async function loadAdvisorCounts(supabase: Client, orgId: string): Promis
   return countByAdvisor((data ?? []) as { advisor_id: string | null; status: string }[]);
 }
 
-// The Advisor picker's option label: "Name, Title" when a Title is set.
-export function advisorOptionLabel(p: { name: string; title?: string | null }): string {
+// The Advisor picker's option label: "Name, Title" when a Title is set,
+// then the email so two people with the same name can be told apart (the
+// Members screen shows it the same way). When the name on file is the
+// email itself, it is not said twice.
+export function advisorOptionLabel(p: { name: string; email?: string | null; title?: string | null }): string {
   const t = cleanTitle(p.title);
-  return t ? `${p.name}, ${t}` : p.name;
+  const base = t ? `${p.name}, ${t}` : p.name;
+  return p.email && p.email !== p.name ? `${base} (${p.email})` : base;
 }

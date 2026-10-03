@@ -1,3 +1,4 @@
+import { noUpdateText } from "@/lib/datetime/since";
 import { orgToday } from "@/lib/datetime/today";
 import { notFound, redirect } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -318,7 +319,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
                 kind="school"
                 role={statusRole(t.status)}
                 title={t.athleteName}
-                meta={`${t.schoolName} · no update in ${t.days} ${t.days === 1 ? "day" : "days"}`}
+                meta={`${t.schoolName} · ${noUpdateText(t.days)}`}
                 trailing={<StatusPill status={t.status} />}
                 wrap
               />

@@ -264,7 +264,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
       searchLabel="Search Admins"
       currentId={advisor?.id ?? null}
       clearLabel={advisor ? "Clear Advisor" : undefined}
-      choices={advisors.map((a) => ({ id: a.id, title: a.name, meta: `${personLabel(a)}${a.advising ? ` · ${a.advising} ${a.advising === 1 ? "athlete" : "athletes"}` : ""}`, keywords: a.email }))}
+      choices={advisors.map((a) => ({ id: a.id, title: a.name, meta: `${personLabel(a)} · ${a.email}${a.advising ? ` · ${a.advising} ${a.advising === 1 ? "athlete" : "athletes"}` : ""}`, keywords: a.email }))}
       // Inviting an Admin is an owner's (inviteMember, members/new), so
       // the door is offered to the same people who may go through it.
       add={user.role === "owner" ? { href: `/org/${slug}/members/new?role=owner&assignAthleteId=${id}`, label: "Add Admin" } : undefined}

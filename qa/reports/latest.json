@@ -1,60 +1,73 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "ca02966",
-  "commitFull": "ca029660071859eb6f167f6b6494245486a0d581",
-  "branch": "main",
-  "remoteBranches": [],
-  "shipped": false,
-  "dirty": false,
-  "onMain": false,
-  "startedAt": "2026-09-27T19:34:45.426Z",
-  "durationMs": 24713,
-  "result": "pass",
-  "stagesNotRun": 0,
+  "commit": "5879ee9",
+  "commitFull": "5879ee9ce89be84e82b671029dbdf4838372c4e1",
+  "branch": "claude/qa-round-2",
+  "remoteBranches": [
+    "origin/main"
+  ],
+  "shipped": true,
+  "dirty": true,
+  "onMain": true,
+  "startedAt": "2026-10-03T15:27:49.178Z",
+  "durationMs": 12350,
+  "result": "fail",
+  "stagesNotRun": 3,
   "allowlistFired": [],
   "stages": [
     {
       "name": "tests",
-      "result": "pass",
+      "result": "fail",
       "counts": {
-        "pass": 1774,
-        "fail": 0,
+        "pass": 2326,
+        "fail": 1,
         "skipped": 0,
         "todo": 0,
-        "suitesFailed": 0,
-        "filesOnDisk": 67,
-        "filesLoaded": 67
+        "suitesFailed": 2,
+        "filesOnDisk": 79,
+        "filesLoaded": 79
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
       "testsPerFile": {
-        "src/laws/actionRun.test.ts": 163,
+        "src/laws/accessLaws.test.ts": 12,
+        "src/laws/actionRun.test.ts": 181,
+        "src/laws/activityLaws.test.ts": 17,
+        "src/laws/advisorLaws.test.ts": 26,
+        "src/laws/assignmentLaws.test.ts": 49,
         "src/laws/athleteAutofillLaws.test.ts": 24,
         "src/laws/athleteCrudLaws.test.ts": 23,
         "src/laws/autofillLaws.test.ts": 21,
-        "src/laws/copyLaws.test.ts": 2,
+        "src/laws/copyLaws.test.ts": 4,
         "src/laws/dataLaws.test.ts": 12,
+        "src/laws/dateLaws.test.ts": 5,
         "src/laws/documentLaws.test.ts": 32,
         "src/laws/fitLaws.test.ts": 11,
+        "src/laws/fundraisingActions.test.ts": 84,
         "src/laws/fundraisingLaws.test.ts": 13,
         "src/laws/governanceLaws.test.ts": 9,
         "src/laws/integrityLaws.test.ts": 17,
         "src/laws/kitLaws.test.ts": 12,
         "src/laws/laws.test.ts": 13,
-        "src/laws/matchingLaws.test.ts": 26,
-        "src/laws/migrationLaws.test.ts": 3,
+        "src/laws/matchingLaws.test.ts": 41,
+        "src/laws/migrationLaws.test.ts": 5,
+        "src/laws/moreLaws.test.ts": 10,
         "src/laws/ncaaLaws.test.ts": 36,
         "src/laws/orgCrudLaws.test.ts": 53,
-        "src/laws/pageRender.test.ts": 654,
+        "src/laws/otherActions.test.ts": 75,
+        "src/laws/pageRender.test.ts": 797,
         "src/laws/publicPaths.test.ts": 2,
+        "src/laws/qaFixes.test.ts": 25,
         "src/laws/referenceAutofillLaws.test.ts": 17,
         "src/laws/referenceCrudLaws.test.ts": 33,
         "src/laws/schemaLaws.test.ts": 5,
         "src/laws/sharedDirectoryLaws.test.ts": 18,
         "src/laws/stylingLaws.test.ts": 19,
-        "src/lib/ai/anthropicCaller.test.ts": 11,
+        "src/lib/ai/anthropicCaller.test.ts": 12,
         "src/lib/checkins.test.ts": 9,
+        "src/lib/data/activity.test.ts": 12,
+        "src/lib/data/assignments.test.ts": 32,
         "src/lib/data/eligibilityLoop.test.ts": 10,
         "src/lib/data/fitAdapters.test.ts": 14,
         "src/lib/data/lookups.test.ts": 9,
@@ -75,13 +88,14 @@
         "src/lib/fit/ncaa/approvedListPaste.test.ts": 17,
         "src/lib/fit/ncaa/auditRegressions.test.ts": 22,
         "src/lib/fit/ncaa/ncaa.test.ts": 38,
+        "src/lib/fit/rank.test.ts": 24,
         "src/lib/fit/score.smoke.test.ts": 6,
         "src/lib/fit/sports.test.ts": 4,
         "src/lib/fundraising/rollup.test.ts": 30,
         "src/lib/governance/giveGet.test.ts": 24,
         "src/lib/journey.test.ts": 7,
         "src/lib/org/modules.test.ts": 4,
-        "src/lib/org/roleLabels.test.ts": 7,
+        "src/lib/org/roleLabels.test.ts": 6,
         "src/lib/schools/csv.test.ts": 45,
         "src/lib/validation/athlete.test.ts": 18,
         "src/lib/validation/checkin.test.ts": 7,
@@ -89,7 +103,7 @@
         "src/lib/validation/contact.test.ts": 5,
         "src/lib/validation/gift.test.ts": 19,
         "src/lib/validation/gradingScale.test.ts": 19,
-        "src/lib/validation/member.test.ts": 4,
+        "src/lib/validation/member.test.ts": 6,
         "src/lib/validation/message.test.ts": 3,
         "src/lib/validation/school.test.ts": 6,
         "src/lib/validation/target.test.ts": 7,
@@ -97,59 +111,13 @@
         "src/lib/validation/visit.test.ts": 3,
         "src/testing/fakeSupabase.test.ts": 2
       },
-      "failing": [],
-      "problems": []
-    },
-    {
-      "name": "build",
-      "result": "pass",
-      "boot": {
-        "up": true,
-        "answers": {
-          "/login": {
-            "status": 200,
-            "location": null
-          },
-          "/login?mode=link": {
-            "status": 200,
-            "location": null
-          },
-          "/unauthorized": {
-            "status": 200,
-            "location": null
-          },
-          "/": {
-            "status": 307,
-            "location": "/login"
-          },
-          "/org/qa-probe": {
-            "status": 307,
-            "location": "/login"
-          }
-        },
-        "ms": 1334
-      },
-      "errors": [],
-      "warnings": [],
-      "deprecations": [],
-      "allowlistFired": []
-    },
-    {
-      "name": "lint",
-      "result": "pass",
-      "findings": [],
-      "baselined": {
-        "src/laws/laws.test.ts": 2
-      },
-      "baselineTotal": 2,
-      "burndown": [],
-      "touchedFiles": 23,
-      "filesScanned": 522
-    },
-    {
-      "name": "types",
-      "result": "pass",
-      "output": []
+      "failing": [
+        "LAW: an Admin sets a Title, it shows where the person is named, and nobody else can set one the advisor's Title shows on the Athlete screen, the athlete page and the Advisor picker (src/laws/accessLaws.test.ts)"
+      ],
+      "problems": [
+        "1 failing",
+        "2 suite(s) failed"
+      ]
     }
   ],
   "manual": {
@@ -162,8 +130,8 @@
         "pass": "not run"
       }
     ],
-    "result": "open",
-    "reason": "checklist.md covers this commit but row 12 is still open (not run)"
+    "result": "provisional",
+    "reason": "checklist.md is for commit 8e1a9ea, not this one"
   },
   "preview": {
     "applicable": null,

@@ -46,6 +46,14 @@ const numOrUndef = (v: FormDataEntryValue | null) => {
   return Number.isNaN(n) ? undefined : n;
 };
 
+// A GPA is read to two places (the column is numeric(3,2)). Rounding on
+// the way in keeps a stray binary tail such as 3.900000095367432 from
+// ever being written or shown back.
+const gpaOrUndef = (v: FormDataEntryValue | null) => {
+  const n = numOrUndef(v);
+  return n === undefined ? undefined : Math.round(n * 100) / 100;
+};
+
 const strOrUndef = (v: FormDataEntryValue | null) => (v === null || v === "" ? undefined : String(v));
 
 // A row id the form carries in a hidden field, set on the client when a
@@ -114,7 +122,7 @@ export function parseAthleteForm(formData: FormData): AthleteFormResult {
     sport: String(formData.get("sport") ?? ""),
     position: strOrUndef(formData.get("position")),
     recruitType: String(formData.get("recruitType") ?? "hs"),
-    gpa: numOrUndef(formData.get("gpa")),
+    gpa: gpaOrUndef(formData.get("gpa")),
     gpaVerified: formData.get("gpaVerified") === "on",
     status: String(formData.get("status") ?? "Active"),
     advisorId: strOrUndef(formData.get("advisorId")),
@@ -164,7 +172,7 @@ export function parseAthleteForm(formData: FormData): AthleteFormResult {
           kind: "transfer" as const,
           currentSchool: String(formData.get("currentSchool") ?? ""),
           currentDivision: strOrUndef(formData.get("currentDivision")),
-          collegeGpa: numOrUndef(formData.get("collegeGpa")),
+          collegeGpa: gpaOrUndef(formData.get("collegeGpa")),
           creditHoursCompleted: numOrUndef(formData.get("creditHoursCompleted")),
           eligibilityYearsRemaining: numOrUndef(formData.get("eligibilityYearsRemaining")) ?? 0,
           portalEntryDate: strOrUndef(formData.get("portalEntryDate")),

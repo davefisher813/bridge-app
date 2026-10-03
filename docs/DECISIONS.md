@@ -3822,3 +3822,31 @@ reports a refusal.
 `src/laws/qaFixes.test.ts`; the expected-failure that recorded the seat bug
 is now an ordinary test. The reason is passed as text and rendered as text,
 as every other `?error=` is.
+
+## 2026-10-03: QA round 3 (one fit score, clearer messages)
+
+**Decision.** (1) The target page scored the pair live from the athlete
+row alone (no logged metrics, grades, preset, positional need or applied
+aid), so it showed 68 where every list, built from the stored fit, showed
+78. A target screen now reads the stored fit and, only when none exists,
+computes with the same inputs a recompute uses (`loadFitForPair` in
+`src/lib/data/fits.ts`); `loadTarget` and the target page both use it.
+(2) The Athletic warning "No measurables on file" is said only when
+nothing is logged; numbers that do not apply to the position (FB velo on a
+shortstop) now say so and name what the position is scored on. (3) The
+Advisor picker (add-athlete dropdown and the Assign/Change sheet) shows
+each Admin's email, so two people with one name can be told apart. (4)
+GPA is rounded to two places on the way in and on the way into the Edit
+form, so a float tail (3.900000095367432) cannot be stored or shown; the
+column was already numeric(3,2) and no float column exists. (5) A target
+touched today reads "updated today", not "no update in 0 days".
+
+**Investigated, no code change.** Doc AI budget: both orgs hold the
+default 2000 cents; nothing in the code, no cron and no route writes the
+budget or spends in the background. Spend rows come only from document
+uploads (8 uploads by the elite-squad QA run on 2026-10-03, about 23
+cents). The budget form has no audit trail, so who set $25 first cannot
+be known. Preferences: no such screen or reference exists in the repo.
+
+**Consequences.** Held by `src/laws/qaFixes.test.ts`, each case proven by
+planting the old behavior and watching it fail.
