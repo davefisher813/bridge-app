@@ -1322,15 +1322,17 @@ async function undoApply(orgId: string, documentId: string, changes: AppliedChan
 // nothing left to undo it. The files go first, and the row only once
 // they are gone, so a row is never deleted while its file stays behind
 // with nothing pointing at it.
-export async function deleteDocument(slug: string, documentId: string): Promise<{ ok: boolean; error?: string }> {
+// `gone` is set when there is no such document to go back to (another org's,
+// or already deleted), so the caller can send the person somewhere that exists.
+export async function deleteDocument(slug: string, documentId: string): Promise<{ ok: boolean; error?: string; gone?: boolean }> {
   const org = await getOrgBySlug(slug);
-  if (!org) return { ok: false, error: "Org not found." };
+  if (!org) return { ok: false, error: "Org not found.", gone: true };
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
   const { data } = await supabase.from("documents").select("id, status, storage_paths").eq("id", documentId).eq("org_id", org.id).maybeSingle();
   const doc = data as { id: string; status: string; storage_paths: string[] | null } | null;
-  if (!doc) return { ok: false, error: "Document not found." };
+  if (!doc) return { ok: false, error: "That document is already gone.", gone: true };
   if (doc.status !== "discarded" && doc.status !== "failed") {
     return { ok: false, error: "Discard this document first. Discarding puts back anything it changed; then it can be deleted." };
   }
@@ -1356,9 +1358,15 @@ export async function deleteDocument(slug: string, documentId: string): Promise<
 
 // The form wrapper the review screen posts to: deletes, then goes back to
 // the list, since the page it was on no longer exists.
+//
+// A delete that is refused used to do nothing and say nothing. It now goes
+// back to the document with the reason, or to the list when the document is
+// no longer there to go back to.
 export async function deleteDocumentAndLeave(slug: string, documentId: string): Promise<void> {
   const result = await deleteDocument(slug, documentId);
   if (result.ok) redirect(`/org/${slug}/documents`);
+  const reason = encodeURIComponent(result.error ?? "That document could not be deleted.");
+  redirect(result.gone ? `/org/${slug}/documents?error=${reason}` : `/org/${slug}/documents/${documentId}?error=${reason}`);
 }
 
 export interface ExtractedEditState {

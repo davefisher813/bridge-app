@@ -90,9 +90,11 @@ function DocumentRow({ slug, doc, role }: { slug: string; doc: DocRow; role: Rol
   );
 }
 
-export default async function DocumentsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string }> }) {
+export default async function DocumentsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string; error?: string }> }) {
   const { slug } = await params;
-  const q = (searchParams ? (await searchParams).q : "")?.trim().toLowerCase() ?? "";
+  const sp = searchParams ? await searchParams : {};
+  const q = sp.q?.trim().toLowerCase() ?? "";
+  const error = sp.error;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   await requireRole(org.id, STAFF_ROLES);
@@ -126,6 +128,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
 
   return (
     <Screen title="Documents" action={<AddButton href={`/org/${slug}/documents/new`} label="Add" />}>
+      {error && <Notice tone="danger" title={error} />}
       {stubbed && (
         <Notice tone="warning" title="Simulated Reading">
           No AI model is connected yet. Anything here was made up by the stand-in, not read off a page.

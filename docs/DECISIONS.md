@@ -3802,3 +3802,23 @@ the validation message says "zero or more" (held as an expected failure in
 `otherActions.test.ts`); a failed `deleteDocumentAndLeave` does nothing and
 says nothing; the fake client did not give `docai_usage` rows a
 `created_at`, so a logged call was invisible to the monthly total in tests.
+
+## 2026-10-03: board seats of zero, and a refused document delete says why
+
+**Decision.** Two defects found while writing the action tests are fixed.
+(1) The board form read its seat counts as `Number(x) || default`, which
+treats a typed 0 as blank (and text as blank), so a minimum of zero could
+never be saved although the database allows it and the message said "zero
+or more". Blank now takes the tier's default and anything typed is a number:
+0 is accepted for the minimum, text is refused, and a maximum must be at
+least 1. (2) `deleteDocumentAndLeave` did nothing, and said nothing, when
+the delete was refused (a document not yet discarded, a row that would not
+delete). It now goes back to the document with the reason in a warning at
+the top, or to the Documents list when the document is no longer there.
+Both pages read the reason from `?error=`, the way the rest of the app
+reports a refusal.
+
+**Consequences.** Held by `src/laws/otherActions.test.ts` and
+`src/laws/qaFixes.test.ts`; the expected-failure that recorded the seat bug
+is now an ordinary test. The reason is passed as text and rendered as text,
+as every other `?error=` is.

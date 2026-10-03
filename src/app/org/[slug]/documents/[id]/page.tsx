@@ -161,8 +161,9 @@ function displayFields(extracted: Record<string, unknown> | null): { label: stri
     .filter((f) => f.value !== "");
 }
 
-export default async function DocumentPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
+export default async function DocumentPage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ error?: string }> }) {
   const { slug, id } = await params;
+  const error = searchParams ? (await searchParams).error : undefined;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   await requireRole(org.id, STAFF_ROLES);
@@ -280,6 +281,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
       lede={`${doc.file_name}${doc.page_count ? ` · ${doc.page_count} page${doc.page_count === 1 ? "" : "s"}` : ""} · from ${SOURCE_LABEL[doc.source_role] ?? doc.source_role}`}
       action={chip}
     >
+      {error && <Notice tone="danger" title={error} />}
       {isPending && refusal ? (
         <Notice tone="warning" title={stubRead ? "This Reading Can't Be Applied" : stubbed ? "AI Key Not Set" : "Reader Not Recorded"}>
           {refusal}
