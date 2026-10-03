@@ -145,10 +145,12 @@ export function createAnthropicCaller(opts: AnthropicCallerOptions = {}): ModelC
         // ceiling, so the floor is high enough that an answer is never
         // cut off mid-brace.
         max_tokens: Math.max(call.maxTokens, 16000),
-        // Transcription, not composition: the same page should read the
-        // same way twice, and a retry after a network blip should not
-        // produce a different GPA.
-        temperature: 0,
+        // No sampling parameters (temperature, top_p, top_k) on purpose:
+        // the current models reject them with a 400 ("`temperature` is
+        // deprecated for this model"), which failed every document read in
+        // production on 2026-09-30. Repeatability comes from the schema
+        // check on the answer and the document's content hash, not from
+        // the sampler. src/lib/ai/anthropicCaller.test.ts holds this.
         system: call.system,
         messages: [{ role: "user", content }],
       });

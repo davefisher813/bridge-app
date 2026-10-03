@@ -82,6 +82,27 @@ describe("the real model caller", () => {
     expect(usages[0]!.costCents).toBe(1.35);
   });
 
+  // Production, 2026-09-30: every read failed with 400 invalid_request_error
+  // "`temperature` is deprecated for this model" on claude-haiku-4-5. The
+  // fake below refuses the request the way the API does, so a sampling
+  // parameter creeping back into the call fails here and not on an upload.
+  it("sends none of the sampling parameters newer models reject, whichever model reads", async () => {
+    const REJECTED = ["temperature", "top_p", "top_k"];
+    const strict: MessagesClient = {
+      messages: {
+        async create(params) {
+          const sent = REJECTED.filter((k) => k in (params as unknown as Record<string, unknown>));
+          if (sent.length) throw Object.assign(new Error(`400 {"type":"error","error":{"type":"invalid_request_error","message":"\`${sent[0]}\` is deprecated for this model."}}`), { status: 400 });
+          return fakeClient({}).messages.create(params);
+        },
+      },
+    };
+    for (const model of ["claude-haiku-4-5-20251001", "claude-haiku-4-5", "claude-opus-5", "claude-sonnet-5"]) {
+      const text = await createAnthropicCaller({ client: strict })(call({ model }));
+      expect(text, model).toBe("{\"ok\":true}");
+    }
+  });
+
   it("a refusal is an error, and it is still charged", async () => {
     const usages: ModelUsage[] = [];
     const caller = createAnthropicCaller({
