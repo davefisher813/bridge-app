@@ -39,13 +39,14 @@ test.describe("recruiting matches", () => {
     await expect(page.getByText(/Scores · Premier/).first()).toBeVisible();
   });
 
-  test("a metric that is not a number is refused and nothing is logged", async ({ page }) => {
+  test("an impossible metric is refused with a sentence, and nothing is logged", async ({ page }) => {
     await page.goto(org(`/roster/${ATHLETE}/metrics`));
+    const before = await page.getByText(/\d+ entries logged/).textContent();
     await page.locator("[name=metric]").selectOption({ label: "FB Velo" });
-    await page.locator("[name=value]").fill("fast");
+    await page.locator("[name=value]").fill("99999");
     await page.getByRole("button", { name: "Log Metric" }).click();
-    await expect(page.getByText(/number|valid|between/i).first()).toBeVisible();
-    await expect(page.getByText("fast")).toHaveCount(0);
+    await expect(page.getByText("That number is too large")).toBeVisible();
+    await expect(page.getByText(/\d+ entries logged/)).toHaveText(before!);
   });
 
   test("Recalculate All Matches asks first, then says how many it rescored", async ({ page }) => {

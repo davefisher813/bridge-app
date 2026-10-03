@@ -21,9 +21,11 @@ test.describe("sign in with a magic link", () => {
     await expect(page.getByText("A link went to owner@example.test.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Send It Again" })).toBeVisible();
 
+    // Back to the start: the sign-in form, with the way to ask for a link again.
     await page.getByRole("button", { name: "Start over" }).click();
+    await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Email Me a Link", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Email Me a Link Instead" })).toBeVisible();
   });
 
   test("the password form is still the default, with a way across to the link", async ({ page }) => {

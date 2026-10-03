@@ -63,6 +63,9 @@ test.describe("campaigns", () => {
 
   test("a campaign needs a name, and cannot end before it starts", async ({ page }) => {
     await page.goto(org("/fundraising/campaigns/new"));
+    // An empty field is stopped by the browser before the server sees it;
+    // spaces get through, and the server says what is missing.
+    await page.getByLabel("Name").fill("   ");
     await page.getByRole("button", { name: "Create Campaign" }).click();
     await expect(page.getByText("A campaign needs a name.")).toBeVisible();
 
@@ -102,6 +105,7 @@ test.describe("donors", () => {
 
   test("a donor needs a name", async ({ page }) => {
     await page.goto(org("/fundraising/donors/new"));
+    await page.getByLabel("Name").fill("   ");
     await page.getByRole("button", { name: "Add Donor" }).click();
     await expect(page.getByText("A donor needs a name.")).toBeVisible();
   });
@@ -140,19 +144,23 @@ test.describe("pledges", () => {
     await expect(page.getByText(donor)).toHaveCount(0);
   });
 
-  test("a pledge needs a donor, a positive amount and a date that makes sense", async ({ page }) => {
+  test("a pledge needs a positive amount and a due date that makes sense", async ({ page }) => {
+    // A missing donor is stopped by the browser's own required field; the
+    // server's refusal of one is held in src/laws/fundraisingActions.test.ts.
     await page.goto(org("/fundraising/pledges/new"));
+    await page.getByLabel("Who Promised It").selectOption({ label: "Fixture Donor" });
     await page.getByLabel("Amount").fill("0");
     await page.getByRole("button", { name: "Record the Pledge" }).click();
-    await expect(page.getByText("Who promised it?")).toBeVisible();
     await expect(page.getByText("A pledge has to be a positive amount.")).toBeVisible();
 
+    // The form is reset after a refused submit, so fill it in again.
     await page.getByLabel("Who Promised It").selectOption({ label: "Fixture Donor" });
     await page.getByLabel("Amount").fill("100");
-    await page.getByLabel("Promised").fill("2026-09-01");
-    await page.getByLabel("Due").fill("2026-08-01");
+    await page.getByLabel("Promised", { exact: true }).fill("2026-09-01");
+    await page.getByLabel("Due", { exact: true }).fill("2026-08-01");
     await page.getByRole("button", { name: "Record the Pledge" }).click();
     await expect(page.getByText("The due date is before the promise was made.")).toBeVisible();
+    await expect(page).toHaveURL(/pledges\/new$/);
   });
 });
 

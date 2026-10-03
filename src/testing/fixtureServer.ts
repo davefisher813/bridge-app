@@ -27,7 +27,7 @@ const KNOWN = new Set([OWNER_ID, FAMILY_ID, MEMBER_ID]);
 // globalThis so every route and action shares it. Off by default.
 const persist = process.env.FIXTURE_PERSIST === "1";
 const store = globalThis as unknown as { __fixtureDb?: ReturnType<typeof buildFixture> };
-const dataset = () => (persist ? (store.__fixtureDb ??= buildFixture()) : buildFixture());
+export const fixtureDataset = () => (persist ? (store.__fixtureDb ??= buildFixture()) : buildFixture());
 
 // With persistence on, the browser uploads straight to Storage (which a
 // test intercepts, so nothing arrives), and the server then reads the file
@@ -61,6 +61,6 @@ export const createClient = cache(async () => {
   } catch {
     // Outside a request (a build-time render) there are no cookies.
   }
-  const client = createFakeClient(dataset(), { userId });
+  const client = createFakeClient(fixtureDataset(), { userId });
   return persist ? withUploadReadback(client) : client;
 });

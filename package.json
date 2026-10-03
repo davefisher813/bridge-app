@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "qa:check": "node qa/check.js",
     "qa:preview": "node qa/preview.mjs",
-    "qa:publish": "node qa/publish.js"
+    "qa:publish": "node qa/publish.js",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",

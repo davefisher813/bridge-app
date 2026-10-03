@@ -25,7 +25,7 @@ export FIXTURE_MODE=1
 export FIXTURE_PERSIST=1
 export ANTHROPIC_API_KEY="e2e-fixture-not-a-real-key"
 export NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:54321"
-export NEXT_PUBLIC_SUPABASE_ANON_KEY="fixture-anon-key"
+export NEXT_PUBLIC_SUPABASE_ANON_KEY="fixture-placeholder-anon"
 
 if [ "${E2E_SKIP_BUILD:-0}" != "1" ] || [ ! -d .next ]; then
   npx next build

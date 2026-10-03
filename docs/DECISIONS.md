@@ -3771,3 +3771,34 @@ action, and the empty Fundraising screen links to Campaigns and Pledges.
 **Consequences.** The time zone is still one constant (`America/New_York`).
 `dave@bffsa.org` remains an Admin of the Elite Squad org. Held by
 `src/laws/qaFixes.test.ts`.
+
+## 2026-10-03: browser tests (Playwright) and the action tests
+
+**Decision.** `npm run e2e` drives the real app in a browser through four
+flows: magic-link sign-in, a document from upload to Apply (and Undo),
+matching (metrics, preset, Recalculate All, Add Target) and fundraising
+(campaigns, donors, pledges: create, edit, remove, and the validation a
+person hits). It runs against the app built with FIXTURE_MODE and
+FIXTURE_PERSIST (`scripts/e2e/serve.sh`): the Supabase client, the service
+role and the model caller are all swapped for in-memory stand-ins in
+`next.config.ts`, and a record a test writes is still there on the next
+screen. The 16 server actions that nothing executed are held by
+`src/laws/fundraisingActions.test.ts` and `src/laws/otherActions.test.ts`.
+
+**Reason.** The unit laws prove the glue; nothing had proved a person can
+get through a screen. The fixture build means the suite needs no database,
+no email and no AI account, and cannot spend money: the model seam has no
+SDK in it, and uploads to Storage are intercepted by the tests.
+
+**What it is not.** It does not test Supabase: row-level security is
+`src/laws` and `scripts/rls_test.sql`, and a real session cookie is
+Supabase's. It cannot be pointed at a deployed app (the stand-ins and the
+`fixture_user` cookie exist only in a fixture build). The Doc AI reading
+quality is decided by file name and size (e2e/support/files.ts checks the
+rule and says so if it changes).
+
+**Found on the way.** A board's minimum seats cannot be set to 0 although
+the validation message says "zero or more" (held as an expected failure in
+`otherActions.test.ts`); a failed `deleteDocumentAndLeave` does nothing and
+says nothing; the fake client did not give `docai_usage` rows a
+`created_at`, so a logged call was invisible to the monthly total in tests.
