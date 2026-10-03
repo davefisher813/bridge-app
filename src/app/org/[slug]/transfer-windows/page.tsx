@@ -1,3 +1,4 @@
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -40,7 +41,7 @@ export default async function TransferWindowsPage({ params, searchParams }: { pa
   const supabase = await createClient();
   const { data } = await supabase.from("transfer_windows").select("id, sport, division, season_year, window_label, opens_on, closes_on, source_url, notes").order("opens_on", { ascending: false });
   const rows = (data ?? []) as WindowRow[];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
 
   const bySport = new Map<string, WindowRow[]>();
   for (const w of rows) bySport.set(w.sport, [...(bySport.get(w.sport) ?? []), w]);

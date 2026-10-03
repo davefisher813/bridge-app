@@ -1,3 +1,4 @@
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -39,7 +40,7 @@ export default async function EditPledgePage({ params, searchParams }: { params:
         action={updatePledge.bind(null, slug, p.id)}
         donors={donors}
         campaigns={(campaignRows ?? []) as Array<{ id: string; name: string }>}
-        today={new Date().toISOString().slice(0, 10)}
+        today={orgToday()}
         submitLabel="Save Pledge"
         initial={{ donorId: p.donor_id, amount: centsToDecimalString(toCents(p.amount)), promisedOn: p.promised_on, dueOn: p.due_on, campaignId: p.campaign_id, notes: p.notes, status: p.status }}
       />

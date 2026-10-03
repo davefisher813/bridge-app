@@ -1,5 +1,6 @@
 "use client";
 
+import { orgToday } from "@/lib/datetime/today";
 import { useActionState } from "react";
 import { CHECKIN_KINDS, CHECKIN_KIND_LABEL } from "@/lib/checkins";
 import type { CheckinActionState } from "@/lib/actions/checkins";
@@ -33,7 +34,7 @@ export function CheckinForm({ action, initial, submitLabel = "Log Check-In" }: {
             </option>
           ))}
         </SelectField>
-        <Field name="occurredOn" label="Date" type="date" defaultValue={initial?.occurredOn ?? new Date().toISOString().slice(0, 10)} error={state.errors.occurredOn} />
+        <Field name="occurredOn" label="Date" type="date" defaultValue={initial?.occurredOn ?? orgToday()} error={state.errors.occurredOn} />
       </Grid2>
       <TextAreaField name="notes" label="Notes" hint="Admins only." maxLength={2000} defaultValue={initial?.notes ?? undefined} error={state.errors.notes} />
       <Button variant="secondary" disabled={pending}>

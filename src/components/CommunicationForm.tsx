@@ -1,5 +1,6 @@
 "use client";
 
+import { orgToday } from "@/lib/datetime/today";
 import { useActionState } from "react";
 import { COMMUNICATION_KINDS } from "@/lib/validation/communication";
 import type { CommunicationActionState } from "@/lib/actions/communications";
@@ -51,7 +52,7 @@ export function CommunicationForm({
           name="occurredOn"
           label="Date"
           type="date"
-          defaultValue={editing ? (initialValues?.occurredOn ?? "") : new Date().toISOString().slice(0, 10)}
+          defaultValue={editing ? (initialValues?.occurredOn ?? "") : orgToday()}
           error={state.errors.occurredOn}
         />
       </Grid2>

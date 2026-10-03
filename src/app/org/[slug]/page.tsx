@@ -1,3 +1,4 @@
+import { orgToday } from "@/lib/datetime/today";
 import { notFound, redirect } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { getCurrentUser, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -121,7 +122,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   // never touches the tables at all.
   let fundraising: ReturnType<typeof summarize> | null = null;
   if (org.modules.donor_fundraising) {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = orgToday();
     const [{ data: giftRows }, { data: pledgeRows }, { data: budgetRows }] = await Promise.all([
       supabase
         .from("gifts")

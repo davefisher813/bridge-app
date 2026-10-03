@@ -152,6 +152,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "approved-courses", path: "@/app/org/[slug]/approved-courses/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Unscaled High School/ },
   { name: "documents", path: "@/app/org/[slug]/documents/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /fixture.pdf/ },
   { name: "documents-search", path: "@/app/org/[slug]/documents/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "fixture" }) }, expect: /fixture.pdf/ },
+  { name: "campaigns", path: "@/app/org/[slug]/fundraising/campaigns/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Campaigns[\s\S]*Fixture Campaign[\s\S]*\$5,000 raised of a \$25,000 goal/ },
   { name: "fundraising", path: "@/app/org/[slug]/fundraising/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fundraising/ },
   { name: "gifts", path: "@/app/org/[slug]/fundraising/gifts/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture Donor/ },
   { name: "gifts-search", path: "@/app/org/[slug]/fundraising/gifts/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "fixture" }) }, expect: /Fixture Donor/ },

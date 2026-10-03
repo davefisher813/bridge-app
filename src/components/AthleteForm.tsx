@@ -1,5 +1,6 @@
 "use client";
 
+import { orgToday } from "@/lib/datetime/today";
 import { useActionState, useState } from "react";
 import { RECRUIT_TYPES, ATHLETE_STATUSES, ATHLETE_GOALS } from "@/lib/validation/athlete";
 import { GRADE_KEYS, GRADE_MAX, GRADE_MIN, SOURCES, SPORTS, gradeLabel, sportSpec } from "@/lib/fit/contract";
@@ -172,7 +173,7 @@ export function AthleteForm({
   // The metrics the engine scores for the position first, the rest of
   // the sport's after, docs/MATCHING_CONTRACT.md section 1.
   const metricList = firstMetrics ? metricsFor(sport, positionGroupOf(sport, position || undefined)) : { first: [], more: [] };
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
 
   // The fields a pick fills, held here so a pick can fill them.
   const [highSchool, setHighSchool] = useState<string>(f("highSchool"));

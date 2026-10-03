@@ -1,3 +1,4 @@
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -59,7 +60,7 @@ export default async function EditSeatPage({ params }: { params: Promise<{ slug:
         action={updateBoardSeat.bind(null, slug, board.id, seat.id)}
         donors={(donorRows ?? []) as SeatDonor[]}
         defaultCommitment={centsToDecimalString(board.giveGetCents)}
-        today={new Date().toISOString().slice(0, 10)}
+        today={orgToday()}
         roleSuggestions={SEAT_ROLE_SUGGESTIONS[board.kind]}
         submitLabel="Save Seat"
         initial={{

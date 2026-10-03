@@ -31,6 +31,11 @@ const webpackAliases = Object.fromEntries(
 );
 
 const nextConfig: NextConfig = {
+  // The short address people try for the Campaigns screen, which lives
+  // under Fundraising with the rest of the money screens.
+  async redirects() {
+    return [{ source: "/org/:slug/campaigns", destination: "/org/:slug/fundraising/campaigns", permanent: false }];
+  },
   turbopack: { resolveAlias: turbopackAliases },
   webpack: (config) => {
     config.resolve.alias = { ...config.resolve.alias, ...webpackAliases };

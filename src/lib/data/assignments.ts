@@ -24,6 +24,7 @@
 // filters below are on top of that and of row level security, not
 // instead of them.
 
+import { ORG_TIME_ZONE, todayIso } from "@/lib/datetime/today";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -143,15 +144,9 @@ export function isOpenStatus(status: string): boolean {
   return status === "assigned" || status === "needs_revision";
 }
 
-// The org's calendar day, as YYYY-MM-DD. There is no per-org time zone
-// yet and both orgs are in the New York area, so a due date is over when
-// New York's day has moved past it, not when UTC's has (which would be
-// 8pm the evening before).
-export const ORG_TIME_ZONE = "America/New_York";
-
-export function todayIso(now: Date = new Date(), timeZone: string = ORG_TIME_ZONE): string {
-  return now.toLocaleDateString("en-CA", { timeZone });
-}
+// The org's calendar day lives in src/lib/datetime/today.ts, where every
+// screen asks for it. Re-exported so this file's own callers are unchanged.
+export { ORG_TIME_ZONE, todayIso };
 
 function dayOf(value: string | Date): string {
   return typeof value === "string" ? value.slice(0, 10) : todayIso(value);

@@ -630,7 +630,9 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
             />
           ))
         )}
-        {canEdit && (
+        {/* With nobody linked yet the empty state above already carries
+            this button; a second one beside it is the same link twice. */}
+        {canEdit && family.length > 0 && (
           <LinkButton href={`/org/${slug}/roster/${id}/family/new`} variant="secondary">
             Invite Athlete
           </LinkButton>

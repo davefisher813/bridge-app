@@ -4,6 +4,7 @@
 // is marked, since "best verified, else most recent" is not always the
 // newest or the biggest number.
 
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -72,7 +73,7 @@ export default async function MetricsPage({ params }: { params: Promise<{ slug: 
 
   const createAction = createMetric.bind(null, slug, id);
   const deleteAction = deleteMetric.bind(null, slug, id);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
 
   return (
     <Screen

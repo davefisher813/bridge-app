@@ -1,3 +1,4 @@
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { orgEditsSharedDirectory, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -36,7 +37,7 @@ export default async function GraduateAthletePage({ params }: { params: Promise<
     schoolChoice = { currentSchool: null, schools: (schoolRows ?? []) as { id: string; name: string; division: string }[], canAddSchool };
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
 
   return (
     <Screen title="Mark Graduated" back={{ href: `/org/${slug}/roster/${id}`, label: athlete.name }}>

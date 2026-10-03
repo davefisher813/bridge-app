@@ -13,6 +13,8 @@
 // The scores follow: a commitment clears every stored fit (a placed
 // athlete has no score anywhere), and a withdrawn one scores them again.
 
+import { orgToday } from "@/lib/datetime/today";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { clearFitsForAthlete, recomputeFitsForAthlete } from "@/lib/data/fits";
 import { closeOpenTargets, restoreClosedTargets } from "@/lib/data/enrollment";
@@ -34,7 +36,7 @@ export async function syncCommitment(supabase: Client, orgId: string, athleteId:
   const { data: athleteRow } = await supabase.from("athletes").select("name, status").eq("id", athleteId).eq("org_id", orgId).maybeSingle();
   const athlete = athleteRow as { name: string; status: string } | null;
   if (!athlete) return;
-  const today = longDate(new Date().toISOString().slice(0, 10));
+  const today = longDate(orgToday());
 
   if (became && isScoredStatus(athlete.status)) {
     // The commitment ends recruiting everywhere else: every other open

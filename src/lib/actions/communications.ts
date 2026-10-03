@@ -1,5 +1,6 @@
 "use server";
 
+import { orgToday } from "@/lib/datetime/today";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -45,7 +46,7 @@ export async function logCommunication(
     org_id: org.id,
     target_id: targetId,
     kind: parsed.values.kind,
-    occurred_on: parsed.values.occurredOn ?? new Date().toISOString().slice(0, 10),
+    occurred_on: parsed.values.occurredOn ?? orgToday(),
     notes: parsed.values.notes ?? null,
   });
 

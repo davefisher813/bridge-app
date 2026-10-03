@@ -11,6 +11,7 @@
 // It reads from loadEligibility, the same loader the verdict uses, so a
 // caveat cannot appear on one screen and not the other.
 
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { athleteHome, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -33,7 +34,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
   const orgSide = user.role !== "family";
   const home = athleteHome(slug, id, user.role);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
   const bundle = await loadEligibility(org.id, id, today);
   if (!bundle) notFound();
 

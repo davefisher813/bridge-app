@@ -3,6 +3,7 @@
 // only, the same people who log and remove entries. Saving recomputes the
 // athlete's matches, since the number that scores may have changed.
 
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -48,7 +49,7 @@ export default async function EditMetricPage({ params }: { params: Promise<{ slu
   const spec = metricSpec(entry.metric);
   const moreWithOwn = known || !spec ? more : [...more, spec];
   const label = spec?.label ?? entry.metric;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
 
   return (
     <Screen title={`Edit ${label}`} back={{ href: `/org/${slug}/roster/${id}/metrics`, label: "Metrics" }} lede={athlete.name}>

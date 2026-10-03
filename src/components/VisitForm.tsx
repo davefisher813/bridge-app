@@ -1,5 +1,6 @@
 "use client";
 
+import { orgToday } from "@/lib/datetime/today";
 import { useActionState } from "react";
 import { VISIT_TYPES } from "@/lib/validation/visit";
 import type { VisitActionState } from "@/lib/actions/visits";
@@ -46,7 +47,7 @@ export function VisitForm({ action, initialValues, submitLabel = "Log Visit" }: 
           name="visitDate"
           label="Date"
           type="date"
-          defaultValue={editing ? (initialValues?.visitDate ?? "") : new Date().toISOString().slice(0, 10)}
+          defaultValue={editing ? (initialValues?.visitDate ?? "") : orgToday()}
           error={state.errors.visitDate}
         />
       </Grid2>

@@ -1,5 +1,6 @@
 "use server";
 
+import { orgToday } from "@/lib/datetime/today";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -47,7 +48,7 @@ export async function logCheckin(slug: string, athleteId: string, _prevState: Ch
   }
 
   const supabase = await createClient();
-  const occurredOn = parsed.values.occurredOn ?? new Date().toISOString().slice(0, 10);
+  const occurredOn = parsed.values.occurredOn ?? orgToday();
   const { data: created, error } = await supabase
     .from("athlete_checkins")
     .insert({

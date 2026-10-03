@@ -10,6 +10,7 @@
 // Grants category, linked back to the application, so an award is never
 // counted both as a win here and as revenue there.
 
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -120,7 +121,7 @@ export default async function GrantsPage({ params, searchParams }: { params: Pro
     .order("created_at", { ascending: false });
 
   const grants = (data ?? []) as GrantRow[];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
 
   // Anything with a date that has passed or is close. This is the whole
   // point of tracking grants separately from gifts.

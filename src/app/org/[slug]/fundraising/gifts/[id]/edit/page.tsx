@@ -1,3 +1,4 @@
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -86,7 +87,7 @@ export default async function EditGiftPage({ params, searchParams }: { params: P
         campaigns={(campaignRows ?? []) as Array<{ id: string; name: string }>}
         openPledges={openPledges}
         boardMembers={boardMembers}
-        today={new Date().toISOString().slice(0, 10)}
+        today={orgToday()}
         submitLabel="Save Gift"
         initial={{
           amount: centsToDecimalString(toCents(g.amount)),

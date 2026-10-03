@@ -11,12 +11,14 @@
 //   - A pledge is never inside a total, only beside it.
 //   - An in-kind gift is support, never cash.
 
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { Body, Card, Chevron, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
+import { CampaignCards } from "@/components/CampaignCards";
 import { campaignProgress, formatMoney, formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 
@@ -48,7 +50,7 @@ export default async function FundraisingPage({
   const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
   const fiscalYear = Number(year) || Number(today.slice(0, 4));
 
   const supabase = await createClient();
@@ -80,6 +82,12 @@ export default async function FundraisingPage({
         {canEdit && (
           <Stack>
             <LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Add Gift</LinkButton>
+            <LinkButton href={`/org/${slug}/fundraising/campaigns`} variant="secondary">
+              Campaigns
+            </LinkButton>
+            <LinkButton href={`/org/${slug}/fundraising/pledges`} variant="secondary">
+              Pledges
+            </LinkButton>
             <LinkButton href={`/org/${slug}/fundraising/donors`} variant="secondary">
               Donors
             </LinkButton>
@@ -168,37 +176,15 @@ export default async function FundraisingPage({
         </Section>
       )}
 
-      {campaigns.length > 0 && (
-        <Section label="Campaigns" count={campaigns.length} role="visit" kind="campaign" action={canEdit ? <TextLink href={`/org/${slug}/fundraising/campaigns/new`}>New</TextLink> : undefined}>
-          {campaigns.map((c) => {
-            const goalCents = c.goal_amount === null ? 0 : Math.round(Number(c.goal_amount) * 100);
-            const p = campaignProgress(c.id, goalCents, gifts, pledges);
-            const role = roleFor(p.percentOfGoal);
-            return (
-              <Card key={c.id} href={`/org/${slug}/fundraising/campaigns/${c.id}`}>
-                <Stack gap={2}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <Body weight="bold" truncate>
-                        {c.name}
-                      </Body>
-                      <Label>
-                        {formatMoneyShort(p.raisedCents)} raised
-                        {goalCents > 0 ? ` of a ${formatMoneyShort(goalCents)} goal` : ""}
-                        {p.pledgedCents > 0 ? ` · ${formatMoneyShort(p.pledgedCents)} pledged` : ""}
-                      </Label>
-                    </div>
-                    <Body weight="bold" numeric tone={p.percentOfGoal === null ? "muted" : "ink"}>
-                      {p.percentOfGoal === null ? "no goal" : `${p.percentOfGoal}%`}
-                    </Body>
-                  </div>
-                  <Meter parts={[{ role, fraction: (p.percentOfGoal ?? 0) / 100 }]} />
-                </Stack>
-              </Card>
-            );
-          })}
-        </Section>
-      )}
+      <Section label="Campaigns" count={campaigns.length} role="visit" kind="campaign" action={canEdit ? <TextLink href={`/org/${slug}/fundraising/campaigns/new`}>New</TextLink> : undefined}>
+        {campaigns.length === 0 ? (
+          <EmptyState kind="campaign" title="No Campaigns Yet" action={canEdit ? <LinkButton href={`/org/${slug}/fundraising/campaigns/new`}>Add the First One</LinkButton> : undefined}>
+            An event, an appeal or a grant drive, measured on the cash it brings in.
+          </EmptyState>
+        ) : (
+          <CampaignCards slug={slug} campaigns={campaigns} gifts={gifts} pledges={pledges} />
+        )}
+      </Section>
 
       <Section label="This Year" role="contact" kind="people">
         <Note title={`${s.giftCount} ${s.giftCount === 1 ? "gift" : "gifts"} from ${s.donorCount} ${s.donorCount === 1 ? "supporter" : "supporters"}.`}>

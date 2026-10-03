@@ -3747,3 +3747,27 @@ the extra "not viewing" condition. Open items from its reviews: activity
 lines carry role literals, not names; an expired session shows no "ended"
 notice; a removed-then-restored target resumes viewing within 30 minutes;
 root not-found and error pages lack the banner.
+
+## 2026-10-03: production QA fixes
+
+**Decision.** Six findings from the 2026-10-01 production QA. (1, 2) Dave
+Fisher twice in Advisors and both advisor pickers was a second account
+(`dave@bffsa.org`, never signed in) holding its own Admin membership in
+Bridge; the membership was removed in the database after checking nothing
+was attached (no athletes, seat, Title or guardian link), and the account
+and its 12 activity rows were kept. (3) Invite Athlete showed twice when
+nobody was linked: the empty state and the button below it. (4) The page
+reserved 56px for a 57px tab bar and nothing told the browser to scroll
+targets clear of it; `.pb-bar` is 57px and `html` has `scroll-padding-bottom`.
+(5) Every default date came from the UTC clock, so from about 8pm Eastern a
+check-in defaulted to tomorrow; 28 places now ask `src/lib/datetime/today.ts`
+for the org's day, and `src/laws/dateLaws.test.ts` refuses the UTC form.
+(6) Campaigns screens existed but were unreachable on an org with no gifts
+or campaigns: there is now a Campaigns list (`/fundraising/campaigns`), the
+overview always shows the Campaigns section with an "Add the First One"
+action, and the empty Fundraising screen links to Campaigns and Pledges.
+`/org/:slug/campaigns` redirects to it.
+
+**Consequences.** The time zone is still one constant (`America/New_York`).
+`dave@bffsa.org` remains an Admin of the Elite Squad org. Held by
+`src/laws/qaFixes.test.ts`.

@@ -1,3 +1,4 @@
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -21,7 +22,7 @@ export default async function MemberGivingPage({ params }: { params: Promise<{ s
   if (!org || !org.modules.donor_fundraising) notFound();
   await requireMember(org.id);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
   const fiscalYear = Number(today.slice(0, 4));
   const giving = await loadGiving(org.id, fiscalYear, today);
   if (!giving) notFound();

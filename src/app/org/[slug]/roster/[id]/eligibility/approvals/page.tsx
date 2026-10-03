@@ -5,6 +5,7 @@
 // settled, then what is unchecked, then what is fine. A hundred approved
 // rows above the two that cost credits is the wrong way round.
 
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { athleteHome, requireRole } from "@/lib/auth/guard";
@@ -31,7 +32,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ slug
   const user = await requireRole(org.id, ["owner", "staff", "family"]);
   await assertMayViewAthlete(org.id, user, id);
 
-  const bundle = await loadEligibility(org.id, id, new Date().toISOString().slice(0, 10));
+  const bundle = await loadEligibility(org.id, id, orgToday());
   if (!bundle) notFound();
   const { athlete, view } = bundle;
 

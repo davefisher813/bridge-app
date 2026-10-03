@@ -12,6 +12,7 @@
 //     shown as work to do.
 //   - The verdict is a Score-axis tint, never red.
 
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { athleteHome, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -57,7 +58,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   // One loader, shared with the transcript and approvals screens. A
   // second copy that read one grading-scale table instead of two is the
   // bug that sat in this very file for a release.
-  const bundle = await loadEligibility(org.id, id, new Date().toISOString().slice(0, 10));
+  const bundle = await loadEligibility(org.id, id, orgToday());
   if (!bundle) notFound();
   const { athlete, view, division, courses } = bundle;
 

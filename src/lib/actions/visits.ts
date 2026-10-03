@@ -1,5 +1,6 @@
 "use server";
 
+import { orgToday } from "@/lib/datetime/today";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -45,7 +46,7 @@ export async function logVisit(
     org_id: org.id,
     target_id: targetId,
     visit_type: parsed.values.visitType,
-    visit_date: parsed.values.visitDate ?? new Date().toISOString().slice(0, 10),
+    visit_date: parsed.values.visitDate ?? orgToday(),
     impression: parsed.values.impression ?? null,
     next_step: parsed.values.nextStep ?? null,
     notes: parsed.values.notes ?? null,

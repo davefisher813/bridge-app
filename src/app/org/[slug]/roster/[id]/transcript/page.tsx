@@ -9,6 +9,7 @@
 // a misread grade no longer means discarding the whole document. A
 // family login reads the same list and changes nothing.
 
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { athleteHome, requireRole } from "@/lib/auth/guard";
@@ -38,7 +39,7 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
   const isStaff = user.role === "owner" || user.role === "staff";
   const addHref = `/org/${slug}/roster/${id}/transcript/new`;
 
-  const bundle = await loadEligibility(org.id, id, new Date().toISOString().slice(0, 10));
+  const bundle = await loadEligibility(org.id, id, orgToday());
   if (!bundle) notFound();
   const { athlete, courses, view } = bundle;
   const core = view.eligibility.coreGpa;

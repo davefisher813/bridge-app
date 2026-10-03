@@ -1,3 +1,4 @@
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -37,7 +38,7 @@ export default async function NewSeatPage({ params }: { params: Promise<{ slug: 
         action={addBoardSeat.bind(null, slug, board.id)}
         donors={(donorRows ?? []) as SeatDonor[]}
         defaultCommitment={(board.giveGetCents / 100).toFixed(2)}
-        today={new Date().toISOString().slice(0, 10)}
+        today={orgToday()}
         roleSuggestions={SEAT_ROLE_SUGGESTIONS[board.kind]}
       />
     </Screen>

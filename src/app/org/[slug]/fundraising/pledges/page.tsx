@@ -5,6 +5,7 @@
 // money in the bank. Overdue first, because that is the only part of it
 // anyone needs to act on.
 
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -25,7 +26,7 @@ export default async function PledgesPage({ params, searchParams }: { params: Pr
   const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
   const supabase = await createClient();
   const [{ data: pledgeRows }, { data: giftRows }, { data: donorRows }] = await Promise.all([
     supabase.from("pledges").select("id, amount, promised_on, due_on, status, donor_id, campaign_id").eq("org_id", org.id),

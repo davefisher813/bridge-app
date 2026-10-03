@@ -1,3 +1,4 @@
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireMember } from "@/lib/auth/guard";
@@ -19,7 +20,7 @@ export default async function MemberHomePage({ params }: { params: Promise<{ slu
   await requireMember(org.id);
   const base = `/org/${slug}/member`;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
   const fiscalYear = Number(today.slice(0, 4));
   const [program, giving] = await Promise.all([loadProgram(org.id), org.modules.donor_fundraising ? loadGiving(org.id, fiscalYear, today) : Promise.resolve(null)]);
 

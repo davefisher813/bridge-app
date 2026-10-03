@@ -6,6 +6,7 @@
 // and nobody remembers to fix it by hand, and a wrong donor total that
 // nobody can explain is worse than a sum.
 
+import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -44,7 +45,7 @@ export default async function DonorsPage({ params, searchParams }: { params: Pro
   const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = orgToday();
   const fiscalYear = Number(today.slice(0, 4));
 
   const supabase = await createClient();

@@ -229,9 +229,17 @@ html:not([data-theme="dark"]) .org-mark {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .pb-bar {
-    /* The fixed tab bar's height (56px) plus the home indicator, so the
-       last row of a screen scrolls clear of it. */
-    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    /* The fixed tab bar's height (56px, plus its 1px top border) and the
+       home indicator, so the last row of a screen scrolls clear of it. */
+    padding-bottom: calc(57px + env(safe-area-inset-bottom, 0px));
+  }
+  /* The same room, for anything that is scrolled to: a focused field, an
+     anchor, a test runner bringing a button into view. Without it a
+     control in the bottom 57px of the screen counts as visible while the
+     tab bar sits on top of it (QA, 2026-10-01: Remove on the metrics log
+     "refused until the page is scrolled"). */
+  html {
+    scroll-padding-bottom: calc(57px + env(safe-area-inset-bottom, 0px));
   }
   /* Installed to the home screen, the app is laid out without
      viewport-fit=cover (see layout.tsx), so iOS reports a zero inset and
@@ -244,7 +252,10 @@ html:not([data-theme="dark"]) .org-mark {
       padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
     }
     .pb-bar {
-      padding-bottom: calc(56px + max(env(safe-area-inset-bottom, 0px), 24px));
+      padding-bottom: calc(57px + max(env(safe-area-inset-bottom, 0px), 24px));
+    }
+    html {
+      scroll-padding-bottom: calc(57px + max(env(safe-area-inset-bottom, 0px), 24px));
     }
   }
 }
