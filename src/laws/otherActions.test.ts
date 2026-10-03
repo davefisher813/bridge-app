@@ -115,15 +115,38 @@ describe("createBoard", () => {
     expect(errorsOf(r.state).form).toBe("boom");
   });
 
-  // KNOWN GAP, found while writing these tests: the form reads "0" as
-  // "not filled in" (Number("0") || default), so a board can never be
-  // given a minimum of zero seats, although the validation message says
-  // "zero or more". `it.fails` passes while the behaviour is wrong and
-  // fails the day it is fixed, which is the cue to turn it into a plain it.
-  it.fails("a minimum of zero seats is accepted, as the error message promises", async () => {
+  it("a minimum of zero seats is accepted, as the message promises", async () => {
     const { createBoard } = await import("@/lib/actions/governance");
-    await run(() => createBoard(S, NO_STATE, boardForm({ minSeats: "0", maxSeats: "5" })));
-    expect(writesTo(writes, "boards", "insert")[0]!.rows[0]!.min_seats).toBe(0);
+    const r = await run(() => createBoard(S, NO_STATE, boardForm({ minSeats: "0", maxSeats: "5" })));
+    expect(r.redirect).toMatch(new RegExp(`^/org/${S}/board-governance/`));
+    expect(writesTo(writes, "boards", "insert")[0]!.rows[0]).toMatchObject({ min_seats: 0, max_seats: 5 });
+  });
+
+  it("a blank seat count is the tier's default, and a typed one is never mistaken for blank", async () => {
+    const { createBoard } = await import("@/lib/actions/governance");
+    await run(() => createBoard(S, NO_STATE, boardForm({ kind: "general", minSeats: "", maxSeats: "  " })));
+    expect(writesTo(writes, "boards", "insert")[0]!.rows[0]).toMatchObject({ min_seats: 1, max_seats: 30 });
+    writes.length = 0;
+    await run(() => createBoard(S, NO_STATE, boardForm({ kind: "general", minSeats: "0", maxSeats: "1" })));
+    expect(writesTo(writes, "boards", "insert")[0]!.rows[0]).toMatchObject({ min_seats: 0, max_seats: 1 });
+  });
+
+  it("text where a number belongs is refused, not read as blank", async () => {
+    const { createBoard } = await import("@/lib/actions/governance");
+    const a = await run(() => createBoard(S, NO_STATE, boardForm({ minSeats: "lots" })));
+    expect(errorsOf(a.state).minSeats).toMatch(/whole number/i);
+    const b = await run(() => createBoard(S, NO_STATE, boardForm({ maxSeats: "many" })));
+    expect(errorsOf(b.state).maxSeats).toMatch(/whole number/i);
+    expect(writes).toEqual([]);
+  });
+
+  it("a board needs room for at least one seat, and a negative minimum is refused", async () => {
+    const { createBoard } = await import("@/lib/actions/governance");
+    const a = await run(() => createBoard(S, NO_STATE, boardForm({ minSeats: "0", maxSeats: "0" })));
+    expect(errorsOf(a.state).maxSeats).toMatch(/one or more/i);
+    const b = await run(() => createBoard(S, NO_STATE, boardForm({ minSeats: "-1" })));
+    expect(errorsOf(b.state).minSeats).toMatch(/zero or more/i);
+    expect(writes).toEqual([]);
   });
 });
 
@@ -221,38 +244,43 @@ describe("deleteDocumentAndLeave", () => {
     expect(writesTo(writes, "storage:documents", "delete")[0]!.rows).toEqual([{ name: OWN_PATH() }]);
   });
 
-  it("refuses to delete a document that is still live: nothing is written and nobody is sent away", async () => {
+  const reasonOf = (redirect: string | null) => decodeURIComponent((redirect ?? "").split("error=")[1] ?? "");
+
+  it("a document that is still live is not deleted, and the person is told why, on that document", async () => {
     const id = addDoc({ status: "pending" });
     const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
     const r = await run(() => deleteDocumentAndLeave(S, id));
-    expect(r.redirect).toBeNull();
+    expect(r.redirect).toMatch(new RegExp(`^/org/${S}/documents/${id}\\?error=`));
+    expect(reasonOf(r.redirect)).toMatch(/Discard this document first/);
     expect(writesTo(writes, "documents")).toEqual([]);
     expect(writesTo(writes, "storage:documents")).toEqual([]);
     expect(data.documents!.some((d) => d.id === id)).toBe(true);
   });
 
-  it("a document in another org is not found and not touched", async () => {
+  it("a document in another org is not found, not touched, and the person lands on a list that exists", async () => {
     const id = addDoc({ org_id: ELITE() });
     const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
     const r = await run(() => deleteDocumentAndLeave(S, id));
-    expect(r.redirect).toBeNull();
+    expect(r.redirect).toMatch(new RegExp(`^/org/${S}/documents\\?error=`));
+    expect(reasonOf(r.redirect)).toBe("That document is already gone.");
     expect(writes).toEqual([]);
     expect(data.documents!.some((d) => d.id === id)).toBe(true);
   });
 
-  it("a document that does not exist writes nothing", async () => {
+  it("a document that does not exist says it is already gone, on the list, and writes nothing", async () => {
     const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
     const r = await run(() => deleteDocumentAndLeave(S, GONE));
-    expect(r.redirect).toBeNull();
+    expect(r.redirect).toBe(`/org/${S}/documents?error=${encodeURIComponent("That document is already gone.")}`);
     expect(writes).toEqual([]);
   });
 
-  it("a failed row delete does not send the person away as if it worked", async () => {
+  it("a failed row delete goes back to the document with the reason, not away as if it worked", async () => {
     const id = addDoc({});
     failOn = (t, op) => (t === "documents" && op === "delete" ? "fk" : null);
     const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
     const r = await run(() => deleteDocumentAndLeave(S, id));
-    expect(r.redirect).toBeNull();
+    expect(r.redirect).toMatch(new RegExp(`^/org/${S}/documents/${id}\\?error=`));
+    expect(reasonOf(r.redirect)).toMatch(/could not be deleted: fk/);
     expect(data.documents!.some((d) => d.id === id)).toBe(true);
   });
 

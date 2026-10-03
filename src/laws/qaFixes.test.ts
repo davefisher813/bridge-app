@@ -125,3 +125,33 @@ describe("the fixed tab bar never covers what the page scrolls to", () => {
     expect(css).toMatch(/display-mode: standalone[\s\S]*html\s*\{\s*scroll-padding-bottom:\s*calc\(57px \+ max\(env\(safe-area-inset-bottom/);
   });
 });
+
+describe("a refused document delete says why on the screen it lands on", () => {
+  const DOC = "@/app/org/[slug]/documents/[id]/page";
+  const LIST = "@/app/org/[slug]/documents/page";
+  const reason = "Discard this document first. Discarding puts back anything it changed; then it can be deleted.";
+
+  it("the document page shows the reason as a warning at the top", async () => {
+    const out = await html(DOC, { params: params({ id: IDS.document }), searchParams: Promise.resolve({ error: reason }) });
+    expect(out).toContain("Discard this document first.");
+    expect(out).toMatch(/role="alert"/);
+  });
+
+  it("the document page without a reason shows no alert", async () => {
+    const out = await html(DOC, { params: params({ id: IDS.document }), searchParams: Promise.resolve({}) });
+    expect(out).not.toMatch(/role="alert"/);
+    const bare = await html(DOC, { params: params({ id: IDS.document }) });
+    expect(bare).not.toMatch(/role="alert"/);
+  });
+
+  it("the Documents list shows a reason too, for a document that is already gone", async () => {
+    const out = await html(LIST, { params: params(), searchParams: Promise.resolve({ error: "That document is already gone." }) });
+    expect(out).toContain("That document is already gone.");
+    expect(out).toMatch(/role="alert"/);
+  });
+
+  it("the reason is text, never markup", async () => {
+    const out = await html(LIST, { params: params(), searchParams: Promise.resolve({ error: "<script>alert(1)</script>" }) });
+    expect(out).not.toContain("<script>alert(1)</script>");
+  });
+});

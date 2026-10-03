@@ -40,10 +40,17 @@ function readBoardForm(formData: FormData): { row: BoardFields } | { errors: Rec
   if (giveGetCents < 0) return { errors: { giveGet: "A commitment cannot be negative." } };
 
   const defaults = DEFAULT_SEATS[kind as BoardKind];
-  const minSeats = Number(String(formData.get("minSeats") ?? "")) || defaults.min;
-  const maxSeats = Number(String(formData.get("maxSeats") ?? "")) || defaults.max;
-  if (minSeats < 0 || !Number.isInteger(minSeats)) return { errors: { minSeats: "A whole number, zero or more." } };
-  if (!Number.isInteger(maxSeats)) return { errors: { maxSeats: "A whole number." } };
+  // Blank takes the tier's default; anything typed is a number, and 0 is a
+  // number. (`Number(x) || default` read a typed 0 as blank, so a minimum
+  // of zero could never be set, and read text as blank too.)
+  const seats = (field: string, fallback: number): number => {
+    const raw = String(formData.get(field) ?? "").trim();
+    return raw === "" ? fallback : Number(raw);
+  };
+  const minSeats = seats("minSeats", defaults.min);
+  const maxSeats = seats("maxSeats", defaults.max);
+  if (!Number.isInteger(minSeats) || minSeats < 0) return { errors: { minSeats: "A whole number, zero or more." } };
+  if (!Number.isInteger(maxSeats) || maxSeats < 1) return { errors: { maxSeats: "A whole number, one or more." } };
   if (maxSeats < minSeats) return { errors: { maxSeats: "The maximum cannot be below the minimum." } };
 
   const sport = String(formData.get("sport") ?? "").trim() || null;
