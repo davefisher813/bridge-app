@@ -20,6 +20,11 @@ const seams: Record<string, string> = fixture
   ? {
       "@/lib/supabase/server": "src/testing/fixtureServer.ts",
       "@/lib/supabase/middleware": "src/testing/fixtureMiddleware.ts",
+      // The service role: the fixture too, so a fixture build has no way to
+      // use a real service key whatever the environment holds.
+      "@/lib/supabase/admin": "src/testing/fixtureAdmin.ts",
+      // The model: the stub, so a fixture build cannot spend anything.
+      "@/lib/ai/anthropicCaller": "src/testing/fixtureAnthropicCaller.ts",
     }
   : {};
 

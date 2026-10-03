@@ -376,7 +376,7 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
       }
       if (this.writes.op === "insert" || this.writes.op === "upsert") {
         for (const r of rows) {
-          const row = { id: r.id ?? `fake-${this.table}-${table.length + inserted.length + 1}`, ...r };
+          const row = { id: r.id ?? `fake-${this.table}-${table.length + inserted.length + 1}`, ...columnDefaults(this.table), ...r };
           table.push(row);
           inserted.push(row);
         }
@@ -419,6 +419,16 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
   ): PromiseLike<R1 | R2> {
     return Promise.resolve(this.run()).then(onfulfilled, onrejected);
   }
+}
+
+// Columns the real tables fill in themselves, which the fake has to fill in
+// too or a row written through it reads back differently from one in
+// Postgres. Kept to the tables where something reads the column: the Doc AI
+// ledger is counted by month (created_at), so a call logged through the
+// fake has to carry the time it was made.
+function columnDefaults(table: string): Row {
+  if (table === "docai_usage") return { created_at: new Date().toISOString() };
+  return {};
 }
 
 export interface FakeClientOptions {
