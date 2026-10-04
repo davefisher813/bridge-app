@@ -35,13 +35,11 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
   );
 
   return (
-    <Screen title="Advisors" back={{ href: `/org/${slug}/more`, label: "More" }} lede={`Active and Transferring athletes each Admin advises. ${unassigned}`}>
+    <Screen title="Advisors" back={{ href: `/org/${slug}/more`, label: "More" }} lede={unassigned}>
       <Section label="Admins" count={active.length} role="people" kind="people">
         {active.map(row)}
         {active.length === 0 && (
-          <EmptyState kind="people" title="No Admins Yet">
-            Which cannot be right, since you are reading this.
-          </EmptyState>
+          <EmptyState kind="people" title="No Admins Yet" />
         )}
       </Section>
       {invited.length > 0 && (

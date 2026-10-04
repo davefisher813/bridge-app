@@ -13,7 +13,7 @@ export function DocaiBudgetForm({ action, currentCents }: { action: ServerAction
   const [state, formAction, pending] = useActionState(action, EMPTY_STATE);
   return (
     <Form action={formAction} error={state.errors.form}>
-      <Field name="budget" label="Monthly Budget" type="number" inputMode="decimal" min={0} step={1} defaultValue={(currentCents / 100).toFixed(0)} hint="Dollars per calendar month. Zero turns document reading off." error={state.errors.budget} />
+      <Field name="budget" label="Monthly Budget" type="number" inputMode="decimal" min={0} step={1} defaultValue={(currentCents / 100).toFixed(0)} hint="Dollars per month. Zero turns document reading off." error={state.errors.budget} />
       <Button disabled={pending} variant="secondary">
         {pending ? "Saving..." : "Save Budget"}
       </Button>

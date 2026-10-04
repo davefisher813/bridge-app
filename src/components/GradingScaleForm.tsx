@@ -85,13 +85,11 @@ export function GradingScaleForm({
           name="reportsWeightedGrades"
           defaultChecked={defaults.reportsWeightedGrades}
           label="The school is on record with the Eligibility Center as awarding weighted grades"
-          hint="Not just that they offer AP. The school has to have told the NCAA."
         />
         <CheckField
           name="weightingIsClassRankOnly"
           defaultChecked={defaults.weightingIsClassRankOnly}
           label="The weighting only affects class rank, not the GPA"
-          hint="If this is true, the bonus does not apply at all."
         />
       </Stack>
 
@@ -101,7 +99,6 @@ export function GradingScaleForm({
         inputMode="decimal"
         defaultValue={defaults.weightBonus}
         error={err("weightBonus")}
-        hint="What this school adds. The NCAA caps it at 1.00."
       />
 
       <TextAreaField
@@ -110,12 +107,11 @@ export function GradingScaleForm({
         defaultValue={defaults.sourceNote}
         required
         error={err("sourceNote")}
-        hint="Required."
       />
 
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
 
-      <Prose>Saving recalculates every athlete at this school immediately. Verdicts can move in either direction.</Prose>
+      <Prose>Saving recalculates every athlete at this school immediately.</Prose>
     </Form>
   );
 }

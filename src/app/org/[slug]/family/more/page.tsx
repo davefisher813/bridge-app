@@ -42,9 +42,7 @@ export default async function FamilyMorePage({ params }: { params: Promise<{ slu
     <Screen title="More">
       <Section label="Who to Ask" count={staff.length} role="people" kind="people">
         {staff.length === 0 ? (
-          <EmptyState kind="people" title="Nobody Listed Yet">
-            {org.name} has not named anyone to contact.
-          </EmptyState>
+          <EmptyState kind="people" title="Nobody Listed Yet" />
         ) : (
           staff.map((s) => (
             <Row
@@ -58,7 +56,6 @@ export default async function FamilyMorePage({ params }: { params: Promise<{ slu
             />
           ))
         )}
-        <Prose>Anything on these screens is changed by {org.name}, not here. An email is the way to ask.</Prose>
       </Section>
 
       <Section label="Your Athletes" count={athletes.length} role="people" kind="athlete">

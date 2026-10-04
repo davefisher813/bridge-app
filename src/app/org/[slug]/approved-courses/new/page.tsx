@@ -46,9 +46,9 @@ export default async function NewApprovedListPage({
   if (!schoolName) {
     const options = (await loadHighSchoolOptions(supabase, org.id)).map((o) => ({ value: o.value, label: o.label }));
     return (
-      <Screen title="Add a List" back={back} lede="Approved course list">
+      <Screen title="Add a List" back={back}>
         <Form action={pickApprovedListSchool.bind(null, slug)}>
-          <SuggestField id="list-school" name="school" label="Which School" suggestions={options} hint="Pick one or type the name as the transcript prints it." required />
+          <SuggestField id="list-school" name="school" label="Which School" suggestions={options} required />
           <Button>Continue</Button>
         </Form>
       </Screen>
@@ -88,7 +88,7 @@ export default async function NewApprovedListPage({
   const action = saveApprovedList.bind(null, slug);
 
   return (
-    <Screen title={own?.school_name ?? schoolName} back={back} lede="Approved course list" action={own ? <TextLink href={`/org/${slug}/approved-courses/${own.id}`}>View</TextLink> : undefined}>
+    <Screen title={own?.school_name ?? schoolName} back={back} action={own ? <TextLink href={`/org/${slug}/approved-courses/${own.id}`}>View</TextLink> : undefined}>
       <ApprovedListForm
         key={own?.id ?? "new"}
         action={action}

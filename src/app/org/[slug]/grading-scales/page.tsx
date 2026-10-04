@@ -125,9 +125,7 @@ export default async function GradingScalesPage({ params, searchParams }: { para
 
       <Section label="On File" count={own.length} role="committed" kind="scale">
         {own.length === 0 ? (
-          <EmptyState kind="scale" title="No Grading Scales Yet">
-            For a school whose transcripts print numbers instead of letters.
-          </EmptyState>
+          <EmptyState kind="scale" title="No Grading Scales Yet" />
         ) : (
           own.map((s) => {
             const bands = parseBands(s.bands);
@@ -145,11 +143,9 @@ export default async function GradingScalesPage({ params, searchParams }: { para
             );
           })
         )}
-        <Note>Only this org uses these. A table confirmed with the school and shared across the platform still wins where one exists.</Note>
       </Section>
 
       {canEdit && <LinkButton href={`/org/${slug}/grading-scales/new`}>Add a School&apos;s Scale</LinkButton>}
-      <Prose>Changing a scale recalculates every athlete at that school.</Prose>
     </Screen>
   );
 }

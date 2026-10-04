@@ -391,7 +391,6 @@ export default async function DocumentPage({ params, searchParams }: { params: P
                     />
                   </Form>
                 ))}
-                <Label>Applying puts what was read onto that athlete.</Label>
               </>
             ) : (
               <Note title="No athlete on the roster looks like a match">

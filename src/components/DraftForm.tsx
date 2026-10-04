@@ -17,12 +17,12 @@ export function DraftForm({ action, initial, submitLabel }: { action: ServerActi
 
   return (
     <Form action={formAction} error={state.errors.form}>
-      <Field name="draftTeam" label="Team" hint="For example, New York Yankees." maxLength={80} defaultValue={value("draftTeam", initial.team)} error={err("draftTeam")} required />
+      <Field name="draftTeam" label="Team" maxLength={80} defaultValue={value("draftTeam", initial.team)} error={err("draftTeam")} required />
       <Grid2>
         <Field name="draftRound" label="Round" type="number" min="1" max="99" inputMode="numeric" defaultValue={value("draftRound", initial.round)} error={err("draftRound")} />
         <Field name="draftYear" label="Year" type="number" min="1900" max="2200" inputMode="numeric" defaultValue={value("draftYear", initial.year)} error={err("draftYear")} />
       </Grid2>
-      <TextAreaField name="note" label="Note" hint="Optional. Admins only, filed on the athlete's notes." maxLength={4000} defaultValue={value("note")} error={err("note")} />
+      <TextAreaField name="note" label="Note" maxLength={4000} defaultValue={value("note")} error={err("note")} />
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );

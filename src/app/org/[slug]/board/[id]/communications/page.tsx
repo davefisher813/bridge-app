@@ -122,9 +122,7 @@ export default async function CommunicationsPage({ params }: { params: Promise<{
 
       <Section label="History" count={entries.length} role="people" kind="people">
         {entries.length === 0 ? (
-          <EmptyState kind="message" title="Nothing Logged">
-            Contact and a completed visit both move the fit score.
-          </EmptyState>
+          <EmptyState kind="message" title="Nothing Logged" />
         ) : (
           [...dated, ...undated].map((e) => (
             <Row

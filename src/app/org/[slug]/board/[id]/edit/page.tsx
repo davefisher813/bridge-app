@@ -160,7 +160,6 @@ export default async function EditTargetPage({ params, searchParams }: { params:
           Remove Target
         </ConfirmButton>
       </Form>
-      <Prose>For a school that said no, set the status to Not Interested instead. That keeps the history.</Prose>
     </Screen>
   );
 }

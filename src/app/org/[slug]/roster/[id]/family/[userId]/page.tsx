@@ -79,9 +79,7 @@ export default async function FamilyLinkPage({ params, searchParams }: { params:
 
       <Section label="Also Sees" count={others.length} role="people" kind="people">
         {others.length === 0 ? (
-          <EmptyState kind="people" title="Only This Athlete">
-            Link another athlete below for a parent with more than one child here.
-          </EmptyState>
+          <EmptyState kind="people" title="Only This Athlete" />
         ) : (
           others.map((l) => (
             <Row

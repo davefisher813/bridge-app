@@ -36,7 +36,7 @@ export function CheckinForm({ action, initial, submitLabel = "Log Check-In" }: {
         </SelectField>
         <Field name="occurredOn" label="Date" type="date" defaultValue={initial?.occurredOn ?? orgToday()} error={state.errors.occurredOn} />
       </Grid2>
-      <TextAreaField name="notes" label="Notes" hint="Admins only." maxLength={2000} defaultValue={initial?.notes ?? undefined} error={state.errors.notes} />
+      <TextAreaField name="notes" label="Notes" maxLength={2000} defaultValue={initial?.notes ?? undefined} error={state.errors.notes} />
       <Button variant="secondary" disabled={pending}>
         {pending ? "Saving..." : submitLabel}
       </Button>

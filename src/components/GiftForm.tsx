@@ -91,7 +91,7 @@ export function GiftForm({
         label="Donor"
         value={donorId}
         onChange={(e) => setDonorId(e.target.value)}
-        hint="Leave it anonymous for cash in a bucket at an event. It still counts in the total and not in the supporter count."
+        hint="Leave anonymous for cash collected at an event."
       >
         <option value="">Anonymous</option>
         {donors.map((d) => (
@@ -118,11 +118,11 @@ export function GiftForm({
           label="What Was Given"
           error={err("inKindDescription")}
           defaultValue={initial?.inKindDescription ?? ""}
-          hint="Counted as support, never as cash. An in-kind amount with no description cannot be substantiated later."
+          hint="Counted as support, never as cash."
         />
       )}
 
-      <SelectField name="category" label="Category" error={err("category")} defaultValue={initial?.category ?? "individual"} hint="The same five rows as the P&L the board already sees.">
+      <SelectField name="category" label="Category" error={err("category")} defaultValue={initial?.category ?? "individual"}>
         {GIFT_CATEGORIES.map((c) => (
           <option key={c} value={c}>
             {CATEGORY_LABEL[c]}
@@ -146,7 +146,7 @@ export function GiftForm({
           name="pledgeId"
           label="Pay Down a Pledge"
           defaultValue={initial?.pledgeId ?? ""}
-          hint="Linking it reduces what is outstanding instead of leaving the promise open alongside the payment."
+          hint="Reduces what is outstanding."
         >
           <option value="">Not against a pledge</option>
           {pledgesForDonor.map((p) => (
@@ -162,7 +162,6 @@ export function GiftForm({
           name="solicitedBy"
           label="Brought in By"
           defaultValue={initial?.solicitedBy ?? ""}
-          hint="Credits this toward their give/get. If they are also the donor, it still counts once."
         >
           <option value="">Nobody in particular</option>
           {boardMembers.map((m) => (
@@ -178,7 +177,7 @@ export function GiftForm({
         label="Reference"
         error={err("externalRef")}
         defaultValue={initial?.externalRef ?? ""}
-        hint="Optional, and the same reference can only be recorded once, so a payment cannot be entered twice by accident."
+        hint="The same reference can only be recorded once."
       />
 
       <TextAreaField name="notes" label="Notes" rows={2} defaultValue={initial?.notes ?? ""} />

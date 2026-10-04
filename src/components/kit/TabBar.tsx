@@ -52,7 +52,7 @@ export function TabBar({ slug, variant = "org" }: { slug: string; variant?: TabB
   const activeHref = tabs.filter(matches).sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (
-    <nav className="pb-safe fixed inset-x-0 bottom-0 z-10 border-t border-line bg-paper" aria-label="Main">
+    <nav className="pb-tabbar fixed inset-x-0 bottom-0 z-10 border-t border-line bg-paper" aria-label="Main">
       <div className="mx-auto flex h-14 max-w-2xl">
         {tabs.map((tab) => {
           const href = hrefOf(tab);

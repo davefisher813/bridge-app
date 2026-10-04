@@ -37,9 +37,7 @@ export default async function FamilyMessagesPage({ params }: { params: Promise<{
     <Screen title="Messages" back={{ href: here, label: athlete.name }} lede={`With ${advisor?.name ?? org.name}`}>
       <Section label="Thread" count={messages.length} role="contact" kind="message">
         {messages.length === 0 ? (
-          <EmptyState kind="message" title="Nothing Sent Yet">
-            Write the first one. {org.name} sees it right away.
-          </EmptyState>
+          <EmptyState kind="message" title="Nothing Sent Yet" />
         ) : (
           <MessageThread messages={messages} meId={user.id} />
         )}

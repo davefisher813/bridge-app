@@ -253,9 +253,7 @@ export default async function MatchesPage({
 
           <Section label="Ranked" count={ranked.length} role="place" kind="target">
             {ranked.length === 0 ? (
-              <EmptyState kind="target" title={q ? "No School Matches" : "Nothing Matches These Filters"}>
-                {q ? "Try part of the name, or clear the search and the filters." : "Loosen one and the list comes back."}
-              </EmptyState>
+              <EmptyState kind="target" title={q ? "No School Matches" : "Nothing Matches These Filters"} />
             ) : (
               visible.map((f) => matchRow(f, false))
             )}
@@ -275,7 +273,6 @@ export default async function MatchesPage({
 
           {conflicts.length > 0 && (
             <Section label="Conflicts" count={conflicts.length} role="danger" kind="blocked">
-              <Label>Each of these has something that blocks it. The line under the school says what.</Label>
               {conflicts.map((f) => matchRow(f, true))}
             </Section>
           )}

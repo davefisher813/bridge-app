@@ -35,9 +35,7 @@ export default async function AthleteAssignmentsPage({ params }: { params: Promi
       action={<AddButton href={newHref} label="New Assignment" />}
     >
       {rows.length === 0 && (
-        <EmptyState kind="checklist" role="contact" title="No Assignments Yet" action={<LinkButton href={newHref}>New Assignment</LinkButton>}>
-          Give this athlete a piece of work with a due date. The athlete login sees it and sends it back here.
-        </EmptyState>
+        <EmptyState kind="checklist" role="contact" title="No Assignments Yet" action={<LinkButton href={newHref}>New Assignment</LinkButton>} />
       )}
       {open.length > 0 && (
         <Section label="Open" count={open.length} role="contact" kind="checklist">

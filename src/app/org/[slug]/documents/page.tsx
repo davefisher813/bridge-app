@@ -139,9 +139,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
 
       {rows.length === 0 ? (
         <>
-          <EmptyState kind="document" title={q ? "Nothing Matches" : "No Documents Yet"} action={q ? undefined : <LinkButton href={`/org/${slug}/documents/new`}>Add the First One</LinkButton>}>
-            {q ? "Try a shorter name, or clear the search." : "A transcript, test scores, an offer letter. It gets read, matched to an athlete, and applied or sent to review."}
-          </EmptyState>
+          <EmptyState kind="document" title={q ? "Nothing Matches" : "No Documents Yet"} action={q ? undefined : <LinkButton href={`/org/${slug}/documents/new`}>Add the First One</LinkButton>} />
         </>
       ) : (
         <>

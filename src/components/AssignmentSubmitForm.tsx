@@ -33,10 +33,10 @@ const NOTE_LABEL: Record<AssignmentKind, string> = {
 };
 
 const NOTE_HINT: Record<AssignmentKind, string> = {
-  upload: "Optional. Anything the reviewer should know about the file.",
-  complete_info: "Write what was asked for.",
-  confirm: "Optional. Add a line if there is something to say.",
-  other: "Optional. Say what you did.",
+  upload: "Optional.",
+  complete_info: "Required.",
+  confirm: "Optional.",
+  other: "Optional.",
 };
 
 export interface AssignmentSubmitFormProps {
@@ -101,7 +101,7 @@ export function AssignmentSubmitForm({ slug, orgId, athleteId, assignmentId, kin
             <FileField
               name="file"
               label={file ? "1 File Chosen" : "Take a Photo or Choose a File"}
-              hint={file ? file.name : "A PDF, a JPEG or PNG, or a photo from the camera."}
+              hint={file ? file.name : undefined}
               // HEIC stays off the list on purpose, as in DocumentUploader:
               // an iPhone converts a camera photo to JPEG only when HEIC
               // is not accepted.

@@ -132,9 +132,7 @@ export default async function FamilyMatchesPage({ params, searchParams }: { para
   return (
     <Screen title="Matches" back={{ href: here, label: athlete.name }} lede={`${all.length} ${all.length === 1 ? "school" : "schools"} scored for ${athlete.name}${term ? ` · ${found.length} ${found.length === 1 ? "matches" : "match"} the search` : ""}`}>
       {all.length === 0 ? (
-        <EmptyState kind="target" title="No Matches Yet">
-          Every school on file is scored once the record is complete.
-        </EmptyState>
+        <EmptyState kind="target" title="No Matches Yet" />
       ) : (
         <>
           {/* Stacked, not side by side: a search box with its button and
@@ -146,9 +144,7 @@ export default async function FamilyMatchesPage({ params, searchParams }: { para
 
           <Section label="Ranked" count={ranked.length} role="place" kind="target">
             {ranked.length === 0 ? (
-              <EmptyState kind="target" title="No School Matches">
-                Try a shorter search.
-              </EmptyState>
+              <EmptyState kind="target" title="No School Matches" />
             ) : (
               ranked.map((f) => matchRow(f, false))
             )}
@@ -162,7 +158,6 @@ export default async function FamilyMatchesPage({ params, searchParams }: { para
 
           {conflicts.length > 0 && (
             <Section label="Conflicts" count={conflicts.length} role="danger" kind="blocked">
-              <Label>Each of these has something that blocks it. The line under the school says what.</Label>
               {conflicts.map((f) => matchRow(f, true))}
             </Section>
           )}

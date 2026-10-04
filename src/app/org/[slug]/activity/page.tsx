@@ -47,13 +47,11 @@ export default async function OrgActivityPage({ params, searchParams }: { params
   })();
 
   return (
-    <Screen title="Activity" back={{ href: `/org/${slug}/more`, label: "More" }} lede="Who did what, across every athlete, newest first">
+    <Screen title="Activity" back={{ href: `/org/${slug}/more`, label: "More" }}>
       {(total > 5 || q) && <SearchField initial={q} placeholder="A name or something that was done" />}
       <Section label="Activity" count={total} role="accent" kind="clock">
         {rows.length === 0 ? (
-          <EmptyState kind="clock" title={q ? "Nothing Matches" : "No Activity Yet"}>
-            {q ? "Try part of a name, or clear the search." : "Changes are recorded here as they happen."}
-          </EmptyState>
+          <EmptyState kind="clock" title={q ? "Nothing Matches" : "No Activity Yet"} />
         ) : (
           <ActivityRows slug={slug} rows={rows} liveAthletes={liveAthletes} />
         )}

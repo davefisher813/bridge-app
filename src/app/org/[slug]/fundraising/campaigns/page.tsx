@@ -33,15 +33,12 @@ export default async function CampaignsPage({ params, searchParams }: { params: 
     <Screen
       title="Campaigns"
       back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }}
-      lede="An event, an appeal or a grant drive, measured on the cash it brings in."
       action={<AddButton href={`/org/${slug}/fundraising/campaigns/new`} label="Add" />}
     >
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       <Section label="Campaigns" count={campaigns.length} role="visit" kind="campaign">
         {campaigns.length === 0 ? (
-          <EmptyState kind="campaign" title="No Campaigns Yet" action={<LinkButton href={`/org/${slug}/fundraising/campaigns/new`}>Add the First One</LinkButton>}>
-            Give a gift or a pledge a campaign and its progress shows here.
-          </EmptyState>
+          <EmptyState kind="campaign" title="No Campaigns Yet" action={<LinkButton href={`/org/${slug}/fundraising/campaigns/new`}>Add the First One</LinkButton>} />
         ) : (
           <CampaignCards slug={slug} campaigns={campaigns} gifts={toGifts(giftRows as GiftRow[] | null)} pledges={toPledges(pledgeRows as PledgeRow[] | null)} />
         )}

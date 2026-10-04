@@ -129,9 +129,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
         {needs && <Row kind="target" role="contact" title="Positions of Need" meta={needs} wrap />}
         {note?.notes && <Note>{note.notes}</Note>}
         {!note && !canEdit && (
-          <EmptyState kind="note" title="Nothing Noted Yet">
-            Staff keep the coach contact and positions of need here.
-          </EmptyState>
+          <EmptyState kind="note" title="Nothing Noted Yet" />
         )}
         {canEdit && (
           <OrgSchoolNoteForm
@@ -140,7 +138,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
             initialValues={{ coachName: note?.coach_name ?? undefined, coachEmail: note?.coach_email ?? undefined, positionsOfNeed: needs || undefined, notes: note?.notes ?? undefined }}
           />
         )}
-        {canEdit && <Label>Private to your organization. A matching position and grad year adds ten to a score here.</Label>}
+        {canEdit && <Label>Private to your organization.</Label>}
       </Section>
 
       <SchoolMoneyAndDepth school={school} viewer={viewer} editHref={editHref} />

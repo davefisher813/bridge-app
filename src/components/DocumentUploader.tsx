@@ -159,7 +159,6 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
         label="Where It Came From"
         value={sourceRole}
         onChange={(e) => setSourceRole(e.target.value as SourceRole)}
-        hint="Something a parent sent is trusted less than something you uploaded."
       >
         {SOURCE_ROLES.map((r) => (
           <option key={r.id} value={r.id}>
@@ -171,7 +170,7 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
       <FileField
         name="files"
         label={files.length ? `${files.length} File${files.length === 1 ? "" : "s"} Chosen` : "Take a Photo or Choose a File"}
-        hint={files.length ? files.map((f) => f.name).join(", ") : "A PDF, a JPEG or PNG, or a photo from the camera. Several pages can go in at once."}
+        hint={files.length ? files.map((f) => f.name).join(", ") : undefined}
         // HEIC is deliberately NOT listed. An iPhone converts a HEIC
         // photo to JPEG on the way into a file input only when HEIC is
         // not among the accepted types; listing it handed the app a

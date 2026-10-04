@@ -30,7 +30,6 @@ export default async function EditCoachPage({ params }: { params: Promise<{ slug
     <Screen
       title={coach.name}
       back={{ href: `/org/${slug}/schools/${id}/coaches`, label: "Coaches" }}
-      lede={`${school.name}. Shared with every organization.`}
       action={coach.email ? <TextLink href={`mailto:${coach.email}`}>Email</TextLink> : undefined}
     >
       <CoachForm

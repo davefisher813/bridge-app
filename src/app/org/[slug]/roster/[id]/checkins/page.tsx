@@ -66,9 +66,7 @@ export default async function CheckinsPage({ params }: { params: Promise<{ slug:
 
       <Section label="Log" count={entries.length} role="time" kind="clock">
         {entries.length === 0 ? (
-          <EmptyState kind="clock" role="time" title="No Check-Ins Yet">
-            A call, a meeting or a text all count. Notes stay with Admins.
-          </EmptyState>
+          <EmptyState kind="clock" role="time" title="No Check-Ins Yet" />
         ) : (
           entries.map((c) => (
             <Card key={c.id}>

@@ -99,7 +99,7 @@ export default async function SchoolsPage({ params, searchParams }: { params: Pr
           <LinkButton href={`${base}/new`} variant="secondary">
             Add a School
           </LinkButton>
-          <Row href={`${base}/import`} kind="document" role="place" title="Import from a Spreadsheet" meta="A CSV from the template, every row checked before anything lands" wrap />
+          <Row href={`${base}/import`} kind="document" role="place" title="Import from a Spreadsheet" wrap />
         </Stack>
       )}
     </Screen>

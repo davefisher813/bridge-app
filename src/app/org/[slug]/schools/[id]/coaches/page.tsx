@@ -27,14 +27,11 @@ export default async function SchoolCoachesPage({ params }: { params: Promise<{ 
     <Screen
       title="Coaches"
       back={{ href: `/org/${slug}/schools/${id}`, label: school.name }}
-      lede={`${school.name}. Shared with every organization.`}
       action={<AddButton href={`${base}/new`} label="Add a Coach" />}
     >
       <Section label="Listed" count={coaches.length} role="people" kind="people">
         {coaches.length === 0 ? (
-          <EmptyState kind="people" role="people" title="No Coaches Listed" action={<LinkButton href={`${base}/new`}>Add a Coach</LinkButton>}>
-            The head coach and whoever runs recruiting are the two to start with.
-          </EmptyState>
+          <EmptyState kind="people" role="people" title="No Coaches Listed" action={<LinkButton href={`${base}/new`}>Add a Coach</LinkButton>} />
         ) : (
           coaches.map((c) => (
             <Row

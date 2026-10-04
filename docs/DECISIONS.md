@@ -3850,3 +3850,25 @@ be known. Preferences: no such screen or reference exists in the repo.
 
 **Consequences.** Held by `src/laws/qaFixes.test.ts`, each case proven by
 planting the old behavior and watching it fail.
+
+## 2026-10-04: tab bar lifted, and screens stop narrating the obvious
+
+**Decision.** (1) The fixed tab bar now pads its bottom by the home
+indicator plus 12px (`.pb-tabbar`; installed to the home screen, the
+24px floor plus 12px), and every screen reserves 69px plus the inset
+instead of 57px, so the last row still scrolls clear of the bar. Dave:
+the tabs were "jammed against the bottom edge". (2) Copy audit, every
+screen: a line stays only if the person needs it to finish the action.
+Removed: example hints on obvious fields (Name, Position, Grad Year),
+hints that restate the label or describe how the app works inside,
+screen ledes that restate the title ("Every school on file"), menu-row
+subtitles that restate the row, paragraphs under an empty state that
+repeat its title, and instruction notes about the screen. Kept: formats
+people get wrong (Term "25-26 S1", SAT range, comma lists, units),
+consequences that cannot be undone or move many records (Merge Into,
+Saving rescores every match, Zero turns document reading off), what a
+disabled path needs ("Not listed? Invite them under Members first"), and
+the plain statuses.
+
+**Consequences.** Held by `src/laws/qaFixes.test.ts`. A new hint or lede
+should clear the same bar: could the person finish without it.

@@ -76,9 +76,7 @@ export default async function FundraisingPage({
     return (
       <Screen title="Fundraising">
         {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
-        <EmptyState kind="money" title="Nothing Recorded Yet">
-          Every total here is calculated from the gifts themselves.
-        </EmptyState>
+        <EmptyState kind="money" title="Nothing Recorded Yet" />
         {canEdit && (
           <Stack>
             <LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Add Gift</LinkButton>
@@ -101,7 +99,7 @@ export default async function FundraisingPage({
   }
 
   return (
-    <Screen title="Fundraising" lede={`${fiscalYear}, against the board budget`}>
+    <Screen title="Fundraising" lede={fiscalYear}>
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       <Stack gap={2}>
         <StatRow>
@@ -178,9 +176,7 @@ export default async function FundraisingPage({
 
       <Section label="Campaigns" count={campaigns.length} role="visit" kind="campaign" action={canEdit ? <TextLink href={`/org/${slug}/fundraising/campaigns/new`}>New</TextLink> : undefined}>
         {campaigns.length === 0 ? (
-          <EmptyState kind="campaign" title="No Campaigns Yet" action={canEdit ? <LinkButton href={`/org/${slug}/fundraising/campaigns/new`}>Add the First One</LinkButton> : undefined}>
-            An event, an appeal or a grant drive, measured on the cash it brings in.
-          </EmptyState>
+          <EmptyState kind="campaign" title="No Campaigns Yet" action={canEdit ? <LinkButton href={`/org/${slug}/fundraising/campaigns/new`}>Add the First One</LinkButton> : undefined} />
         ) : (
           <CampaignCards slug={slug} campaigns={campaigns} gifts={gifts} pledges={pledges} />
         )}
@@ -196,10 +192,10 @@ export default async function FundraisingPage({
           can see the total can see what it is made of, which is the
           point of showing them a total at all. */}
       <Section label="Records" role="committed" kind="money">
-        <Row href={`/org/${slug}/fundraising/gifts`} kind="money" role="committed" title="Gifts" meta="Every gift, cash and in kind" trailing={<Chevron />} />
-        <Row href={`/org/${slug}/fundraising/pledges`} kind="pledge" role="offer" title="Pledges" meta="Promised, and what is still outstanding" trailing={<Chevron />} />
-        <Row href={`/org/${slug}/fundraising/donors`} kind="donor" role="contact" title="Donors" meta="Every supporter and their history" trailing={<Chevron />} />
-        {canEdit && <Row href={`/org/${slug}/fundraising/grants`} kind="grant" role="place" title="Grants" meta="Applications and their deadlines" trailing={<Chevron />} />}
+        <Row href={`/org/${slug}/fundraising/gifts`} kind="money" role="committed" title="Gifts" trailing={<Chevron />} />
+        <Row href={`/org/${slug}/fundraising/pledges`} kind="pledge" role="offer" title="Pledges" trailing={<Chevron />} />
+        <Row href={`/org/${slug}/fundraising/donors`} kind="donor" role="contact" title="Donors" trailing={<Chevron />} />
+        {canEdit && <Row href={`/org/${slug}/fundraising/grants`} kind="grant" role="place" title="Grants" trailing={<Chevron />} />}
         {canEdit && (
           <Row
             href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`}

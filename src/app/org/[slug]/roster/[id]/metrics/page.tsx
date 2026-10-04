@@ -89,9 +89,7 @@ export default async function MetricsPage({ params }: { params: Promise<{ slug: 
 
       <Section label="Current" count={current.length} role="contact" kind="check">
         {current.length === 0 ? (
-          <EmptyState kind="check" title="Nothing Logged Yet">
-            {canEdit ? "Log the first number below. The best verified one scores." : "The best verified number scores."}
-          </EmptyState>
+          <EmptyState kind="check" title="Nothing Logged Yet" />
         ) : (
           current.map((c) => (
             <Card key={c.key}>
@@ -153,12 +151,6 @@ export default async function MetricsPage({ params }: { params: Promise<{ slug: 
           })
         )}
       </Section>
-
-      {METRICS.length > 0 && rows.length > 0 && (
-        <Stack gap={2}>
-          <Label>The entry marked Scores is the best number from the most trusted source. A self-reported number only scores when nothing else exists.</Label>
-        </Stack>
-      )}
     </Screen>
   );
 }

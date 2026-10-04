@@ -253,8 +253,8 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
       </Section>
 
       <Stack gap={3}>
-        <Row href={`${here}/eligibility`} kind="checklist" role="contact" title="NCAA Eligibility" meta="Core GPA, qualifier status and the clock" trailing={<Chevron />} />
-        <Row href={`${here}/transcript`} kind="course" role="contact" title="Transcript" meta="Every course, and what the NCAA counted" trailing={<Chevron />} />
+        <Row href={`${here}/eligibility`} kind="checklist" role="contact" title="NCAA Eligibility" trailing={<Chevron />} />
+        <Row href={`${here}/transcript`} kind="course" role="contact" title="Transcript" trailing={<Chevron />} />
       </Stack>
 
       {tiles.length > 0 && (
@@ -280,9 +280,7 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
       {!placement && isScoredStatus(athlete.status) && (
         <Section label={evaluatedLabel} role="place" kind="target" action={evaluated.length > 10 ? <TextLink href={`${here}/matches`}>See All</TextLink> : undefined}>
           {evaluated.length === 0 ? (
-            <EmptyState kind="target" title="No Matches Yet">
-              Every school on file is scored once the record is complete.
-            </EmptyState>
+            <EmptyState kind="target" title="No Matches Yet" />
           ) : (
             <>
               {topFits.map((f) => (
@@ -316,20 +314,16 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
           recruiting, the whole record once they are placed. */}
       <Section label="Colleges" count={placement ? targets.length : openTargets.length} role="place" kind="school">
         {targets.length === 0 ? (
-          <EmptyState kind="school" title="No Colleges Yet">
-            Schools being pursued show up here.
-          </EmptyState>
+          <EmptyState kind="school" title="No Colleges Yet" />
         ) : (
           <Row href={`${base}/colleges`} kind="school" role="place" title="Where Things Stand" meta={`${targets.length} ${targets.length === 1 ? "school" : "schools"} on the list, and every visit`} trailing={<Chevron />} />
         )}
-        <Row href={`${base}/schools`} kind="school" role="place" title="Every School" meta="Search the whole database" trailing={<Chevron />} />
+        <Row href={`${base}/schools`} kind="school" role="place" title="Every School" trailing={<Chevron />} />
       </Section>
 
       <Section label="Documents" count={docs.length} role="contact" kind="document">
         {docs.length === 0 ? (
-          <EmptyState kind="document" title="Nothing on File">
-            A transcript or a test score is listed here once it is read.
-          </EmptyState>
+          <EmptyState kind="document" title="Nothing on File" />
         ) : (
           docs.map((d) => (
             <Row

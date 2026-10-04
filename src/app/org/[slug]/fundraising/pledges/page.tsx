@@ -75,9 +75,7 @@ export default async function PledgesPage({ params, searchParams }: { params: Pr
     >
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       {rows.length === 0 ? (
-        <EmptyState kind="pledge" title="No Pledges">
-          Nothing promised and unpaid.
-        </EmptyState>
+        <EmptyState kind="pledge" title="No Pledges" />
       ) : (
         <>
           {overdue.length > 0 && (

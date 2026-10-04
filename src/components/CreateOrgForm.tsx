@@ -22,7 +22,6 @@ export function CreateOrgForm({ action }: { action: ServerAction }) {
         label="Web Address"
         error={err("slug")}
         defaultValue={state.values?.slug ?? ""}
-        hint="Optional. Lowercase letters, numbers and hyphens. Left blank, it is made from the name."
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}

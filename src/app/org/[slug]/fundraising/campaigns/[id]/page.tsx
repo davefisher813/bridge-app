@@ -71,9 +71,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
 
       <Section label="Gifts" count={gifts.length} role="committed" kind="money">
         {gifts.length === 0 ? (
-          <EmptyState kind="money" title="No Gifts Yet">
-            Nothing has come in against this campaign.
-          </EmptyState>
+          <EmptyState kind="money" title="No Gifts Yet" />
         ) : (
           gifts.map((g) => (
             <Row

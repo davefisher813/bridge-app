@@ -60,7 +60,7 @@ export function CourseForm({
         <Field name="credit" label="Credit" type="number" inputMode="decimal" step="0.01" min="0" max="99.99" defaultValue={initial ? String(initial.credit) : "1"} required error={state.errors.credit} />
         <SuggestField name="term" label="Term" defaultValue={initial?.term ?? ""} maxLength={40} suggestions={terms} hint="As printed, like 25-26 S1." error={state.errors.term} />
       </Grid2>
-      <SuggestField name="schoolName" label="School" defaultValue={initial?.schoolName ?? ""} maxLength={200} suggestions={schools} hint="The school that graded it. Its grading scale converts a numeric grade." error={state.errors.schoolName} />
+      <SuggestField name="schoolName" label="School" defaultValue={initial?.schoolName ?? ""} maxLength={200} suggestions={schools} error={state.errors.schoolName} />
       <SelectField name="approval" label="NCAA Approved" defaultValue={initial?.approval ?? "unchecked"} error={state.errors.approval}>
         {APPROVAL_CHOICES.map((a) => (
           <option key={a} value={a}>
@@ -68,7 +68,7 @@ export function CourseForm({
           </option>
         ))}
       </SelectField>
-      <CheckField name="weighted" label="Weighted" hint="Honors, AP, IB or advanced, by the course title." defaultChecked={initial?.weighted ?? false} />
+      <CheckField name="weighted" label="Weighted" defaultChecked={initial?.weighted ?? false} />
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );

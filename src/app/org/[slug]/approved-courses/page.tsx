@@ -108,9 +108,7 @@ export default async function ApprovedCoursesPage({ params, searchParams }: { pa
 
       <Section label="On File" count={onFile.length} role="committed" kind="checklist">
         {onFile.length === 0 ? (
-          <EmptyState kind="checklist" title="No Approved Lists Yet">
-            Without one, a core GPA is an estimate.
-          </EmptyState>
+          <EmptyState kind="checklist" title="No Approved Lists Yet" />
         ) : (
           onFile.map(({ row, origin }) => (
             <Row

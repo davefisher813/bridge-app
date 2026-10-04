@@ -85,14 +85,14 @@ export function MetricForm({
         />
         <Field name="measuredOn" label="Measured On" type="date" defaultValue={initial?.measuredOn ?? today} required error={err("measuredOn")} />
       </Grid2>
-      <SelectField name="source" label="Source" hint="Premier tech is trusted most, self-reported least." defaultValue={initial?.source ?? "event"} error={err("source")}>
+      <SelectField name="source" label="Source" defaultValue={initial?.source ?? "event"} error={err("source")}>
         {SOURCES.map((s) => (
           <option key={s.key} value={s.key}>
             {s.label}
           </option>
         ))}
       </SelectField>
-      <SuggestField name="sourceDetail" label="Event or Detail" hint="For example, PBR Connecticut or fall practice." maxLength={120} defaultValue={initial?.sourceDetail ?? undefined} error={err("sourceDetail")} suggestions={sourceDetails} />
+      <SuggestField name="sourceDetail" label="Event or Detail" maxLength={120} defaultValue={initial?.sourceDetail ?? undefined} error={err("sourceDetail")} suggestions={sourceDetails} />
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );

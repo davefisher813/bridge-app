@@ -78,7 +78,6 @@ export default async function EditSeatPage({ params }: { params: Promise<{ slug:
       />
 
       <Section label="Remove" role="danger" kind="blocked">
-        <Prose>To end a seat and keep its history, set it to Emeritus or Resigned above instead.</Prose>
         <Form action={removeBoardSeat.bind(null, slug, board.id, seat.id)}>
           <ConfirmButton
             title={`Remove ${seat.name}'s Seat?`}

@@ -64,7 +64,7 @@ export default async function FamilyMatchPage({ params }: { params: Promise<{ sl
       {fit.reasons.length > 0 && <Note>{fit.reasons[0]}</Note>}
 
       {target && (
-        <Row href={`${base}/colleges/${target.id}`} kind="school" role="place" title="On the List" meta="Where things stand with this school" trailing={<StatusPill status={target.status} />} />
+        <Row href={`${base}/colleges/${target.id}`} kind="school" role="place" title="On the List" trailing={<StatusPill status={target.status} />} />
       )}
 
       <Section label="How the Score Is Built" role="contact" kind="target">

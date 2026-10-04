@@ -36,7 +36,7 @@ export default async function EditApprovedListPage({ params }: { params: Promise
   }));
 
   return (
-    <Screen title={`Edit ${list.school_name}`} back={{ href: `/org/${slug}/approved-courses/${id}`, label: list.school_name }} lede="Approved course list">
+    <Screen title={`Edit ${list.school_name}`} back={{ href: `/org/${slug}/approved-courses/${id}`, label: list.school_name }}>
       <ApprovedListForm
         action={saveApprovedList.bind(null, slug)}
         schoolName={list.school_name}

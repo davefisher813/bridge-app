@@ -43,9 +43,7 @@ export default async function NewTargetPage({ params }: { params: Promise<{ slug
         </>
       ) : schools.length === 0 ? (
         <>
-          <EmptyState kind="school" title="No Schools on File Yet" action={canEditDirectory && <LinkButton href={`/org/${slug}/schools/new`}>Add the First School</LinkButton>}>
-            {canEditDirectory ? "Schools are shared across every org." : "Schools are shared across every org and added by the organization that keeps the list."}
-          </EmptyState>
+          <EmptyState kind="school" title="No Schools on File Yet" action={canEditDirectory && <LinkButton href={`/org/${slug}/schools/new`}>Add the First School</LinkButton>} />
         </>
       ) : (
         <TargetForm action={action} athletes={athletes} schools={schools} coaches={coaches} submitLabel="Add Target" />

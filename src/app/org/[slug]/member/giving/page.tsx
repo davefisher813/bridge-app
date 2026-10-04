@@ -32,7 +32,7 @@ export default async function MemberGivingPage({ params }: { params: Promise<{ s
   const seat = org.modules.board_governance ? giving.seat : null;
 
   return (
-    <Screen title="Giving" lede={`${fiscalYear}, against the board budget`}>
+    <Screen title="Giving" lede={fiscalYear}>
       <StatRow>
         <Stat value={formatMoneyShort(s.totalCashCents)} label="Raised" role="high" kind="money" />
         <Stat value={s.totalBudgetCents > 0 ? formatMoneyShort(s.totalBudgetCents) : "none"} label="Budget" kind="money" />
@@ -41,9 +41,7 @@ export default async function MemberGivingPage({ params }: { params: Promise<{ s
 
       <Section label="Campaigns" count={giving.campaigns.length} role="high" kind="money">
         {giving.campaigns.length === 0 ? (
-          <EmptyState kind="money" title="No Campaigns Yet">
-            {org.name} has not set one up.
-          </EmptyState>
+          <EmptyState kind="money" title="No Campaigns Yet" />
         ) : (
           giving.campaigns.map((c) => (
             <Row
@@ -70,9 +68,7 @@ export default async function MemberGivingPage({ params }: { params: Promise<{ s
               <SeatCard seat={seat} fiscalYear={fiscalYear} />
               <Section label="Credited to You" count={seat.credited.length} role="high" kind="money">
                 {seat.credited.length === 0 ? (
-                  <EmptyState kind="money" title="Nothing Credited Yet">
-                    A gift you make, or one you bring in, shows here once {org.name} records it.
-                  </EmptyState>
+                  <EmptyState kind="money" title="Nothing Credited Yet" />
                 ) : (
                   seat.credited.map((c) => (
                     <Row
