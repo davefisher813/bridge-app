@@ -57,10 +57,6 @@ export function BudgetForm({
         }
       />
 
-      <Prose>
-        Leave a category blank and the overview says no target rather than showing it at 0%. Those are different statements and only one
-        of them is a problem.
-      </Prose>
 
       <Button disabled={pending}>{pending ? "Saving..." : "Save the Budget"}</Button>
     </Form>
@@ -112,7 +108,6 @@ export function CampaignForm({ action, initial, submitLabel = "Create Campaign" 
         error={err("goalAmount")}
         inputMode="decimal"
         defaultValue={initial?.goalAmount ?? ""}
-        hint="Measured against cash raised, not pledges."
       />
 
       <TextAreaField name="notes" label="Notes" rows={2} defaultValue={initial?.notes ?? ""} />
@@ -161,7 +156,6 @@ export function PledgeForm({
         error={err("donorId")}
         defaultValue={initial?.donorId ?? ""}
         required
-        hint="Required, unlike a gift."
       >
         <option value="" disabled>
           Pick a donor
@@ -180,7 +174,6 @@ export function PledgeForm({
         <Field name="dueOn" label="Due" type="date" error={err("dueOn")} defaultValue={initial?.dueOn ?? ""} />
       </Grid2>
 
-      <Prose>Leave the due date blank if none was given. It will show as outstanding and never as overdue, which is the honest reading.</Prose>
 
       {campaigns.length > 0 && (
         <SelectField name="campaignId" label="Campaign" defaultValue={initial?.campaignId ?? ""}>
@@ -194,7 +187,7 @@ export function PledgeForm({
       )}
 
       {initial && (
-        <SelectField name="status" label="Still Expected" defaultValue={initial.status === "written_off" ? "written_off" : "open"} hint="Paid in full is worked out from the payments, not picked here.">
+        <SelectField name="status" label="Still Expected" defaultValue={initial.status === "written_off" ? "written_off" : "open"}>
           <option value="open">Yes, keep following up</option>
           <option value="written_off">No, write it off</option>
         </SelectField>
@@ -264,12 +257,10 @@ export function GrantForm({ action, funders = [], initial, submitLabel = "Track 
           error={err("amountAwarded")}
           inputMode="decimal"
           defaultValue={initial?.amountAwarded ?? ""}
-          hint="The money itself is recorded separately, as a gift in Foundation Grants."
         />
       )}
 
       <Section label="Dates That Bite Later" role="time" kind="clock">
-        <Prose>Most of a grant&apos;s life happens before any money exists, and these are the ones that get missed.</Prose>
         <Grid2>
           <Field name="appliedOn" label="Submitted" type="date" defaultValue={initial?.appliedOn ?? ""} />
           <Field name="decisionExpectedOn" label="Decision Expected" type="date" defaultValue={initial?.decisionExpectedOn ?? ""} />

@@ -95,19 +95,18 @@ export function TargetForm({
           name="coachName"
           label="Coach"
           suggestions={coachSuggestions}
-          hint={coachSuggestions.length > 0 ? "Pick from the school's staff or type a name." : "For example, T. Reilly."}
+         
           defaultValue={initialValues.coachName ?? ""}
         />
       </Grid2>
 
-      <Field name="visitDate" label="Visit Date" type="date" defaultValue={initialValues.visitDate ?? ""} hint="Shows up on Today once set." />
+      <Field name="visitDate" label="Visit Date" type="date" defaultValue={initialValues.visitDate ?? ""} />
 
       <SelectField
         name="offerType"
         label="Offer"
         value={offerType}
         onChange={(e) => setOfferType(e.target.value)}
-        hint="Separate from status. This is the actual offer on file, not the pipeline stage."
       >
         <option value="">No offer yet</option>
         {OFFER_TYPES.map((t) => (

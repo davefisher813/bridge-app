@@ -51,7 +51,7 @@ export function DonorForm({ action, initial, submitLabel = "Add Donor" }: { acti
 
       <Field name="phone" label="Phone" type="tel" defaultValue={initial?.phone ?? ""} />
 
-      <TextAreaField name="address" label="Address" rows={2} hint="For acknowledgment letters." defaultValue={initial?.address ?? ""} />
+      <TextAreaField name="address" label="Address" rows={2} defaultValue={initial?.address ?? ""} />
 
       <TextAreaField name="notes" label="Notes" rows={2} defaultValue={initial?.notes ?? ""} />
 

@@ -85,9 +85,7 @@ export default async function DimensionPage({ params }: { params: Promise<{ slug
 
       <Section label="Why" count={d.reasons.length} role={role} kind={meta.kind}>
         {d.reasons.length === 0 ? (
-          <EmptyState kind="note" title="No Reason Given">
-            Nothing specific to this school to work from.
-          </EmptyState>
+          <EmptyState kind="note" title="No Reason Given" />
         ) : (
           d.reasons.map((r, i) => <Note key={i}>{r}</Note>)
         )}

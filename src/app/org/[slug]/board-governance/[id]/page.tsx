@@ -94,10 +94,7 @@ export default async function BoardPage({
           <EmptyState
             kind="people"
             title="No Seats on This Board Yet"
-            action={canEdit ? <LinkButton href={`/org/${slug}/board-governance/${board.id}/seats/new`}>Add the First Seat</LinkButton> : undefined}
-          >
-            A seat is one person and what they committed for the year.
-          </EmptyState>
+            action={canEdit ? <LinkButton href={`/org/${slug}/board-governance/${board.id}/seats/new`}>Add the First Seat</LinkButton> : undefined} />
         )}
         {ordered.map((m) => {
           const p = view.progressByMember.get(m.id);

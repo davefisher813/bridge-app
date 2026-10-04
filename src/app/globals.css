@@ -228,10 +228,17 @@ html:not([data-theme="dark"]) .org-mark {
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  /* The fixed tab bar's own bottom padding: the home indicator plus 12px
+     of air, so the tabs sit clearly above it and tap without grazing it
+     (Dave, 2026-10-04: "jammed against the bottom edge"). */
+  .pb-tabbar {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  }
   .pb-bar {
-    /* The fixed tab bar's height (56px, plus its 1px top border) and the
-       home indicator, so the last row of a screen scrolls clear of it. */
-    padding-bottom: calc(57px + env(safe-area-inset-bottom, 0px));
+    /* The fixed tab bar's height (56px, plus its 1px top border, plus
+       12px of air) and the home indicator, so the last row of a screen
+       scrolls clear of it. */
+    padding-bottom: calc(69px + env(safe-area-inset-bottom, 0px));
   }
   /* The same room, for anything that is scrolled to: a focused field, an
      anchor, a test runner bringing a button into view. Without it a
@@ -239,7 +246,7 @@ html:not([data-theme="dark"]) .org-mark {
      tab bar sits on top of it (QA, 2026-10-01: Remove on the metrics log
      "refused until the page is scrolled"). */
   html {
-    scroll-padding-bottom: calc(57px + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: calc(69px + env(safe-area-inset-bottom, 0px));
   }
   /* Installed to the home screen, the app is laid out without
      viewport-fit=cover (see layout.tsx), so iOS reports a zero inset and
@@ -251,11 +258,14 @@ html:not([data-theme="dark"]) .org-mark {
     .pb-safe {
       padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
     }
+    .pb-tabbar {
+      padding-bottom: calc(max(env(safe-area-inset-bottom, 0px), 24px) + 12px);
+    }
     .pb-bar {
-      padding-bottom: calc(57px + max(env(safe-area-inset-bottom, 0px), 24px));
+      padding-bottom: calc(69px + max(env(safe-area-inset-bottom, 0px), 24px));
     }
     html {
-      scroll-padding-bottom: calc(57px + max(env(safe-area-inset-bottom, 0px), 24px));
+      scroll-padding-bottom: calc(69px + max(env(safe-area-inset-bottom, 0px), 24px));
     }
   }
 }

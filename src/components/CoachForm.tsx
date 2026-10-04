@@ -25,12 +25,12 @@ export function CoachForm({ action, initialValues = {}, submitLabel }: { action:
   return (
     <Form action={formAction} error={state.errors.form}>
       <Field name="name" label="Name" autoComplete="off" defaultValue={initialValues.name ?? ""} error={err("name")} required />
-      <Field name="title" label="Title" hint="For example, Head Coach or Assistant Coach." defaultValue={initialValues.title ?? ""} error={err("title")} />
+      <Field name="title" label="Title" defaultValue={initialValues.title ?? ""} error={err("title")} />
       <Grid2>
         <Field name="email" label="Email" type="email" inputMode="email" autoCapitalize="none" defaultValue={initialValues.email ?? ""} error={err("email")} />
         <Field name="phone" label="Phone" type="tel" inputMode="tel" defaultValue={initialValues.phone ?? ""} error={err("phone")} />
       </Grid2>
-      <CheckField name="isRecruitingCoordinator" label="Runs Recruiting" hint="The first person to write to about an athlete." defaultChecked={initialValues.isRecruitingCoordinator ?? false} />
+      <CheckField name="isRecruitingCoordinator" label="Runs Recruiting" defaultChecked={initialValues.isRecruitingCoordinator ?? false} />
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );

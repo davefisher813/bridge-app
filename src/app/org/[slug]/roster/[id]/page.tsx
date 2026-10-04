@@ -302,9 +302,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
             wrap
           />
         ) : (
-          <EmptyState kind="people" title="No Advisor Assigned" action={advisorSheet}>
-            The advisor checks in with this athlete and the athlete login sees their name.
-          </EmptyState>
+          <EmptyState kind="people" title="No Advisor Assigned" action={advisorSheet} />
         )}
         <Row
           href={`/org/${slug}/roster/${id}/messages`}
@@ -336,15 +334,11 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         action={assignments.length > assignmentsShown ? <TextLink href={assignHref}>See All</TextLink> : undefined}
       >
         {assignments.length === 0 ? (
-          <EmptyState kind="checklist" role="contact" title="No Assignments Yet" action={<LinkButton href={`${assignHref}/new`}>New Assignment</LinkButton>}>
-            Give this athlete a piece of work with a due date.
-          </EmptyState>
+          <EmptyState kind="checklist" role="contact" title="No Assignments Yet" action={<LinkButton href={`${assignHref}/new`}>New Assignment</LinkButton>} />
         ) : (
           <>
             {activeAssignments.length === 0 ? (
-              <EmptyState kind="check" role="committed" title="Nothing Open">
-                Everything assigned to this athlete is done.
-              </EmptyState>
+              <EmptyState kind="check" role="committed" title="Nothing Open" />
             ) : (
               <AssignmentRows slug={slug} rows={activeAssignments.slice(0, assignmentsShown)} today={today} />
             )}
@@ -404,8 +398,8 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
       </Stack>
 
       <Stack gap={3}>
-        <Row href={`/org/${slug}/roster/${id}/eligibility`} kind="checklist" role="contact" title="NCAA Eligibility" meta="Core GPA, qualifier status and the clock" trailing={<Chevron />} />
-        <Row href={`/org/${slug}/roster/${id}/transcript`} kind="course" role="contact" title="Transcript" meta="Every course, and what the NCAA counted" trailing={<Chevron />} />
+        <Row href={`/org/${slug}/roster/${id}/eligibility`} kind="checklist" role="contact" title="NCAA Eligibility" trailing={<Chevron />} />
+        <Row href={`/org/${slug}/roster/${id}/transcript`} kind="course" role="contact" title="Transcript" trailing={<Chevron />} />
         {targets.length > 0 && (
           <Row
             href={`/org/${slug}/roster/${id}/history`}
@@ -466,9 +460,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           action={evaluated.length > 10 ? <TextLink href={`/org/${slug}/roster/${id}/matches`}>See All</TextLink> : undefined}
         >
           {evaluated.length === 0 ? (
-            <EmptyState kind="target" title="No Matches Yet" action={canEdit ? <LinkButton href={`/org/${slug}/schools`}>Open Schools</LinkButton> : undefined}>
-              {canEdit ? "With no schools on file there is nothing to score against." : "Every school on file is scored once the record is saved."}
-            </EmptyState>
+            <EmptyState kind="target" title="No Matches Yet" action={canEdit ? <LinkButton href={`/org/${slug}/schools`}>Open Schools</LinkButton> : undefined} />
           ) : (
             <>
               {topFits.map((f) => (
@@ -526,9 +518,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           them. */}
       <Section label="Notes" count={notes.length} role="accent" kind="note">
         {notes.length === 0 ? (
-          <EmptyState kind="note" title="No Notes Yet">
-            Admins only. The athlete login never sees them.
-          </EmptyState>
+          <EmptyState kind="note" title="No Notes Yet" />
         ) : (
           notes.map((n) => (
             <Card key={n.id}>
@@ -560,9 +550,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         action={recentActivity.length > ACTIVITY_PREVIEW ? <TextLink href={`/org/${slug}/roster/${id}/activity`}>See All</TextLink> : undefined}
       >
         {recentActivity.length === 0 ? (
-          <EmptyState kind="clock" title="No Activity Yet">
-            Changes to this athlete are recorded here as they happen.
-          </EmptyState>
+          <EmptyState kind="clock" title="No Activity Yet" />
         ) : (
           <ActivityRows slug={slug} rows={recentActivity.slice(0, ACTIVITY_PREVIEW)} liveAthletes={new Set([id])} profileLinks={false} />
         )}
@@ -612,9 +600,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
       <Section label="Athlete Logins" count={family.length} role="people" kind="people">
         {family.length === 0 ? (
-          <EmptyState kind="people" title="No Athlete Login Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/family/new`}>Invite Athlete</LinkButton> : undefined}>
-            {canEdit ? "The athlete first, then a parent or guardian." : "Nobody has an athlete login yet."}
-          </EmptyState>
+          <EmptyState kind="people" title="No Athlete Login Yet" action={canEdit ? <LinkButton href={`/org/${slug}/roster/${id}/family/new`}>Invite Athlete</LinkButton> : undefined} />
         ) : (
           family.map((g) => (
             // Opens the link itself: who they are to this athlete, Unlink,

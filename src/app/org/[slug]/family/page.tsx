@@ -34,7 +34,6 @@ export default async function FamilyHomePage({ params }: { params: Promise<{ slu
           />
         ))
       )}
-      <Prose>Each record is read only here. To change anything on it, ask {org.name}.</Prose>
     </Screen>
   );
 }

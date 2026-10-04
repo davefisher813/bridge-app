@@ -98,9 +98,7 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
   return (
     <Screen title="Colleges" lede={athletes.length === 1 ? athletes[0]!.name : `${athletes.length} athletes`}>
       {targets.length === 0 ? (
-        <EmptyState kind="school" title="No Colleges Yet">
-          Schools being pursued show up here, with every visit.
-        </EmptyState>
+        <EmptyState kind="school" title="No Colleges Yet" />
       ) : athletes.length > 1 ? (
         athletes.map((a) => {
           const mine = targets.filter((t) => t.athlete_id === a.id);
@@ -119,9 +117,7 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
 
       <Section label="Visits" count={visits.length} role="place" kind="visit">
         {visits.length === 0 ? (
-          <EmptyState kind="visit" title="No Visits Yet">
-            Listed here once an Admin logs them.
-          </EmptyState>
+          <EmptyState kind="visit" title="No Visits Yet" />
         ) : (
           visits.map((v) => {
             const t = targetById.get(v.target_id);
@@ -144,9 +140,8 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
         )}
       </Section>
 
-      <Prose>Admins keep this list. To add a school or log a visit, ask {org.name}.</Prose>
 
-      <Row href={`${base}/schools`} kind="school" role="place" title="Every School" meta="Search the whole database" trailing={<Chevron />} />
+      <Row href={`${base}/schools`} kind="school" role="place" title="Every School" trailing={<Chevron />} />
     </Screen>
   );
 }

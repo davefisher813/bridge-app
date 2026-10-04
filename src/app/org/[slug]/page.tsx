@@ -268,7 +268,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
           .map(([status, count]) => ({ label: status, count, href: `/org/${slug}/roster?status=${encodeURIComponent(status)}`, role: statusRole(status), emphasis: status === "Active" }))}
       />
 
-      <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" meta="Every school on file, with search and filters" trailing={<Chevron />} />
+      <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" trailing={<Chevron />} />
       <Row
         href={`/org/${slug}/mine`}
         kind="athlete"

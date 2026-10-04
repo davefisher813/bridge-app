@@ -165,9 +165,7 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
       {(rows.length > 5 || q) && <SearchField initial={q} placeholder="An athlete, a school, a sport or a coach" />}
       {shown.length === 0 ? (
         <>
-          <EmptyState kind="target" title={q || narrowedBy ? "Nothing Matches" : "No Recruiting Targets Yet"} action={!q && canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>}>
-            {q ? "Try a shorter name, or clear the search." : narrowedBy ? "Nothing here at this stage. Show every target to see the rest." : canEdit ? "A target is one athlete pointed at one school." : "Ask an Admin to add one."}
-          </EmptyState>
+          <EmptyState kind="target" title={q || narrowedBy ? "Nothing Matches" : "No Recruiting Targets Yet"} action={!q && canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>} />
         </>
       ) : (
         grouped.map((group) => (

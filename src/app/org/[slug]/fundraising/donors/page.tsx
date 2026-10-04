@@ -104,9 +104,7 @@ export default async function DonorsPage({ params, searchParams }: { params: Pro
 
       <Section label="All Donors" count={rows.length} role="contact" kind="donor">
         {rows.length === 0 ? (
-          <EmptyState kind="donor" title={q ? "Nobody Matches" : "No Donors Yet"}>
-            {q ? "Try a shorter name, or clear the search." : "Add the people and organizations who give, and every gift recorded against them builds their history automatically."}
-          </EmptyState>
+          <EmptyState kind="donor" title={q ? "Nobody Matches" : "No Donors Yet"} />
         ) : (
           rows.map(({ donor, totals }) => (
             <Row

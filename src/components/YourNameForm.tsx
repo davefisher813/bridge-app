@@ -9,7 +9,7 @@ export function YourNameForm({ slug, returnTo, fullName }: { slug: string; retur
     <Form action={renameSelfForm.bind(null, slug)}>
       <Stack gap={3}>
         <Hidden name="returnTo" value={returnTo} />
-        <Field id="your-name" name="fullName" label="Your Name" defaultValue={fullName} autoComplete="name" maxLength={120} hint="How you show to everyone here. Left blank, your email shows." />
+        <Field id="your-name" name="fullName" label="Your Name" defaultValue={fullName} autoComplete="name" maxLength={120} />
         <Button variant="secondary">Save Name</Button>
       </Stack>
     </Form>

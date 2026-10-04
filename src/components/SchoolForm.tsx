@@ -81,7 +81,7 @@ export function SchoolForm({
           Open the School on File
         </LinkButton>
       )}
-      <Field name="name" label="School Name" hint="For example, Test University." defaultValue={v("name")} error={err("name")} required />
+      <Field name="name" label="School Name" defaultValue={v("name")} error={err("name")} required />
       <Grid2>
         <SelectField name="division" label="Division" error={err("division")} defaultValue={v("division") || "D1"}>
           {SCHOOL_DIVISIONS.map((d) => (
@@ -90,7 +90,7 @@ export function SchoolForm({
             </option>
           ))}
         </SelectField>
-        <SelectField name="programTier" label="Program Tier" hint="Blank follows the division." defaultValue={v("programTier")} error={err("programTier")}>
+        <SelectField name="programTier" label="Program Tier" defaultValue={v("programTier")} error={err("programTier")}>
           <option value="">From Division</option>
           {PROGRAM_TIERS.map((t) => (
             <option key={t.key} value={t.key}>
@@ -100,7 +100,7 @@ export function SchoolForm({
         </SelectField>
       </Grid2>
       <Grid2>
-        <SuggestField id="school-conference" name="conference" label="Conference" suggestions={conferences} hint="Pick one on file or type a new one." defaultValue={v("conference")} />
+        <SuggestField id="school-conference" name="conference" label="Conference" suggestions={conferences} defaultValue={v("conference")} />
         <SelectField name="state" label="State" defaultValue={v("state")} error={err("state")}>
           <option value="">Not Recorded</option>
           {/* A code already on the row that is not a US state (a
@@ -128,12 +128,12 @@ export function SchoolForm({
           <Field name="satRange" label="SAT Range" hint="For example, 1150-1320." defaultValue={v("satRange")} />
           <Field name="actRange" label="ACT Range" hint="For example, 24-29." defaultValue={v("actRange")} />
         </Grid2>
-        <TextAreaField name="majorsNote" label="Programs of Interest" hint="What this school offers in the fields your athletes ask about." rows={2} maxLength={500} defaultValue={v("majorsNote")} error={err("majorsNote")} />
+        <TextAreaField name="majorsNote" label="Programs of Interest" rows={2} maxLength={500} defaultValue={v("majorsNote")} error={err("majorsNote")} />
       </Stack>
 
       <Stack gap={3}>
         <Label caps>Money</Label>
-        <SelectField name="athleticScholarship" label="Athletic Scholarships" hint="A D3 school cannot offer any." defaultValue={v("athleticScholarship")} error={err("athleticScholarship")}>
+        <SelectField name="athleticScholarship" label="Athletic Scholarships" defaultValue={v("athleticScholarship")} error={err("athleticScholarship")}>
           <option value="">Not Recorded</option>
           {SCHOLARSHIP_TYPES.map((t) => (
             <option key={t} value={t}>

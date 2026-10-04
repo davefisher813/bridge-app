@@ -51,8 +51,8 @@ export function VisitForm({ action, initialValues, submitLabel = "Log Visit" }: 
           error={state.errors.visitDate}
         />
       </Grid2>
-      <TextAreaField name="impression" label="Impression" hint="How it went." rows={3} defaultValue={initialValues?.impression ?? ""} />
-      <TextAreaField name="nextStep" label="Next Step" hint="What happens next." rows={2} defaultValue={initialValues?.nextStep ?? ""} />
+      <TextAreaField name="impression" label="Impression" rows={3} defaultValue={initialValues?.impression ?? ""} />
+      <TextAreaField name="nextStep" label="Next Step" rows={2} defaultValue={initialValues?.nextStep ?? ""} />
       <TextAreaField name="notes" label="Notes" rows={3} defaultValue={initialValues?.notes ?? ""} />
       <Button variant={editing ? "primary" : "secondary"} disabled={pending}>
         {pending ? "Saving..." : submitLabel}

@@ -45,9 +45,7 @@ export default async function MemberProgramPage({ params }: { params: Promise<{ 
 
       <Section label="Athletes" count={program.length} role="people" kind="athlete">
         {program.length === 0 ? (
-          <EmptyState kind="athlete" title="No Athletes Yet">
-            {org.name} has not added anyone to the program.
-          </EmptyState>
+          <EmptyState kind="athlete" title="No Athletes Yet" />
         ) : (
           program.map((a) => (
             <Row
@@ -63,7 +61,7 @@ export default async function MemberProgramPage({ params }: { params: Promise<{ 
         )}
       </Section>
 
-      <Row href={`${base}/schools`} kind="school" role="place" title="Schools" meta="Every school on file, with search and filters" trailing={<Chevron />} />
+      <Row href={`${base}/schools`} kind="school" role="place" title="Schools" trailing={<Chevron />} />
     </Screen>
   );
 }

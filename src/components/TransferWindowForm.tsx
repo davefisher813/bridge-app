@@ -49,14 +49,14 @@ export function TransferWindowForm({ action, initialValues = {}, submitLabel = "
       </Grid2>
       <Grid2>
         <Field name="seasonYear" label="Season" hint="Like 2026-27." defaultValue={value("seasonYear")} error={err("seasonYear")} />
-        <Field name="windowLabel" label="Window" hint="Undergraduate, graduate, post-season." defaultValue={value("windowLabel")} error={err("windowLabel")} />
+        <Field name="windowLabel" label="Window" defaultValue={value("windowLabel")} error={err("windowLabel")} />
       </Grid2>
       <Grid2>
         <Field name="opensOn" label="Opens" type="date" defaultValue={value("opensOn")} error={err("opensOn")} />
         <Field name="closesOn" label="Closes" type="date" defaultValue={value("closesOn")} error={err("closesOn")} />
       </Grid2>
-      <Field name="sourceUrl" label="Source" type="url" inputMode="url" hint="The NCAA or conference page these dates are printed on." defaultValue={value("sourceUrl")} error={err("sourceUrl")} />
-      <TextAreaField name="notes" label="Notes" rows={3} maxLength={4000} hint="Who it covers, an exception, anything the dates alone do not say." defaultValue={value("notes")} error={err("notes")} />
+      <Field name="sourceUrl" label="Source" type="url" inputMode="url" defaultValue={value("sourceUrl")} error={err("sourceUrl")} />
+      <TextAreaField name="notes" label="Notes" rows={3} maxLength={4000} defaultValue={value("notes")} error={err("notes")} />
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
     </Form>
   );

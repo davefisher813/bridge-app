@@ -56,9 +56,7 @@ export default async function CaveatsPage({ params }: { params: Promise<{ slug: 
       lede={`${athlete.name} · ${total} ${total === 1 ? "item" : "items"}`}
     >
       {total === 0 ? (
-        <EmptyState kind="check" role="committed" title="Nothing Outstanding">
-          The verdict is built on real data, not defaults.
-        </EmptyState>
+        <EmptyState kind="check" role="committed" title="Nothing Outstanding" />
       ) : (
         <>
           {/* Data caveats first, because they are the ones somebody can

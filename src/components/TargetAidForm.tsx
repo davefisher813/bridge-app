@@ -52,13 +52,13 @@ export function TargetAidForm({ action, aid }: { action: ServerAction; aid: Targ
         name="netCost"
         label="Net Cost"
         inputMode="decimal"
-        hint="What the family pays. Blank works it out from the cost less grants and scholarships."
+        hint="Blank works it out from the cost less grants and scholarships."
         defaultValue={str(aid?.netCost)}
         error={err("netCost")}
       />
       <Grid2>
-        <Field name="efc" label="EFC" inputMode="decimal" hint="Expected family contribution, if the letter gives one." defaultValue={str(aid?.efc)} error={err("efc")} />
-        <Field name="sai" label="SAI" inputMode="decimal" hint="Student aid index, if the letter gives one." defaultValue={str(aid?.sai)} error={err("sai")} />
+        <Field name="efc" label="EFC" inputMode="decimal" hint="Expected family contribution." defaultValue={str(aid?.efc)} error={err("efc")} />
+        <Field name="sai" label="SAI" inputMode="decimal" hint="Student aid index." defaultValue={str(aid?.sai)} error={err("sai")} />
       </Grid2>
 
       <Stack gap={3}>

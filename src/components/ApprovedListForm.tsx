@@ -112,7 +112,7 @@ export function ApprovedListForm({
         value={paste}
         onChange={(e) => setPaste(e.target.value)}
         rows={5}
-        hint="From web3.ncaa.org/hsportal. One course per line."
+        hint="One course per line."
       />
       {parsed && (
         <Inline>
@@ -160,7 +160,6 @@ export function ApprovedListForm({
                         name={`edit_credit_${r.id}`}
                         label="Credit Cap"
                         inputMode="decimal"
-                        hint="Blank for no cap."
                         value={r.maxCredit === null ? "" : String(r.maxCredit)}
                         onChange={(e) => {
                           const v = e.target.value.trim();
@@ -190,14 +189,13 @@ export function ApprovedListForm({
       )}
 
       <Grid2>
-        <Field name="ceebCode" label="CEEB Code" hint="For example, 070415." inputMode="numeric" defaultValue={defaults.ceebCode ?? ""} />
+        <Field name="ceebCode" label="CEEB Code" inputMode="numeric" defaultValue={defaults.ceebCode ?? ""} />
         <Field name="retrievedOn" label="Read Off the Portal On" type="date" defaultValue={defaults.retrievedOn ?? ""} />
       </Grid2>
 
       <Field
         name="sourceNote"
         label="Where This Came From"
-        hint="For example, Transcribed from the NCAA portal."
         defaultValue={defaults.sourceNote ?? ""}
         error={state.errors.sourceNote}
       />
@@ -208,7 +206,7 @@ export function ApprovedListForm({
         checked={isComplete}
         onChange={(e) => setIsComplete(e.target.checked)}
         label="This Is the School's Whole List"
-        hint="Only tick this if you copied all of it. A complete list means a course missing from it does not count toward the core GPA. A partial one can confirm a course and never rules one out."
+        hint="Only tick this if you copied all of it."
       />
 
       {blockedBy && <Label>{blockedBy}</Label>}

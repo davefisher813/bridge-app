@@ -29,7 +29,6 @@ export function AssignmentForm({ action }: { action: ServerAction }) {
       <TextAreaField
         name="instructions"
         label="Instructions"
-        hint="What to do, in words the athlete and family can follow."
         maxLength={ASSIGNMENT_TEXT_MAX}
         error={state.errors.instructions}
       />
@@ -49,7 +48,7 @@ export function AssignmentForm({ action }: { action: ServerAction }) {
           ))}
         </SelectField>
       </Grid2>
-      <Field name="dueOn" label="Due Date" type="date" hint="Optional. Upload asks for a file; the other kinds take a note." error={state.errors.dueOn} />
+      <Field name="dueOn" label="Due Date" type="date" error={state.errors.dueOn} />
       <Button disabled={pending}>{pending ? "Saving..." : "Create Assignment"}</Button>
     </Form>
   );

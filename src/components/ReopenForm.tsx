@@ -36,9 +36,9 @@ export function ReopenForm({ action, kinds, defaults, colleges = [] }: { action:
       </SelectField>
       <SuggestField name="currentSchool" label="Leaving From" defaultValue={value("currentSchool", defaults.currentSchool)} error={err("currentSchool")} maxLength={120} required suggestions={colleges} />
       <Field name="eligibilityYearsRemaining" label="Eligibility Years Left" type="number" inputMode="numeric" min={0} max={5} step={1} defaultValue={value("eligibilityYearsRemaining", "")} error={err("eligibilityYearsRemaining")} required />
-      <Field name="transferCount" label="Transfers So Far" type="number" inputMode="numeric" min={0} step={1} defaultValue={value("transferCount", String(defaults.transferCount))} error={err("transferCount")} hint="Counting this one." />
-      <Field name="portalEntryDate" label="Portal Entry Date" type="date" defaultValue={value("portalEntryDate", "")} error={err("portalEntryDate")} hint="Leave blank if they are not in the portal yet." />
-      <TextAreaField name="note" label="Note" hint="Optional. Admins only, filed on the athlete's notes." maxLength={4000} defaultValue={value("note", "")} error={err("note")} />
+      <Field name="transferCount" label="Transfers So Far" type="number" inputMode="numeric" min={0} step={1} defaultValue={value("transferCount", String(defaults.transferCount))} error={err("transferCount")} />
+      <Field name="portalEntryDate" label="Portal Entry Date" type="date" defaultValue={value("portalEntryDate", "")} error={err("portalEntryDate")} />
+      <TextAreaField name="note" label="Note" maxLength={4000} defaultValue={value("note", "")} error={err("note")} />
       <Button disabled={pending}>{pending ? "Saving..." : "Reopen Recruiting"}</Button>
     </Form>
   );

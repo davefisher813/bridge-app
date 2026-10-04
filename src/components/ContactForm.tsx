@@ -106,7 +106,7 @@ export function ContactForm({
         <SuggestField
           name="name"
           label="Name"
-          hint={schoolCoaches.length > 0 ? "Pick one of the school's coaches or type a name." : "For example, T. Reilly."}
+         
           value={name}
           onChange={(e) => typeName(e.target.value)}
           required

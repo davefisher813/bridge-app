@@ -27,7 +27,7 @@ export default async function DocAiSpendingPage({ params }: { params: Promise<{ 
   const [spend, calls, stubbed] = await Promise.all([loadMonthSpend(supabase, org.id), loadMonthCalls(supabase, org.id), isStubbedModel()]);
 
   return (
-    <Screen title="Doc AI Spending" back={{ href: `/org/${slug}/more`, label: "More" }} lede={`${dollars(spend.spentCents)} of ${dollars(spend.capCents)} this month, ${spend.calls} ${spend.calls === 1 ? "call" : "calls"}. An owner sets the budget under More.`}>
+    <Screen title="Doc AI Spending" back={{ href: `/org/${slug}/more`, label: "More" }} lede={`${dollars(spend.spentCents)} of ${dollars(spend.capCents)} this month, ${spend.calls} ${spend.calls === 1 ? "call" : "calls"}.`}>
       {stubbed && (
         <Notice tone="info" title="No AI Model Is Connected Yet">
           Reading is simulated and free until one is.
@@ -41,9 +41,7 @@ export default async function DocAiSpendingPage({ params }: { params: Promise<{ 
 
       <Section label="This Month" count={calls.length} role="contact" kind="money">
         {calls.length === 0 ? (
-          <EmptyState kind="money" title="No Calls Yet">
-            Each time a document is read, the call and its cost show up here.
-          </EmptyState>
+          <EmptyState kind="money" title="No Calls Yet" />
         ) : (
           calls.map((c) => {
             const meta = `${shortDate(c.createdAt)} · ${c.model} · ${c.inputTokens + c.outputTokens} tokens`;

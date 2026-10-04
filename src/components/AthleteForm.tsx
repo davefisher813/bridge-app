@@ -212,7 +212,7 @@ export function AthleteForm({
 
   return (
     <Form action={formAction} error={state.errors.form}>
-      <Field name="name" label="Name" hint="For example, Jose Ulloa." defaultValue={f("name")} required error={err("name")} />
+      <Field name="name" label="Name" defaultValue={f("name")} required error={err("name")} />
       <Grid2>
         <SelectField name="sport" label="Sport" value={sport} onChange={(e) => setSport(e.target.value)} error={err("sport")}>
           {sportOptions.map((s) => (
@@ -221,7 +221,7 @@ export function AthleteForm({
             </option>
           ))}
         </SelectField>
-        <SuggestField name="position" label="Position" hint={positions ? `For example, ${positions}.` : undefined} value={position} onChange={(e) => setPosition(e.target.value)} suggestions={positionsOf(sport)} />
+        <SuggestField name="position" label="Position" value={position} onChange={(e) => setPosition(e.target.value)} suggestions={positionsOf(sport)} />
       </Grid2>
       <SelectField name="recruitType" label="Recruit Type" value={recruitType} onChange={(e) => setRecruitType(e.target.value as RecruitType)}>
         {RECRUIT_TYPES.map((t) => (
@@ -242,7 +242,7 @@ export function AthleteForm({
       </Grid2>
       <CheckField name="gpaVerified" label="GPA Verified" defaultChecked={f("gpaVerified") === "on" || !!initialValues.gpaVerified} />
       {!editing && (
-        <SelectField name="advisorId" label="Advisor" hint="Who checks in with this athlete. Their athlete login sees the name. Change it later from the athlete's page." defaultValue={advisors.some((a) => a.id === f("advisorId")) ? f("advisorId") : ""} error={err("advisorId")}>
+        <SelectField name="advisorId" label="Advisor" defaultValue={advisors.some((a) => a.id === f("advisorId")) ? f("advisorId") : ""} error={err("advisorId")}>
           <option value="">Nobody Yet</option>
           {advisors.map((a) => (
             <option key={a.id} value={a.id}>
@@ -258,7 +258,6 @@ export function AthleteForm({
           <SuggestField
             name="highSchool"
             label="High School"
-            hint="Pick from the list or type it. Picking one fills Home State when it is blank."
             maxLength={200}
             value={highSchool}
             onChange={(e) => pickHighSchool(e.target.value)}
@@ -267,7 +266,7 @@ export function AthleteForm({
           />
           <Hidden name="highSchoolId" value={highSchoolId} />
           <Grid2>
-            <Field name="gradYear" label="Grad Year" hint="For example, 2027." type="number" inputMode="numeric" defaultValue={f("gradYear")} />
+            <Field name="gradYear" label="Grad Year" type="number" inputMode="numeric" defaultValue={f("gradYear")} />
             <SuggestField name="desiredMajor" label="Desired Major" defaultValue={f("desiredMajor")} suggestions={options.majors} />
           </Grid2>
           <Grid2>
@@ -289,7 +288,6 @@ export function AthleteForm({
           <SuggestField
             name="currentSchool"
             label="Current School"
-            hint="Pick from the list or type it. Picking one fills Current Division when it is blank."
             value={currentSchool}
             onChange={(e) => pickCollege(e.target.value)}
             required={isTransfer}
@@ -298,7 +296,7 @@ export function AthleteForm({
           />
           <Hidden name="currentSchoolId" value={currentSchoolId} />
           <Grid2>
-            <Field name="currentDivision" label="Current Division" hint="For example, D1." value={currentDivision} onChange={(e) => setCurrentDivision(e.target.value)} />
+            <Field name="currentDivision" label="Current Division" value={currentDivision} onChange={(e) => setCurrentDivision(e.target.value)} />
             <Field name="collegeGpa" label="College GPA" type="number" step="0.01" min="0" max="4" inputMode="decimal" defaultValue={f("collegeGpa")} />
           </Grid2>
           <Grid2>
@@ -335,7 +333,7 @@ export function AthleteForm({
           <Label caps>NCAA clock dates</Label>
           <Grid2>
             {dates.enrollment && (
-              <Field name="enrollmentDate" label="Enrollment Date" hint="First full-time enrollment. It starts the five-year clock." type="date" defaultValue={f("enrollmentDate")} error={err("enrollmentDate")} />
+              <Field name="enrollmentDate" label="Enrollment Date" hint="First full-time enrollment." type="date" defaultValue={f("enrollmentDate")} error={err("enrollmentDate")} />
             )}
             {dates.graduated && <Field name="graduatedOn" label="Graduated On" type="date" defaultValue={f("graduatedOn")} error={err("graduatedOn")} />}
           </Grid2>
@@ -346,7 +344,7 @@ export function AthleteForm({
           drives the money score, the home state picks in-state cost. */}
       <Stack gap={3}>
         <Label caps>Goal and money</Label>
-        <SelectField name="goal" label="Goal" hint="Education First leans the score toward academics; Development First toward the program." defaultValue={f("goal") || "balanced"}>
+        <SelectField name="goal" label="Goal" defaultValue={f("goal") || "balanced"}>
           {ATHLETE_GOALS.map((g) => (
             <option key={g.value} value={g.value}>
               {g.label}
@@ -355,7 +353,7 @@ export function AthleteForm({
         </SelectField>
         <Grid2>
           <Field name="familyBudget" label="Family Budget per Year" hint="Dollars, after aid." type="number" min="0" step="100" inputMode="numeric" defaultValue={f("familyBudget")} error={err("familyBudget")} />
-          <SelectField name="homeState" label="Home State" hint="Picks in-state cost." value={homeState} onChange={(e) => setHomeState(e.target.value)} error={err("homeState")}>
+          <SelectField name="homeState" label="Home State" value={homeState} onChange={(e) => setHomeState(e.target.value)} error={err("homeState")}>
             <option value="">Not Set</option>
             {stateOptions.map((s) => (
               <option key={s.value} value={s.value}>
@@ -397,7 +395,7 @@ export function AthleteForm({
               ))}
             </SelectField>
           </Grid2>
-          <SuggestField name="metricsSourceDetail" label="Event or Detail" hint="For example, PBR Connecticut or fall practice." maxLength={120} defaultValue={f("metricsSourceDetail")} suggestions={options.sourceDetails} />
+          <SuggestField name="metricsSourceDetail" label="Event or Detail" maxLength={120} defaultValue={f("metricsSourceDetail")} suggestions={options.sourceDetails} />
         </Stack>
       )}
 
@@ -420,7 +418,7 @@ export function AthleteForm({
       <TextAreaField
         name="notes"
         label={editing ? "Add a Note" : "Notes"}
-        hint="Admins only, never shown on an athlete login. Each note is dated; blank adds nothing."
+        hint="Admins only, never shown on an athlete login."
         maxLength={4000}
         defaultValue={f("notes")}
         error={err("notes")}

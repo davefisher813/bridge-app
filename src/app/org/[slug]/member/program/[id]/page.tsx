@@ -26,9 +26,7 @@ export default async function MemberAthletePage({ params }: { params: Promise<{ 
     <Screen title={athlete.name} back={{ href: `${base}/program`, label: "Program" }} lede={`${athlete.sport}${athlete.position ? ` · ${athlete.position}` : ""} · ${programPlacementLine(athlete) ?? classOf(athlete)}`}>
       <Section label="Schools" count={schools.length} role="place" kind="school">
         {schools.length === 0 ? (
-          <EmptyState kind="school" title="No Target Schools Yet">
-            {org.name} has not named a school for {athlete.name} yet.
-          </EmptyState>
+          <EmptyState kind="school" title="No Target Schools Yet" />
         ) : (
           schools.map((s) => <Row key={s.targetId} kind="school" role="place" title={s.schoolName} meta={s.division} trailing={<StatusPill status={s.status} />} wrap />)
         )}

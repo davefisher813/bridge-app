@@ -25,7 +25,6 @@ export default async function OrgSettingsPage({ params, searchParams }: { params
     <Screen title="Organization Settings" back={{ href: `/org/${slug}/more`, label: "More" }} lede={org.name}>
       {notice && <Notice tone="success" title={notice} />}
       <OrgSettingsForm action={updateOrgSettings.bind(null, slug)} name={org.name} modules={modules} />
-      <Prose>{`Web address: /org/${org.slug}. It stays the same so every saved link keeps working.`}</Prose>
     </Screen>
   );
 }

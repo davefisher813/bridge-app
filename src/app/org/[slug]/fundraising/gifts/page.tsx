@@ -75,9 +75,7 @@ export default async function GiftsPage({
       {(all.length > 5 || q) && <SearchField initial={q} placeholder="A donor or a campaign" />}
 
       {gifts.length === 0 ? (
-        <EmptyState kind="money" title="Nothing Here">
-          {q ? "No gift matches this search." : category || method ? "No gift matches this filter." : "No gifts recorded yet."}
-        </EmptyState>
+        <EmptyState kind="money" title="Nothing Here" />
       ) : (
         <Section label="Gifts" count={gifts.length} role="committed" kind="money">
           {gifts.map((g) => {

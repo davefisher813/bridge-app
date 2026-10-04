@@ -35,7 +35,6 @@ export default async function EditReadingPage({ params }: { params: Promise<{ sl
 
   return (
     <Screen title="Correct the Reading" back={{ href: back, label: "Document" }} lede={doc.file_name}>
-      <Note title="Check It Against the Page">Change only what the page says differently. Nothing lands on an athlete until you apply it.</Note>
       <ExtractedEditForm action={updateExtracted.bind(null, slug, doc.id)} fields={fields} />
     </Screen>
   );

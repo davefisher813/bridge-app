@@ -20,10 +20,10 @@ export default async function ImportSchoolsPage({ params }: { params: Promise<{ 
   const action = importSchools.bind(null, slug);
 
   return (
-    <Screen title="Import Schools" back={{ href: `/org/${slug}/schools`, label: "Schools" }} lede="A spreadsheet in, every school scored against every athlete out.">
+    <Screen title="Import Schools" back={{ href: `/org/${slug}/schools`, label: "Schools" }}>
       <Section label="The Template" role="place" kind="document">
         <Stack gap={3}>
-          <Label>Open the template, fill one row per school, and export it as CSV. A school already on file with the same name is updated, not duplicated.</Label>
+          <Label>A school already on file with the same name is updated, not duplicated.</Label>
           <LinkButton href="/templates/schools.csv" variant="secondary">
             Download the Template
           </LinkButton>

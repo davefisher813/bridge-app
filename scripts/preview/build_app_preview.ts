@@ -116,7 +116,7 @@ it("builds the app preview from the real pages", async () => {
     // sticky at the end of the screen instead: it hugs the bottom of
     // whatever scrolls (the frame on a laptop, the page on a phone) and
     // the screen no longer needs to pad for it.
-    s.html = s.html.replace(/\bpb-safe fixed inset-x-0 bottom-0\b/g, "pb-safe sticky bottom-0").replace(/\s?\bpb-bar\b/g, "");
+    s.html = s.html.replace(/\bpb-tabbar fixed inset-x-0 bottom-0\b/g, "pb-tabbar sticky bottom-0").replace(/\s?\bpb-bar\b/g, "");
   }
 
   const first = screens.find((s) => s.name === "today") ?? screens[0];

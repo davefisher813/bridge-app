@@ -73,11 +73,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
 
   const uploader = canUpload && (
     <Section label={courses.length ? "Add another transcript" : "Add a transcript"} role="contact" kind="document">
-      <Prose>
-        {courses.length
-          ? `Goes straight onto ${athlete.name.split(" ")[0]}'s record. A transfer student legitimately has two, and the second does not replace the first.`
-          : "Read for its course list, not just its GPA. That course list is the only thing an NCAA core GPA can be calculated from, so nothing above works until one is on file."}
-      </Prose>
+      {courses.length === 0 && <Prose>A course list is what an NCAA core GPA is calculated from, so nothing above works until one is on file.</Prose>}
       <DocumentUploader slug={slug} orgId={org.id} boundTo={{ athleteId: id, athleteName: athlete.name, category: "transcript", returnTo: here }} />
     </Section>
   );

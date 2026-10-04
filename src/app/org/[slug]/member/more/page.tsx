@@ -38,9 +38,7 @@ export default async function MemberMorePage({ params }: { params: Promise<{ slu
     <Screen title="More">
       <Section label="Who to Ask" count={staff.length} role="people" kind="people">
         {staff.length === 0 ? (
-          <EmptyState kind="people" title="Nobody Listed Yet">
-            {org.name} has not named anyone to contact.
-          </EmptyState>
+          <EmptyState kind="people" title="Nobody Listed Yet" />
         ) : (
           staff.map((s) => (
             <Row

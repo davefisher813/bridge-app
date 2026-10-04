@@ -50,7 +50,7 @@ export function BoardForm({ action, initial, submitLabel = "Create Board" }: { a
       {/* Required only for a sport board, because the whole point of
           that tier is that there is one per sport. A tap picks one of
           the sports the app already knows; anything else can be typed. */}
-      {kind === "sport" && <SuggestField name="sport" label="Sport" suggestions={SPORT_SUGGESTIONS} defaultValue={initial?.sport ?? ""} hint="Pick one, or type another." error={err("sport")} />}
+      {kind === "sport" && <SuggestField name="sport" label="Sport" suggestions={SPORT_SUGGESTIONS} defaultValue={initial?.sport ?? ""} error={err("sport")} />}
 
       <Field
         name="giveGet"
@@ -67,10 +67,6 @@ export function BoardForm({ action, initial, submitLabel = "Create Board" }: { a
         <Field name="minSeats" label="Minimum Seats" error={err("minSeats")} inputMode="numeric" className="tabular-nums" defaultValue={own ? own.minSeats : defaults.min} key={`min-${kind}`} />
         <Field name="maxSeats" label="Maximum Seats" error={err("maxSeats")} inputMode="numeric" className="tabular-nums" defaultValue={own ? own.maxSeats : defaults.max} key={`max-${kind}`} />
       </Grid2>
-      {kind === "sport" && (
-        <Prose>Your governance document says a sport board starts at three and can grow to five. Below the minimum is flagged, not blocked.</Prose>
-      )}
-
       <TextAreaField name="description" label="Description" rows={2} defaultValue={initial?.description ?? ""} />
 
       <Button type="submit" disabled={pending}>
@@ -148,7 +144,6 @@ export function BoardSeatForm({
         name="donorId"
         label="Donor Record"
         error={err("donorId")}
-        hint="Without it, only what they bring in can be credited. Picking one fills the blanks below."
         defaultValue={initial?.donorId ?? ""}
         onChange={(e) => pickDonor(e.target.value)}
       >
@@ -167,14 +162,14 @@ export function BoardSeatForm({
         label="Role"
         suggestions={roleSuggestions}
         defaultValue={initial?.roleTitle ?? ""}
-        hint={roleSuggestions.length > 0 ? `For example, ${roleSuggestions.join(", ")}.` : undefined}
+       
       />
 
       <SelectField
         name="status"
         label="Status"
         error={err("status")}
-        hint={initial ? "Only an active seat counts toward the total. To end a seat and keep its history, pick Emeritus or Resigned." : "Only an active seat counts toward the total."}
+        hint={initial ? "To end a seat and keep its history, pick Emeritus or Resigned." : undefined}
         defaultValue={initial?.status ?? "prospect"}
       >
         {SEAT_STATUSES.map((s) => (

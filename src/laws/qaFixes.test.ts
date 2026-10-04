@@ -116,14 +116,16 @@ describe("Campaigns can be reached, listed and started", () => {
 describe("the fixed tab bar never covers what the page scrolls to", () => {
   const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
 
-  it("the bar is 56px and a 1px border, and the page reserves all 57px of it", () => {
+  it("the bar is 56px, a 1px border and 12px of air above the home indicator, and the page reserves all 69px of it", () => {
     expect(readFileSync(join(process.cwd(), "src/components/kit/TabBar.tsx"), "utf8")).toMatch(/border-t[\s\S]*h-14/);
-    expect(css).toMatch(/\.pb-bar\s*\{[^}]*calc\(57px \+ env\(safe-area-inset-bottom/);
+    expect(css).toMatch(/\.pb-tabbar\s*\{[^}]*env\(safe-area-inset-bottom[^}]*\+ 12px/);
+    expect(readFileSync(join(process.cwd(), "src/components/kit/TabBar.tsx"), "utf8")).toMatch(/pb-tabbar fixed/);
+    expect(css).toMatch(/\.pb-bar\s*\{[^}]*calc\(69px \+ env\(safe-area-inset-bottom/);
   });
 
   it("scrolling to a control (focus, an anchor, a test runner) keeps it clear of the bar, in the browser and installed", () => {
-    expect(css).toMatch(/html\s*\{\s*scroll-padding-bottom:\s*calc\(57px \+ env\(safe-area-inset-bottom/);
-    expect(css).toMatch(/display-mode: standalone[\s\S]*html\s*\{\s*scroll-padding-bottom:\s*calc\(57px \+ max\(env\(safe-area-inset-bottom/);
+    expect(css).toMatch(/html\s*\{\s*scroll-padding-bottom:\s*calc\(69px \+ env\(safe-area-inset-bottom/);
+    expect(css).toMatch(/display-mode: standalone[\s\S]*html\s*\{\s*scroll-padding-bottom:\s*calc\(69px \+ max\(env\(safe-area-inset-bottom/);
   });
 });
 
@@ -253,5 +255,30 @@ describe("two Admins with one name can be told apart in the Advisor picker", () 
     expect(advisorOptionLabel({ name: "Dave Fisher", email: "dave@bffsa.org" })).toBe("Dave Fisher (dave@bffsa.org)");
     expect(advisorOptionLabel({ name: "Dave Fisher", email: "dfisher2424@icloud.com", title: "Director" })).toBe("Dave Fisher, Director (dfisher2424@icloud.com)");
     expect(advisorOptionLabel({ name: "a@b.org", email: "a@b.org" })).toBe("a@b.org");
+  });
+});
+
+describe("screens do not narrate the obvious (Dave, 2026-10-04)", () => {
+  it("the Add Athlete form has no 'For example' hints on Name, Position or Grad Year", async () => {
+    const out = await html("@/app/org/[slug]/roster/new/page", { params: params() });
+    expect(out).not.toMatch(/For example, Jose Ulloa|For example, 2027|Change it later from the athlete/);
+  });
+
+  it("More does not describe its own menu rows back to the person", async () => {
+    const out = await html("@/app/org/[slug]/more/page", { params: params() });
+    expect(out).not.toMatch(/Who can sign in, and what each person can do|Who did what, across every athlete|Use this after a big import/);
+  });
+
+  it("the Activity screen has a title and the list, no sentence about the list", async () => {
+    for (const f of ["src/app/org/[slug]/activity/page.tsx", "src/app/org/[slug]/roster/[id]/activity/page.tsx"]) {
+      expect(readFileSync(join(process.cwd(), f), "utf8")).not.toMatch(/lede=[^\n]*newest first/);
+    }
+  });
+
+  it("an empty list says what is empty and gives the action, with no paragraph under it", async () => {
+    data.athlete_checkins = [];
+    const out = await html("@/app/org/[slug]/roster/[id]/checkins/page", { params: params({ id: IDS.athlete }) });
+    expect(out).toMatch(/No Check-Ins Yet/);
+    expect(out).not.toMatch(/A call, a meeting or a text all count/);
   });
 });

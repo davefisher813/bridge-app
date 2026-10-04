@@ -195,7 +195,7 @@ export default async function SeatPage({
           ) : (
             <Form action={linkAction}>
               <Stack gap={3}>
-                <SelectField name="userId" label="Whose Seat Is This" hint={`Link a sign-in and this seat shows on their Home and Giving screens. Invite them under Members as ${labelForRole("member")} first if they are not listed.`}>
+                <SelectField name="userId" label="Whose Seat Is This" hint={`Not listed? Invite them under Members as ${labelForRole("member")} first.`}>
                   <option value="">Nobody yet</option>
                   {people.map((x) => (
                     <option key={x.id} value={x.id}>

@@ -127,7 +127,7 @@ export default async function MemberPage({
       <Section label="Name" role="people" kind="people">
         <Form action={renameMemberForm.bind(null, slug, member.user_id)}>
           <Stack gap={3}>
-            <Field name="fullName" label="Full Name" defaultValue={person?.full_name ?? ""} autoComplete="off" maxLength={120} hint="Shown on every athlete they advise, and to athlete logins. Left blank, their email shows." />
+            <Field name="fullName" label="Full Name" defaultValue={person?.full_name ?? ""} autoComplete="off" maxLength={120} />
             <Button variant="secondary">Save Name</Button>
           </Stack>
         </Form>
@@ -136,7 +136,7 @@ export default async function MemberPage({
       <Section label="Title" role="people" kind="people">
         <Form action={setMemberTitleForm.bind(null, slug, member.user_id)}>
           <Stack gap={3}>
-            <Field name="title" label="Title" defaultValue={title ?? ""} autoComplete="off" maxLength={TITLE_MAX} hint="What they are called here, like Head Coach or Board Chair. Shown next to their name in place of their access level. It never changes what they can do." />
+            <Field name="title" label="Title" defaultValue={title ?? ""} autoComplete="off" maxLength={TITLE_MAX} hint="Like Head Coach or Board Chair. Display only." />
             <Button variant="secondary">Save Title</Button>
           </Stack>
         </Form>
@@ -224,7 +224,7 @@ export default async function MemberPage({
               <Form action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
                 <Stack gap={3}>
                   <Hidden name="role" value="family" />
-                  <SelectField id="family-athlete" name="athleteId" label={`Make Them ${familyLabel} Instead`} defaultValue="" hint="An athlete login sees one athlete and nothing else. Pick which.">
+                  <SelectField id="family-athlete" name="athleteId" label={`Make Them ${familyLabel} Instead`} defaultValue="">
                     <option value="">Pick an Athlete</option>
                     {athleteOptions(athletes)}
                   </SelectField>
@@ -269,9 +269,7 @@ export default async function MemberPage({
           }
         >
           {advises.length === 0 && (
-            <EmptyState kind="athlete" title="Nobody Yet">
-              {`Tick athletes below to make ${name} their advisor.`}
-            </EmptyState>
+            <EmptyState kind="athlete" title="Nobody Yet" />
           )}
           {advises.map((a) => (
             <Stack key={a.id} gap={2}>

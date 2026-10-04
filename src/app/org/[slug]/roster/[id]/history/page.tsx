@@ -157,11 +157,9 @@ export default async function RecruitingHistoryPage({ params }: { params: Promis
   const profile = `/org/${slug}/roster/${id}`;
 
   return (
-    <Screen title="Recruiting History" back={{ href: profile, label: athlete.name }} lede={`${targets.length} ${targets.length === 1 ? "school" : "schools"}, open or closed, with every message, visit and offer.`}>
+    <Screen title="Recruiting History" back={{ href: profile, label: athlete.name }} lede={`${targets.length} ${targets.length === 1 ? "school" : "schools"}`}>
       {targets.length === 0 ? (
-        <EmptyState kind="school" title="No Recruiting History Yet" action={canEdit ? <LinkButton href={`/org/${slug}/schools`}>Open Schools</LinkButton> : undefined}>
-          {canEdit ? "Nothing has been logged against a school for this athlete." : "Schools show up here once an Admin logs one."}
-        </EmptyState>
+        <EmptyState kind="school" title="No Recruiting History Yet" action={canEdit ? <LinkButton href={`/org/${slug}/schools`}>Open Schools</LinkButton> : undefined} />
       ) : (
         targets.map((t) => {
           const entries = ordered(entriesByTarget.get(t.id) ?? []);

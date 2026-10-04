@@ -25,7 +25,7 @@ export default async function FamilySchoolsPage({ params, searchParams }: { para
   const d = await loadDirectory(supabase, { q, division, state, conference, major });
 
   return (
-    <Screen title="Schools" lede="Every school on file">
+    <Screen title="Schools">
       <SchoolDirectory base={base} viewer="family" filters={d.filters} options={d.options} groups={d.groups} total={d.total} />
     </Screen>
   );

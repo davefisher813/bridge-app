@@ -139,9 +139,7 @@ export default async function GrantsPage({ params, searchParams }: { params: Pro
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       {grants.length === 0 ? (
         <>
-          <EmptyState kind="grant" title="No Grants Tracked Yet">
-            The dates that get missed: applied, decision, report due.
-          </EmptyState>
+          <EmptyState kind="grant" title="No Grants Tracked Yet" />
         </>
       ) : (
         <>

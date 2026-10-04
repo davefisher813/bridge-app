@@ -47,9 +47,7 @@ export default async function AthleteMessagesPage({ params }: { params: Promise<
 
       <Section label="Thread" count={messages.length} role="contact" kind="message">
         {messages.length === 0 ? (
-          <EmptyState kind="message" role="contact" title="Nothing Sent Yet">
-            The first message starts the thread.
-          </EmptyState>
+          <EmptyState kind="message" role="contact" title="Nothing Sent Yet" />
         ) : (
           <MessageThread messages={messages} meId={user.id} remove={deleteMessage.bind(null, slug, id)} />
         )}

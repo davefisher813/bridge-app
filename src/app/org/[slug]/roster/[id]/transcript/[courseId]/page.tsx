@@ -69,7 +69,6 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
       />
 
       <Section label="Remove" role="danger" kind="blocked">
-        {course.document_id && <Label>This row came from an uploaded document. Removing it takes it off the transcript; the document stays on file.</Label>}
         <Form action={deleteCourse.bind(null, slug, id, course.id)}>
           <ConfirmButton title="Remove This Course?" body="It comes off the transcript, and the NCAA core GPA is worked out again without it." confirmLabel="Remove Course">
             Remove Course

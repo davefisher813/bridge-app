@@ -46,12 +46,10 @@ export default async function AthleteActivityPage({
   const hasMore = loaded.length > cap;
 
   return (
-    <Screen title="Activity" back={{ href: `/org/${slug}/roster/${id}`, label: athlete.name }} lede={`Every change recorded for ${athlete.name}, newest first`}>
+    <Screen title="Activity" back={{ href: `/org/${slug}/roster/${id}`, label: athlete.name }}>
       <Section label="Activity" count={hasMore ? undefined : rows.length} role="accent" kind="clock">
         {rows.length === 0 ? (
-          <EmptyState kind="clock" title="No Activity Yet">
-            Changes to this athlete are recorded here as they happen.
-          </EmptyState>
+          <EmptyState kind="clock" title="No Activity Yet" />
         ) : (
           <ActivityRows slug={slug} rows={rows} liveAthletes={new Set([id])} profileLinks={false} />
         )}

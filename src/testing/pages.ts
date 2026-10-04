@@ -179,7 +179,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "activity", path: "@/app/org/[slug]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Activity[\s\S]*Sent a message[\s\S]*Invited Example Member as a Viewer/ },
   { name: "activity-search", path: "@/app/org/[slug]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "advisor" }) }, expect: /Set Example Owner as the advisor for Fixture Athlete/ },
   { name: "activity-search-empty", path: "@/app/org/[slug]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "zzzz" }) }, expect: /Nothing Matches/ },
-  { name: "athlete-activity", path: "@/app/org/[slug]/roster/[id]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({}) }, expect: /Every change recorded for Fixture Athlete[\s\S]*Added Fixture Athlete/ },
+  { name: "athlete-activity", path: "@/app/org/[slug]/roster/[id]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }), searchParams: p({}) }, expect: /Added Fixture Athlete/ },
   { name: "athlete-activity-empty", path: "@/app/org/[slug]/roster/[id]/activity/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }), searchParams: p({}) }, expect: /No Activity Yet/ },
   // Stage 5 Phase 4, 2026-09-27 (Dave approved the whole plan): assignments.
   // The athlete's list groups Open, Submitted and Done; the org list opens
