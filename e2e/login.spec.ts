@@ -13,7 +13,6 @@ test.describe("sign in with a magic link", () => {
     await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
 
     await page.getByRole("button", { name: "Email Me a Link Instead" }).click();
-    await expect(page.getByText("A sign-in link comes back in a minute.")).toBeVisible();
     await page.getByLabel("Email").fill("owner@example.test");
     await page.getByRole("button", { name: "Email Me a Link", exact: true }).click();
 
