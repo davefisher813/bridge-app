@@ -440,6 +440,9 @@ export interface FakeClientOptions {
   // branch of an action is reachable. Every action has one and none of
   // them had ever run.
   failOn?: (table: string, op: string) => string | null;
+  // Make every email-sending auth call (sign-in link, invitation) answer
+  // with this error, the way Supabase does when its mailer refuses.
+  authFail?: string;
 }
 
 // public.create_org(name, slug), migration 0040, with the same refusals
@@ -565,6 +568,7 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
       // was made with the right address and the right link.
       async signInWithOtp(args: { email: string; options?: Record<string, unknown> }) {
         recorded.push({ op: "insert", table: "auth:otp", rows: [{ email: args.email, ...(args.options ?? {}) }], filters: [] });
+        if (opts.authFail) return { data: { user: null, session: null }, error: { message: opts.authFail } };
         // What Supabase answers for an address with no account when
         // shouldCreateUser is off. The wording is its own.
         const known = (data.users ?? []).some((u) => u.email === args.email);
@@ -572,6 +576,15 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
           return { data: { user: null, session: null }, error: { message: "Signups not allowed for otp" } };
         }
         return { data: { user: null, session: null }, error: null };
+      },
+      async signInWithPassword(args: { email: string; password: string }) {
+        recorded.push({ op: "insert", table: "auth:password", rows: [{ email: args.email }], filters: [] });
+        const known = (data.users ?? []).some((u) => u.email === args.email);
+        return known && args.password === "correct-password" ? { data: { user: { id: "u" }, session: {} }, error: null } : { data: { user: null, session: null }, error: { message: "Invalid login credentials" } };
+      },
+      async signOut() {
+        recorded.push({ op: "delete", table: "auth:session", rows: [{ user: opts.userId }], filters: [] });
+        return { error: null };
       },
       async verifyOtp(args: { token_hash: string; type: string }) {
         recorded.push({ op: "insert", table: "auth:verify", rows: [{ ...args }], filters: [] });
@@ -583,6 +596,7 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
       },
       admin: {
         async inviteUserByEmail(email: string, options?: { data?: Record<string, unknown>; redirectTo?: string }) {
+          if (opts.authFail) return { data: { user: null }, error: { message: opts.authFail } };
           const users = data.users ?? (data.users = []);
           const id = `fake-user-${users.length + 1}`;
           // What the trigger in migration 0017 does on the real database.

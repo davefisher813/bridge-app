@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { siteOrigin } from "@/lib/auth/origin";
+import { sendFailureMessage } from "@/lib/auth/errors";
 
 // Self-registration is disabled, same as tucci-admin: this is a
 // multi-tenant tool where accounts are created by an org owner (a
@@ -56,7 +57,7 @@ export async function sendMagicLink(_prev: MagicLinkState, formData: FormData): 
     if (/signups not allowed|user not found|otp_disabled/i.test(error.message)) {
       return { sent: false, email, error: `There is no account for ${email}. Check the spelling, or ask your organization's Admin to invite you.` };
     }
-    return { sent: false, email, error: error.message };
+    return { sent: false, email, error: sendFailureMessage(error.message) };
   }
   return { sent: true, email, error: null };
 }

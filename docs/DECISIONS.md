@@ -3872,3 +3872,22 @@ the plain statuses.
 
 **Consequences.** Held by `src/laws/qaFixes.test.ts`. A new hint or lede
 should clear the same bar: could the person finish without it.
+
+## 2026-10-05: launch gates, engineering items
+
+**Decision.** Worked the engineering launch gates and recorded the result in
+`docs/LAUNCH_GATES.md`: test data removed from production (three soft-deleted
+test athletes with their rows, two test donors; the five Oct 1 test entries
+on a real athlete's activity page left because Dave declined that delete),
+the Oct 2 uploads confirmed not to have touched any real athlete, backups
+and PITR left as an open item (not readable from the available tools),
+Supabase email found to be on the built-in mailer with the rate limit
+already refusing real sign-in requests. In code: a refused email send now
+says to wait a few minutes instead of "email rate limit exceeded"; the fake
+Supabase client gained password sign-in, sign-out and an email failure
+switch so the account lifecycle is held by `src/laws/lifecycleLaws.test.ts`;
+`scripts/access/probe.mjs` is the production access probe, dry run by
+default, run only with Dave's approval.
+
+**Consequences.** Nothing was done to Supabase Auth settings (template,
+redirect list, SMTP) or to backups; those need Dave in the dashboard.
