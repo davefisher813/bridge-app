@@ -1,5 +1,6 @@
 "use server";
 
+import { sendFailureMessage } from "@/lib/auth/errors";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -210,7 +211,7 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
       redirectTo: `${origin}/auth/callback?next=/`,
     });
     if (error || !data?.user) {
-      return { errors: { form: `Could not send the invitation: ${error?.message ?? "no account was created."}` }, values: Object.fromEntries(formData.entries()) };
+      return { errors: { form: `Could not send the invitation: ${error ? sendFailureMessage(error.message) : "no account was created."}` }, values: Object.fromEntries(formData.entries()) };
     }
     userId = data.user.id;
     notice = `Invitation sent to ${email}.`;
@@ -443,7 +444,7 @@ export async function resendInvite(slug: string, userId: string): Promise<{ ok: 
     email,
     options: { emailRedirectTo: `${origin}/auth/callback`, shouldCreateUser: false },
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: sendFailureMessage(error.message) };
   return { ok: true };
 }
 
