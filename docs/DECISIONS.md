@@ -3891,3 +3891,40 @@ default, run only with Dave's approval.
 
 **Consequences.** Nothing was done to Supabase Auth settings (template,
 redirect list, SMTP) or to backups; those need Dave in the dashboard.
+
+## 2026-10-08: Doc AI rebuild, Piece 1: the vault and its five states
+
+**Decision.** Every upload is kept for good and moves through five states:
+Uploaded, Processing, Needs Review, Ready, Archived. Migration 0048 adds a
+`lifecycle` column next to the old `status`, which stays the reader's own
+state so review, apply and undo do not move. Seven formats are accepted
+(PDF, Word, Excel, CSV, JPG, PNG, TXT), checked by extension and by bytes on
+the browser and again on the server. The original is stored untouched; a
+tagged photo also gets a shrunk reader copy so the old path reads as before.
+Nobody can delete a document or its file from the app (policies dropped,
+grant revoked); the one removal is an upload that never got a row, through
+the service role, inside this org's folder, never a file a row names. Three
+database triggers hold it: an insert needs the file to exist, the original
+record never changes, and the lifecycle moves only along seven allowed
+pairs. Ready is only ever a person's tap. A file that does not look like its
+type, a reader error and a timeout all end in Needs Review with the reason
+(`Did not look like Transcript`); nothing is a rejection. The same bytes
+twice are stored and say so, not read again. No type chosen means stored and
+straight to Needs Review. Discard also archives. Old rows map: processing,
+pending, applied, failed and filed to Needs Review, discarded to Archived;
+nothing becomes Ready.
+
+**Reason.** Dave's brief for the rebuild: originals permanent, no orphans in
+either direction, no destructive rejection, five visible statuses.
+
+**Alternatives.** Replacing `status` (breaks the old flow); letting the
+reader mark Ready (a person decides); refusing duplicates (throws a file
+away); a delete for admins (not wanted).
+
+**Consequences.** GIF and WebP are no longer accepted. The bucket's limit is
+unchanged at 10 MB; its allowed types went from 5 to 9. A browser tab closed
+between the upload and the check can leave an unregistered file;
+`scripts/list_unregistered_uploads.mjs` lists them and deletes nothing.
+Production migration only after a backup or point in time recovery for
+emllcefqxyxyhqolrllo is confirmed. View As (0047) is not merged; its
+rebase conflicts are fixed when it is.

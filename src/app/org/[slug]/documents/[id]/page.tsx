@@ -7,7 +7,7 @@ import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
 import { applyRefusal, isStubReading } from "@/lib/data/readBy";
 import { editableFields } from "@/lib/data/extractedEdit";
 import type { DocCategoryId } from "@/lib/docai/types";
-import { Avatar, Body, Button, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
+import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 import { LifecycleChip } from "@/components/LifecycleChip";
 import { longDate } from "@/lib/copy/dates";
 import { formatBytes, formatLabelOf } from "@/lib/vault/format";
@@ -303,18 +303,26 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // size, who, when and the SHA-256 of the bytes, then a copy to save. No
   // preview in this piece; every format shows the same.
   const hash = doc.content_hash ? (doc.content_hash.match(/.{1,8}/g) ?? []).join(" ") : null;
+  const facts: [string, string][] = [
+    ["File Name", doc.file_name],
+    ["Format", formatLabelOf(doc.format, doc.media_type)],
+    ["Size", formatBytes(doc.file_size)],
+    ...(uploadedBy ? ([["Uploaded By", uploadedBy]] as [string, string][]) : []),
+    ["Uploaded", longDate(doc.created_at)],
+    ...(hash ? ([["SHA-256", hash]] as [string, string][]) : []),
+  ];
   const originalFile = (
     <Section label="Original File" role="neutral" kind="document">
-      <Row
-        title="File Name"
-        emphasis="semibold"
-        trailing={<Body weight="bold">{doc.file_name}</Body>}
-      />
-      <Row title="Format" trailing={<Body weight="bold">{formatLabelOf(doc.format, doc.media_type)}</Body>} />
-      <Row title="Size" trailing={<Body weight="bold" numeric>{formatBytes(doc.file_size)}</Body>} />
-      {uploadedBy && <Row title="Uploaded By" trailing={<Body weight="bold">{uploadedBy}</Body>} />}
-      <Row title="Uploaded" trailing={<Body weight="bold" numeric>{longDate(doc.created_at)}</Body>} />
-      {hash && <Row title="SHA-256" meta={hash} wrap />}
+      <Card isStatic>
+        <Stack gap={3}>
+          {facts.map(([label, value]) => (
+            <Stack key={label} gap={2}>
+              <Label>{label}</Label>
+              <Body weight="semibold">{value}</Body>
+            </Stack>
+          ))}
+        </Stack>
+      </Card>
       {files.map((_, i) => (
         <DownloadLink key={i} href={`/org/${slug}/documents/${doc.id}/download?n=${i + 1}`}>
           {files.length === 1 ? "Download" : `Download Page ${i + 1}`}
@@ -360,7 +368,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     >
       {error && <Notice tone="danger" title={error} />}
       {doc.review_reason && lifecycle !== "ready" && lifecycle !== "archived" && <Notice tone="warning" title={doc.review_reason} />}
-      {isPending && refusal ? (
+      {!wasRead && !isFailed ? null : isPending && refusal ? (
         <Notice tone="warning" title={stubRead ? "This Reading Can't Be Applied" : stubbed ? "AI Key Not Set" : "Reader Not Recorded"}>
           {refusal}
         </Notice>
