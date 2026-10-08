@@ -203,6 +203,8 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "grading-scale", path: "@/app/org/[slug]/grading-scales/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.orgScale }) }, expect: /Fixture High School/ },
   { name: "document", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.document }) }, expect: /fixture.pdf/ },
   { name: "documentFailed", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "doc-failed" }) }, expect: /legible/ },
+  { name: "documentSuggested", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "doc-suggested" }) }, expect: /Likely College List[\s\S]*Confirm Fixture Athlete/ },
+  { name: "documentAmbiguous", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "doc-ambiguous" }) }, expect: /More than one possible match[\s\S]*Confirm Fixture Unknown/ },
   { name: "documentStuck", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "doc-stuck" }) }, expect: /Did Not Finish/ },
   { name: "budget", path: "@/app/org/[slug]/fundraising/budget/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /udget/ },
 

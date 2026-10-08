@@ -88,18 +88,23 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/vault_mapping_pre.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0048_document_vault.sql"
 echo "==> 0048: checking the old-status mapping"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/vault_mapping_post.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0049_document_identity_and_type.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
 
 # 0048 must be reversible: take it off the finished test database with its
 # down script, put it back, and check the guards are there again.
-echo "==> 0048: down, then up again"
+echo "==> 0049 and 0048: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0049_document_identity_and_type_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from information_schema.columns where table_name = 'documents' and column_name in ('suggested_type', 'identity_status', 'subject_athlete_id')\"" | grep -qx 0
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0048_document_vault_down.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from information_schema.columns where table_name = 'documents' and column_name in ('lifecycle', 'format', 'uploaded_by', 'review_reason', 'original_paths', 'lifecycle_changed_at')\"" | grep -qx 0
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0048_document_vault.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_trigger where tgname in ('documents_insert_guard', 'documents_original_is_immutable', 'documents_lifecycle_transition')\"" | grep -qx 3
-echo "==> 0048 is reversible"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0049_document_identity_and_type.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_trigger where tgname = 'documents_subject_is_coherent'\"" | grep -qx 1
+echo "==> 0048 and 0049 are reversible"
 
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"

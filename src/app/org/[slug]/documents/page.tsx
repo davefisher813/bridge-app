@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PROVISIONAL_TYPE_LABEL, type ProvisionalType } from "@/lib/docai/suggest";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -37,6 +38,11 @@ interface DocRow {
   lifecycle: string;
   lifecycle_changed_at: string | null;
   review_reason: string | null;
+  // Piece 2 (migration 0049).
+  suggested_type?: string | null;
+  identity_status?: string | null;
+  identity_candidates?: { athleteId: string; name: string }[] | null;
+  subject_athlete_id?: string | null;
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -77,7 +83,28 @@ function confidenceRole(pct: number): Role {
   return "low";
 }
 
-function DocumentRow({ slug, doc }: { slug: string; doc: DocRow }) {
+// Who and What, in a few words on the row (Piece 2): what the file
+// probably is, and who it is about or might be. A suggestion reads as a
+// question; only a confirmation reads as a name.
+function suggestionNotes(doc: DocRow, names: Map<string, string>): string[] {
+  const t = doc.suggested_type as ProvisionalType | null | undefined;
+  const type = !doc.category && t && t !== "other" && PROVISIONAL_TYPE_LABEL[t] ? `Likely ${PROVISIONAL_TYPE_LABEL[t]}` : null;
+  const live = (doc.identity_candidates ?? []).filter((c) => names.has(c.athleteId));
+  const subject = doc.subject_athlete_id ? names.get(doc.subject_athlete_id) : undefined;
+  const who =
+    doc.identity_status === "confirmed" && subject
+      ? `About ${subject}`
+      : doc.identity_status === "not_an_athlete"
+        ? "Not about an athlete"
+        : doc.identity_status === "proposed" && live.length
+          ? `Maybe ${live[0]!.name}?`
+          : doc.identity_status === "ambiguous" && live.length > 1
+            ? `${live.length} possible matches`
+            : null;
+  return [type, who].filter((x): x is string => !!x);
+}
+
+function DocumentRow({ slug, doc, names }: { slug: string; doc: DocRow; names: Map<string, string> }) {
   const athlete = athleteLabel(doc);
   const pct = doc.provenance?.confidence != null ? Math.round(doc.provenance.confidence * 100) : null;
   const lifecycle = (isLifecycle(doc.lifecycle) ? doc.lifecycle : "needs_review") as Lifecycle;
@@ -92,7 +119,7 @@ function DocumentRow({ slug, doc }: { slug: string; doc: DocRow }) {
         : doc.file_name;
   const reason = lifecycle === "processing" && isStaleProcessing(lifecycle, doc.lifecycle_changed_at) ? "Reading did not finish." : doc.review_reason;
   const facts = [typed || doc.status === "filed" ? doc.file_name : null, formatLabelOf(doc.format, doc.media_type), formatBytes(doc.file_size), ago(doc.created_at)].filter(Boolean);
-  const notes = [doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
+  const notes = [...(doc.category || doc.status === "filed" ? [] : suggestionNotes(doc, names)), doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
   return (
     <Row
       href={`/org/${slug}/documents/${doc.id}`}
@@ -128,18 +155,22 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select("id, file_name, category, status, route, provenance, extracted, athlete_id, athletes(name, deleted_at), failure_reason, read_by, created_at, file_size, media_type, format, lifecycle, lifecycle_changed_at, review_reason")
+    .select("id, file_name, category, status, route, provenance, extracted, athlete_id, athletes(name, deleted_at), failure_reason, read_by, created_at, file_size, media_type, format, lifecycle, lifecycle_changed_at, review_reason, suggested_type, identity_status, identity_candidates, subject_athlete_id")
     .eq("org_id", org.id)
     .order("created_at", { ascending: false })
     .limit(60);
 
   const all = (data ?? []) as DocRow[];
+  // Names for Who and What: the roster this Admin sees, removed athletes
+  // left out so a row never names them.
+  const { data: rosterRows } = await supabase.from("athletes").select("id, name").eq("org_id", org.id).is("deleted_at", null);
+  const names = new Map(((rosterRows ?? []) as { id: string; name: string }[]).map((a) => [a.id, a.name]));
   // File name, category or the athlete it was matched to. Filtered here
   // so the sections, the counts and the empty state agree.
   const rows = q
     ? all.filter((r) => {
         const athlete = athleteLabel(r);
-        return `${r.file_name} ${r.category ?? ""} ${athlete ?? ""}`.toLowerCase().includes(q);
+        return `${r.file_name} ${r.category ?? ""} ${athlete ?? ""} ${suggestionNotes(r, names).join(" ")}`.toLowerCase().includes(q);
       })
     : all;
   const inState = (state: Lifecycle) => rows.filter((r) => r.lifecycle === state);
@@ -169,7 +200,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
             return (
               <Section key={state} label={LIFECYCLE_LABEL[state]} count={list.length} role={state === "needs_review" ? "offer" : state === "ready" ? "committed" : state === "processing" ? "contact" : "neutral"} kind={state === "needs_review" ? "warning" : state === "ready" ? "check" : state === "processing" ? "clock" : "document"}>
                 {list.map((d) => (
-                  <DocumentRow key={d.id} slug={slug} doc={d} />
+                  <DocumentRow key={d.id} slug={slug} doc={d} names={names} />
                 ))}
               </Section>
             );
@@ -177,7 +208,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
           {showArchived && inState("archived").length > 0 && (
             <Section label="Archived" count={inState("archived").length} role="neutral" kind="note">
               {inState("archived").map((d) => (
-                <DocumentRow key={d.id} slug={slug} doc={d} />
+                <DocumentRow key={d.id} slug={slug} doc={d} names={names} />
               ))}
             </Section>
           )}

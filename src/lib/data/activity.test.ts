@@ -44,6 +44,8 @@ const SAMPLE: { [A in ActivityAction]: ActivitySubjects[A] } = {
   document_ready: { name: "Fixture Athlete", kind: "transcript" },
   document_archived: { name: null, kind: "document" },
   document_unarchived: { name: null, kind: "document" },
+  document_identity_confirmed: { name: null, kind: "document" },
+  document_identity_cleared: { kind: "document" },
   checkin_logged: { name: "Fixture Athlete", kind: "call", date: "2026-09-21" },
   message_sent: { name: "Fixture Athlete" },
   member_invited: { name: "Example Member", role: "Viewer" },

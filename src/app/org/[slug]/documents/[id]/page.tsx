@@ -14,6 +14,9 @@ import { formatBytes, formatLabelOf } from "@/lib/vault/format";
 import { isLifecycle, isStaleProcessing as isStaleLifecycle, type Lifecycle } from "@/lib/vault/lifecycle";
 import { Note } from "@/components/EligibilityVerdict";
 import type { Role } from "@/components/statusHue";
+import { DocumentSuggestions } from "@/components/DocumentSuggestions";
+import { setDocumentIdentity, suggestDocumentAgain } from "@/lib/actions/documentIdentity";
+import type { IdentityCandidate } from "@/lib/docai/suggest";
 
 // One document: what was read off it, who it matched, and what happens
 // next. Three shapes depending on where the pipeline routed it, because
@@ -52,6 +55,13 @@ interface DocDetail {
   content_hash: string | null;
   original_paths: string[] | null;
   storage_paths: string[] | null;
+  // Piece 2 (migration 0049).
+  suggested_type: string | null;
+  suggested_type_confidence: number | null;
+  suggested_type_reasons: string[] | null;
+  identity_status: string | null;
+  identity_candidates: IdentityCandidate[] | null;
+  subject_athlete_id: string | null;
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -186,7 +196,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const { data } = await supabase
     .from("documents")
     .select(
-      "id, file_name, file_size, page_count, category, requested_category, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths"
+      "id, file_name, file_size, page_count, category, requested_category, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths, suggested_type, suggested_type_confidence, suggested_type_reasons, identity_status, identity_candidates, subject_athlete_id"
     )
     .eq("id", id)
     .eq("org_id", org.id)
@@ -201,6 +211,49 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // from before the vault its one stored copy.
   const files = doc.original_paths?.length ? doc.original_paths : (doc.storage_paths ?? []);
   const stuckReading = isStaleLifecycle(lifecycle, doc.lifecycle_changed_at);
+
+  // Who and What (Piece 2). The roster as this Admin sees it, for the
+  // picker and to drop anyone removed since the suggestion was made.
+  const { data: rosterRows } = await supabase.from("athletes").select("id, name, detail").eq("org_id", org.id).is("deleted_at", null).order("name", { ascending: true });
+  const roster = ((rosterRows ?? []) as { id: string; name: string; detail: { highSchool?: string; currentSchool?: string; gradYear?: number } | null }[]).map((a) => ({
+    id: a.id,
+    title: a.name,
+    meta: [a.detail?.currentSchool || a.detail?.highSchool, a.detail?.gradYear ? `Class of ${a.detail.gradYear}` : null].filter(Boolean).join(" · ") || undefined,
+  }));
+  const onRoster = new Map(roster.map((r) => [r.id, r.title]));
+  const subjectName = doc.subject_athlete_id ? onRoster.get(doc.subject_athlete_id) : undefined;
+  const liveCandidates = (doc.identity_candidates ?? []).filter((c) => onRoster.has(c.athleteId));
+  const setIdentity = async (formData: FormData) => {
+    "use server";
+    await setDocumentIdentity(slug, doc.id, formData);
+  };
+  const suggestAgain = async () => {
+    "use server";
+    await suggestDocumentAgain(slug, doc.id);
+  };
+  const whoAndWhat = (
+    <DocumentSuggestions
+      data={{
+        suggestedType: doc.suggested_type,
+        suggestedTypeConfidence: doc.suggested_type_confidence,
+        suggestedTypeReasons: doc.suggested_type_reasons ?? [],
+        requestedCategory: doc.requested_category,
+        // A confirmed athlete removed from the roster since reads as no
+        // decision, never as a name that is gone.
+        identityStatus:
+          (doc.identity_status === "confirmed" && !subjectName) || ((doc.identity_status === "proposed" || doc.identity_status === "ambiguous") && !liveCandidates.length)
+            ? "unmatched"
+            : doc.identity_status === "ambiguous" && liveCandidates.length === 1
+              ? "proposed"
+              : doc.identity_status,
+        candidates: liveCandidates,
+        subject: doc.subject_athlete_id && subjectName ? { id: doc.subject_athlete_id, name: subjectName } : null,
+      }}
+      roster={roster}
+      setIdentity={setIdentity}
+      suggestAgain={suggestAgain}
+    />
+  );
 
   const stubbed = await isStubbedModel();
   // The same gate the actions use (audit wired F1): a reading the
@@ -381,6 +434,8 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           </Notice>
         )
       )}
+
+      {whoAndWhat}
 
       {doc.requested_category === null && doc.detected_type && (
         <Note title="Worked Out the Type Itself">Nobody told it what this was. It decided: {doc.detected_type.replace(/_/g, " ")}.</Note>

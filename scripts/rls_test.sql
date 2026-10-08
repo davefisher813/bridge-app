@@ -4393,3 +4393,122 @@ delete from users where id::text like '00000000-0000-0000-0000-0000000480a%';
 delete from auth.users where id::text like '00000000-0000-0000-0000-0000000480a%';
 
 \echo 'ALL 0048 ASSERTIONS PASSED'
+
+-- ═══ Migration 0049: who a document is about, and what it is ══════════
+-- Suggestions are just columns; the one rule with teeth is who may say
+-- who a document is about. Admin and staff of the document's own org
+-- set it, to an athlete of that same org. A viewer, a family login and
+-- another org cannot. Each assertion was planted to fail.
+reset role;
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000490a1', 'id-owner@i.example'),
+  ('00000000-0000-0000-0000-0000000490a2', 'id-staff@i.example'),
+  ('00000000-0000-0000-0000-0000000490a3', 'id-viewer@i.example'),
+  ('00000000-0000-0000-0000-0000000490a4', 'id-family@i.example'),
+  ('00000000-0000-0000-0000-0000000490a5', 'id-other@i.example');
+insert into users (id, email, full_name) values
+  ('00000000-0000-0000-0000-0000000490a1', 'id-owner@i.example', 'Id Owner'),
+  ('00000000-0000-0000-0000-0000000490a2', 'id-staff@i.example', 'Id Staff'),
+  ('00000000-0000-0000-0000-0000000490a3', 'id-viewer@i.example', 'Id Viewer'),
+  ('00000000-0000-0000-0000-0000000490a4', 'id-family@i.example', 'Id Family'),
+  ('00000000-0000-0000-0000-0000000490a5', 'id-other@i.example', 'Id Other')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into orgs (id, name, slug) values
+  ('00000000-0000-0000-0000-000000049010', 'Identity Org', 'identity-org'),
+  ('00000000-0000-0000-0000-000000049020', 'Identity Other Org', 'identity-other-org');
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-0000000490a1', '00000000-0000-0000-0000-000000049010', 'owner'),
+  ('00000000-0000-0000-0000-0000000490a2', '00000000-0000-0000-0000-000000049010', 'staff'),
+  ('00000000-0000-0000-0000-0000000490a3', '00000000-0000-0000-0000-000000049010', 'member'),
+  ('00000000-0000-0000-0000-0000000490a4', '00000000-0000-0000-0000-000000049010', 'family'),
+  ('00000000-0000-0000-0000-0000000490a5', '00000000-0000-0000-0000-000000049020', 'owner');
+insert into athletes (id, org_id, recruit_type, name, sport) values
+  ('00000000-0000-0000-0000-000000049110', '00000000-0000-0000-0000-000000049010', 'hs', 'Identity Athlete One', 'baseball'),
+  ('00000000-0000-0000-0000-000000049111', '00000000-0000-0000-0000-000000049010', 'hs', 'Identity Athlete Two', 'baseball'),
+  ('00000000-0000-0000-0000-000000049210', '00000000-0000-0000-0000-000000049020', 'hs', 'Identity Elsewhere', 'baseball');
+insert into athlete_guardians (org_id, athlete_id, user_id, relationship) values
+  ('00000000-0000-0000-0000-000000049010', '00000000-0000-0000-0000-000000049110', '00000000-0000-0000-0000-0000000490a4', 'parent');
+insert into storage.objects (bucket_id, name) values
+  ('documents', '00000000-0000-0000-0000-000000049010/req1/1-who.pdf');
+insert into documents (id, org_id, file_name, file_size, media_type, source_role, lifecycle, storage_paths, original_paths,
+                       suggested_type, suggested_type_confidence, identity_status, identity_candidates)
+values ('00000000-0000-0000-0000-000000049301', '00000000-0000-0000-0000-000000049010', 'Identity_Athlete_One.pdf', 10, 'application/pdf',
+        'coordinator', 'uploaded', array['00000000-0000-0000-0000-000000049010/req1/1-who.pdf'], array['00000000-0000-0000-0000-000000049010/req1/1-who.pdf'],
+        'transcript', 0.55, 'proposed',
+        '[{"athleteId":"00000000-0000-0000-0000-000000049110","name":"Identity Athlete One","score":0.8,"reasons":["Name in the file name"]}]');
+
+create or replace function pg_temp.try_subject(doc uuid, who uuid) returns int
+language plpgsql as $$
+declare n int;
+begin
+  update documents set subject_athlete_id = who, identity_status = 'confirmed', identity_confirmed_at = now() where id = doc;
+  get diagnostics n = row_count;
+  return n;
+exception when check_violation then
+  return -1;
+end $$;
+
+set role app_user;
+do $$
+declare n int;
+begin
+  -- 1. Staff confirm an athlete of their own org, and the suggestion
+  --    columns change without tripping the frozen-original lock.
+  perform set_test_user('00000000-0000-0000-0000-0000000490a2');
+  n := pg_temp.try_subject('00000000-0000-0000-0000-000000049301', '00000000-0000-0000-0000-000000049110');
+  if n <> 1 then raise exception 'FAIL: staff could not confirm who a document is about (%)', n; end if;
+  update documents set suggested_type = 'school_list', suggested_type_confidence = 0.6, suggested_type_reasons = array['File name says "college list"']
+    where id = '00000000-0000-0000-0000-000000049301';
+  raise notice 'PASS: staff confirm an athlete of their org, and suggestions update past the 0048 lock';
+
+  -- 2. Never an athlete from another org.
+  n := pg_temp.try_subject('00000000-0000-0000-0000-000000049301', '00000000-0000-0000-0000-000000049210');
+  if n <> -1 then raise exception 'FAIL: a document was pointed at another org''s athlete (%)', n; end if;
+  raise notice 'PASS: a document can never be said to be about another org''s athlete';
+
+  -- 3. A viewer cannot say who it is about.
+  perform set_test_user('00000000-0000-0000-0000-0000000490a3');
+  n := pg_temp.try_subject('00000000-0000-0000-0000-000000049301', '00000000-0000-0000-0000-000000049111');
+  if n > 0 then raise exception 'FAIL: a viewer changed who a document is about'; end if;
+  raise notice 'PASS: a viewer cannot say who a document is about';
+
+  -- 4. Nor can a family login, even for their own athlete.
+  perform set_test_user('00000000-0000-0000-0000-0000000490a4');
+  n := pg_temp.try_subject('00000000-0000-0000-0000-000000049301', '00000000-0000-0000-0000-000000049110');
+  if n > 0 then raise exception 'FAIL: a family login changed who a document is about'; end if;
+  raise notice 'PASS: a family login cannot say who a document is about';
+
+  -- 5. Nor another org's Admin.
+  perform set_test_user('00000000-0000-0000-0000-0000000490a5');
+  n := pg_temp.try_subject('00000000-0000-0000-0000-000000049301', '00000000-0000-0000-0000-000000049210');
+  if n > 0 then raise exception 'FAIL: another org changed who a document is about'; end if;
+  raise notice 'PASS: another org cannot say who a document is about';
+end $$;
+
+reset role;
+do $$
+declare who uuid; n int;
+begin
+  -- 1, read back: the staff confirmation stuck and nobody after changed it.
+  select subject_athlete_id into who from documents where id = '00000000-0000-0000-0000-000000049301';
+  if who is distinct from '00000000-0000-0000-0000-000000049110' then raise exception 'FAIL: the confirmed athlete is %, not the one staff picked', who; end if;
+  -- 6. Candidates are a list, never anything else.
+  begin
+    update documents set identity_candidates = '{"athleteId":"x"}' where id = '00000000-0000-0000-0000-000000049301';
+    raise exception 'FAIL: identity_candidates took a non-list';
+  exception when check_violation then null;
+  end;
+  -- 7. The two new activity actions exist.
+  select count(*) into n from pg_enum where enumtypid = 'activity_action'::regtype
+    and enumlabel in ('document_identity_confirmed', 'document_identity_cleared');
+  if n <> 2 then raise exception 'FAIL: % of 2 identity activity actions exist', n; end if;
+  raise notice 'PASS: confirmed identity holds, candidates are always a list, and the log can say it';
+end $$;
+
+delete from documents where org_id = '00000000-0000-0000-0000-000000049010';
+delete from storage.objects where bucket_id = 'documents' and name like '00000000-0000-0000-0000-000000049010/%';
+delete from orgs where id in ('00000000-0000-0000-0000-000000049010', '00000000-0000-0000-0000-000000049020');
+delete from users where id::text like '00000000-0000-0000-0000-0000000490a%';
+delete from auth.users where id::text like '00000000-0000-0000-0000-0000000490a%';
+
+\echo 'ALL 0049 ASSERTIONS PASSED'
