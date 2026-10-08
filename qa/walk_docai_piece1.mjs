@@ -12,7 +12,7 @@
 //   bash scripts/e2e/serve.sh &            # waits for the build, then serves on :3120
 //   PW_CHROMIUM=/opt/pw-browsers/chromium node qa/walk_docai_piece1.mjs
 //
-// Writes qa/previews/docai-piece1/<light|dark>/NN-name.png and a short
+// Writes qa/previews/docai-piece1/<light|dark>-NN-name.png (flat: the publisher takes top level PNGs) and a short
 // walk.json saying what each shot is and whether the expected text was on
 // the screen when it was taken.
 
@@ -38,7 +38,7 @@ async function launch() {
 }
 
 async function walk(browser, theme) {
-  const dir = path.join(OUT, theme);
+  const dir = OUT;
   mkdirSync(dir, { recursive: true });
   const context = await browser.newContext({ viewport: { width: WIDTH, height: HEIGHT }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, colorScheme: theme });
   const page = await context.newPage();
@@ -58,7 +58,7 @@ async function walk(browser, theme) {
     const body = await page.evaluate(() => document.body.innerText);
     // Section labels are upper-cased by the page's CSS, so compare without case.
     const missing = expects.filter((t) => !(t instanceof RegExp ? t.test(body) : body.toLowerCase().includes(t.toLowerCase())));
-    const file = `${String(n).padStart(2, "0")}-${name}.png`;
+    const file = `${theme}-${String(n).padStart(2, "0")}-${name}.png`;
     await page.screenshot({ path: path.join(dir, file), fullPage: true });
     record.push({ theme, file, width, sideways: scrollW > width, missing: missing.map(String) });
     if (missing.length) console.log(`  ${theme} ${file}: missing ${missing.join(", ")}`);

@@ -1,8 +1,8 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "60af595",
-  "commitFull": "60af595e1e85a00519817f8be1c860fa321d0fc3",
+  "commit": "52e7c58",
+  "commitFull": "52e7c58d70d22a532090198c06616c2b5a494399",
   "branch": "claude/docai-piece1",
   "remoteBranches": [
     "origin/claude/docai-piece1"
@@ -10,10 +10,10 @@
   "shipped": true,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-10-08T04:51:05.968Z",
-  "durationMs": 33734,
-  "result": "fail",
-  "stagesNotRun": 1,
+  "startedAt": "2026-10-08T05:25:02.164Z",
+  "durationMs": 33310,
+  "result": "pass",
+  "stagesNotRun": 0,
   "allowlistFired": [],
   "stages": [
     {
@@ -145,7 +145,7 @@
             "location": "/login"
           }
         },
-        "ms": 1301
+        "ms": 1345
       },
       "errors": [],
       "warnings": [],
@@ -154,19 +154,18 @@
     },
     {
       "name": "lint",
-      "result": "fail",
-      "findings": [
-        {
-          "rule": "no-em-dash",
-          "file": "src/laws/vaultLaws.test.ts",
-          "detail": "1 em dashes in a file this change touched."
-        }
-      ],
+      "result": "pass",
+      "findings": [],
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 38,
-      "filesScanned": 621
+      "touchedFiles": 82,
+      "filesScanned": 624
+    },
+    {
+      "name": "types",
+      "result": "pass",
+      "output": []
     }
   ],
   "manual": {

@@ -1,21 +1,21 @@
 [
   {
     "theme": "light",
-    "file": "01-add-screen.png",
+    "file": "light-01-add-screen.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "light",
-    "file": "02-upload-pdf.png",
+    "file": "light-02-upload-pdf.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "light",
-    "file": "03-upload-docx.png",
+    "file": "light-03-upload-docx.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -28,7 +28,7 @@
   },
   {
     "theme": "light",
-    "file": "04-upload-xlsx.png",
+    "file": "light-04-upload-xlsx.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -41,7 +41,7 @@
   },
   {
     "theme": "light",
-    "file": "05-upload-doc.png",
+    "file": "light-05-upload-doc.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -54,7 +54,7 @@
   },
   {
     "theme": "light",
-    "file": "06-upload-xls.png",
+    "file": "light-06-upload-xls.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -67,7 +67,7 @@
   },
   {
     "theme": "light",
-    "file": "07-upload-csv.png",
+    "file": "light-07-upload-csv.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -80,7 +80,7 @@
   },
   {
     "theme": "light",
-    "file": "08-upload-jpg.png",
+    "file": "light-08-upload-jpg.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -93,7 +93,7 @@
   },
   {
     "theme": "light",
-    "file": "09-upload-png.png",
+    "file": "light-09-upload-png.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -106,7 +106,7 @@
   },
   {
     "theme": "light",
-    "file": "10-upload-txt.png",
+    "file": "light-10-upload-txt.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -119,84 +119,84 @@
   },
   {
     "theme": "light",
-    "file": "11-refused-mismatch.png",
+    "file": "light-11-refused-mismatch.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "light",
-    "file": "12-mismatch-needs-review.png",
+    "file": "light-12-mismatch-needs-review.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "light",
-    "file": "13-marked-ready.png",
+    "file": "light-13-marked-ready.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "light",
-    "file": "14-archived.png",
+    "file": "light-14-archived.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "light",
-    "file": "15-list-archived-hidden.png",
+    "file": "light-15-list-archived-hidden.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "light",
-    "file": "16-list-archived-shown.png",
+    "file": "light-16-list-archived-shown.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "light",
-    "file": "17-unarchived-back-in-review.png",
+    "file": "light-17-unarchived-back-in-review.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "light",
-    "file": "18-old-type-transcript-read.png",
+    "file": "light-18-old-type-transcript-read.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "light",
-    "file": "19-list-all-states.png",
+    "file": "light-19-list-all-states.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "dark",
-    "file": "01-add-screen.png",
+    "file": "dark-01-add-screen.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "dark",
-    "file": "02-upload-pdf.png",
+    "file": "dark-02-upload-pdf.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "dark",
-    "file": "03-upload-docx.png",
+    "file": "dark-03-upload-docx.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -209,7 +209,7 @@
   },
   {
     "theme": "dark",
-    "file": "04-upload-xlsx.png",
+    "file": "dark-04-upload-xlsx.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -222,7 +222,7 @@
   },
   {
     "theme": "dark",
-    "file": "05-upload-doc.png",
+    "file": "dark-05-upload-doc.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -235,7 +235,7 @@
   },
   {
     "theme": "dark",
-    "file": "06-upload-xls.png",
+    "file": "dark-06-upload-xls.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -248,7 +248,7 @@
   },
   {
     "theme": "dark",
-    "file": "07-upload-csv.png",
+    "file": "dark-07-upload-csv.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -261,7 +261,7 @@
   },
   {
     "theme": "dark",
-    "file": "08-upload-jpg.png",
+    "file": "dark-08-upload-jpg.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -274,7 +274,7 @@
   },
   {
     "theme": "dark",
-    "file": "09-upload-png.png",
+    "file": "dark-09-upload-png.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -287,7 +287,7 @@
   },
   {
     "theme": "dark",
-    "file": "10-upload-txt.png",
+    "file": "dark-10-upload-txt.png",
     "width": 390,
     "sideways": false,
     "missing": []
@@ -300,63 +300,63 @@
   },
   {
     "theme": "dark",
-    "file": "11-refused-mismatch.png",
+    "file": "dark-11-refused-mismatch.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "dark",
-    "file": "12-mismatch-needs-review.png",
+    "file": "dark-12-mismatch-needs-review.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "dark",
-    "file": "13-marked-ready.png",
+    "file": "dark-13-marked-ready.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "dark",
-    "file": "14-archived.png",
+    "file": "dark-14-archived.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "dark",
-    "file": "15-list-archived-hidden.png",
+    "file": "dark-15-list-archived-hidden.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "dark",
-    "file": "16-list-archived-shown.png",
+    "file": "dark-16-list-archived-shown.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "dark",
-    "file": "17-unarchived-back-in-review.png",
+    "file": "dark-17-unarchived-back-in-review.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "dark",
-    "file": "18-old-type-transcript-read.png",
+    "file": "dark-18-old-type-transcript-read.png",
     "width": 390,
     "sideways": false,
     "missing": []
   },
   {
     "theme": "dark",
-    "file": "19-list-all-states.png",
+    "file": "dark-19-list-all-states.png",
     "width": 390,
     "sideways": false,
     "missing": []
