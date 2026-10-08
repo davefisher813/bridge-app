@@ -137,7 +137,27 @@ function bandValues(seed: number, band: Band): { legibility: number; confidence:
   return { legibility: 0.96 + t * 0.03, confidence: 0.95 + t * 0.04 };
 }
 
-function stubTriage(seed: number, category: DocCategoryId): string {
+// A file whose name says "offtype" is, to the stand-in, a different kind of
+// document than it was tagged as: the one way a test (or a person trying
+// the simulated reader) can see what happens to a file that does not look
+// like its type. The real model decides this from the page.
+function looksOffType(seedText: string): boolean {
+  return /offtype/i.test(seedText.split(":")[0] ?? "");
+}
+
+function stubTriage(seed: number, category: DocCategoryId, seedText = ""): string {
+  if (looksOffType(seedText)) {
+    return JSON.stringify({
+      readable: true,
+      legibilityScore: 0.95,
+      detectedType: category === "test_scores" ? "transcript" : "test_scores",
+      typeMatchesExpected: false,
+      pagesDetected: 1,
+      issues: ["The page is a different kind of document."],
+      recommendation: "wrong_category",
+      reason: "Simulated triage: this does not look like the type it was tagged as.",
+    });
+  }
   const band = bandOf(seed);
   const { legibility } = bandValues(seed, band);
   const readable = band !== "unreadable";
@@ -286,7 +306,7 @@ export interface StubCallerOptions {
 export function createStubCaller(opts: StubCallerOptions): ModelCaller {
   const seed = seedOf(opts.seedText);
   return async (call) => {
-    if (call.requestId.endsWith("_triage")) return stubTriage(seed, opts.category);
+    if (call.requestId.endsWith("_triage")) return stubTriage(seed, opts.category, opts.seedText);
     return stubExtraction(seed, opts.category);
   };
 }

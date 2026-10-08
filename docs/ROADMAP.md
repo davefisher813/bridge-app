@@ -459,3 +459,17 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
 - **The product name.** Still "BFFSA", now in one constant,
   `src/lib/product.ts`.
 - **Per-org schools, coaches and windows** (audit wired F6), not now.
+
+## Doc AI rebuild, after Piece 1 (2026-10-08)
+
+Piece 1 (the vault, migration 0048) is built and awaiting review and
+merge. Ahead: Piece 2 classification, 3 extraction, 4 identity matching,
+5 and 8 family and personal uploads, 7 to 9 approver roles and the legacy
+migration.
+
+**Approver roles for Pieces 7 and 8, names unassigned.** Three kinds of
+approver sign off a document before it can be treated as final: an
+academic approver (transcripts, recommendations), an eligibility approver
+(test scores, NCAA documents) and a financial approver (aid letters,
+offers). Who holds each role is not decided and nobody is named. Until
+then Ready stays a single tap by an Admin.

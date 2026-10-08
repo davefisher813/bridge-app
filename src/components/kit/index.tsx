@@ -429,6 +429,17 @@ export function LinkButton({ href, variant = "primary", inline = false, children
   );
 }
 
+// A saved copy of a stored file. A real anchor with `download`, not a
+// Link: the target is a route that answers with the file, and the router
+// must neither prefetch it nor try to render it.
+export function DownloadLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} download className="flex min-h-12 w-full items-center justify-center rounded border border-line px-4 text-body font-bold text-ink">
+      {children}
+    </a>
+  );
+}
+
 // The add action in a screen header: a 44px accent disc with a plus.
 // Dave's pick, 2026-09-20, over the text link it replaced. The label is
 // for the screen reader; the disc says it on its own.

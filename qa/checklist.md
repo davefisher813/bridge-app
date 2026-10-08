@@ -1,38 +1,27 @@
-# Manual check: Stages 3 and 4 and the add, edit and delete audit, shipped
+# Manual check: Doc AI rebuild, Piece 1 (the vault and its five states)
 
-Commit: 8e1a9ea (the commit this revision is built on; the revision itself is the next commit)
-Date: 2026-09-27
-Checked by: Claude Code, driving the FIXTURE_MODE build of 8e1a9ea in headless Chromium at 390px, light and dark, plus read-only checks against the production database
+Commit: ed2bba8 (the commit this revision is built on; the revision itself is the next commit)
+Date: 2026-10-08
+Checked by: Claude Code, driving the FIXTURE_MODE build in headless Chromium at 390px, light and dark. Not a physical iPhone, and no hosted preview: the app refuses fixture mode on Vercel on purpose and a Vercel preview would run against the production database before migration 0048 exists.
 QA report: qa/reports/latest.json
-Preview: qa/previews/ship-2026-09-27/, 20 shots
+Preview: qa/previews/docai-piece1/, 38 shots
 Result: pass
 
-Every "Actual" below is what the browser or the database reported. The
-fixture build has no auth and rebuilds its synthetic data on every
-request, so a save is shown by the action returning cleanly; the write
-itself is proven by the action laws (src/laws/actionRun.test.ts). Test
-data is synthetic only; minors appear by name and role only.
+Every "Actual" is what the browser reported. The upload to Storage is
+intercepted in the browser and the files are made-up bytes of each format;
+the reader is the stand-in. Nothing reached Supabase or Anthropic. The
+database rules (triggers, no delete, family folder, bucket types) are
+proven on a real Postgres by scripts/rls_test.sql, not by this walk.
 
 ## Steps
 
 | # | Do this | Expect this | Actual | Pass |
 |---|---|---|---|---|
-| 1 | Owner opens an athlete profile | Advisor, Messages, Check-Ins rows, outcomes, targets | rendered, 0 page errors, light and dark | pass |
-| 2 | Owner assigns an advisor and picks a high school on Edit, saves | Back on the profile, no error | redirected to the profile; advisor select and high school field accepted | pass |
-| 3 | Owner logs a check-in | The log screen, form cleared, no error | returned to Check-Ins with the form cleared; entries carry Edit and Remove | pass |
-| 4 | Owner sends a message | The thread, no error | returned to Messages, no error | pass |
-| 5 | Owner edits a contact, then removes one | Edit saves; Remove asks to confirm, then removes | edit saved back to the profile; the confirm dialog opened and Remove completed | pass |
-| 6 | Family opens their athlete and the thread | Your Advisor, Messages; no check-in or staff note text | both rendered; check-in note visible: false; staff note visible: false | pass |
-| 7 | Family opens the staff check-ins screen by URL | Refused | /unauthorized | pass |
-| 8 | Board member opens Home, Program, the staff check-ins and messages screens | Home and Program render; staff screens refused; no check-in note anywhere | Home and Program 200; both staff screens /unauthorized; check-in note visible: false | pass |
-| 9 | Production: a signed-out visitor and a signed-in user in no org read every private table | 0 rows | 0 on athletes, check-ins, messages, notes, targets, contacts, coaches, org notes, documents, orgs, members, users; the shared school list readable when signed in only | pass |
-| 10 | Production, inside a rolled-back transaction: a synthetic athlete with a check-in, a staff note and a message; a synthetic family login and board login | Family reads its athlete and message, 0 check-ins, 0 notes, 0 coaches; board reads none of them | family 1, 1, 0, 0, 0; board 0, 0, 0, 0; afterwards 0 synthetic rows remain | pass |
-| 11 | Every screen at 320, 375 and 390, both themes, links followed | No finding, no broken link | 161 routes, 0 findings; 257 links, 0 broken | pass |
-| 12 | Walk the live production app signed in, on Dave's phone | The same as 1 to 8 on real data | Not run: no sign-in to production from this machine, and fetching the live URL was not permitted in this session | not run |
-
-## The standing rules
-
-- [x] No secret printed, logged, committed, or visible in any screenshot.
-- [x] Minors appear by name and role only. Every person in the shots is synthetic.
-- [x] No em dashes.
-- [x] No app behavior changed by this revision: docs, the checklist and the preview shots only.
+| 1 | Add screen | No Type first, the seven formats named, nine extensions in the picker | shown, light and dark | pass |
+| 2 | Upload one file of each format (PDF, DOCX, DOC, XLSX, XLS, CSV, JPG, PNG, TXT) | Stored File, Needs Review, name, format, size, uploader, time, SHA-256, Download | 9 of 9 as expected; the downloaded bytes hash equal to the file picked | pass |
+| 3 | Pick a PNG named .jpg | Refused in the browser, names the seven, nothing uploaded | refused, 0 uploads | pass |
+| 4 | Tag a file Transcript that is not a transcript | Kept, Needs Review, "Did not look like Transcript", file intact | as expected | pass |
+| 5 | Mark Ready, Archive, Show Archived, Unarchive | Ready; Archived and hidden from the list until asked; back in Needs Review | as expected, each in the activity log | pass |
+| 6 | Tag a transcript, send it through the existing reader | Read, held for review, matched, old Apply flow unchanged | as expected | pass |
+| 7 | List with every state | Each row carries its status; Archived hidden | as expected | pass |
+| 8 | Every screen at 320, 375, 390, both themes, links followed | No finding, no broken link | 186 screens, 0 findings; 302 links, 0 broken | pass |

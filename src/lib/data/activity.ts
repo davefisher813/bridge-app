@@ -49,6 +49,11 @@ export const ACTIVITY_ACTIONS = [
   "document_uploaded",
   "document_applied",
   "document_discarded",
+  "document_reading",
+  "document_needs_review",
+  "document_ready",
+  "document_archived",
+  "document_unarchived",
   "checkin_logged",
   "message_sent",
   "member_invited",
@@ -85,6 +90,11 @@ export const SUBJECT_TYPE_OF: Record<ActivityAction, ActivitySubjectType> = {
   document_uploaded: "document",
   document_applied: "document",
   document_discarded: "document",
+  document_reading: "document",
+  document_needs_review: "document",
+  document_ready: "document",
+  document_archived: "document",
+  document_unarchived: "document",
   checkin_logged: "checkin",
   message_sent: "message",
   member_invited: "member",
@@ -129,6 +139,14 @@ export interface ActivitySubjects {
   document_uploaded: { name?: string | null; kind: string };
   document_applied: { name: string; kind: string };
   document_discarded: { name?: string | null; kind: string };
+  // The vault's five states (migration 0048). Each is one move of one
+  // document; the reason a file landed in Needs Review stays on the
+  // document, never in the log (a reader's error can quote the page).
+  document_reading: { name?: string | null; kind: string };
+  document_needs_review: { name?: string | null; kind: string };
+  document_ready: { name?: string | null; kind: string };
+  document_archived: { name?: string | null; kind: string };
+  document_unarchived: { name?: string | null; kind: string };
   // `kind` is call, meeting, text or other; `date` is the day it
   // happened (ISO date). The note stays in athlete_checkins.
   checkin_logged: { name: string; kind: string; date?: string | null };
@@ -197,6 +215,11 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   document_uploaded: (s) => (s.name ? `Uploaded ${article(word(s.kind, "document"))} ${word(s.kind, "document")} for ${who(s.name)}` : `Uploaded ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`),
   document_applied: (s) => `Applied ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to ${who(s.name)}`,
   document_discarded: (s) => (s.name ? `Discarded ${article(word(s.kind, "document"))} ${word(s.kind, "document")} for ${who(s.name)}` : `Discarded ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`),
+  document_reading: (s) => `Started reading ${article(word(s.kind, "document"))} ${word(s.kind, "document")}${s.name ? ` for ${who(s.name)}` : ""}`,
+  document_needs_review: (s) => `Moved ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to Needs Review${s.name ? ` for ${who(s.name)}` : ""}`,
+  document_ready: (s) => `Marked ${article(word(s.kind, "document"))} ${word(s.kind, "document")} Ready${s.name ? ` for ${who(s.name)}` : ""}`,
+  document_archived: (s) => `Archived ${article(word(s.kind, "document"))} ${word(s.kind, "document")}${s.name ? ` for ${who(s.name)}` : ""}`,
+  document_unarchived: (s) => `Unarchived ${article(word(s.kind, "document"))} ${word(s.kind, "document")}${s.name ? ` for ${who(s.name)}` : ""}`,
   checkin_logged: (s) => `Logged ${article(word(s.kind, "check-in"))} ${word(s.kind, "check-in")} check-in for ${who(s.name)}${onDate(s.date)}`,
   message_sent: (s) => (s.name ? `Sent a message to the family of ${who(s.name)}` : "Sent a message"),
   member_invited: (s) => {

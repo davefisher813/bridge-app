@@ -408,47 +408,34 @@ describe("LAW: a transcript row is staff's to correct, add and remove, in its ow
   });
 });
 
-// Planted: let deleteDocument run on a pending document: "only after a
-// discard" failed with the row and file deleted. Planted: deleted the row
-// before removing the files: "files first" failed on the order. Reverted.
-describe("LAW: a document is deleted for good only after a discard, files first (crud F19)", () => {
-  const path = () => `${bridge()}/req_del/1-transcript.pdf`;
-
-  it("a pending or applied document is not deleted, and nothing is removed", async () => {
-    data.documents!.push(pendingDoc("doc-del-pending", "claude-opus-5", { storage_paths: [path()] }));
-    data.documents!.push(pendingDoc("doc-del-applied", "claude-opus-5", { status: "applied", storage_paths: [path()] }));
-    const { deleteDocument } = await import("@/lib/actions/documents");
-    for (const id of ["doc-del-pending", "doc-del-applied"]) {
-      const r = await deleteDocument(ORG_WITH_MODULES, id);
-      expect(r.ok).toBe(false);
-      expect(r.error).toMatch(/Discard this document first/);
-    }
-    expect(writes).toEqual([]);
+// Piece 1 of the Doc AI rebuild: originals are permanent. There is no
+// delete action, and the database would refuse one (rls_test.sql). This
+// replaces the crud F19 delete-after-discard law. Planted: exported a
+// deleteDocument again: "no action deletes a document" failed. Reverted.
+describe("LAW: a document and its file are never deleted from the app", () => {
+  it("the actions file exports no delete of a document", async () => {
+    const actions = await import("@/lib/actions/documents");
+    expect(Object.keys(actions).filter((k) => /delete/i.test(k))).toEqual([]);
   });
 
-  it("a discarded document loses its files and then its row, in this org only", async () => {
-    data.documents!.push(pendingDoc("doc-del", "stub", { status: "discarded", storage_paths: [path(), `${elite()}/req_x/1-other.pdf`] }));
-    const { deleteDocument } = await import("@/lib/actions/documents");
-    const r = await deleteDocument(ORG_WITH_MODULES, "doc-del");
+  it("a delete against documents is refused by the data layer the way the database refuses it", async () => {
+    const { createFakeClient } = await import("@/testing/fakeSupabase");
+    const client = createFakeClient(data, { userId: OWNER_ID });
+    const { error } = await client.from("documents").delete().eq("id", IDS.document);
+    expect(error).toBeTruthy();
+    expect(data.documents!.some((d) => d.id === IDS.document)).toBe(true);
+  });
+
+  it("discarding archives the document and keeps it and its file", async () => {
+    const { discardDocument } = await import("@/lib/actions/documents");
+    data.documents!.push(pendingDoc("doc-keep", "claude-opus-5", { storage_paths: [`${bridge()}/req_fixture/1-transcript.pdf`], original_paths: [`${bridge()}/req_fixture/1-transcript.pdf`], lifecycle: "needs_review" }));
+    const r = await discardDocument(ORG_WITH_MODULES, "doc-keep");
     expect(r.ok).toBe(true);
-    const removed = writes.findIndex((w) => w.table === "storage:documents" && w.op === "delete");
-    const rowGone = writes.findIndex((w) => w.table === "documents" && w.op === "delete");
-    expect(removed).toBeGreaterThanOrEqual(0);
-    expect(rowGone).toBeGreaterThan(removed);
-    // Another org's folder is never touched, whatever the row says.
-    expect(writes[removed]!.rows.map((x) => x.name)).toEqual([path()]);
-    expect(writes[rowGone]!.filters).toEqual(expect.arrayContaining([expect.objectContaining({ column: "org_id", value: bridge() })]));
-  });
-
-  it("another org's document is not found, and a member can not delete", async () => {
-    data.documents!.push({ ...pendingDoc("doc-del-elite", null, { status: "discarded" }), org_id: elite() });
-    const { deleteDocument } = await import("@/lib/actions/documents");
-    const r = await deleteDocument(ORG_WITH_MODULES, "doc-del-elite");
-    expect(r.ok).toBe(false);
-    currentUser = MEMBER_ID;
-    data.documents!.push(pendingDoc("doc-del-member", null, { status: "failed" }));
-    expect((await run(() => deleteDocument(ORG_WITH_MODULES, "doc-del-member"))).redirect).toBe("/unauthorized");
-    expect(writes).toEqual([]);
+    const row = data.documents!.find((d) => d.id === "doc-keep")!;
+    expect(row.status).toBe("discarded");
+    expect(row.lifecycle).toBe("archived");
+    expect(writes.filter((w) => w.table === "storage:documents" && w.op === "delete")).toEqual([]);
+    expect(data.storage_objects!.some((o) => o.name === `${bridge()}/req_fixture/1-transcript.pdf`)).toBe(true);
   });
 });
 
@@ -566,9 +553,9 @@ describe("LAW: the course and correction screens render, and only for staff", ()
 
 // Planted: swapped one ConfirmButton for a plain Button on the course
 // screen: this law failed naming the file. Reverted.
-describe("LAW: every delete on the document and transcript screens asks first", () => {
+describe("LAW: every delete on the transcript screens asks first (a document has no delete)", () => {
   const APP = join(process.cwd(), "src/app/org/[slug]");
-  const FILES = ["documents/[id]/page.tsx", "roster/[id]/transcript/[courseId]/page.tsx"];
+  const FILES = ["roster/[id]/transcript/[courseId]/page.tsx"];
 
   it("each Form posting a delete holds a ConfirmButton", () => {
     const offenders: string[] = [];

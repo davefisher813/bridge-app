@@ -1,4 +1,5 @@
 import { fakeRpc, fakeSubmitAssignment } from "./fakeRpc";
+import { transitionFor, type Lifecycle } from "@/lib/vault/lifecycle";
 
 // An in-memory stand-in for the Supabase client, good enough to render a
 // page and nothing more.
@@ -139,7 +140,7 @@ const EMBEDS: Record<string, Record<string, EmbedSpec>> = {
 };
 
 interface Filter {
-  kind: "eq" | "is" | "in" | "neq" | "not" | "gte" | "ilike" | "or";
+  kind: "eq" | "is" | "in" | "neq" | "not" | "gte" | "ilike" | "or" | "overlaps";
   column: string;
   value: unknown;
 }
@@ -236,6 +237,11 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
     this.filters.push({ kind: "not", column, value });
     return this;
   }
+  // PostgREST's `ov`: the array column shares at least one element.
+  overlaps(column: string, value: unknown[]) {
+    this.filters.push({ kind: "overlaps", column, value });
+    return this;
+  }
   gte(column: string, value: unknown) {
     this.filters.push({ kind: "gte", column, value });
     return this;
@@ -295,6 +301,7 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
     if (f.kind === "is") return f.value === null ? v === null || v === undefined : v === f.value;
     if (f.kind === "in") return (f.value as unknown[]).includes(v);
     if (f.kind === "not") return v !== f.value;
+    if (f.kind === "overlaps") return Array.isArray(v) && (f.value as unknown[]).some((x) => v.includes(x));
     if (f.kind === "gte") return v !== null && v !== undefined && (v as string | number) >= (f.value as string | number);
     return true;
   }
@@ -328,6 +335,36 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
     return out;
   }
 
+  private documentRefusal(rows: Row[], table: Row[]): string | null {
+    const op = this.writes!.op;
+    if (op === "delete") return "documents: permission denied, nothing signed in can delete a document";
+    if (op === "insert") {
+      const objects = this.data.storage_objects ?? [];
+      for (const r of rows) {
+        const lifecycle = (r.lifecycle as string | undefined) ?? "needs_review";
+        if (lifecycle !== "uploaded" && lifecycle !== "needs_review") return `documents: a new document starts as Uploaded, not ${lifecycle}`;
+        for (const p of [...((r.storage_paths as string[] | undefined) ?? []), ...((r.original_paths as string[] | undefined) ?? [])]) {
+          if (!objects.some((o) => o.bucket === "documents" && o.name === p)) return `documents: ${p} is not in storage`;
+        }
+      }
+    }
+    if (op === "update") {
+      const patch = rows[0] ?? {};
+      for (const row of table) {
+        if (!this.matches(row)) continue;
+        for (const col of FROZEN_DOCUMENT_COLUMNS) {
+          if (col in patch && JSON.stringify(patch[col]) !== JSON.stringify(row[col])) return "documents: the original file record is never changed";
+        }
+        if ("lifecycle" in patch && patch.lifecycle !== row.lifecycle) {
+          const from = row.lifecycle as Lifecycle | undefined;
+          const to = patch.lifecycle as Lifecycle;
+          if (!from || !transitionFor(from, to)) return `documents: ${from} to ${to} is not an allowed move`;
+        }
+      }
+    }
+    return null;
+  }
+
   private run(): { data: unknown; error: unknown } {
     const table = this.data[this.table];
     if (!table) this.onUnsupported(`table "${this.table}" is not in the fixture`);
@@ -358,6 +395,13 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
           const idx = table.findIndex((t) => keys.every((k) => t[k] === r[k]));
           if (idx >= 0) table.splice(idx, 1);
         }
+      }
+      // The document vault's rules (migration 0048), mirrored so an
+      // action under test meets the same refusals the database gives it.
+      // The real triggers are proven against Postgres in rls_test.sql.
+      if (this.table === "documents") {
+        const refusal = this.documentRefusal(rows, table);
+        if (refusal) return { data: null, error: { message: refusal } };
       }
       if (this.writes.op === "delete") {
         for (let i = table.length - 1; i >= 0; i--) if (this.matches(table[i])) table.splice(i, 1);
@@ -426,8 +470,14 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
 // Postgres. Kept to the tables where something reads the column: the Doc AI
 // ledger is counted by month (created_at), so a call logged through the
 // fake has to carry the time it was made.
+// The columns migration 0048 freezes once a document row exists.
+const FROZEN_DOCUMENT_COLUMNS = ["org_id", "file_name", "file_size", "media_type", "format", "content_hash", "storage_paths", "original_paths", "uploaded_by", "created_at"];
+
 function columnDefaults(table: string): Row {
   if (table === "docai_usage") return { created_at: new Date().toISOString() };
+  // The database stamps the time of a log row; nothing else does.
+  if (table === "activity_log") return { created_at: new Date().toISOString() };
+  if (table === "documents") return { lifecycle: "needs_review", lifecycle_changed_at: new Date().toISOString(), original_paths: [], created_at: new Date().toISOString() };
   return {};
 }
 
@@ -626,6 +676,11 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
             return { data: { path }, error: null };
           },
           async remove(paths: string[]) {
+            const objects = data.storage_objects ?? [];
+            for (const name of paths) {
+              const at = objects.findIndex((o) => o.bucket === bucket && o.name === name);
+              if (at >= 0) objects.splice(at, 1);
+            }
             recorded.push({ op: "delete", table: `storage:${bucket}`, rows: paths.map((name) => ({ name })), filters: [] });
             return { data: paths.map((name) => ({ name })), error: null };
           },

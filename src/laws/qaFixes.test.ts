@@ -15,6 +15,9 @@ let data: Dataset = buildFixture();
 vi.mock("next/headers", () => ({ cookies: async () => ({ getAll: () => [], set: () => {} }), headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: () => {}, replace: () => {}, refresh: () => {} }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
   },

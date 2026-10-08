@@ -27,6 +27,9 @@ import {
 import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
 import { isRealDate } from "@/lib/docai/lenient";
 import { isStaleProcessing } from "@/lib/data/documentState";
+import { moveLifecycle } from "@/lib/data/vault";
+import { checkVaultFile, readerCanRead, type VaultFormat } from "@/lib/vault/format";
+import { didNotLookLike, isLifecycle, isStaleProcessing as isStaleLifecycle } from "@/lib/vault/lifecycle";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
 import { applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, fillHighSchoolFromTranscript, undoContact, undoDetail, undoMetrics, undoTarget, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
@@ -110,8 +113,22 @@ async function modelCallerFor(orgId: string, documentId: string, stub: { categor
 
 export interface ProcessResult {
   ok: boolean;
+  // The document to open. With several files in one go, the first.
   documentId?: string;
+  // Every document this upload made, in order.
+  documentIds?: string[];
   error?: string;
+}
+
+// One file the browser put in the bucket, bytes untouched. `reader` is the
+// copy the existing reader reads: set only for a file someone tagged with
+// one of the six types and that the reader can read (PDF, JPG, PNG). For a
+// PDF it points at the same object as the original; for a photo it is the
+// shrunk copy the browser made, stored next to the original.
+export interface OriginalUpload {
+  storagePath: string;
+  name: string;
+  reader?: StoredRecord | null;
 }
 
 // What applying a document changed, stored on documents.applied_changes
@@ -198,19 +215,37 @@ type StorageReader = {
   storage: {
     from(bucket: string): {
       download(path: string): Promise<{ data: Blob | null; error: { message: string } | null }>;
-      remove(paths: string[]): Promise<{ error: { message: string } | null }>;
     };
   };
 };
 
-// A refused upload leaves nothing behind in the bucket. Best effort: a
-// file that cannot be removed is not worth failing the refusal over.
-async function dropStored(supabase: StorageReader, paths: string[]): Promise<void> {
-  if (!paths.length) return;
+// The ONE place the app removes anything from the documents bucket, and it
+// only ever removes an upload that never got a document row. A document's
+// originals are permanent (migration 0048 drops the delete policies, and
+// src/laws/vaultLaws.test.ts fails on any other .remove( on the bucket or
+// .delete() on documents). Done through the service role because nobody
+// signed in can delete from the bucket any more; so it is checked here
+// instead: this org's folder only, the three part path the browser writes,
+// and nothing a row refers to, in storage_paths or original_paths.
+async function removeUnregisteredUploads(orgId: string, paths: string[]): Promise<void> {
+  const own = [...new Set(paths)].filter((p) => STORAGE_PATH.test(p) && p.startsWith(`${orgId}/`));
+  if (!own.length) return;
   try {
-    await supabase.storage.from("documents").remove(paths);
+    const admin = createAdminClient();
+    const [inReader, inOriginal] = await Promise.all([
+      admin.from("documents").select("storage_paths").eq("org_id", orgId).overlaps("storage_paths", own),
+      admin.from("documents").select("original_paths").eq("org_id", orgId).overlaps("original_paths", own),
+    ]);
+    // If it cannot be established that nothing refers to a file, it stays.
+    if (inReader.error || inOriginal.error) return;
+    const referenced = new Set<string>();
+    for (const r of (inReader.data ?? []) as { storage_paths: string[] | null }[]) for (const p of r.storage_paths ?? []) referenced.add(p);
+    for (const r of (inOriginal.data ?? []) as { original_paths: string[] | null }[]) for (const p of r.original_paths ?? []) referenced.add(p);
+    const loose = own.filter((p) => !referenced.has(p));
+    if (loose.length) await admin.storage.from("documents").remove(loose);
   } catch {
-    // nothing to do: the refusal stands either way
+    // The refusal stands either way; a loose file is listed by
+    // scripts/list_unregistered_uploads.mjs.
   }
 }
 
@@ -273,15 +308,31 @@ async function orgAthleteName(supabase: Awaited<ReturnType<typeof createClient>>
   return (data as { id: string; name: string } | null) ?? null;
 }
 
+// Turns a selection the browser has already put in the bucket into
+// documents. The shape of an upload:
+//
+//   - Every file is stored exactly as picked (the originals). Nothing is
+//     shrunk, converted or renamed on the way in.
+//   - A file tagged with one of the six types that the reader can read
+//     (PDF, JPG, PNG) goes to the existing reader, together, as one
+//     document of N pages, exactly as before. Its row passes through
+//     Processing and always ends in Needs Review.
+//   - Every other file (no type chosen, or a format the reader cannot
+//     read) is its own document and goes straight to Needs Review.
+//   - A file that is not one of the seven formats, or whose bytes do not
+//     match its name, refuses the whole selection; the uploads that never
+//     got a row are removed again so nothing is left behind.
+//   - The same bytes as an earlier document are stored anyway, not read,
+//     and say so on the row.
 export async function processDocument(
   slug: string,
   input: {
-    // Where the browser put each file in the documents bucket. The bytes
-    // are read back from Storage here, never carried in this call: a
-    // server action's body is capped at 1MB and a document is not.
-    records: StoredRecord[];
+    // The old shape: the reader's copies. Each is its own original too.
+    records?: StoredRecord[];
+    // The vault shape: every file picked, with its reader copy if any.
+    originals?: OriginalUpload[];
     sourceRole: SourceRole;
-    // Null means "work out what this is". Dave wanted both ways in.
+    // Null means no type: the file is stored and goes to Needs Review.
     requestedCategory: DocCategoryId | null;
     // Set when the upload started from a particular athlete's page.
     // This is an ID, not a name: passing only the name meant the
@@ -297,149 +348,233 @@ export async function processDocument(
   if (!org) return { ok: false, error: "Org not found." };
   const user = await requireRole(org.id, STAFF_ROLES);
 
-  if (!input.records.length) return { ok: false, error: "No files were uploaded." };
-  if (input.records.length > MAX_RECORDS_PER_UPLOAD) {
-    return { ok: false, error: `That is ${input.records.length} files at once. Upload up to ${MAX_RECORDS_PER_UPLOAD} at a time.` };
-  }
+  const originals: OriginalUpload[] = input.originals ?? (input.records ?? []).map((r) => ({ storagePath: r.storagePath, name: r.originalName, reader: r }));
+  if (!originals.length) return { ok: false, error: "No files were uploaded." };
 
   const supabase = await createClient();
   const stubbed = await isStubbedModel();
+  const category = input.requestedCategory;
+
+  // Files confirmed in the bucket by this call. A refusal removes exactly
+  // these, and only if no row ends up referring to them.
+  const confirmed = new Set<string>();
+  const refuse = async (error: string, extra: Partial<ProcessResult> = {}): Promise<ProcessResult> => {
+    await removeUnregisteredUploads(org.id, [...confirmed]);
+    return { ok: false, error, ...extra };
+  };
+  // Before any download, what is known to exist is only what the caller
+  // says it uploaded, so the cap and count refusals clear those too.
+  const claimed = [...new Set(originals.flatMap((o) => [o.storagePath, ...(o.reader ? [o.reader.storagePath] : [])]))];
+
+  if (originals.length > MAX_RECORDS_PER_UPLOAD) {
+    claimed.forEach((p) => confirmed.add(p));
+    return refuse(`That is ${originals.length} files at once. Upload up to ${MAX_RECORDS_PER_UPLOAD} at a time.`);
+  }
+
+  const readsAnything = category !== null && originals.some((o) => o.reader);
 
   // The month's cap, before a row is written or a byte is read. Only
   // the real model spends money; the stub is free and never capped.
-  if (!stubbed) {
+  if (!stubbed && readsAnything) {
     const spend = await loadMonthSpend(supabase, org.id);
     if (spend.exhausted) {
-      return {
-        ok: false,
-        error:
-          spend.capCents === 0
-            ? "Document reading is turned off for this organization. An Admin can set a monthly budget under More."
-            : `This month's document reading budget (${dollars(spend.capCents)}) is used up. An Admin can raise it under More.`,
-      };
+      claimed.forEach((p) => confirmed.add(p));
+      return refuse(
+        spend.capCents === 0
+          ? "Document reading is turned off for this organization. An Admin can set a monthly budget under More."
+          : `This month's document reading budget (${dollars(spend.capCents)}) is used up. An Admin can raise it under More.`
+      );
     }
   }
 
-  // The bytes, read back from the bucket with the caller's own client,
+  // The originals, read back from the bucket with the caller's own client,
   // so Storage's policies decide whether they may see the file at all.
-  // The org prefix is checked here too, so a path into another org's
-  // folder is refused by name rather than surfacing as a download error.
-  const fetched = await readStoredRecords(supabase, org.id, input.records);
-  if (!fetched.ok) return { ok: false, error: fetched.error };
-  const records = fetched.records;
-
-  // Everything the client checked, checked again here from the bytes
-  // that actually arrived. ingest.ts runs in the browser, so a direct
-  // call to this action skipped the size cap, the format sniffing and
-  // the HEIC refusal entirely. See src/lib/docai/acceptance.ts.
-  const rejection = validateRecords(records);
-  if (rejection) {
-    await dropStored(
-      supabase,
-      input.records.map((r) => r.storagePath)
-    );
-    return { ok: false, error: rejection };
+  // Read back, checked and hashed from the bytes that are really there;
+  // the browser's word for what a file is counts for nothing.
+  const checked: { upload: OriginalUpload; format: VaultFormat; mediaType: string; size: number; sha: Buffer; hex: string }[] = [];
+  for (const o of originals) {
+    if (!STORAGE_PATH.test(o.storagePath) || !o.storagePath.startsWith(`${org.id}/`)) {
+      return refuse(`${o.name || "That file"} was not uploaded to this organization's folder.`);
+    }
+    const { data: blob, error: readError } = await supabase.storage.from("documents").download(o.storagePath);
+    if (readError || !blob) return refuse(`${o.name || "That file"} could not be read back after upload. Try again.`);
+    confirmed.add(o.storagePath);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const verdict = checkVaultFile(o.name, bytes);
+    if (!verdict.ok) return refuse(verdict.reason);
+    const digest = createHash("sha256").update(bytes).digest();
+    checked.push({ upload: o, format: verdict.format, mediaType: verdict.mediaType, size: verdict.size, sha: digest, hex: digest.toString("hex") });
   }
 
-  const first = records[0]!;
+  // Which of them the reader gets: a type was chosen, the format is one
+  // the reader reads, and the browser supplied a copy for it.
+  const forReader = category === null ? [] : checked.filter((c) => c.upload.reader && readerCanRead(c.format));
 
-  // The same bytes twice is the same document twice: a parent
-  // re-sending the PDF, a coordinator tapping twice, the same photo
-  // picked from the roll again. It was read twice, charged twice and,
-  // for a metrics report, logged twice. Refused here with a pointer to
-  // the first copy; a discarded copy does not count, since discarding
-  // is how somebody says "read it again".
-  const contentHash = createHash("sha256");
-  for (const r of records) contentHash.update(Buffer.from(r.base64, "base64"));
-  const hash = contentHash.digest("hex");
-  const { data: twin } = await supabase
-    .from("documents")
-    .select("id, file_name, status, created_at")
-    .eq("org_id", org.id)
-    .eq("content_hash", hash)
-    .neq("status", "discarded")
-    // A family's own copy, filed with an assignment and never read, is
-    // not a twin: an Admin who wants the file read uploads it, and a
-    // filed row has no Discard to clear the way (and its hash is the
-    // caller's word until the bytes are read again here).
-    .neq("status", "filed")
-    .order("created_at", { ascending: false })
-    .limit(1);
-  const earlier = ((twin ?? []) as { id: string; file_name: string; status: string; created_at: string }[])[0];
-  if (earlier) {
-    await dropStored(
-      supabase,
-      input.records.map((r) => r.storagePath)
-    );
-    const when = new Date(earlier.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    return {
-      ok: false,
-      error: `This exact file was already uploaded on ${when} as ${earlier.file_name} and is ${earlier.status === "processing" ? "still being read" : earlier.status}. Open it under Documents, or discard it there first to read it again.`,
-      documentId: earlier.id,
-    };
+  // The reader's copies, validated the way every upload was before: size,
+  // format sniff, HEIC refusal. A copy that fails does not lose the file;
+  // the original is stored and the reason goes on the row.
+  let readerRecords: IngestedRecord[] = [];
+  let readerProblem: string | null = null;
+  if (forReader.length) {
+    const fetched = await readStoredRecords(supabase, org.id, forReader.map((c) => c.upload.reader!));
+    if (!fetched.ok) readerProblem = fetched.error;
+    else {
+      readerRecords = fetched.records;
+      readerProblem = validateRecords(readerRecords);
+      forReader.forEach((c) => confirmed.add(c.upload.reader!.storagePath));
+    }
   }
 
-  // The row exists before the pipeline runs, so a crash mid-extraction
-  // leaves a visible failed document rather than nothing at all.
-  const { data: created, error: insertError } = await supabase
-    .from("documents")
-    .insert({
-      org_id: org.id,
-      file_name: first.originalName,
-      file_size: first.originalSize,
-      media_type: first.originalMime,
-      requested_category: input.requestedCategory,
-      source_role: input.sourceRole,
-      status: "processing",
-      request_id: first.requestId,
-      storage_paths: input.records.map((r) => r.storagePath),
-      content_hash: hash,
-      // Which model reads it, written once, before the reading starts.
-      // 'stub' is permanent (a trigger in migration 0040), so a reading
-      // the stand-in invented can never be relabelled and applied.
-      read_by: readerFor(stubbed, EXTRACTION_MODEL),
-    })
-    .select("id")
-    .single();
+  // One document for the readable group, one per other file.
+  type Spec = { files: typeof checked; reads: boolean };
+  const specs: Spec[] = [];
+  if (forReader.length) specs.push({ files: forReader, reads: true });
+  for (const c of checked) if (!forReader.includes(c)) specs.push({ files: [c], reads: false });
 
-  if (insertError || !created) return { ok: false, error: "Could not start processing." };
-  const documentId = (created as { id: string }).id;
-
-  // The upload, logged once its row exists. The reading may still fail
-  // or settle on another athlete; what is recorded is that a file of
-  // this kind came in, for the athlete whose page it started from when
-  // it started from one.
   const pinned = await orgAthleteName(supabase, org.id, input.athleteId);
-  await logActivity(supabase, {
-    orgId: org.id,
-    actorId: user.id,
-    athleteId: pinned?.id ?? null,
-    action: "document_uploaded",
-    subjectType: "document",
-    subjectId: documentId,
-    summary: activitySummary("document_uploaded", { name: pinned?.name ?? null, kind: documentKind(input.requestedCategory) }),
-  });
+  const documentIds: string[] = [];
+  let readerDocumentId: string | null = null;
 
-  // Anything that throws from here leaves a row that says so, rather
-  // than one stuck at "processing" for good. The reading itself
-  // reports its own failures through the pipeline result; this is for
-  // the unexpected: a roster query that fails, a bug.
-  try {
-    return await readAndFile(slug, org.id, documentId, input, records);
-  } catch (e) {
-    await supabase
+  for (const spec of specs) {
+    const first = spec.files[0]!;
+    // The document's hash: a single file's own SHA-256, or, for a document
+    // of several pages, the hash of the pages' bytes in order.
+    const hash = spec.files.length === 1 ? first.hex : createHash("sha256").update(Buffer.concat(spec.files.map((f) => f.sha))).digest("hex");
+
+    // The same bytes twice is the same document twice. It is stored all
+    // the same (nothing is thrown away), but it is not read again or
+    // charged again, and the row points at the first copy. A discarded
+    // copy does not count: discarding is how somebody says "read it
+    // again".
+    const { data: twin } = await supabase
       .from("documents")
-      .update({
-        status: "failed",
-        failure_stage: "crash",
-        failure_reason: `Reading stopped unexpectedly: ${(e as Error).message || "unknown error"}. Nothing was changed on any athlete.`,
-        updated_at: new Date().toISOString(),
+      .select("id, file_name, created_at")
+      .eq("org_id", org.id)
+      .eq("content_hash", hash)
+      .neq("status", "discarded")
+      // A family's own copy, filed with an assignment and never read, is
+      // not a twin: an Admin who wants the file read uploads it.
+      .neq("status", "filed")
+      .order("created_at", { ascending: true })
+      .limit(1);
+    const earlier = ((twin ?? []) as { id: string; file_name: string; created_at: string }[])[0];
+    const duplicateReason = earlier ? `Same file as ${earlier.file_name} uploaded ${new Date(earlier.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : null;
+
+    const typeLabel = category ? getCategory(category).label : null;
+    const skipReason = duplicateReason ?? (spec.reads ? readerProblem : null) ?? (!spec.reads && category && !readerCanRead(first.format) ? "The reader reads PDF, JPG and PNG. Stored as is." : null);
+    const reads = spec.reads && !skipReason;
+
+    // The row exists before the reader runs, so a crash mid-extraction
+    // leaves a visible document rather than nothing at all.
+    const { data: created, error: insertError } = await supabase
+      .from("documents")
+      .insert({
+        org_id: org.id,
+        file_name: first.upload.name,
+        file_size: spec.files.reduce((n, f) => n + f.size, 0),
+        media_type: first.mediaType,
+        format: first.format,
+        requested_category: category,
+        source_role: input.sourceRole,
+        // The reader's own state: processing while it reads, pending (waiting
+        // for a person) otherwise. The five-state lifecycle is separate.
+        status: reads ? "processing" : "pending",
+        lifecycle: "uploaded",
+        uploaded_by: user.id,
+        request_id: first.upload.reader?.requestId ?? null,
+        storage_paths: spec.reads && !readerProblem ? spec.files.map((f) => f.upload.reader!.storagePath) : spec.files.map((f) => f.upload.storagePath),
+        original_paths: spec.files.map((f) => f.upload.storagePath),
+        content_hash: hash,
+        // Which model reads it, written once, before the reading starts.
+        // 'stub' is permanent (a trigger in migration 0040), so a reading
+        // the stand-in invented can never be relabelled and applied.
+        read_by: reads ? readerFor(stubbed, EXTRACTION_MODEL) : null,
       })
-      .eq("id", documentId)
-      .eq("org_id", org.id);
-    revalidatePath(`/org/${slug}/documents`);
-    return { ok: true, documentId };
+      .select("id")
+      .single();
+    if (insertError || !created) {
+      // Nothing about the files changed; the ones without a row go.
+      return refuse(documentIds.length ? "Some files were stored, but not all. Open Documents to see which." : "Could not store that file.", { documentIds });
+    }
+    const documentId = (created as { id: string }).id;
+    documentIds.push(documentId);
+    if (spec.reads) readerDocumentId = documentId;
+
+    // The upload, logged once its row exists. The reading may still fail
+    // or settle on another athlete; what is recorded is that a file of
+    // this kind came in, for the athlete whose page it started from when
+    // it started from one.
+    await logActivity(supabase, {
+      orgId: org.id,
+      actorId: user.id,
+      athleteId: pinned?.id ?? null,
+      action: "document_uploaded",
+      subjectType: "document",
+      subjectId: documentId,
+      summary: activitySummary("document_uploaded", { name: pinned?.name ?? null, kind: documentKind(category) }),
+    });
+
+    const moveArgs = { orgId: org.id, documentId, by: "system" as const, actorId: user.id, kind: documentKind(category), athlete: pinned };
+    if (!reads) {
+      // Stored, not read: straight to Needs Review with the reason, if any.
+      await moveLifecycle(supabase, { ...moveArgs, to: "needs_review", reviewReason: skipReason ?? (typeLabel ? null : "No type chosen.") });
+      continue;
+    }
+
+    await moveLifecycle(supabase, { ...moveArgs, to: "processing" });
+    // Anything that throws from here leaves a row that says so, rather
+    // than one stuck at "processing" for good. The reading itself
+    // reports its own failures through the pipeline result; this is for
+    // the unexpected: a roster query that fails, a bug.
+    try {
+      await readAndFile(slug, org.id, documentId, { records: input.records ?? spec.files.map((f) => f.upload.reader!), sourceRole: input.sourceRole, requestedCategory: category, athleteId: input.athleteId }, readerRecords);
+    } catch (e) {
+      await supabase
+        .from("documents")
+        .update({
+          status: "failed",
+          failure_stage: "crash",
+          failure_reason: `Reading stopped unexpectedly: ${(e as Error).message || "unknown error"}. Nothing was changed on any athlete.`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId)
+        .eq("org_id", org.id);
+    }
+    await finishReading(supabase, { ...moveArgs, category });
   }
+
+  // Whatever this call put in the bucket that no row ended up referring to
+  // (a reader copy that was not used) goes, so nothing is left loose.
+  await removeUnregisteredUploads(org.id, claimed);
+
+  revalidatePath(`/org/${slug}/documents`);
+  revalidatePath(`/org/${slug}/roster`);
+  const documentId = readerDocumentId ?? documentIds[0];
+  return { ok: true, documentId, documentIds };
+}
+
+// The reader is done, however it ended: the row leaves Processing for
+// Needs Review, and the reason a person would want is written on it. A
+// file that was not the type it was tagged as, a reader error, a timeout
+// and a low-confidence reading all end the same way, with the file kept
+// and the reason shown. Nothing is a rejection.
+async function finishReading(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  args: { orgId: string; documentId: string; actorId: string; kind: string; athlete: { id: string; name: string } | null; category: DocCategoryId | null }
+): Promise<void> {
+  const { data } = await supabase
+    .from("documents")
+    .select("status, failure_stage, failure_reason, lifecycle")
+    .eq("id", args.documentId)
+    .eq("org_id", args.orgId)
+    .maybeSingle();
+  const row = data as { status: string; failure_stage: string | null; failure_reason: string | null; lifecycle: string } | null;
+  if (!row || row.lifecycle !== "processing") return;
+  let reason: string | null = null;
+  if (row.status === "failed") {
+    reason = row.failure_stage === "triage_wrong_category" && args.category ? didNotLookLike(getCategory(args.category).label) : (row.failure_reason ?? "The reader could not use this file.");
+  }
+  await moveLifecycle(supabase, { orgId: args.orgId, documentId: args.documentId, to: "needs_review", by: "system", actorId: args.actorId, kind: args.kind, athlete: args.athlete, reviewReason: reason });
 }
 
 async function readAndFile(
@@ -1200,6 +1335,7 @@ export async function discardDocument(
   // Discarded, so logged: the kind, and the athlete it had been filed
   // to when it had one. What was undone stays on the document row.
   const filed = await orgAthleteName(supabase, org.id, doc.athlete_id);
+
   await logActivity(supabase, {
     orgId: org.id,
     actorId: user.id,
@@ -1210,6 +1346,15 @@ export async function discardDocument(
     summary: activitySummary("document_discarded", { name: filed?.name ?? null, kind: documentKind(doc.category) }),
   });
 
+  // A discarded document is also Archived: it leaves the working lists and
+  // stays in the vault. A reading stuck in Processing is first let go to
+  // Needs Review, the one move staff may make out of it.
+  const vault = { orgId: org.id, documentId: doc.id, by: "staff" as const, actorId: user.id, kind: documentKind(doc.category), athlete: filed };
+  const { data: lifeRow } = await supabase.from("documents").select("lifecycle").eq("id", doc.id).eq("org_id", org.id).maybeSingle();
+  if ((lifeRow as { lifecycle?: string } | null)?.lifecycle === "processing") await moveLifecycle(supabase, { ...vault, to: "needs_review" });
+  const afterRow = await supabase.from("documents").select("lifecycle").eq("id", doc.id).eq("org_id", org.id).maybeSingle();
+  const lifecycleNow = (afterRow.data as { lifecycle?: string } | null)?.lifecycle;
+  if (lifecycleNow === "needs_review" || lifecycleNow === "ready") await moveLifecycle(supabase, { ...vault, to: "archived" });
   revalidatePath(`/org/${slug}/documents`);
   revalidatePath(`/org/${slug}/roster`);
   return { ok: true, undone };
@@ -1312,60 +1457,56 @@ async function undoApply(orgId: string, documentId: string, changes: AppliedChan
   return done;
 }
 
-// Deleting a document for good (audit crud F19): the stored file (a
-// minor's transcript, a test report, a passport), the extracted reading
-// and the row. Discard alone left all three in place indefinitely.
+// The five-state moves a person makes (migration 0048): Mark Ready and
+// Archive from Needs Review, Archive from Ready, Unarchive from Archived
+// (back to Needs Review), and letting go of a reading that never finished.
+// There is no delete: a document, and the file it holds, stays for good.
 //
-// Staff, matching the storage and table delete policies. Only a document
-// that is discarded or failed: a discard has already undone anything an
-// apply wrote, so deleting can never strand a change on an athlete with
-// nothing left to undo it. The files go first, and the row only once
-// they are gone, so a row is never deleted while its file stays behind
-// with nothing pointing at it.
-// `gone` is set when there is no such document to go back to (another org's,
-// or already deleted), so the caller can send the person somewhere that exists.
-export async function deleteDocument(slug: string, documentId: string): Promise<{ ok: boolean; error?: string; gone?: boolean }> {
+// Staff only, one conditional write (a second tap finds it moved and says
+// so), and every move writes the activity log with who and when.
+export async function moveDocument(slug: string, documentId: string, to: "ready" | "archived" | "needs_review"): Promise<{ ok: boolean; error?: string; gone?: boolean }> {
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Org not found.", gone: true };
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const { data } = await supabase.from("documents").select("id, status, storage_paths").eq("id", documentId).eq("org_id", org.id).maybeSingle();
-  const doc = data as { id: string; status: string; storage_paths: string[] | null } | null;
-  if (!doc) return { ok: false, error: "That document is already gone.", gone: true };
-  if (doc.status !== "discarded" && doc.status !== "failed") {
-    return { ok: false, error: "Discard this document first. Discarding puts back anything it changed; then it can be deleted." };
+  const { data } = await supabase.from("documents").select("id, lifecycle, lifecycle_changed_at, category, requested_category, athlete_id").eq("id", documentId).eq("org_id", org.id).maybeSingle();
+  const doc = data as { id: string; lifecycle: string; lifecycle_changed_at: string | null; category: DocCategoryId | null; requested_category: DocCategoryId | null; athlete_id: string | null } | null;
+  if (!doc || !isLifecycle(doc.lifecycle)) return { ok: false, error: "That document is already gone.", gone: true };
+
+  // Out of Processing only when the reading has plainly died.
+  if (doc.lifecycle === "processing" && !isStaleLifecycle(doc.lifecycle, doc.lifecycle_changed_at)) {
+    return { ok: false, error: "That document is still being read." };
   }
 
-  // Only this org's own folder, the same check the upload makes.
-  const paths = (doc.storage_paths ?? []).filter((p) => typeof p === "string" && STORAGE_PATH.test(p) && p.startsWith(`${org.id}/`));
-  if (paths.length) {
-    const { error: removeError } = await supabase.storage.from("documents").remove(paths);
-    if (removeError) return { ok: false, error: `The file could not be removed, so the document was kept: ${removeError.message}` };
-  }
-
-  const { error } = await supabase.from("documents").delete().eq("id", documentId).eq("org_id", org.id).in("status", ["discarded", "failed"]);
-  if (error) return { ok: false, error: `The file was removed, but the document could not be deleted: ${error.message}` };
-  // Still there means its status moved between the read and the delete
-  // (someone reopened it), or a policy kept it. Say so rather than
-  // report a delete that did not happen.
-  const { data: still } = await supabase.from("documents").select("id").eq("id", documentId).eq("org_id", org.id).maybeSingle();
-  if (still) return { ok: false, error: "That document was just changed by someone else. Reload and look again." };
+  const athlete = await orgAthleteName(supabase, org.id, doc.athlete_id);
+  const moved = await moveLifecycle(supabase, {
+    orgId: org.id,
+    documentId: doc.id,
+    to,
+    by: "staff",
+    actorId: user.id,
+    kind: documentKind(doc.category ?? doc.requested_category),
+    athlete,
+    expectedFrom: doc.lifecycle,
+    // A reading that never finished says so on the row.
+    ...(doc.lifecycle === "processing" ? { reviewReason: "Reading did not finish." } : {}),
+  });
+  if (!moved.ok) return { ok: false, error: moved.error };
 
   revalidatePath(`/org/${slug}/documents`);
+  revalidatePath(`/org/${slug}/documents/${documentId}`);
   return { ok: true };
 }
 
-// The form wrapper the review screen posts to: deletes, then goes back to
-// the list, since the page it was on no longer exists.
-//
-// A delete that is refused used to do nothing and say nothing. It now goes
-// back to the document with the reason, or to the list when the document is
-// no longer there to go back to.
-export async function deleteDocumentAndLeave(slug: string, documentId: string): Promise<void> {
-  const result = await deleteDocument(slug, documentId);
-  if (result.ok) redirect(`/org/${slug}/documents`);
-  const reason = encodeURIComponent(result.error ?? "That document could not be deleted.");
+// The form wrapper the document screen posts to: moves, then comes back to
+// the document with the reason when it was refused.
+export async function moveDocumentAndStay(slug: string, documentId: string, to: "ready" | "archived" | "needs_review"): Promise<void> {
+  const result = await moveDocument(slug, documentId, to);
+  if (result.ok) redirect(`/org/${slug}/documents/${documentId}`);
+  const reason = encodeURIComponent(result.error ?? "That could not be done.");
+  // A document that is not there (or not this org's) has no page to come
+  // back to, so the person lands on the list with the reason.
   redirect(result.gone ? `/org/${slug}/documents?error=${reason}` : `/org/${slug}/documents/${documentId}?error=${reason}`);
 }
 

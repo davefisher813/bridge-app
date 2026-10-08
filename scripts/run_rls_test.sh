@@ -80,8 +80,26 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0044_activity_log.s
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0045_doc_status_filed.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0046_assignments.sql"
 
+# 0048 (the document vault): one old document of each old status goes in
+# first, so the migration's backfill is checked against the mapping table
+# in docs/PLAN_DOCAI_PIECE1.md; then the migration; then the check.
+echo "==> 0048: seeding one old document of each old status"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/vault_mapping_pre.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0048_document_vault.sql"
+echo "==> 0048: checking the old-status mapping"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/vault_mapping_post.sql"
+
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
+
+# 0048 must be reversible: take it off the finished test database with its
+# down script, put it back, and check the guards are there again.
+echo "==> 0048: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0048_document_vault_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from information_schema.columns where table_name = 'documents' and column_name in ('lifecycle', 'format', 'uploaded_by', 'review_reason', 'original_paths', 'lifecycle_changed_at')\"" | grep -qx 0
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0048_document_vault.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_trigger where tgname in ('documents_insert_guard', 'documents_original_is_immutable', 'documents_lifecycle_transition')\"" | grep -qx 3
+echo "==> 0048 is reversible"
 
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"

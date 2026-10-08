@@ -326,8 +326,15 @@ describe("LAW: migration 0044 is append only, Admins only, and its family functi
     expect(table![1]).toMatch(/actor_id\s+uuid references users\(id\) on delete set null/);
     expect(table![1]).not.toMatch(/athletes\(id\) on delete cascade|users\(id\) on delete cascade/);
     expect(table![1]).toMatch(/summary\s+text not null check \(length\(btrim\(summary\)\) between 1 and 200\)/);
-    const enumValues = [...sql.match(/create type activity_action as enum \(([\s\S]*?)\);/)![1].matchAll(/'(\w+)'/g)].map((m) => m[1]);
-    expect(enumValues).toEqual([...ACTIVITY_ACTIONS]);
+    // The enum as created, then every value a later migration adds with
+    // `alter type activity_action add value` (0048 adds the vault's five),
+    // in migration order. Together they are exactly the app's list.
+    const created = [...sql.match(/create type activity_action as enum \(([\s\S]*?)\);/)![1].matchAll(/'(\w+)'/g)].map((m) => m[1]);
+    const later = readdirSync(MIGRATIONS)
+      .filter((f) => f > "0044_" && f.endsWith(".sql"))
+      .sort()
+      .flatMap((f) => [...read(join(MIGRATIONS, f)).replace(/^\s*--.*$/gm, "").matchAll(/alter type activity_action add value (?:if not exists )?'(\w+)'/g)].map((m) => m[1]));
+    expect([...created, ...later].sort()).toEqual([...ACTIVITY_ACTIONS].sort());
     const subjectTypes = [...sql.match(/subject_type in \(([^)]*)\)/)![1].matchAll(/'(\w+)'/g)].map((m) => m[1]);
     expect(subjectTypes).toEqual([...ACTIVITY_SUBJECT_TYPES]);
     for (const col of ["org_id", "athlete_id", "actor_id"]) expect(sql).toMatch(new RegExp(`create index \\w+ on activity_log \\(${col}`));

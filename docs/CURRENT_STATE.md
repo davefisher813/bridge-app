@@ -34,6 +34,23 @@ tile that goes nowhere, and every link followed to a real screen.
 
 ---
 
+## Doc AI vault (Piece 1, branch `claude/docai-piece1`, not merged)
+
+Built, reviewed by the gate, not merged, migration 0048 not applied to
+production (waits on a confirmed backup or PITR for the project). Every
+upload is one of seven formats checked by extension and bytes, stored
+untouched with name, size, format, uploader, time and SHA-256, and kept for
+good: no delete exists. Five states on every row and on the document screen
+(Uploaded, Processing, Needs Review, Ready, Archived), seven allowed moves
+held in the app and by database triggers, each logged with who and when.
+Ready is only the Mark Ready tap. Untyped files and formats the reader
+cannot read go straight to Needs Review; a mismatch or reader error ends in
+Needs Review with the reason. The six old types read, review, apply and
+undo as before. Gate: 2,449 tests, build, lint, types, RLS suite (with
+planted failures), 39 browser tests, preview audit and live driver clean.
+
+---
+
 ## Where everything is
 
 - **Code:** `github.com/davefisher813/bridge-app`, branch `main`. The
