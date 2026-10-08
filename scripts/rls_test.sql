@@ -4124,3 +4124,272 @@ end $$;
 reset role;
 
 \echo 'ALL 0046 ASSERTIONS PASSED'
+
+-- ═══ Migration 0048: the document vault ═══════════════════════════════
+-- Originals are permanent, a row never points at a missing file, the
+-- lifecycle moves only along seven paths, the original record never
+-- changes, and visibility is exactly what it was. Its own orgs and
+-- users, so nothing above can reach into it. Each assertion is planted
+-- to fail: scripts/run_rls_test.sh is run with the rule removed from
+-- the migration and the named FAIL appears (see docs/PLAN_DOCAI_PIECE1.md).
+reset role;
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000480a1', 'vault-owner@v.example'),
+  ('00000000-0000-0000-0000-0000000480a2', 'vault-staff@v.example'),
+  ('00000000-0000-0000-0000-0000000480a3', 'vault-viewer@v.example'),
+  ('00000000-0000-0000-0000-0000000480a4', 'vault-family@v.example'),
+  ('00000000-0000-0000-0000-0000000480a5', 'vault-other@v.example');
+insert into users (id, email, full_name) values
+  ('00000000-0000-0000-0000-0000000480a1', 'vault-owner@v.example', 'Vault Owner'),
+  ('00000000-0000-0000-0000-0000000480a2', 'vault-staff@v.example', 'Vault Staff'),
+  ('00000000-0000-0000-0000-0000000480a3', 'vault-viewer@v.example', 'Vault Viewer'),
+  ('00000000-0000-0000-0000-0000000480a4', 'vault-family@v.example', 'Vault Family'),
+  ('00000000-0000-0000-0000-0000000480a5', 'vault-other@v.example', 'Vault Other')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into orgs (id, name, slug) values
+  ('00000000-0000-0000-0000-000000048010', 'Vault Org', 'vault-org'),
+  ('00000000-0000-0000-0000-000000048020', 'Vault Other Org', 'vault-other-org');
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-0000000480a1', '00000000-0000-0000-0000-000000048010', 'owner'),
+  ('00000000-0000-0000-0000-0000000480a2', '00000000-0000-0000-0000-000000048010', 'staff'),
+  ('00000000-0000-0000-0000-0000000480a3', '00000000-0000-0000-0000-000000048010', 'member'),
+  ('00000000-0000-0000-0000-0000000480a4', '00000000-0000-0000-0000-000000048010', 'family'),
+  ('00000000-0000-0000-0000-0000000480a5', '00000000-0000-0000-0000-000000048020', 'owner');
+insert into athletes (id, org_id, recruit_type, name, sport) values
+  ('00000000-0000-0000-0000-000000048110', '00000000-0000-0000-0000-000000048010', 'hs', 'Vault Athlete One', 'baseball'),
+  ('00000000-0000-0000-0000-000000048111', '00000000-0000-0000-0000-000000048010', 'hs', 'Vault Athlete Two', 'baseball');
+insert into athlete_guardians (org_id, athlete_id, user_id, relationship) values
+  ('00000000-0000-0000-0000-000000048010', '00000000-0000-0000-0000-000000048110', '00000000-0000-0000-0000-0000000480a4', 'parent');
+-- Files that exist in storage (seeded as superuser, which bypasses RLS).
+insert into storage.objects (bucket_id, name) values
+  ('documents', '00000000-0000-0000-0000-000000048010/req1/1-one.pdf'),
+  ('documents', '00000000-0000-0000-0000-000000048010/req2/1-two.pdf'),
+  ('documents', '00000000-0000-0000-0000-000000048010/req3/1-keep.pdf');
+
+create or replace function pg_temp.try_move(doc uuid, target doc_lifecycle) returns boolean
+language plpgsql as $$
+declare n int;
+begin
+  update documents set lifecycle = target where id = doc;
+  get diagnostics n = row_count;
+  return n = 1;
+exception when check_violation then
+  return false;
+end $$;
+
+-- 1. A row cannot point at a missing file, and a new row starts clean.
+set role app_user;
+do $$
+declare s text; n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000480a1');
+  begin
+    insert into documents (org_id, file_name, file_size, media_type, source_role, lifecycle, storage_paths, original_paths)
+    values ('00000000-0000-0000-0000-000000048010', 'ghost.pdf', 10, 'application/pdf', 'coordinator', 'uploaded',
+            array['00000000-0000-0000-0000-000000048010/req1/ghost.pdf'], array['00000000-0000-0000-0000-000000048010/req1/ghost.pdf']);
+    raise exception 'FAIL: a document row was created pointing at a file that is not in storage';
+  exception when foreign_key_violation then null;
+  end;
+  foreach s in array array['ready', 'archived', 'processing'] loop
+    begin
+      execute format($f$insert into documents (org_id, file_name, file_size, media_type, source_role, lifecycle, storage_paths, original_paths)
+        values ('00000000-0000-0000-0000-000000048010', 'early.pdf', 10, 'application/pdf', 'coordinator', %L, array['00000000-0000-0000-0000-000000048010/req1/1-one.pdf'], array['00000000-0000-0000-0000-000000048010/req1/1-one.pdf'])$f$, s);
+      raise exception 'FAIL: a document row was created already %', s;
+    exception when check_violation then null;
+    end;
+  end loop;
+  insert into documents (id, org_id, athlete_id, file_name, file_size, media_type, format, source_role, lifecycle, uploaded_by, content_hash, storage_paths, original_paths) values
+    ('00000000-0000-0000-0000-0000000480c1', '00000000-0000-0000-0000-000000048010', '00000000-0000-0000-0000-000000048110', 'one.pdf', 100, 'application/pdf', 'pdf', 'coordinator', 'uploaded', '00000000-0000-0000-0000-0000000480a1', 'hash-one',
+     array['00000000-0000-0000-0000-000000048010/req1/1-one.pdf'], array['00000000-0000-0000-0000-000000048010/req1/1-one.pdf']),
+    ('00000000-0000-0000-0000-0000000480c2', '00000000-0000-0000-0000-000000048010', '00000000-0000-0000-0000-000000048111', 'two.pdf', 100, 'application/pdf', 'pdf', 'coordinator', 'uploaded', '00000000-0000-0000-0000-0000000480a1', 'hash-two',
+     array['00000000-0000-0000-0000-000000048010/req2/1-two.pdf'], array['00000000-0000-0000-0000-000000048010/req2/1-two.pdf']);
+  select count(*) into n from documents where org_id = '00000000-0000-0000-0000-000000048010';
+  if n <> 2 then raise exception 'FAIL: expected the two vault documents, found %', n; end if;
+  perform set_test_user(null);
+  raise notice 'PASS: no document row without its file, and a new row starts as Uploaded';
+end $$;
+reset role;
+
+-- 2. The original file record never changes.
+set role app_user;
+do $$
+declare stmt text;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000480a1');
+  foreach stmt in array array[
+    $s$file_name = 'renamed.pdf'$s$,
+    $s$file_size = 99999$s$,
+    $s$media_type = 'text/plain'$s$,
+    $s$format = 'txt'$s$,
+    $s$content_hash = 'tampered'$s$,
+    $s$storage_paths = array['00000000-0000-0000-0000-000000048010/req2/1-two.pdf']$s$,
+    $s$original_paths = array['00000000-0000-0000-0000-000000048010/req2/1-two.pdf']$s$,
+    $s$uploaded_by = '00000000-0000-0000-0000-0000000480a2'$s$,
+    $s$created_at = now() - interval '9 days'$s$,
+    $s$org_id = '00000000-0000-0000-0000-000000048020'$s$
+  ] loop
+    begin
+      execute 'update documents set ' || stmt || ' where id = ''00000000-0000-0000-0000-0000000480c1''';
+      raise exception 'FAIL: the original file record changed (%)', stmt;
+    exception when check_violation or insufficient_privilege then null;
+    end;
+  end loop;
+  perform set_test_user(null);
+  raise notice 'PASS: name, size, type, format, hash, paths, uploader, time and org never change after upload';
+end $$;
+reset role;
+
+-- 3. The lifecycle moves only along the seven allowed paths.
+set role app_user;
+do $$
+declare doc uuid := '00000000-0000-0000-0000-0000000480c1'; before_ts timestamptz;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000480a1');
+  if pg_temp.try_move(doc, 'ready') then raise exception 'FAIL: Uploaded went straight to Ready'; end if;
+  if pg_temp.try_move(doc, 'archived') then raise exception 'FAIL: Uploaded went straight to Archived'; end if;
+  if not pg_temp.try_move(doc, 'processing') then raise exception 'FAIL: Uploaded to Processing was refused'; end if;
+  if pg_temp.try_move(doc, 'ready') then raise exception 'FAIL: Processing went straight to Ready'; end if;
+  if pg_temp.try_move(doc, 'archived') then raise exception 'FAIL: Processing went straight to Archived'; end if;
+  select lifecycle_changed_at into before_ts from documents where id = doc;
+  perform pg_sleep(0.02);
+  if not pg_temp.try_move(doc, 'needs_review') then raise exception 'FAIL: Processing to Needs Review was refused'; end if;
+  if (select lifecycle_changed_at from documents where id = doc) <= before_ts then raise exception 'FAIL: the move did not stamp lifecycle_changed_at'; end if;
+  if pg_temp.try_move(doc, 'uploaded') then raise exception 'FAIL: Needs Review went back to Uploaded'; end if;
+  if pg_temp.try_move(doc, 'processing') then raise exception 'FAIL: Needs Review went back to Processing'; end if;
+  if not pg_temp.try_move(doc, 'ready') then raise exception 'FAIL: Needs Review to Ready was refused'; end if;
+  if pg_temp.try_move(doc, 'needs_review') then raise exception 'FAIL: Ready went back to Needs Review'; end if;
+  if pg_temp.try_move(doc, 'processing') then raise exception 'FAIL: Ready went to Processing'; end if;
+  if not pg_temp.try_move(doc, 'archived') then raise exception 'FAIL: Ready to Archived was refused'; end if;
+  if pg_temp.try_move(doc, 'ready') then raise exception 'FAIL: Archived went straight to Ready'; end if;
+  if pg_temp.try_move(doc, 'uploaded') then raise exception 'FAIL: Archived went back to Uploaded'; end if;
+  if not pg_temp.try_move(doc, 'needs_review') then raise exception 'FAIL: Archived to Needs Review (Unarchive) was refused'; end if;
+  if not pg_temp.try_move(doc, 'archived') then raise exception 'FAIL: Needs Review to Archived was refused'; end if;
+  perform set_test_user(null);
+  raise notice 'PASS: the lifecycle moves only along the seven allowed paths';
+end $$;
+reset role;
+
+-- 4. Nobody signed in can delete a document or an original file.
+set role app_user;
+do $$
+declare n int; owner_uid text;
+begin
+  foreach owner_uid in array array['00000000-0000-0000-0000-0000000480a1', '00000000-0000-0000-0000-0000000480a2', '00000000-0000-0000-0000-0000000480a5'] loop
+    perform set_test_user(owner_uid::uuid);
+    with d as (delete from documents where id in ('00000000-0000-0000-0000-0000000480c1', '00000000-0000-0000-0000-0000000480c2') returning 1) select count(*) into n from d;
+    if n <> 0 then raise exception 'FAIL: % deleted % document rows', owner_uid, n; end if;
+    with d as (delete from storage.objects where bucket_id = 'documents' and name like '00000000-0000-0000-0000-000000048010/%' returning 1) select count(*) into n from d;
+    if n <> 0 then raise exception 'FAIL: % deleted % stored originals', owner_uid, n; end if;
+  end loop;
+  perform set_test_user(null);
+  raise notice 'PASS: no one signed in deletes a document row or an original file';
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from documents where org_id = '00000000-0000-0000-0000-000000048010';
+  if n <> 2 then raise exception 'FAIL: the vault documents were deleted (% left of 2)', n; end if;
+  select count(*) into n from storage.objects where bucket_id = 'documents' and name like '00000000-0000-0000-0000-000000048010/req%';
+  if n <> 3 then raise exception 'FAIL: stored originals were deleted (% left of 3)', n; end if;
+end $$;
+
+-- 5. Visibility is exactly what it was.
+update documents set lifecycle = 'needs_review' where id = '00000000-0000-0000-0000-0000000480c1';
+set role app_user;
+do $$
+declare n int; rows_changed int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000480a3');
+  select count(*) into n from documents;
+  if n <> 0 then raise exception 'FAIL: a Viewer (the board) read % documents', n; end if;
+  begin
+    update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-0000000480c1';
+    get diagnostics rows_changed = row_count;
+    if rows_changed <> 0 then raise exception 'FAIL: a Viewer changed a document''s state'; end if;
+  exception when check_violation or insufficient_privilege then null;
+  end;
+  perform set_test_user(null);
+  select count(*) into n from documents;
+  if n <> 0 then raise exception 'FAIL: a signed-out client read % documents', n; end if;
+  perform set_test_user('00000000-0000-0000-0000-0000000480a5');
+  select count(*) into n from documents where org_id = '00000000-0000-0000-0000-000000048010';
+  if n <> 0 then raise exception 'FAIL: another org''s owner read % of this org''s documents', n; end if;
+  update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-0000000480c1';
+  get diagnostics rows_changed = row_count;
+  if rows_changed <> 0 then raise exception 'FAIL: another org''s owner changed this org''s document'; end if;
+  perform set_test_user('00000000-0000-0000-0000-0000000480a4');
+  select count(*) into n from documents;
+  if n <> 1 then raise exception 'FAIL: the family read % documents, expected only its own athlete''s 1', n; end if;
+  if not exists (select 1 from documents where id = '00000000-0000-0000-0000-0000000480c1') then raise exception 'FAIL: the family cannot read its own athlete''s document'; end if;
+  update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-0000000480c1';
+  get diagnostics rows_changed = row_count;
+  if rows_changed <> 0 then raise exception 'FAIL: the family changed a document''s state'; end if;
+  begin
+    insert into documents (org_id, athlete_id, file_name, file_size, media_type, source_role, storage_paths, original_paths)
+    values ('00000000-0000-0000-0000-000000048010', '00000000-0000-0000-0000-000000048110', 'f.pdf', 1, 'application/pdf', 'parent',
+            array['00000000-0000-0000-0000-000000048010/req3/1-keep.pdf'], array['00000000-0000-0000-0000-000000048010/req3/1-keep.pdf']);
+    raise exception 'FAIL: the family inserted a document row directly';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_test_user(null);
+  raise notice 'PASS: Viewer, signed-out and other-org callers read and change nothing; the family reads only its own athlete''s document and changes nothing';
+end $$;
+reset role;
+
+-- 6. The Athlete login's folder keeps taking PDF, JPG and PNG only.
+set role app_user;
+do $$
+declare bad text;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000480a4');
+  insert into storage.objects (bucket_id, name, owner) values
+    ('documents', '00000000-0000-0000-0000-000000048010/family/x/ok.pdf', '00000000-0000-0000-0000-0000000480a4'),
+    ('documents', '00000000-0000-0000-0000-000000048010/family/x/PHOTO.JPEG', '00000000-0000-0000-0000-0000000480a4'),
+    ('documents', '00000000-0000-0000-0000-000000048010/family/x/scan.png', '00000000-0000-0000-0000-0000000480a4');
+  foreach bad in array array['bad.docx', 'sheet.xlsx', 'list.csv', 'note.txt', 'run.exe', 'pdf', 'x.pdf.exe'] loop
+    begin
+      insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000048010/family/x/' || bad, '00000000-0000-0000-0000-0000000480a4');
+      raise exception 'FAIL: the family folder took %', bad;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+  perform set_test_user(null);
+  raise notice 'PASS: the Athlete login''s folder takes PDF, JPG and PNG and nothing else';
+end $$;
+reset role;
+
+-- 7. The bucket: nine media types for the seven formats, 10 MB.
+do $$
+declare types text[]; lim bigint;
+begin
+  select allowed_mime_types, file_size_limit into types, lim from storage.buckets where id = 'documents';
+  if lim is distinct from 10485760 then raise exception 'FAIL: the bucket limit is %, expected 10485760', lim; end if;
+  if cardinality(types) <> 9 then raise exception 'FAIL: the bucket lists % types, expected 9', cardinality(types); end if;
+  if types && array['image/gif', 'image/webp'] then raise exception 'FAIL: the bucket still lists GIF or WebP'; end if;
+  if not types @> array['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        'text/csv', 'text/plain', 'image/jpeg', 'image/png'] then
+    raise exception 'FAIL: the bucket is missing one of the seven formats'' types';
+  end if;
+  raise notice 'PASS: the bucket lists the seven formats'' nine types and keeps its 10 MB limit';
+end $$;
+
+-- 8. The activity log can say what happened to a document.
+do $$
+declare n int;
+begin
+  select count(*) into n from pg_enum where enumtypid = 'activity_action'::regtype
+    and enumlabel in ('document_reading', 'document_needs_review', 'document_ready', 'document_archived', 'document_unarchived');
+  if n <> 5 then raise exception 'FAIL: % of 5 new activity actions exist', n; end if;
+  raise notice 'PASS: the five new document activity actions exist';
+end $$;
+
+-- Clean up this block's own rows (superuser: the org cascade is the
+-- service role's, not an app caller's).
+delete from storage.objects where bucket_id = 'documents' and name like '00000000-0000-0000-0000-000000048010/%';
+delete from orgs where id in ('00000000-0000-0000-0000-000000048010', '00000000-0000-0000-0000-000000048020');
+delete from users where id::text like '00000000-0000-0000-0000-0000000480a%';
+delete from auth.users where id::text like '00000000-0000-0000-0000-0000000480a%';
+
+\echo 'ALL 0048 ASSERTIONS PASSED'
