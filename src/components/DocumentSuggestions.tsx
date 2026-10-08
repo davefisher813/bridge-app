@@ -7,7 +7,7 @@
 // file disagree, the screen says so plainly and keeps the file.
 
 import { AdvisorSheet, type SheetChoice } from "@/components/AdvisorSheet";
-import { Avatar, Body, Button, Form, Hidden, Label, Row, Section, Stack } from "@/components/kit";
+import { Avatar, Body, Button, Form, Hidden, Inline, Label, Row, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { confidenceLabel, PROVISIONAL_TYPE_LABEL, type IdentityCandidate, type ProvisionalType } from "@/lib/docai/suggest";
 import { NOT_AN_ATHLETE } from "@/lib/data/documentSuggestions";
@@ -49,10 +49,14 @@ function candidateMeta(c: IdentityCandidate): string {
 export function DocumentSuggestions({
   data,
   roster,
+  athleteBase,
   setIdentity,
   suggestAgain,
 }: {
   data: DocumentSuggestionData;
+  // Where an athlete's profile lives ("/org/<slug>/roster"), so a
+  // candidate can be checked before it is confirmed.
+  athleteBase: string;
   // Everyone on the roster, for Someone Else.
   roster: SheetChoice[];
   setIdentity: (formData: FormData) => void | Promise<void>;
@@ -96,13 +100,10 @@ export function DocumentSuggestions({
     <Section label="Who and What" role="people" kind="athlete">
       <Stack gap={3}>
         {type && (
-          <Row
-            kind="document"
-            role={type === "other" ? "neutral" : "place"}
-            title={type === "other" ? "Type Not Clear" : `Likely ${PROVISIONAL_TYPE_LABEL[type]}`}
-            meta={[type === "other" ? "Kept as Other" : `${confidenceLabel(data.suggestedTypeConfidence ?? 0)} Confidence`, ...data.suggestedTypeReasons].join(" · ")}
-            wrap
-          />
+          <Stack gap={2}>
+            <Body weight="semibold">{type === "other" ? "Type Not Clear" : `Likely ${PROVISIONAL_TYPE_LABEL[type]}`}</Body>
+            <Label>{[type === "other" ? "Kept as Other" : `${confidenceLabel(data.suggestedTypeConfidence ?? 0)} Confidence`, ...data.suggestedTypeReasons].join(" · ")}</Label>
+          </Stack>
         )}
         {disagrees && (
           <Note title={`This Looks Like ${PROVISIONAL_TYPE_LABEL[type!]}`}>
@@ -111,16 +112,21 @@ export function DocumentSuggestions({
         )}
 
         {status === "confirmed" && data.subject && (
-          <Row leading={<Avatar name={data.subject.name} />} title={data.subject.name} meta="Confirmed" role="people" trailing={pickSomeone("Change")} />
+          <Row href={`${athleteBase}/${data.subject.id}`} leading={<Avatar name={data.subject.name} />} title={data.subject.name} meta="Confirmed" role="people" trailingAction={pickSomeone("Change")} />
         )}
-        {status === "not_an_athlete" && <Row kind="info" title="Not About an Athlete" meta="Confirmed" trailing={pickSomeone("Change")} />}
+        {status === "not_an_athlete" && (
+          <Inline>
+            <Body weight="semibold">Not About an Athlete</Body>
+            {pickSomeone("Change")}
+          </Inline>
+        )}
 
         {(status === "proposed" || status === "ambiguous") && (
           <>
             <Label>{status === "ambiguous" ? "More than one possible match. Pick the right one." : "Possible match. Nothing is linked until you confirm."}</Label>
             {data.candidates.map((c) => (
               <Stack key={c.athleteId} gap={2}>
-                <Row leading={<Avatar name={c.name} />} title={c.name} meta={candidateMeta(c)} role="people" wrap />
+                <Row href={`${athleteBase}/${c.athleteId}`} leading={<Avatar name={c.name} />} title={c.name} meta={candidateMeta(c)} role="people" wrap />
                 <Form action={setIdentity}>
                   <Hidden name="athleteId" value={c.athleteId} />
                   <Button type="submit" variant={status === "proposed" ? "primary" : "secondary"}>

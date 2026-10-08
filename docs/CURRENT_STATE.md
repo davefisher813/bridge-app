@@ -1,13 +1,13 @@
 # Current state
 
-Last updated: 2026-09-30. Everything through Stage 5 Phases 1, 2, 3, 4
-and 6 and the roles rework is deployed to production: migrations 0039 to
-0046 are applied, `main` is at the Phase 4 merge and Vercel is READY.
-Stage 5 Phase 5 (View As, migration 0047) is built, reviewed and
-dry-run against the production schema (rolled back, clean), and is
-pushed on branch `claude/stage5-phase5-viewas`. It is deliberately NOT
-merged and 0047 is NOT applied: Dave, 2026-09-30, "We will do that at
-the very end we don't need it right now." Spanish mode is on hold.
+Last updated: 2026-10-08. Production runs `main` at the Doc AI Piece 1
+merge (`d1da4b8`); migrations 0039 to 0046 and 0048 are applied (0048 by
+hand in the Supabase SQL editor, then finished with a fix script, so it
+is not listed in Supabase's migration history; checked against the live
+catalog). Doc AI Piece 2 (migration 0049) is built and gated on branch
+`claude/docai-piece2`, not merged, 0049 not applied. Stage 5 Phase 5
+(View As, migration 0047) is still parked on its branch by Dave's call
+(2026-09-30). Spanish mode is on hold.
 Replaced wholesale when this changes meaningfully, never appended to.
 
 **One-line summary.** Three access levels, each with their own app on
@@ -34,20 +34,35 @@ tile that goes nowhere, and every link followed to a real screen.
 
 ---
 
-## Doc AI vault (Piece 1, branch `claude/docai-piece1`, not merged)
+## Doc AI vault (Piece 1, live since 2026-10-08)
 
-Built, reviewed by the gate, not merged, migration 0048 not applied to
-production (waits on a confirmed backup or PITR for the project). Every
-upload is one of seven formats checked by extension and bytes, stored
-untouched with name, size, format, uploader, time and SHA-256, and kept for
-good: no delete exists. Five states on every row and on the document screen
-(Uploaded, Processing, Needs Review, Ready, Archived), seven allowed moves
-held in the app and by database triggers, each logged with who and when.
-Ready is only the Mark Ready tap. Untyped files and formats the reader
-cannot read go straight to Needs Review; a mismatch or reader error ends in
-Needs Review with the reason. The six old types read, review, apply and
-undo as before. Gate: 2,449 tests, build, lint, types, RLS suite (with
-planted failures), 39 browser tests, preview audit and live driver clean.
+Every upload is one of seven formats checked by extension and bytes,
+stored untouched with name, size, format, uploader, time and SHA-256, and
+kept for good: no delete exists for anyone signed in. Five states on every
+row and on the document screen (Uploaded, Processing, Needs Review, Ready,
+Archived), seven allowed moves held in the app and by database triggers,
+each logged with who and when. Ready is only the Mark Ready tap. A
+mismatch or reader error ends in Needs Review with the reason. The six old
+types read, review, apply and undo as before.
+
+## Doc AI who and what (Piece 2, branch `claude/docai-piece2`, not merged)
+
+At upload every file gets a provisional type (frozen ids from the 30-type
+taxonomy) and up to three athletes it may be about, each with a High,
+Medium or Low confidence and the reasons. Read from the file name, the
+type picked at upload, and the plain words of a Word, Excel, CSV or TXT
+file, plus best-effort text from a PDF a program wrote. No model, no
+extraction, nothing linked: a surname alone is never a candidate, two
+close candidates are "ambiguous", and only an Admin's Confirm (or the
+athlete page the upload started from, when the file names nobody else)
+sets `documents.subject_athlete_id`. Not About an Athlete and Undo are
+decisions too, each logged. Suggest Again refreshes suggestions without
+ever overwriting a decision; older documents get theirs from it. A picked
+type the file disagrees with is said out loud and the file kept; changing
+a type waits for Piece 3. The list rows read "Likely College List · Maybe
+Jordan Alvarez?". Gate: 2,502 tests, build, lint, types, RLS suite 266
+PASS (planted failures for the org line), preview audit 376 renders
+clean, live driver at 320, 375 and 390 clean.
 
 ---
 

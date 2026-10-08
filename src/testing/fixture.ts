@@ -134,6 +134,8 @@ export function buildFixture(): Dataset {
           ["req_fixture_txt/1-old-notes.txt", "txt"],
           ["req_fixture_reading/1-scan-in-progress.pdf", "pdf"],
           ["req_fixture_xlsx/1-just-arrived.xlsx", "xlsx"],
+          ["req_fixture_suggested/1-Fixture_Athlete_college_list.xlsx", "xlsx"],
+          ["req_fixture_ambiguous/1-contact-sheet.csv", "csv"],
         ] as const
       ).map(([name, kind]) => ({ bucket: "documents", name: `${BRIDGE}/${name}`, base64: Buffer.from(makeFile(kind)).toString("base64") })),
     ],

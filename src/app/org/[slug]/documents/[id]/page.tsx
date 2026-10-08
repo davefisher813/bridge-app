@@ -250,6 +250,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
         subject: doc.subject_athlete_id && subjectName ? { id: doc.subject_athlete_id, name: subjectName } : null,
       }}
       roster={roster}
+      athleteBase={`/org/${slug}/roster`}
       setIdentity={setIdentity}
       suggestAgain={suggestAgain}
     />

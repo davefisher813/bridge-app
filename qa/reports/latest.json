@@ -1,17 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "ed2bba8",
-  "commitFull": "ed2bba8e45d8c9dac77b848866266182013623fe",
-  "branch": "claude/docai-piece1",
-  "remoteBranches": [
-    "origin/claude/docai-piece1"
-  ],
-  "shipped": true,
+  "commit": "808c17e",
+  "commitFull": "808c17e0c16b03b0be1a9d482722106d6a99291f",
+  "branch": "claude/docai-piece2",
+  "remoteBranches": [],
+  "shipped": false,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-10-08T05:26:21.404Z",
-  "durationMs": 24609,
+  "startedAt": "2026-10-08T15:13:53.774Z",
+  "durationMs": 75252,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -20,13 +18,13 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 2449,
+        "pass": 2502,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
         "suitesFailed": 0,
-        "filesOnDisk": 83,
-        "filesLoaded": 83
+        "filesOnDisk": 86,
+        "filesLoaded": 86
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
@@ -47,6 +45,7 @@
         "src/laws/fundraisingActions.test.ts": 84,
         "src/laws/fundraisingLaws.test.ts": 13,
         "src/laws/governanceLaws.test.ts": 9,
+        "src/laws/identityLaws.test.ts": 18,
         "src/laws/integrityLaws.test.ts": 17,
         "src/laws/kitLaws.test.ts": 12,
         "src/laws/laws.test.ts": 13,
@@ -57,7 +56,7 @@
         "src/laws/ncaaLaws.test.ts": 36,
         "src/laws/orgCrudLaws.test.ts": 53,
         "src/laws/otherActions.test.ts": 76,
-        "src/laws/pageRender.test.ts": 797,
+        "src/laws/pageRender.test.ts": 803,
         "src/laws/publicPaths.test.ts": 2,
         "src/laws/qaFixes.test.ts": 29,
         "src/laws/referenceAutofillLaws.test.ts": 17,
@@ -84,6 +83,7 @@
         "src/lib/docai/realDocuments.test.ts": 17,
         "src/lib/docai/resolver.test.ts": 9,
         "src/lib/docai/stubCaller.test.ts": 4,
+        "src/lib/docai/suggest.test.ts": 22,
         "src/lib/docai/versioning.test.ts": 4,
         "src/lib/fit/aid.test.ts": 5,
         "src/lib/fit/ncaa/approvedCourses.test.ts": 26,
@@ -113,6 +113,7 @@
         "src/lib/validation/visit.test.ts": 3,
         "src/lib/vault/format.test.ts": 32,
         "src/lib/vault/lifecycle.test.ts": 10,
+        "src/lib/vault/textSample.test.ts": 7,
         "src/testing/fakeSupabase.test.ts": 2
       },
       "failing": [],
@@ -145,7 +146,7 @@
             "location": "/login"
           }
         },
-        "ms": 1346
+        "ms": 1507
       },
       "errors": [],
       "warnings": [],
@@ -159,8 +160,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 83,
-      "filesScanned": 625
+      "touchedFiles": 19,
+      "filesScanned": 567
     },
     {
       "name": "types",
@@ -170,11 +171,11 @@
   ],
   "manual": {
     "checklist": "qa/checklist.md",
-    "checklistCommit": "52e7c58",
+    "checklistCommit": "ed2bba8",
     "checklistSays": "pass",
     "openRows": [],
-    "result": "pass",
-    "reason": "checklist.md covers this commit and says pass"
+    "result": "provisional",
+    "reason": "checklist.md is for commit ed2bba8, not this one"
   },
   "preview": {
     "applicable": null,

@@ -3928,3 +3928,32 @@ between the upload and the check can leave an unregistered file;
 Production migration only after a backup or point in time recovery for
 emllcefqxyxyhqolrllo is confirmed. View As (0047) is not merged; its
 rebase conflicts are fixed when it is.
+
+
+## 2026-10-08: Doc AI Piece 2, suggestions without a model, a person decides
+
+**Decision.** Migration 0049 and `src/lib/docai/suggest.ts`. The type and
+the athlete are suggested at upload from the file name, the picked type
+and the plain words of the file, with no model call. Candidates need a
+given name and a family name together; an exact family email or the
+app's own athlete id is the strongest evidence. Nothing links until an
+Admin confirms; an upload started from an athlete's page counts as that
+person's choice unless the file names somebody else. The confirmed
+athlete is a new column, `subject_athlete_id`, not the reader's
+`athlete_id`, so the old apply and undo flow is untouched.
+
+**Reason.** The brief: identity and classification before extraction,
+"provisional labels only", "do not build interpretation AI yet", and the
+design doc's "name alone never auto-links". No AI key is set and money is
+Dave's call, so a model was not an option; the file name and headers are
+where the 25 failed files say what they are.
+
+**Alternatives considered.** Reusing `athlete_id` (rejected: apply and
+undo read it, and a confirmation is not an apply). Auto-confirming a High
+match (rejected: the design forbids it). Letting the type be changed now
+(rejected: Piece 3 owns the taxonomy and its admin screen).
+
+**Consequences.** PDFs give text only when a program wrote them; scans
+and old DOC and XLS files fall back to the file name, and the screen says
+the suggestion is not a check that the document is genuine. Every
+document from before 0049 shows Suggest Who and What until tapped.

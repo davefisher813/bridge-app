@@ -462,10 +462,18 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
 
 ## Doc AI rebuild, after Piece 1 (2026-10-08)
 
-Piece 1 (the vault, migration 0048) is built and awaiting review and
-merge. Ahead: Piece 2 classification, 3 extraction, 4 identity matching,
-5 and 8 family and personal uploads, 7 to 9 approver roles and the legacy
-migration.
+Order (Dave's brief, 2026-10-07, one piece at a time, each verified live
+before the next): 1 vault (live), 2 identity and classification
+(migration 0049, built, not merged), 3 formal taxonomy and purpose tags
+with an admin screen and type changes, 4 recovery queue for the 25 failed
+originals with the 11-athlete match review, 5 assignment model, 6
+extraction with evidence (draft facts only), 7 review queue and conflicts,
+8 permissions and org access, 9 legacy migration.
+
+Left for later from Piece 2: the athlete's own "This document names you,
+Confirm it's mine" (needs Piece 5's personal uploads); a suggested label
+for an Other document (needs a model; Piece 6); text from scanned PDFs
+and old DOC and XLS files (none without a model or OCR).
 
 **Approver roles for Pieces 7 and 8, names unassigned.** Three kinds of
 approver sign off a document before it can be treated as final: an
