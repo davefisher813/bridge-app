@@ -1,8 +1,8 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "52e7c58",
-  "commitFull": "52e7c58d70d22a532090198c06616c2b5a494399",
+  "commit": "ed2bba8",
+  "commitFull": "ed2bba8e45d8c9dac77b848866266182013623fe",
   "branch": "claude/docai-piece1",
   "remoteBranches": [
     "origin/claude/docai-piece1"
@@ -10,8 +10,8 @@
   "shipped": true,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-10-08T05:25:02.164Z",
-  "durationMs": 33310,
+  "startedAt": "2026-10-08T05:26:21.404Z",
+  "durationMs": 24609,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -145,7 +145,7 @@
             "location": "/login"
           }
         },
-        "ms": 1345
+        "ms": 1346
       },
       "errors": [],
       "warnings": [],
@@ -159,8 +159,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 82,
-      "filesScanned": 624
+      "touchedFiles": 83,
+      "filesScanned": 625
     },
     {
       "name": "types",
@@ -170,16 +170,11 @@
   ],
   "manual": {
     "checklist": "qa/checklist.md",
-    "checklistCommit": "8e1a9ea",
+    "checklistCommit": "52e7c58",
     "checklistSays": "pass",
-    "openRows": [
-      {
-        "row": "12",
-        "pass": "not run"
-      }
-    ],
-    "result": "provisional",
-    "reason": "checklist.md is for commit 8e1a9ea, not this one"
+    "openRows": [],
+    "result": "pass",
+    "reason": "checklist.md covers this commit and says pass"
   },
   "preview": {
     "applicable": null,

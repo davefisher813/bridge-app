@@ -1,6 +1,6 @@
 # Manual check: Doc AI rebuild, Piece 1 (the vault and its five states)
 
-Commit: 52e7c58 (the commit this revision is built on; the revision itself is the next commit)
+Commit: ed2bba8 (the commit this revision is built on; the revision itself is the next commit)
 Date: 2026-10-08
 Checked by: Claude Code, driving the FIXTURE_MODE build in headless Chromium at 390px, light and dark. Not a physical iPhone, and no hosted preview: the app refuses fixture mode on Vercel on purpose and a Vercel preview would run against the production database before migration 0048 exists.
 QA report: qa/reports/latest.json
