@@ -1,32 +1,32 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "5879ee9",
-  "commitFull": "5879ee9ce89be84e82b671029dbdf4838372c4e1",
-  "branch": "claude/qa-round-2",
+  "commit": "60af595",
+  "commitFull": "60af595e1e85a00519817f8be1c860fa321d0fc3",
+  "branch": "claude/docai-piece1",
   "remoteBranches": [
-    "origin/main"
+    "origin/claude/docai-piece1"
   ],
   "shipped": true,
-  "dirty": true,
-  "onMain": true,
-  "startedAt": "2026-10-03T15:27:49.178Z",
-  "durationMs": 12350,
+  "dirty": false,
+  "onMain": false,
+  "startedAt": "2026-10-08T04:51:05.968Z",
+  "durationMs": 33734,
   "result": "fail",
-  "stagesNotRun": 3,
+  "stagesNotRun": 1,
   "allowlistFired": [],
   "stages": [
     {
       "name": "tests",
-      "result": "fail",
+      "result": "pass",
       "counts": {
-        "pass": 2326,
-        "fail": 1,
+        "pass": 2449,
+        "fail": 0,
         "skipped": 0,
         "todo": 0,
-        "suitesFailed": 2,
-        "filesOnDisk": 79,
-        "filesLoaded": 79
+        "suitesFailed": 0,
+        "filesOnDisk": 83,
+        "filesLoaded": 83
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
@@ -50,20 +50,22 @@
         "src/laws/integrityLaws.test.ts": 17,
         "src/laws/kitLaws.test.ts": 12,
         "src/laws/laws.test.ts": 13,
+        "src/laws/lifecycleLaws.test.ts": 20,
         "src/laws/matchingLaws.test.ts": 41,
         "src/laws/migrationLaws.test.ts": 5,
         "src/laws/moreLaws.test.ts": 10,
         "src/laws/ncaaLaws.test.ts": 36,
         "src/laws/orgCrudLaws.test.ts": 53,
-        "src/laws/otherActions.test.ts": 75,
+        "src/laws/otherActions.test.ts": 76,
         "src/laws/pageRender.test.ts": 797,
         "src/laws/publicPaths.test.ts": 2,
-        "src/laws/qaFixes.test.ts": 25,
+        "src/laws/qaFixes.test.ts": 29,
         "src/laws/referenceAutofillLaws.test.ts": 17,
         "src/laws/referenceCrudLaws.test.ts": 33,
         "src/laws/schemaLaws.test.ts": 5,
         "src/laws/sharedDirectoryLaws.test.ts": 18,
         "src/laws/stylingLaws.test.ts": 19,
+        "src/laws/vaultLaws.test.ts": 55,
         "src/lib/ai/anthropicCaller.test.ts": 12,
         "src/lib/checkins.test.ts": 9,
         "src/lib/data/activity.test.ts": 12,
@@ -109,15 +111,62 @@
         "src/lib/validation/target.test.ts": 7,
         "src/lib/validation/transferWindow.test.ts": 4,
         "src/lib/validation/visit.test.ts": 3,
+        "src/lib/vault/format.test.ts": 32,
+        "src/lib/vault/lifecycle.test.ts": 10,
         "src/testing/fakeSupabase.test.ts": 2
       },
-      "failing": [
-        "LAW: an Admin sets a Title, it shows where the person is named, and nobody else can set one the advisor's Title shows on the Athlete screen, the athlete page and the Advisor picker (src/laws/accessLaws.test.ts)"
+      "failing": [],
+      "problems": []
+    },
+    {
+      "name": "build",
+      "result": "pass",
+      "boot": {
+        "up": true,
+        "answers": {
+          "/login": {
+            "status": 200,
+            "location": null
+          },
+          "/login?mode=link": {
+            "status": 200,
+            "location": null
+          },
+          "/unauthorized": {
+            "status": 200,
+            "location": null
+          },
+          "/": {
+            "status": 307,
+            "location": "/login"
+          },
+          "/org/qa-probe": {
+            "status": 307,
+            "location": "/login"
+          }
+        },
+        "ms": 1301
+      },
+      "errors": [],
+      "warnings": [],
+      "deprecations": [],
+      "allowlistFired": []
+    },
+    {
+      "name": "lint",
+      "result": "fail",
+      "findings": [
+        {
+          "rule": "no-em-dash",
+          "file": "src/laws/vaultLaws.test.ts",
+          "detail": "1 em dashes in a file this change touched."
+        }
       ],
-      "problems": [
-        "1 failing",
-        "2 suite(s) failed"
-      ]
+      "baselined": {},
+      "baselineTotal": 0,
+      "burndown": [],
+      "touchedFiles": 38,
+      "filesScanned": 621
     }
   ],
   "manual": {

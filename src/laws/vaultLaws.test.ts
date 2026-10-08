@@ -193,7 +193,7 @@ describe("LAW: a file that is not one of the seven, or does not match its name, 
       expect(r.ok).toBe(false);
       expect(r.error).toBeTruthy();
       if (label !== "an empty file" && label !== "a file over 10 MB") expect(r.error).toContain(VAULT_FORMATS_SENTENCE);
-      expect(r.error).not.toContain("—");
+      expect(r.error).not.toContain(String.fromCharCode(0x2014));
       expect(writes.filter((w) => w.table === "documents")).toEqual([]);
       expect(inBucket(path)).toBe(false);
     });
