@@ -3,20 +3,28 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ingestFile } from "@/lib/docai/ingest";
-import type { DocCategoryId, IngestedRecord, SourceRole, StoredRecord } from "@/lib/docai/types";
-import { processDocument } from "@/lib/actions/documents";
+import type { DocCategoryId, SourceRole, StoredRecord } from "@/lib/docai/types";
+import { processDocument, type OriginalUpload } from "@/lib/actions/documents";
 import { createClient } from "@/lib/supabase/client";
+import { checkVaultFile, readerCanRead, safeStorageName, VAULT_ACCEPT, VAULT_FORMATS_SENTENCE } from "@/lib/vault/format";
 import { Button, Choice, ChoiceRow, FileField, Label, Notice, SelectField, Stack } from "@/components/kit";
 
-// A client component because ingestion is: src/lib/docai/ingest.ts needs
-// File, FileReader, createImageBitmap and canvas, none of which exist on
-// the server. It decodes and normalizes here, then hands the server plain
-// records. See docs/ARCHITECTURE.md.
+// A client component because the checks and the upload are: the file is
+// read here, checked here (the same pure function the server runs again
+// on the stored bytes), and sent straight to the documents bucket from
+// the browser, bytes untouched. Only a path goes to the server action;
+// a server action's body is capped at 1MB and a document is not.
+//
+// Seven formats are stored: PDF, Word, Excel, CSV, JPG, PNG and TXT. A
+// file is stored exactly as picked. Picking one of the six types also
+// has the existing reader read a PDF or a photo; a photo then goes up
+// twice, once untouched and once shrunk for the reader (src/lib/docai/
+// ingest.ts, as before). No type means: stored, and straight to Needs
+// Review.
 
-// Per Dave: both ways in. Detect is the default, and a type can be forced
-// when he already knows what it is and does not want it guessed at.
+// No Type is the default. The six types still read as they always did.
 const CATEGORIES: { id: DocCategoryId | null; label: string }[] = [
-  { id: null, label: "Detect it" },
+  { id: null, label: "No Type" },
   { id: "transcript", label: "Transcript" },
   { id: "test_scores", label: "Test Scores" },
   { id: "offer_letter", label: "Offer Letter" },
@@ -37,20 +45,11 @@ function newRequestId(): string {
   return `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// The bytes go to the documents bucket from here, under this org's
-// folder, and the server reads them back. They never ride the server
-// action call: Next caps that body at 1MB and a scanned transcript is
-// three or four times that. See migrations/0017.
 function base64ToBlob(base64: string, mediaType: string): Blob {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return new Blob([bytes], { type: mediaType });
-}
-
-function safeFileName(name: string): string {
-  const cleaned = name.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^[._]+/, "");
-  return cleaned.slice(0, 80) || "file";
 }
 
 export interface DocumentUploaderProps {
@@ -72,69 +71,97 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
   const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  function fail(message: string) {
+    setError(message);
+    setBusy(false);
+    setStage(null);
+  }
+
   async function onSubmit() {
     if (!files.length || busy) return;
     setBusy(true);
     setError(null);
 
     try {
-      setStage("Checking the file");
-      const requestId = newRequestId();
-      const records: IngestedRecord[] = [];
+      // 1. Every file is checked before anything is sent. One that is not
+      // one of the seven formats, or whose contents do not match its
+      // name, refuses the whole selection and names the file.
+      setStage("Checking the files");
+      const bytes: Uint8Array[] = [];
+      const checks: ReturnType<typeof checkVaultFile>[] = [];
       for (const file of files) {
-        records.push(await ingestFile(file, { sourceRole, requestId }));
+        const b = new Uint8Array(await file.arrayBuffer());
+        const verdict = checkVaultFile(file.name, b);
+        if (!verdict.ok) return fail(verdict.reason);
+        bytes.push(b);
+        checks.push(verdict);
       }
 
-      const unusable = records.find((r) => r.fallbackReason && !r.base64);
-      if (unusable) {
-        setError(unusable.fallbackReason ?? "That file could not be read.");
-        setBusy(false);
-        setStage(null);
-        return;
+      // 2. A file tagged with a type that the reader can read is also
+      // prepared for it, the way every upload was: a photo is scaled down
+      // and a large PNG becomes a JPEG. That copy is the reader's; the
+      // original goes up as it is.
+      const requestId = newRequestId();
+      const readers: (StoredRecord | null)[] = [];
+      const readerBytes: (string | null)[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const check = checks[i]!;
+        if (!category || !check.ok || !readerCanRead(check.format)) {
+          readers.push(null);
+          readerBytes.push(null);
+          continue;
+        }
+        const record = await ingestFile(files[i]!, { sourceRole, requestId });
+        if (record.fallbackReason && !record.base64) return fail(record.fallbackReason);
+        const { base64, ...rest } = record;
+        readers.push({ ...rest, storagePath: "" });
+        readerBytes.push(base64);
       }
 
+      // 3. The originals go to the bucket untouched, under this org's
+      // folder, with the canonical content type for what they are.
       setStage(files.length === 1 ? "Uploading" : `Uploading ${files.length} files`);
       const supabase = createClient();
-      const stored: StoredRecord[] = [];
-      for (let i = 0; i < records.length; i++) {
-        const record = records[i]!;
-        const storagePath = `${orgId}/${requestId}/${i + 1}-${safeFileName(record.originalName)}`;
-        const { error: uploadError } = await supabase.storage
-          .from("documents")
-          .upload(storagePath, base64ToBlob(record.base64, record.mediaType), { contentType: record.mediaType, upsert: false });
-        if (uploadError) {
-          setError(`Could not upload ${record.originalName}: ${uploadError.message}`);
-          setBusy(false);
-          setStage(null);
-          return;
+      const originals: OriginalUpload[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]!;
+        const check = checks[i]!;
+        if (!check.ok) return fail(check.reason);
+        const storagePath = `${orgId}/${requestId}/${i + 1}-${safeStorageName(file.name)}`;
+        const { error: uploadError } = await supabase.storage.from("documents").upload(storagePath, new Blob([bytes[i]! as unknown as BlobPart], { type: check.mediaType }), { contentType: check.mediaType, upsert: false });
+        if (uploadError) return fail(`Could not upload ${file.name}: ${uploadError.message}`);
+
+        // A PDF is its own reader file. A photo's reader copy is a second
+        // object next to the original.
+        let reader = readers[i] ?? null;
+        if (reader) {
+          if (check.format === "pdf") reader = { ...reader, storagePath };
+          else {
+            const readerPath = `${orgId}/${requestId}/reader-${i + 1}-${safeStorageName(file.name)}`;
+            const { error: copyError } = await supabase.storage.from("documents").upload(readerPath, base64ToBlob(readerBytes[i]!, reader.mediaType), { contentType: reader.mediaType, upsert: false });
+            if (copyError) return fail(`Could not upload ${file.name}: ${copyError.message}`);
+            reader = { ...reader, storagePath: readerPath };
+          }
         }
-        const { base64: _bytes, ...rest } = record;
-        stored.push({ ...rest, storagePath });
+        originals.push({ storagePath, name: file.name, reader });
       }
 
-      setStage(category ? "Reading it" : "Working out what it is");
+      setStage(category ? "Reading it" : "Storing it");
       const result = await processDocument(slug, {
-        records: stored,
+        originals,
         sourceRole,
         requestedCategory: category,
         athleteId: boundTo?.athleteId,
       });
 
-      if (!result.ok || !result.documentId) {
-        setError(result.error ?? "Something went wrong reading that document.");
-        setBusy(false);
-        setStage(null);
-        return;
-      }
+      if (!result.ok || !result.documentId) return fail(result.error ?? "Something went wrong storing that.");
       // A bound upload goes back to the page it started from, because
       // the point there is the verdict that changed, not the document
-      // row. The document is still reachable from the documents list.
-      router.push(boundTo ? boundTo.returnTo : `/org/${slug}/documents/${result.documentId}`);
+      // row. One file opens its document; several open the list.
+      router.push(boundTo ? boundTo.returnTo : (result.documentIds?.length ?? 1) > 1 ? `/org/${slug}/documents` : `/org/${slug}/documents/${result.documentId}`);
       router.refresh();
     } catch (e) {
-      setError((e as Error).message || "Something went wrong reading that document.");
-      setBusy(false);
-      setStage(null);
+      fail((e as Error).message || "Something went wrong storing that.");
     }
   }
 
@@ -150,16 +177,15 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
               </Choice>
             ))}
           </ChoiceRow>
-          <Label>{category === null ? "It will work out the type itself. Pick one above to force it." : "Forced. It will be read as this even if it looks like something else."}</Label>
+          <Label>
+            {category === null
+              ? "It is stored as it is and goes to Needs Review. Pick a type to have it read."
+              : "It is read as this type. If it does not look like it, it is kept in Needs Review and says so."}
+          </Label>
         </Stack>
       )}
 
-      <SelectField
-        name="sourceRole"
-        label="Where It Came From"
-        value={sourceRole}
-        onChange={(e) => setSourceRole(e.target.value as SourceRole)}
-      >
+      <SelectField name="sourceRole" label="Where It Came From" value={sourceRole} onChange={(e) => setSourceRole(e.target.value as SourceRole)}>
         {SOURCE_ROLES.map((r) => (
           <option key={r.id} value={r.id}>
             {r.label}
@@ -170,25 +196,28 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
       <FileField
         name="files"
         label={files.length ? `${files.length} File${files.length === 1 ? "" : "s"} Chosen` : "Take a Photo or Choose a File"}
-        hint={files.length ? files.map((f) => f.name).join(", ") : undefined}
+        hint={files.length ? files.map((f) => f.name).join(", ") : `${VAULT_FORMATS_SENTENCE}. Up to 10 MB each.`}
         // HEIC is deliberately NOT listed. An iPhone converts a HEIC
         // photo to JPEG on the way into a file input only when HEIC is
         // not among the accepted types; listing it handed the app a
         // format nothing downstream can read and a refusal for every
         // camera photo Dave took.
-        accept="application/pdf,image/jpeg,image/png,image/gif,image/webp"
+        accept={VAULT_ACCEPT}
         multiple
-        onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+        onChange={(e) => {
+          setFiles(Array.from(e.target.files ?? []));
+          setError(null);
+        }}
       />
 
       {error && (
-        <Notice tone="danger" title="Could Not Read That">
+        <Notice tone="danger" title="Could Not Store That">
           {error}
         </Notice>
       )}
 
       <Button type="button" onClick={onSubmit} disabled={!files.length || busy}>
-        {busy ? (stage ?? "Working") : "Read Document"}
+        {busy ? (stage ?? "Working") : category ? "Upload and Read" : "Upload"}
       </Button>
     </Stack>
   );

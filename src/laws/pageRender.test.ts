@@ -1106,14 +1106,13 @@ describe("LAW: every record can be corrected and removed by the people who may, 
   };
   const params = (o: Record<string, string>) => ({ params: p({ slug: ORG_WITH_MODULES, ...o }), searchParams: p({}) });
 
-  it("staff see Remove on an athlete, a target, a message, a course and a finished document, each behind a confirm", async () => {
+  it("staff see Remove on an athlete, a target, a message and a course, each behind a confirm (a document has no Remove at all)", async () => {
     asStaff();
     const screens: Array<[string, Record<string, string>, RegExp]> = [
       ["@/app/org/[slug]/roster/[id]/page", { id: IDS.athlete }, /<button type="button"[^>]*>Remove Athlete<\/button>/],
       ["@/app/org/[slug]/board/[id]/edit/page", { id: IDS.target }, /<button type="button"[^>]*>Remove Target<\/button>/],
       ["@/app/org/[slug]/roster/[id]/messages/page", { id: IDS.athlete }, /<button type="button"[^>]*>Remove<\/button>/],
       ["@/app/org/[slug]/roster/[id]/transcript/[courseId]/page", { id: IDS.athlete, courseId: "ac1" }, /<button type="button"[^>]*>Remove Course<\/button>/],
-      ["@/app/org/[slug]/documents/[id]/page", { id: "doc-failed" }, /<button type="button"[^>]*>Delete for Good<\/button>/],
     ];
     // type="button" is the ConfirmButton: it opens the question first. A
     // bare destructive Button inside the Form would be a submit.

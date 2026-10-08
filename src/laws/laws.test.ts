@@ -97,10 +97,20 @@ describe("LAW: the server never trusts the client's account of an uploaded file"
     // helper above the action reads from it before any row is written.
     const bodyAt = source.indexOf("export async function processDocument");
     expect(bodyAt).toBeGreaterThan(-1);
-    const validateAt = source.indexOf("validateRecords(records)", bodyAt);
-    const insertAt = source.indexOf('.from("documents")', bodyAt);
+    // Two checks, both before any documents query: the vault's own
+    // (extension and bytes agree, one of the seven formats, under the
+    // limit) on every original, and the existing record check on the
+    // reader's copies.
+    const vaultAt = source.indexOf("checkVaultFile(", bodyAt);
+    const validateAt = source.indexOf("validateRecords(readerRecords)", bodyAt);
+    // The documents TABLE is queried on a chained line of its own; the
+    // bucket is read as supabase.storage.from("documents") on one line.
+    const tableQuery = /^\s*\.from\("documents"\)/m.exec(source.slice(bodyAt));
+    const insertAt = tableQuery ? bodyAt + tableQuery.index : -1;
+    expect(vaultAt).toBeGreaterThan(-1);
     expect(validateAt).toBeGreaterThan(-1);
     expect(insertAt).toBeGreaterThan(-1);
+    expect(vaultAt).toBeLessThan(insertAt);
     expect(validateAt).toBeLessThan(insertAt);
   });
 

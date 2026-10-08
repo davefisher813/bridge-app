@@ -207,89 +207,112 @@ describe("the board actions refuse the wrong caller and the wrong org before wri
   }
 });
 
-// ── documents: delete and leave, and the key check ─────────────────────
+// ── documents: the vault's moves, and the key check ───────────────────
 
-describe("deleteDocumentAndLeave", () => {
-  const OWN_PATH = () => `${BRIDGE()}/req_delete_me/scan.pdf`;
+describe("moveDocumentAndStay", () => {
+  const OWN_PATH = () => `${BRIDGE()}/req_move_me/scan.pdf`;
   const addDoc = (over: Record<string, unknown>) => {
-    const row = { id: "00000000-0000-0000-0000-0000000007d1", org_id: BRIDGE(), athlete_id: null, file_name: "scan.pdf", status: "discarded", storage_paths: [OWN_PATH()], ...over };
+    const row = { id: "00000000-0000-0000-0000-0000000007d1", org_id: BRIDGE(), athlete_id: null, file_name: "scan.pdf", status: "pending", lifecycle: "needs_review", lifecycle_changed_at: "2026-09-01T00:00:00.000Z", storage_paths: [OWN_PATH()], original_paths: [OWN_PATH()], ...over };
     data.documents!.push(row);
     return row.id as string;
   };
+  const reasonOf = (redirect: string | null) => decodeURIComponent((redirect ?? "").split("error=")[1] ?? "");
+  const lifecycleOf = (id: string) => data.documents!.find((d) => d.id === id)?.lifecycle;
 
-  it("deletes a discarded document and its own file, then leaves for the list", async () => {
+  it("Mark Ready moves Needs Review to Ready, on that document only, and logs who", async () => {
     const id = addDoc({});
-    const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
-    const r = await run(() => deleteDocumentAndLeave(S, id));
-    expect(r.redirect).toBe(`/org/${S}/documents`);
-    const [file] = writesTo(writes, "storage:documents", "delete");
-    expect(file!.rows).toEqual([{ name: OWN_PATH() }]);
-    const [row] = writesTo(writes, "documents", "delete");
-    expect(filterColumns(row)).toEqual(["id", "org_id", "status"]);
-    expect(data.documents!.some((d) => d.id === id)).toBe(false);
+    const { moveDocumentAndStay } = await import("@/lib/actions/documents");
+    const r = await run(() => moveDocumentAndStay(S, id, "ready"));
+    expect(r.redirect).toBe(`/org/${S}/documents/${id}`);
+    expect(lifecycleOf(id)).toBe("ready");
+    const [row] = writesTo(writes, "documents", "update");
+    expect(filterColumns(row).sort()).toEqual(["id", "lifecycle", "org_id"]);
+    const [log] = writesTo(writes, "activity_log", "insert");
+    expect(log!.rows[0]).toMatchObject({ org_id: BRIDGE(), action: "document_ready", subject_type: "document", subject_id: id });
+    expect(log!.rows[0]!.actor_id).toBeTruthy();
     expect(revalidated).toContain(`/org/${S}/documents`);
   });
 
-  it("also deletes a failed document", async () => {
-    const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
-    const r = await run(() => deleteDocumentAndLeave(S, "doc-failed"));
-    expect(r.redirect).toBe(`/org/${S}/documents`);
-    expect(data.documents!.some((d) => d.id === "doc-failed")).toBe(false);
+  it("Archive works from Needs Review and from Ready, and Unarchive returns to Needs Review", async () => {
+    const { moveDocumentAndStay } = await import("@/lib/actions/documents");
+    const a = addDoc({});
+    await run(() => moveDocumentAndStay(S, a, "archived"));
+    expect(lifecycleOf(a)).toBe("archived");
+    await run(() => moveDocumentAndStay(S, a, "needs_review"));
+    expect(lifecycleOf(a)).toBe("needs_review");
+    const b = addDoc({ id: "00000000-0000-0000-0000-0000000007d2", lifecycle: "ready" });
+    await run(() => moveDocumentAndStay(S, b, "archived"));
+    expect(lifecycleOf(b)).toBe("archived");
+    const actions = writesTo(writes, "activity_log", "insert").map((w) => w.rows[0]!.action);
+    expect(actions).toEqual(["document_archived", "document_unarchived", "document_archived"]);
   });
 
-  it("only removes files inside the org's own folder, never another org's or a malformed path", async () => {
-    const id = addDoc({ storage_paths: [OWN_PATH(), `${ELITE()}/req_x/theirs.pdf`, "../escape.pdf", `${BRIDGE()}/a/b/c.pdf`] });
-    const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
-    await run(() => deleteDocumentAndLeave(S, id));
-    expect(writesTo(writes, "storage:documents", "delete")[0]!.rows).toEqual([{ name: OWN_PATH() }]);
-  });
-
-  const reasonOf = (redirect: string | null) => decodeURIComponent((redirect ?? "").split("error=")[1] ?? "");
-
-  it("a document that is still live is not deleted, and the person is told why, on that document", async () => {
-    const id = addDoc({ status: "pending" });
-    const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
-    const r = await run(() => deleteDocumentAndLeave(S, id));
-    expect(r.redirect).toMatch(new RegExp(`^/org/${S}/documents/${id}\\?error=`));
-    expect(reasonOf(r.redirect)).toMatch(/Discard this document first/);
+  it("a move that is not allowed is refused on that document, and nothing changes", async () => {
+    const { moveDocumentAndStay } = await import("@/lib/actions/documents");
+    const up = addDoc({ lifecycle: "uploaded" });
+    const r = await run(() => moveDocumentAndStay(S, up, "ready"));
+    expect(r.redirect).toMatch(new RegExp(`^/org/${S}/documents/${up}\\?error=`));
+    expect(reasonOf(r.redirect)).toMatch(/cannot go from uploaded to ready/);
+    const arch = addDoc({ id: "00000000-0000-0000-0000-0000000007d3", lifecycle: "archived" });
+    const r2 = await run(() => moveDocumentAndStay(S, arch, "ready"));
+    expect(reasonOf(r2.redirect)).toMatch(/cannot go from archived to ready/);
     expect(writesTo(writes, "documents")).toEqual([]);
-    expect(writesTo(writes, "storage:documents")).toEqual([]);
-    expect(data.documents!.some((d) => d.id === id)).toBe(true);
+    expect(writesTo(writes, "activity_log")).toEqual([]);
+  });
+
+  it("a reading still going cannot be moved; one that never finished can, with the reason on the row", async () => {
+    const { moveDocumentAndStay } = await import("@/lib/actions/documents");
+    const fresh = addDoc({ lifecycle: "processing", status: "processing", lifecycle_changed_at: new Date().toISOString() });
+    const r = await run(() => moveDocumentAndStay(S, fresh, "needs_review"));
+    expect(reasonOf(r.redirect)).toMatch(/still being read/);
+    expect(lifecycleOf(fresh)).toBe("processing");
+    const stale = addDoc({ id: "00000000-0000-0000-0000-0000000007d4", lifecycle: "processing", status: "processing", lifecycle_changed_at: new Date(Date.now() - 11 * 60 * 1000).toISOString() });
+    await run(() => moveDocumentAndStay(S, stale, "needs_review"));
+    expect(lifecycleOf(stale)).toBe("needs_review");
+    expect(data.documents!.find((d) => d.id === stale)?.review_reason).toBe("Reading did not finish.");
+  });
+
+  it("a second tap on the same move finds it already made and says so", async () => {
+    const { moveDocument } = await import("@/lib/actions/documents");
+    const id = addDoc({});
+    expect((await moveDocument(S, id, "ready")).ok).toBe(true);
+    const again = await moveDocument(S, id, "ready");
+    expect(again.ok).toBe(false);
+    expect(again.error).toMatch(/cannot go from ready to ready/);
   });
 
   it("a document in another org is not found, not touched, and the person lands on a list that exists", async () => {
     const id = addDoc({ org_id: ELITE() });
-    const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
-    const r = await run(() => deleteDocumentAndLeave(S, id));
+    const { moveDocumentAndStay } = await import("@/lib/actions/documents");
+    const r = await run(() => moveDocumentAndStay(S, id, "ready"));
     expect(r.redirect).toMatch(new RegExp(`^/org/${S}/documents\\?error=`));
     expect(reasonOf(r.redirect)).toBe("That document is already gone.");
     expect(writes).toEqual([]);
-    expect(data.documents!.some((d) => d.id === id)).toBe(true);
   });
 
   it("a document that does not exist says it is already gone, on the list, and writes nothing", async () => {
-    const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
-    const r = await run(() => deleteDocumentAndLeave(S, GONE));
+    const { moveDocumentAndStay } = await import("@/lib/actions/documents");
+    const r = await run(() => moveDocumentAndStay(S, GONE, "archived"));
     expect(r.redirect).toBe(`/org/${S}/documents?error=${encodeURIComponent("That document is already gone.")}`);
     expect(writes).toEqual([]);
   });
 
-  it("a failed row delete goes back to the document with the reason, not away as if it worked", async () => {
+  it("a failed write goes back to the document with the reason, not away as if it worked", async () => {
     const id = addDoc({});
-    failOn = (t, op) => (t === "documents" && op === "delete" ? "fk" : null);
-    const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
-    const r = await run(() => deleteDocumentAndLeave(S, id));
+    failOn = (t, op) => (t === "documents" && op === "update" ? "locked" : null);
+    const { moveDocumentAndStay } = await import("@/lib/actions/documents");
+    const r = await run(() => moveDocumentAndStay(S, id, "ready"));
     expect(r.redirect).toMatch(new RegExp(`^/org/${S}/documents/${id}\\?error=`));
-    expect(reasonOf(r.redirect)).toMatch(/could not be deleted: fk/);
-    expect(data.documents!.some((d) => d.id === id)).toBe(true);
+    expect(reasonOf(r.redirect)).toMatch(/Could not move the document: locked/);
+    expect(lifecycleOf(id)).toBe("needs_review");
   });
 
   for (const [who, id] of WRONG_CALLERS) {
     it(`refuses ${who} before touching anything`, async () => {
       currentUser = id;
       const doc = addDoc({});
-      const { deleteDocumentAndLeave } = await import("@/lib/actions/documents");
-      await expect(deleteDocumentAndLeave(S, doc)).rejects.toThrow(/NEXT_REDIRECT|NEXT_NOT_FOUND/);
+      const { moveDocumentAndStay } = await import("@/lib/actions/documents");
+      await expect(moveDocumentAndStay(S, doc, "ready")).rejects.toThrow(/NEXT_REDIRECT|NEXT_NOT_FOUND/);
       expect(writes).toEqual([]);
     });
   }

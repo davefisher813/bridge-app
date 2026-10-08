@@ -2,12 +2,16 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { applyDocument, deleteDocumentAndLeave, discardDocument, isStubbedModel } from "@/lib/actions/documents";
+import { applyDocument, discardDocument, isStubbedModel, moveDocumentAndStay } from "@/lib/actions/documents";
 import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
 import { applyRefusal, isStubReading } from "@/lib/data/readBy";
 import { editableFields } from "@/lib/data/extractedEdit";
 import type { DocCategoryId } from "@/lib/docai/types";
-import { Avatar, Body, Button, Chip, ConfirmButton, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
+import { Avatar, Body, Button, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
+import { LifecycleChip } from "@/components/LifecycleChip";
+import { longDate } from "@/lib/copy/dates";
+import { formatBytes, formatLabelOf } from "@/lib/vault/format";
+import { isLifecycle, isStaleProcessing as isStaleLifecycle, type Lifecycle } from "@/lib/vault/lifecycle";
 import { Note } from "@/components/EligibilityVerdict";
 import type { Role } from "@/components/statusHue";
 
@@ -38,6 +42,16 @@ interface DocDetail {
   undo_note: string | null;
   read_by: string | null;
   created_at: string;
+  // The vault (migration 0048).
+  lifecycle: string;
+  lifecycle_changed_at: string | null;
+  format: string | null;
+  media_type: string;
+  review_reason: string | null;
+  uploaded_by: string | null;
+  content_hash: string | null;
+  original_paths: string[] | null;
+  storage_paths: string[] | null;
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -172,7 +186,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const { data } = await supabase
     .from("documents")
     .select(
-      "id, file_name, file_size, page_count, category, requested_category, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes(name, deleted_at), undo_note, read_by, created_at"
+      "id, file_name, file_size, page_count, category, requested_category, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths"
     )
     .eq("id", id)
     .eq("org_id", org.id)
@@ -180,6 +194,13 @@ export default async function DocumentPage({ params, searchParams }: { params: P
 
   if (!data) notFound();
   const doc = data as DocDetail;
+  const lifecycle = (isLifecycle(doc.lifecycle) ? doc.lifecycle : "needs_review") as Lifecycle;
+  const { data: uploader } = doc.uploaded_by ? await supabase.from("users").select("full_name, email").eq("id", doc.uploaded_by).maybeSingle() : { data: null };
+  const uploadedBy = ((uploader as { full_name?: string | null; email?: string | null } | null)?.full_name || (uploader as { email?: string | null } | null)?.email || null) as string | null;
+  // The files the screen offers: the untouched originals, or for a row
+  // from before the vault its one stored copy.
+  const files = doc.original_paths?.length ? doc.original_paths : (doc.storage_paths ?? []);
+  const stuckReading = isStaleLifecycle(lifecycle, doc.lifecycle_changed_at);
 
   const stubbed = await isStubbedModel();
   // The same gate the actions use (audit wired F1): a reading the
@@ -216,6 +237,10 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // it was unsure of.
   const modelWarnings = Array.isArray(doc.extracted?.warnings) ? (doc.extracted!.warnings as unknown[]).filter((w): w is string => typeof w === "string" && w.trim() !== "") : [];
   const flagged = [...new Set([...modelWarnings, ...(doc.triage?.issues ?? [])])];
+  // Read by the reader, or filed to an athlete: there is a reading to
+  // show. A file that was only stored (no type, or a format the reader
+  // cannot read) has none, and the screen does not pretend it does.
+  const wasRead = !!doc.extracted || !!doc.athlete_id || (doc.candidates ?? []).length > 0;
   const isApplied = doc.status === "applied";
   const isPending = doc.status === "pending";
   const isFailed = doc.status === "failed";
@@ -240,18 +265,19 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     "use server";
     await discardDocument(slug, doc.id);
   };
-  const deleteAction = async () => {
+  // The vault's moves. Each is one conditional write on the server and
+  // comes back to this page, with the reason when it is refused.
+  const moveTo = (to: "ready" | "archived" | "needs_review") => async () => {
     "use server";
-    await deleteDocumentAndLeave(slug, doc.id);
+    await moveDocumentAndStay(slug, doc.id, to);
   };
   // What staff can correct before applying. None for a stand-in reading.
   const correctable = isPending && !stubRead && doc.category && doc.category !== "film" && doc.extracted ? editableFields(doc.category as DocCategoryId, doc.extracted).length > 0 : false;
-  const deletable = isDiscarded || isFailed;
 
   const headline = isFiled
     ? "Family Upload"
     : isFailed
-    ? "Could Not Use This"
+    ? "Kept for Review"
     : isProcessing
       ? isStuck
         ? "This Reading Did Not Finish"
@@ -262,17 +288,59 @@ export default async function DocumentPage({ params, searchParams }: { params: P
         : "Not sure who this is"
       : `${doc.category ? (CATEGORY_LABEL[doc.category] ?? doc.category) : "Document"} read`;
 
-  const chip = isFiled ? (
-    <Chip label="Family Upload" kind="document" role="place" />
-  ) : isApplied ? (
-    <Chip label="Applied" kind="check" role="committed" />
-  ) : isProcessing ? (
-    <Chip label={isStuck ? "Stuck" : "Reading"} kind="warning" role="offer" />
-  ) : isPending ? (
-    <Chip label="Needs Review" kind="warning" role="offer" />
-  ) : isFailed ? (
-    <Chip label="Not Used" kind="blocked" role="danger" />
-  ) : undefined;
+  const chip = <LifecycleChip lifecycle={lifecycle} />;
+
+  // The file as it was stored: never changed after upload. Name, format,
+  // size, who, when and the SHA-256 of the bytes, then a copy to save. No
+  // preview in this piece; every format shows the same.
+  const hash = doc.content_hash ? (doc.content_hash.match(/.{1,8}/g) ?? []).join(" ") : null;
+  const originalFile = (
+    <Section label="Original File" role="neutral" kind="document">
+      <Row
+        title="File Name"
+        emphasis="semibold"
+        trailing={<Body weight="bold">{doc.file_name}</Body>}
+      />
+      <Row title="Format" trailing={<Body weight="bold">{formatLabelOf(doc.format, doc.media_type)}</Body>} />
+      <Row title="Size" trailing={<Body weight="bold" numeric>{formatBytes(doc.file_size)}</Body>} />
+      {uploadedBy && <Row title="Uploaded By" trailing={<Body weight="bold">{uploadedBy}</Body>} />}
+      <Row title="Uploaded" trailing={<Body weight="bold" numeric>{longDate(doc.created_at)}</Body>} />
+      {hash && <Row title="SHA-256" meta={hash} wrap />}
+      {files.map((_, i) => (
+        <DownloadLink key={i} href={`/org/${slug}/documents/${doc.id}/download?n=${i + 1}`}>
+          {files.length === 1 ? "Download" : `Download Page ${i + 1}`}
+        </DownloadLink>
+      ))}
+    </Section>
+  );
+
+  // The moves a person makes. Mark Ready is only ever this tap.
+  const vaultButtons = (
+    <>
+      {lifecycle === "needs_review" && (
+        <Form action={moveTo("ready")}>
+          <Button type="submit">Mark Ready</Button>
+        </Form>
+      )}
+      {(lifecycle === "needs_review" || lifecycle === "ready") && (
+        <Form action={moveTo("archived")}>
+          <Button type="submit" variant="secondary">
+            Archive
+          </Button>
+        </Form>
+      )}
+      {lifecycle === "archived" && (
+        <Form action={moveTo("needs_review")}>
+          <Button type="submit">Unarchive</Button>
+        </Form>
+      )}
+      {stuckReading && (
+        <Form action={moveTo("needs_review")}>
+          <Button type="submit">Move to Needs Review</Button>
+        </Form>
+      )}
+    </>
+  );
 
   return (
     <Screen
@@ -282,6 +350,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       action={chip}
     >
       {error && <Notice tone="danger" title={error} />}
+      {doc.review_reason && lifecycle !== "ready" && lifecycle !== "archived" && <Notice tone="warning" title={doc.review_reason} />}
       {isPending && refusal ? (
         <Notice tone="warning" title={stubRead ? "This Reading Can't Be Applied" : stubbed ? "AI Key Not Set" : "Reader Not Recorded"}>
           {refusal}
@@ -314,7 +383,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
                 The reading started {ageOf(doc.created_at)} ago and never came back, so it is not going to. Nothing was changed on any athlete. Discard this and upload the file again.
               </Note>
               <Form action={discardAction}>
-                <ConfirmButton title="Discard this document?" body="Nothing was applied, so nothing changes on any athlete. The file can be uploaded again." confirmLabel="Discard">
+                <ConfirmButton title="Discard this document?" body="Nothing was applied, so nothing changes on any athlete. The file is kept, in Archived." confirmLabel="Discard">
                   Discard
                 </ConfirmButton>
               </Form>
@@ -322,34 +391,34 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           ) : (
             <Note title="Give It a Minute">A transcript takes a minute or two to read. Come back to this page; it fills in on its own.</Note>
           )}
-          <LinkButton href={`/org/${slug}/documents`}>Back to Documents</LinkButton>
+          {originalFile}
+          {vaultButtons}
+          <LinkButton href={`/org/${slug}/documents`} variant="secondary">Back to Documents</LinkButton>
         </>
       )}
 
       {isFailed && (
         <>
-          <Section label="What Went Wrong" count={doc.triage?.issues?.length || undefined} role="danger" kind="blocked">
-            <Notice tone="danger" title={doc.failure_reason ?? "It could not be read."}>
+          <Section label="Why It Is Here" count={doc.triage?.issues?.length || undefined} role="offer" kind="warning">
+            <Notice tone="warning" title={doc.failure_reason ?? "It could not be read."}>
               {legibility !== null ? `Legibility ${legibility}%` : undefined}
             </Notice>
             {(doc.triage?.issues ?? []).map((issue) => (
               <Note key={issue}>{issue}</Note>
             ))}
           </Section>
-          <Note title="Try Again">
-            Lay it flat, avoid a window behind you, and get the whole page in frame. Nothing was changed on any athlete.
+          <Note title="Nothing Was Lost">
+            The file is kept as it came in, and nothing was changed on any athlete. If it was a poor photo, lay it flat, avoid a window behind you, and get the whole page in frame.
           </Note>
-          <LinkButton href={`/org/${slug}/documents/new`}>Add Another</LinkButton>
-          <Form action={deleteAction}>
-            <ConfirmButton title="Delete This Document for Good?" body="The file and what was read off it are removed. Nothing was applied, so nothing changes on any athlete. This can't be undone." confirmLabel="Delete for Good">
-              Delete for Good
-            </ConfirmButton>
-          </Form>
+          {originalFile}
+          {vaultButtons}
+          <LinkButton href={`/org/${slug}/documents/new`} variant="secondary">Add Another</LinkButton>
         </>
       )}
 
       {!isFailed && !isProcessing && (
         <>
+          {wasRead && (
           <Section label={matched ? "Matched to" : "Pick the athlete"} count={matched ? undefined : candidates.length} role={matched ? "people" : "offer"} kind="athlete">
             {matched ? (
               matchedRemoved ? (
@@ -399,6 +468,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
               </Note>
             )}
           </Section>
+          )}
 
           {fields.length > 0 && (
             <Section label="What It Says" count={fields.length} role={isApplied ? "committed" : "offer"} kind="document">
@@ -461,28 +531,24 @@ export default async function DocumentPage({ params, searchParams }: { params: P
               says so. */}
           {isApplied && <Note title="Applied to the wrong athlete, or read wrong?">{(APPLY_COPY[doc.category ?? ""] ?? APPLY_COPY.transcript!).applied}</Note>}
 
+          {originalFile}
+
           <Stack>
-            <LinkButton href={`/org/${slug}/documents`}>Done</LinkButton>
+            {vaultButtons}
+            <LinkButton href={`/org/${slug}/documents`} variant="secondary">Done</LinkButton>
             {correctable && (
               <LinkButton href={`/org/${slug}/documents/${doc.id}/edit`} variant="secondary">
                 Correct the Reading
               </LinkButton>
             )}
-            {(isPending || isApplied) && (
+            {(isApplied || (isPending && wasRead)) && (
               <Form action={discardAction}>
                 <ConfirmButton
                   title={isApplied ? "Undo and discard this document?" : "Discard this document?"}
-                  body={isApplied ? (APPLY_COPY[doc.category ?? ""] ?? APPLY_COPY.transcript!).undo : "Nothing was applied, so nothing changes on any athlete."}
+                  body={isApplied ? (APPLY_COPY[doc.category ?? ""] ?? APPLY_COPY.transcript!).undo : "Nothing was applied, so nothing changes on any athlete. The file is kept, in Archived."}
                   confirmLabel={isApplied ? "Undo and Discard" : "Discard"}
                 >
                   {isApplied ? "Undo and Discard" : "Discard"}
-                </ConfirmButton>
-              </Form>
-            )}
-            {deletable && (
-              <Form action={deleteAction}>
-                <ConfirmButton title="Delete This Document for Good?" body="The file and what was read off it are removed. Anything it applied was already put back when it was discarded. This can't be undone." confirmLabel="Delete for Good">
-                  Delete for Good
                 </ConfirmButton>
               </Form>
             )}

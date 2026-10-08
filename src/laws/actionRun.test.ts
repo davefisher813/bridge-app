@@ -879,7 +879,7 @@ describe("LAW: a real model call is charged to the org, and stops at the month's
     expect(writes.filter((w) => w.table === "docai_usage")).toEqual([]);
   });
 
-  it("at the cap the upload is refused before a row or a byte", async () => {
+  it("at the cap the upload is refused before a row or a byte, and the upload that has no row is cleared", async () => {
     withModel();
     try {
       data.docai_usage!.push({ id: "du_big", org_id: data.orgs[0]!.id, document_id: null, request_id: "req_big", model: "claude-opus-5", input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, cost_cents: 1999, created_at: new Date().toISOString() });
@@ -887,7 +887,8 @@ describe("LAW: a real model call is charged to the org, and stops at the month's
       const r = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "parent", requestedCategory: "transcript" });
       expect(r.ok).toBe(false);
       expect((r as { error?: string }).error).toMatch(/\$20\.00.*used up/);
-      expect(writes).toEqual([]);
+      expect(writes.filter((w) => w.table === "documents" || w.table === "docai_usage")).toEqual([]);
+      expect(writes.filter((w) => w.op === "delete").map((w) => w.table)).toEqual(["storage:documents"]);
     } finally {
       withoutModel();
     }
@@ -915,7 +916,7 @@ describe("LAW: a real model call is charged to the org, and stops at the month's
       const r = await processDocument(ORG_WITHOUT_MODULES, { records: [stored(`${elite}/req_fixture/1-transcript.pdf`)], sourceRole: "parent", requestedCategory: "transcript" });
       expect(r.ok).toBe(false);
       expect((r as { error?: string }).error).toMatch(/turned off/);
-      expect(writes).toEqual([]);
+      expect(writes.filter((w) => w.table === "documents" || w.table === "docai_usage")).toEqual([]);
     } finally {
       withoutModel();
     }
@@ -1184,19 +1185,17 @@ describe("LAW: a document is read once, applied once, and a reading that stops l
   const bridgePath = () => `${data.orgs[0]!.id as string}/req_fixture/1-transcript.pdf`;
   const docUpdates = () => writes.filter((w) => w.table === "documents" && w.op === "update");
 
-  it("the detect path pays for one triage, and its verdict is the one the reading uses", async () => {
+  it("an upload with no type is stored and goes straight to Needs Review: no model is called, nothing is charged", async () => {
     process.env.ANTHROPIC_API_KEY = "test-only";
     try {
       const { processDocument } = await import("@/lib/actions/documents");
       const r = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "coordinator", requestedCategory: null });
       expect(r.ok).toBe(true);
-      const ledger = writes.filter((w) => w.table === "docai_usage" && w.op === "insert").map((w) => String(w.rows[0]!.request_id));
-      // The stand-in model's triage for this seed says retake. One
-      // triage charged, and the reading stopped on that answer instead
-      // of asking a second time.
-      expect(ledger).toEqual(["req_once_triage"]);
-      const failed = docUpdates().find((w) => w.rows[0]?.status === "failed");
-      expect(failed?.rows[0]).toMatchObject({ failure_stage: "triage_retake", detected_type: "transcript", category: "transcript" });
+      expect(writes.filter((w) => w.table === "docai_usage")).toEqual([]);
+      const row = data.documents!.find((d) => d.id === r.documentId)!;
+      expect(row).toMatchObject({ lifecycle: "needs_review", format: "pdf", requested_category: null, read_by: null, uploaded_by: expect.any(String) });
+      expect(row.review_reason).toBe("No type chosen.");
+      expect(docUpdates().find((w) => w.rows[0]?.status === "failed")).toBeUndefined();
     } finally {
       delete process.env.ANTHROPIC_API_KEY;
     }
@@ -1209,7 +1208,7 @@ describe("LAW: a document is read once, applied once, and a reading that stops l
     const { processDocument } = await import("@/lib/actions/documents");
     const r = await processDocument(ORG_WITH_MODULES, { records: [stored(path)], sourceRole: "coordinator", requestedCategory: "transcript" });
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/not a PDF or an image/);
+    expect(r.error).toMatch(/does not match its name/);
     expect(writes.filter((w) => w.table === "documents")).toEqual([]);
     const removed = writes.find((w) => w.table === "storage:documents" && w.op === "delete");
     expect(removed?.rows.map((x) => x.name)).toEqual([path]);
@@ -1333,7 +1332,7 @@ describe("LAW: the same file is read once, a stuck reading can be cleared, and a
     extracted, candidates: [], failure_reason: null, applied_at: null, applied_changes: null, undo_note: null, read_by: "claude-opus-5", created_at: "2026-09-21", ...over,
   });
 
-  it("the second upload of the same bytes is refused, pointing at the first, and its file is dropped", async () => {
+  it("the second upload of the same bytes is stored, not read, and says it is the same file as the first", async () => {
     const { processDocument } = await import("@/lib/actions/documents");
     const first = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "coordinator", requestedCategory: "transcript" });
     expect(first.ok).toBe(true);
@@ -1341,11 +1340,16 @@ describe("LAW: the same file is read once, a stuck reading can be cleared, and a
     expect(String(insert.rows[0]!.content_hash)).toMatch(/^[0-9a-f]{64}$/);
     writes.length = 0;
     const second = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "coordinator", requestedCategory: "transcript" });
-    expect(second.ok).toBe(false);
-    expect(second.error).toMatch(/already uploaded/);
-    expect(second.documentId).toBe(first.documentId);
-    expect(writes.filter((w) => w.table === "documents")).toEqual([]);
-    expect(writes.find((w) => w.table === "storage:documents" && w.op === "delete")).toBeTruthy();
+    // Nothing is thrown away: it is its own document, in Needs Review.
+    expect(second.ok).toBe(true);
+    expect(second.documentId).not.toBe(first.documentId);
+    const row = data.documents!.find((d) => d.id === second.documentId)!;
+    expect(row.lifecycle).toBe("needs_review");
+    expect(row.review_reason).toMatch(/^Same file as transcript\.pdf uploaded [A-Z][a-z]{2} \d{1,2}$/);
+    // The paid reader was not run a second time.
+    expect(row.read_by).toBeNull();
+    expect(row.status).toBe("pending");
+    expect(writes.find((w) => w.table === "storage:documents" && w.op === "delete")).toBeUndefined();
   });
 
   it("a discarded copy does not block reading the file again", async () => {
@@ -2499,9 +2503,13 @@ describe("LAW: every action writes one activity_log row on success, none on refu
     const stored = { originalName: "transcript.pdf", originalSize: 40, originalMime: "application/pdf", kind: "pdf" as const, sourceRole: "coordinator" as const, ingestedAt: "2026-09-26T00:00:00.000Z", requestId: "req_fixture", mediaType: "application/pdf", blockType: "document" as const, storagePath: `${ORG()}/req_fixture/1-transcript.pdf` };
     const p = await processDocument(ORG_WITH_MODULES, { records: [stored], sourceRole: "coordinator", requestedCategory: "transcript", athleteId: IDS.athlete });
     expect(p.ok).toBe(true);
-    expect(logs()).toHaveLength(1);
-    wellFormed(logs()[0]);
+    // The upload, then the two moves the reader makes: Uploaded to
+    // Processing to Needs Review. Each is one row with the document.
+    expect(logs().map((l) => l.action)).toEqual(["document_uploaded", "document_reading", "document_needs_review"]);
+    for (const l of logs()) wellFormed(l);
     expect(logs()[0]).toMatchObject({ action: "document_uploaded", subject_type: "document", subject_id: p.documentId, summary: "Uploaded a transcript for Fixture Athlete" });
+    expect(logs()[1]).toMatchObject({ summary: "Started reading a transcript for Fixture Athlete" });
+    expect(logs()[2]).toMatchObject({ summary: "Moved a transcript to Needs Review for Fixture Athlete" });
     writes.length = 0;
 
     const a = await asRealModel(() => applyDocument(ORG_WITH_MODULES, IDS.document, IDS.athlete));
@@ -2517,7 +2525,8 @@ describe("LAW: every action writes one activity_log row on success, none on refu
 
     const d = await discardDocument(ORG_WITH_MODULES, IDS.document);
     expect(d.ok).toBe(true);
-    expect(logs()).toHaveLength(1);
+    // Discarding also archives: the discard, then the move.
+    expect(logs().map((l) => l.action)).toEqual(["document_discarded", "document_archived"]);
     expect(logs()[0]).toMatchObject({ action: "document_discarded", subject_id: IDS.document, summary: "Discarded a transcript for Fixture Athlete" });
     writes.length = 0;
     expect((await discardDocument(ORG_WITH_MODULES, IDS.document)).ok).toBe(false);

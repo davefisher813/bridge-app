@@ -228,3 +228,21 @@ export function safeStorageName(name: string): string {
 export function readerCanRead(format: VaultFormat): boolean {
   return format === "pdf" || format === "jpg" || format === "png";
 }
+
+// "512 bytes", "48 KB", "1.2 MB": a file's size as a person reads it.
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return "";
+  if (bytes < 1024) return `${bytes} ${bytes === 1 ? "byte" : "bytes"}`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+// The format label for a stored document. Rows from before the vault
+// carry it only as a media type; anything else reads as "File".
+export function formatLabelOf(format: string | null | undefined, mediaType?: string | null): string {
+  if (format && format in FORMAT_LABEL) return FORMAT_LABEL[format as VaultFormat];
+  if (mediaType === "application/pdf") return "PDF";
+  if (mediaType === "image/jpeg") return "JPG";
+  if (mediaType === "image/png") return "PNG";
+  return "File";
+}

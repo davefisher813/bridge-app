@@ -14,6 +14,7 @@
 // GPA, a gift with no donor, a board seat with no donor record, a course
 // at a school with no grading scale, and a document that failed.
 
+import { makeFile } from "./vaultFiles";
 import type { Dataset } from "@/testing/fakeSupabase";
 
 const BRIDGE = "00000000-0000-0000-0000-0000000000a1";
@@ -84,6 +85,24 @@ export const IDS = {
 // more overdue.
 const inDays = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
 
+// The five-state fields migration 0048 adds to every document. A fixture
+// row says what it needs to and this fills in the rest the way the
+// migration's backfill does: processing, pending, applied, failed and
+// filed rows are Needs Review, discarded is Archived, and the original is
+// the one stored copy. Ready is never inferred; a row must ask for it.
+const FORMAT_OF: Record<string, string> = { "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png" };
+function withVaultFields(rows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  return rows.map((d) => ({
+    lifecycle: d.status === "discarded" ? "archived" : "needs_review",
+    lifecycle_changed_at: d.created_at,
+    format: FORMAT_OF[String(d.media_type)] ?? null,
+    original_paths: d.storage_paths ?? [],
+    review_reason: d.status === "failed" ? (d.failure_reason ?? null) : d.status === "processing" ? "Reading did not finish." : null,
+    uploaded_by: null,
+    ...d,
+  }));
+}
+
 export function buildFixture(): Dataset {
   return {
     // What the documents bucket holds. Path shape is <org>/<request>/<file>,
@@ -105,6 +124,18 @@ export function buildFixture(): Dataset {
         owner: FAMILY,
         base64: Buffer.from("%PDF-1.4\n%fixture score report\n1 0 obj << >> endobj\n%%EOF\n").toString("base64"),
       },
+      // The originals behind the vault fixtures below, real bytes of each
+      // format so the download route returns something a viewer can open.
+      ...(
+        [
+          ["req_fixture_word/1-team-letter.docx", "docx"],
+          ["req_fixture_mismatch/1-june-scores.pdf", "pdf"],
+          ["req_fixture_csv/1-roster-export.csv", "csv"],
+          ["req_fixture_txt/1-old-notes.txt", "txt"],
+          ["req_fixture_reading/1-scan-in-progress.pdf", "pdf"],
+          ["req_fixture_xlsx/1-just-arrived.xlsx", "xlsx"],
+        ] as const
+      ).map(([name, kind]) => ({ bucket: "documents", name: `${BRIDGE}/${name}`, base64: Buffer.from(makeFile(kind)).toString("base64") })),
     ],
     users: [
       { id: OWNER, email: "owner@example.test", full_name: "Example Owner", last_sign_in_at: "2026-09-01T12:00:00.000Z" },
@@ -709,7 +740,7 @@ export function buildFixture(): Dataset {
       // its own giving and has to say so rather than report zero.
       { id: "bm2", org_id: BRIDGE, board_id: IDS.board, name: "Fixture Prospect", donor_id: null, user_id: null, role_title: null, status: "prospect", term_start: null, term_end: null, commitment_amount: 0, email: null, phone: null, notes: null },
     ],
-    documents: [
+    documents: withVaultFields([
       // status and route are separate enums in 0007: the route is what
       // the pipeline decided, the status is where the document got to.
       // Writing "review" (a route) into status is a mistake this fixture
@@ -843,7 +874,192 @@ export function buildFixture(): Dataset {
         content_hash: "fixture-filed-hash",
         created_at: "2026-09-22T20:00:00.000Z",
       },
-    ],
+      // The rest of the vault's five states, so every one renders on the
+      // list and on the document screen. A stored Word file nobody tagged
+      // with a type: straight to Needs Review, not read.
+      {
+        id: "doc-word",
+        org_id: BRIDGE,
+        athlete_id: null,
+        file_name: "team-letter.docx",
+        file_size: 48213,
+        media_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        format: "word",
+        source_role: "coordinator",
+        status: "pending",
+        route: null,
+        category: null,
+        provenance: null,
+        extracted: null,
+        confidence: null,
+        candidates: null,
+        failure_reason: null,
+        issues: null,
+        applied_at: null,
+        undone_at: null,
+        read_by: null,
+        storage_paths: [`${BRIDGE}/req_fixture_word/1-team-letter.docx`],
+        original_paths: [`${BRIDGE}/req_fixture_word/1-team-letter.docx`],
+        content_hash: "3f786850e387550fdab836ed7e6dc881de23001b9a1f2d2c8c1b8b3a51f0a1b2",
+        uploaded_by: OWNER,
+        created_at: "2026-09-25T15:00:00.000Z",
+      },
+      // Tagged Transcript, but it was a score report: kept, in Needs
+      // Review, with the reason on the row. Not a rejection.
+      {
+        id: "doc-mismatch",
+        org_id: BRIDGE,
+        athlete_id: null,
+        file_name: "june-scores.pdf",
+        file_size: 61440,
+        media_type: "application/pdf",
+        format: "pdf",
+        requested_category: "transcript",
+        source_role: "coordinator",
+        status: "failed",
+        route: "reject",
+        category: "transcript",
+        failure_stage: "triage_wrong_category",
+        failure_reason: "This looks like test scores, not a transcript.",
+        review_reason: "Did not look like Transcript",
+        provenance: null,
+        extracted: null,
+        confidence: null,
+        candidates: null,
+        issues: null,
+        applied_at: null,
+        undone_at: null,
+        read_by: "claude-opus-5",
+        storage_paths: [`${BRIDGE}/req_fixture_mismatch/1-june-scores.pdf`],
+        original_paths: [`${BRIDGE}/req_fixture_mismatch/1-june-scores.pdf`],
+        content_hash: "9a1f7c6b0e3d4a5f8b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f00",
+        uploaded_by: OWNER,
+        created_at: "2026-09-26T15:00:00.000Z",
+      },
+      // Marked Ready by a person.
+      {
+        id: "doc-ready",
+        org_id: BRIDGE,
+        athlete_id: null,
+        file_name: "roster-export.csv",
+        file_size: 2048,
+        media_type: "text/csv",
+        format: "csv",
+        source_role: "admin",
+        status: "pending",
+        route: null,
+        lifecycle: "ready",
+        lifecycle_changed_at: "2026-09-27T16:00:00.000Z",
+        category: null,
+        provenance: null,
+        extracted: null,
+        confidence: null,
+        candidates: null,
+        failure_reason: null,
+        issues: null,
+        applied_at: null,
+        undone_at: null,
+        read_by: null,
+        storage_paths: [`${BRIDGE}/req_fixture_csv/1-roster-export.csv`],
+        original_paths: [`${BRIDGE}/req_fixture_csv/1-roster-export.csv`],
+        content_hash: "5c1a2b3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5061728394a5b6c7d8e9f",
+        uploaded_by: OWNER,
+        created_at: "2026-09-27T15:00:00.000Z",
+      },
+      // Archived by a person: out of the working lists, still here.
+      {
+        id: "doc-archived",
+        org_id: BRIDGE,
+        athlete_id: null,
+        file_name: "old-notes.txt",
+        file_size: 512,
+        media_type: "text/plain",
+        format: "txt",
+        source_role: "coordinator",
+        status: "pending",
+        route: null,
+        lifecycle: "archived",
+        lifecycle_changed_at: "2026-09-28T16:00:00.000Z",
+        category: null,
+        provenance: null,
+        extracted: null,
+        confidence: null,
+        candidates: null,
+        failure_reason: null,
+        issues: null,
+        applied_at: null,
+        undone_at: null,
+        read_by: null,
+        storage_paths: [`${BRIDGE}/req_fixture_txt/1-old-notes.txt`],
+        original_paths: [`${BRIDGE}/req_fixture_txt/1-old-notes.txt`],
+        content_hash: "7e8f9a0b1c2d3e4f5061728394a5b6c7d8e9f00112233445566778899aabbccd",
+        uploaded_by: OWNER,
+        created_at: "2026-09-20T15:00:00.000Z",
+      },
+      // Reading right now (a minute old): Processing, not stuck.
+      {
+        id: "doc-reading",
+        org_id: BRIDGE,
+        athlete_id: null,
+        file_name: "scan-in-progress.pdf",
+        file_size: 90000,
+        media_type: "application/pdf",
+        format: "pdf",
+        requested_category: "transcript",
+        source_role: "coordinator",
+        status: "processing",
+        route: null,
+        lifecycle: "processing",
+        lifecycle_changed_at: new Date(Date.now() - 60_000).toISOString(),
+        review_reason: null,
+        category: null,
+        provenance: null,
+        extracted: null,
+        confidence: null,
+        candidates: null,
+        failure_reason: null,
+        issues: null,
+        applied_at: null,
+        undone_at: null,
+        read_by: "claude-opus-5",
+        storage_paths: [`${BRIDGE}/req_fixture_reading/1-scan-in-progress.pdf`],
+        original_paths: [`${BRIDGE}/req_fixture_reading/1-scan-in-progress.pdf`],
+        content_hash: "1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5061728394a5b6c7d8e9f0a",
+        uploaded_by: OWNER,
+        created_at: new Date(Date.now() - 60_000).toISOString(),
+      },
+      // Stored and not yet decided: Uploaded, the moment between the file
+      // being confirmed and something choosing what happens to it.
+      {
+        id: "doc-uploaded",
+        org_id: BRIDGE,
+        athlete_id: null,
+        file_name: "just-arrived.xlsx",
+        file_size: 15360,
+        media_type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        format: "excel",
+        source_role: "coordinator",
+        status: "pending",
+        route: null,
+        lifecycle: "uploaded",
+        lifecycle_changed_at: new Date(Date.now() - 30_000).toISOString(),
+        category: null,
+        provenance: null,
+        extracted: null,
+        confidence: null,
+        candidates: null,
+        failure_reason: null,
+        issues: null,
+        applied_at: null,
+        undone_at: null,
+        read_by: null,
+        storage_paths: [`${BRIDGE}/req_fixture_xlsx/1-just-arrived.xlsx`],
+        original_paths: [`${BRIDGE}/req_fixture_xlsx/1-just-arrived.xlsx`],
+        content_hash: "2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5061728394a5b6c7d8e9f0a1b",
+        uploaded_by: OWNER,
+        created_at: new Date(Date.now() - 30_000).toISOString(),
+      },
+    ]),
     // Assignments (migration 0046). On the fixture athlete, one in each
     // status: overdue (assigned, a fixed date well past), due soon
     // (assigned, three days out), submitted (with the filed document and

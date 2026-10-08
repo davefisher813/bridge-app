@@ -157,3 +157,20 @@ describe("helpers", () => {
     expect(safeStorageName("a".repeat(200)).length).toBe(80);
   });
 });
+
+describe("sizes and labels read the way a person says them", () => {
+  it("formatBytes", async () => {
+    const { formatBytes } = await import("./format");
+    expect(formatBytes(1)).toBe("1 byte");
+    expect(formatBytes(512)).toBe("512 bytes");
+    expect(formatBytes(48213)).toBe("47 KB");
+    expect(formatBytes(1.5 * 1024 * 1024)).toBe("1.5 MB");
+    expect(formatBytes(-1)).toBe("");
+  });
+  it("formatLabelOf prefers the stored format and falls back on the media type", async () => {
+    const { formatLabelOf } = await import("./format");
+    expect(formatLabelOf("word", null)).toBe("Word");
+    expect(formatLabelOf(null, "image/png")).toBe("PNG");
+    expect(formatLabelOf(null, "image/gif")).toBe("File");
+  });
+});

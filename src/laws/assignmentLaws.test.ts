@@ -760,27 +760,30 @@ describe("LAW: the fixture carries an assignment in each status and a family fil
   });
 });
 
-describe("LAW: a filed document never renders in Needs Review or with an Apply button", () => {
-  // Verified this law bites: routed 'filed' into the pending group on
-  // the documents list, watched it fail, reverted.
+describe("LAW: a filed document is a Family Upload that waits in Needs Review and never has an Apply button", () => {
+  // Since the vault (migration 0048) a file an Athlete login sent in is
+  // in the Needs Review state like any stored file: staff look at it and
+  // Mark Ready. What it must never have is a reading to Apply, because
+  // nothing read it. Verified this law bites: gave the filed document
+  // page the Apply section, watched it fail, reverted.
   async function render(modulePath: string, props: Record<string, unknown>): Promise<string> {
     const { renderToStaticMarkup } = await import("react-dom/server");
     const mod = (await import(/* @vite-ignore */ modulePath)) as { default: (p: Record<string, unknown>) => Promise<unknown> };
     return renderToStaticMarkup((await mod.default(props)) as never);
   }
 
-  it("the documents list does not put a family file under Needs Review", async () => {
+  it("the documents list shows a family file as a Family Upload, in Needs Review, with no Apply", async () => {
     const html = await render("@/app/org/[slug]/documents/page", { params: Promise.resolve({ slug: ORG_WITH_MODULES }), searchParams: Promise.resolve({}) });
     const at = html.indexOf("june-score-report.pdf");
-    // The list must show a filed file, under its own heading. A list
-    // that silently omits it would pass a check that only looks at the
-    // heading above it.
+    // The list must show a filed file at all. A list that silently omits
+    // it would pass a check that only looks at the heading above it.
     expect(at).toBeGreaterThan(-1);
     const before = html.slice(0, at);
-    // Section labels only: the row's own title also says Family Upload.
-    const heads = [...before.matchAll(/text-muted">(Being Read|Needs Review|Not Used|Applied|Discarded|Family Upload)</g)];
+    const heads = [...before.matchAll(/text-muted">(Uploaded|Processing|Needs Review|Ready|Archived)</g)];
     expect(heads.length).toBeGreaterThan(0);
-    expect(heads[heads.length - 1][1]).toBe("Family Upload");
+    expect(heads[heads.length - 1][1]).toBe("Needs Review");
+    expect(before.slice(before.lastIndexOf('data-kit="row"'))).toMatch(/Family Upload/);
+    expect(html).not.toMatch(/>Apply</);
   });
 
   // A filed row has no Discard, so a staff upload of the same bytes must
@@ -798,7 +801,7 @@ describe("LAW: a filed document never renders in Needs Review or with an Apply b
     const filed = await render("@/app/org/[slug]/documents/[id]/page", { params: Promise.resolve({ slug: ORG_WITH_MODULES, id: IDS.documentFiled }) });
     expect(filed).toMatch(/june-score-report\.pdf/);
     expect(filed).not.toMatch(/>Apply</);
-    expect(filed).not.toMatch(/Needs Review/);
+    expect(filed).toMatch(/Needs Review/);
     expect(filed).toMatch(/Family Upload/);
     const pending = await render("@/app/org/[slug]/documents/[id]/page", { params: Promise.resolve({ slug: ORG_WITH_MODULES, id: IDS.document }) });
     expect(pending).toMatch(/fixture\.pdf/);

@@ -39,9 +39,11 @@ alter table documents
   add column lifecycle            doc_lifecycle not null default 'needs_review',
   add column lifecycle_changed_at timestamptz   not null default now(),
   add column format               text,
-  add column uploaded_by          uuid references users(id) on delete set null,
   add column review_reason        text,
   add column original_paths       text[]        not null default '{}';
+
+alter table documents add column uploaded_by uuid references users(id) on delete set null;
+create index documents_uploaded_by_idx on documents (uploaded_by);
 
 alter table documents
   add constraint documents_format_check

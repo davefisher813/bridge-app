@@ -13,6 +13,7 @@
 // names another fixture id: that is how the live driver opens the family
 // screens as the family login (scripts/live/drive.mjs).
 
+import { makeFile } from "@/testing/vaultFiles";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { buildFixture, OWNER_ID, FAMILY_ID, MEMBER_ID } from "@/testing/fixture";
@@ -37,6 +38,16 @@ export const fixtureDataset = () => (persist ? (store.__fixtureDb ??= buildFixtu
 // duplicate-file guard (which hashes what it reads back) has something
 // true to compare.
 const tinyPdf = (path: string) => Buffer.from(`%PDF-1.4\n%fixture upload ${path}\n1 0 obj << >> endobj\n%%EOF\n`);
+// The browser's upload is intercepted in the browser tests, so what the
+// server reads back is made up from the file's extension: real bytes of
+// that format (src/testing/vaultFiles.ts), a PDF carrying its own path so
+// two uploads are never the same file by accident.
+function stoodInBytes(path: string): Buffer {
+  const ext = (path.split(".").pop() ?? "").toLowerCase();
+  const kind = ext === "jpeg" ? "jpg" : ext;
+  if (kind === "pdf" || !(["docx", "xlsx", "doc", "xls", "csv", "txt", "jpg", "png"] as string[]).includes(kind)) return tinyPdf(path);
+  return Buffer.from(makeFile(kind as "docx" | "xlsx" | "doc" | "xls" | "csv" | "txt" | "jpg" | "png"));
+}
 type FakeClient = ReturnType<typeof createFakeClient>;
 function withUploadReadback(client: FakeClient): FakeClient {
   const from = client.storage.from.bind(client.storage);
@@ -45,7 +56,7 @@ function withUploadReadback(client: FakeClient): FakeClient {
     const download = bucketApi.download.bind(bucketApi);
     bucketApi.download = async (path: string) => {
       const found = await download(path);
-      return found.data ? found : { data: new Blob([tinyPdf(path)]), error: null };
+      return found.data ? found : { data: new Blob([new Uint8Array(stoodInBytes(path))]), error: null };
     };
     return bucketApi;
   };
