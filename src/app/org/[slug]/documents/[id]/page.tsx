@@ -282,13 +282,22 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       ? isStuck
         ? "This Reading Did Not Finish"
         : "Still Being Read"
-    : isPending
+    : isPending && !wasRead
+      ? "Stored File"
+      : isPending
       ? matched || candidates.length
         ? "Check This Before It Lands"
         : "Not sure who this is"
       : `${doc.category ? (CATEGORY_LABEL[doc.category] ?? doc.category) : "Document"} read`;
 
-  const chip = <LifecycleChip lifecycle={lifecycle} />;
+  // The vault's state first; what the reader did to an athlete after it,
+  // when it applied a reading.
+  const chip = (
+    <Stack gap={2}>
+      <LifecycleChip lifecycle={lifecycle} />
+      {isApplied && <Chip label="Applied" kind="check" role="committed" />}
+    </Stack>
+  );
 
   // The file as it was stored: never changed after upload. Name, format,
   // size, who, when and the SHA-256 of the bytes, then a copy to save. No

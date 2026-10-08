@@ -475,6 +475,8 @@ const FROZEN_DOCUMENT_COLUMNS = ["org_id", "file_name", "file_size", "media_type
 
 function columnDefaults(table: string): Row {
   if (table === "docai_usage") return { created_at: new Date().toISOString() };
+  // The database stamps the time of a log row; nothing else does.
+  if (table === "activity_log") return { created_at: new Date().toISOString() };
   if (table === "documents") return { lifecycle: "needs_review", lifecycle_changed_at: new Date().toISOString(), original_paths: [], created_at: new Date().toISOString() };
   return {};
 }

@@ -56,7 +56,14 @@ function withUploadReadback(client: FakeClient): FakeClient {
     const download = bucketApi.download.bind(bucketApi);
     bucketApi.download = async (path: string) => {
       const found = await download(path);
-      return found.data ? found : { data: new Blob([new Uint8Array(stoodInBytes(path))]), error: null };
+      if (found.data) return found;
+      // The upload itself was stood in for in the browser, so the object
+      // is made here, once, the way the bucket would hold it: the
+      // document table's insert guard needs the file to exist.
+      const bytes = stoodInBytes(path);
+      const objects = fixtureDataset().storage_objects ?? (fixtureDataset().storage_objects = []);
+      objects.push({ bucket, name: path, base64: bytes.toString("base64") });
+      return { data: new Blob([new Uint8Array(bytes)]), error: null };
     };
     return bucketApi;
   };
