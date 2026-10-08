@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "808c17e",
-  "commitFull": "808c17e0c16b03b0be1a9d482722106d6a99291f",
+  "commit": "a2153aa",
+  "commitFull": "a2153aae27327c8e81eb21e6e352719b66eefb71",
   "branch": "claude/docai-piece2",
   "remoteBranches": [],
   "shipped": false,
   "dirty": false,
   "onMain": false,
-  "startedAt": "2026-10-08T15:13:53.774Z",
-  "durationMs": 75252,
+  "startedAt": "2026-10-08T21:20:47.016Z",
+  "durationMs": 118505,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -146,7 +146,7 @@
             "location": "/login"
           }
         },
-        "ms": 1507
+        "ms": 1825
       },
       "errors": [],
       "warnings": [],
@@ -160,8 +160,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 19,
-      "filesScanned": 567
+      "touchedFiles": 24,
+      "filesScanned": 568
     },
     {
       "name": "types",
