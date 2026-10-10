@@ -4,6 +4,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { personLabel } from "@/lib/org/roleLabels";
 import { loadAdvisorCounts, loadStaff } from "@/lib/data/staff";
+import { photoUrl } from "@/lib/people/photo";
 import { Avatar, Chevron, EmptyState, Row, Screen, Section } from "@/components/kit";
 
 // Advisors (Stage 5, Phase 3): every Admin and how many athletes each
@@ -31,7 +32,7 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
   const active = staff.filter((p) => p.signedIn || p.id === me.id);
   const invited = staff.filter((p) => !(p.signedIn || p.id === me.id));
   const row = (p: (typeof staff)[number]) => (
-    <Row key={p.id} href={`/org/${slug}/members/${p.id}`} leading={<Avatar name={p.name} />} title={p.name} meta={`${personLabel(p)} · ${athletes(counts.byAdvisor.get(p.id) ?? 0)}`} trailing={<Chevron />} wrap />
+    <Row key={p.id} href={`/org/${slug}/members/${p.id}`} leading={<Avatar name={p.name} photo={photoUrl(slug, p.id, p.photoPath)} />} title={p.name} meta={`${personLabel(p)} · ${athletes(counts.byAdvisor.get(p.id) ?? 0)}`} trailing={<Chevron />} wrap />
   );
 
   return (

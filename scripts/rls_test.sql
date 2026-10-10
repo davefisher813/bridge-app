@@ -4393,3 +4393,172 @@ delete from users where id::text like '00000000-0000-0000-0000-0000000480a%';
 delete from auth.users where id::text like '00000000-0000-0000-0000-0000000480a%';
 
 \echo 'ALL 0048 ASSERTIONS PASSED'
+
+-- ═══ Migrations 0049 and 0050: member photos, board meetings ═════════
+-- Meetings and their materials are Admins only, in their own org; a link
+-- never joins across orgs; removing a meeting never removes a document.
+-- A photo path has one shape. Planted to fail like the blocks above.
+reset role;
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000500a1', 'meet-owner@m.example'),
+  ('00000000-0000-0000-0000-0000000500a3', 'meet-viewer@m.example'),
+  ('00000000-0000-0000-0000-0000000500a4', 'meet-family@m.example'),
+  ('00000000-0000-0000-0000-0000000500a5', 'meet-other@m.example');
+insert into users (id, email, full_name) values
+  ('00000000-0000-0000-0000-0000000500a1', 'meet-owner@m.example', 'Meet Owner'),
+  ('00000000-0000-0000-0000-0000000500a3', 'meet-viewer@m.example', 'Meet Viewer'),
+  ('00000000-0000-0000-0000-0000000500a4', 'meet-family@m.example', 'Meet Family'),
+  ('00000000-0000-0000-0000-0000000500a5', 'meet-other@m.example', 'Meet Other')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into orgs (id, name, slug) values
+  ('00000000-0000-0000-0000-000000050010', 'Meet Org', 'meet-org'),
+  ('00000000-0000-0000-0000-000000050020', 'Meet Other Org', 'meet-other-org');
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-0000000500a1', '00000000-0000-0000-0000-000000050010', 'owner'),
+  ('00000000-0000-0000-0000-0000000500a3', '00000000-0000-0000-0000-000000050010', 'member'),
+  ('00000000-0000-0000-0000-0000000500a4', '00000000-0000-0000-0000-000000050010', 'family'),
+  ('00000000-0000-0000-0000-0000000500a5', '00000000-0000-0000-0000-000000050020', 'owner');
+insert into boards (id, org_id, name, kind) values
+  ('00000000-0000-0000-0000-000000050030', '00000000-0000-0000-0000-000000050010', 'Meet Board', 'executive'),
+  ('00000000-0000-0000-0000-000000050031', '00000000-0000-0000-0000-000000050020', 'Other Board', 'executive');
+insert into storage.objects (bucket_id, name) values
+  ('documents', '00000000-0000-0000-0000-000000050010/req1/1-agenda.pdf'),
+  ('documents', '00000000-0000-0000-0000-000000050020/req1/1-theirs.pdf');
+insert into documents (id, org_id, file_name, file_size, media_type, source_role, lifecycle, storage_paths, original_paths) values
+  ('00000000-0000-0000-0000-000000050040', '00000000-0000-0000-0000-000000050010', 'agenda.pdf', 10, 'application/pdf', 'coordinator', 'needs_review',
+   array['00000000-0000-0000-0000-000000050010/req1/1-agenda.pdf'], array['00000000-0000-0000-0000-000000050010/req1/1-agenda.pdf']),
+  ('00000000-0000-0000-0000-000000050041', '00000000-0000-0000-0000-000000050020', 'theirs.pdf', 10, 'application/pdf', 'coordinator', 'needs_review',
+   array['00000000-0000-0000-0000-000000050020/req1/1-theirs.pdf'], array['00000000-0000-0000-0000-000000050020/req1/1-theirs.pdf']);
+
+set role app_user;
+-- 1. An Admin makes a meeting and attaches this org's document.
+do $$
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000500a1');
+  insert into board_meetings (id, org_id, board_id, title, meets_on) values
+    ('00000000-0000-0000-0000-000000050050', '00000000-0000-0000-0000-000000050010', '00000000-0000-0000-0000-000000050030', 'October Meeting', '2026-10-20');
+  insert into board_meeting_documents (meeting_id, document_id, org_id) values
+    ('00000000-0000-0000-0000-000000050050', '00000000-0000-0000-0000-000000050040', '00000000-0000-0000-0000-000000050010');
+  if (select count(*) from board_meeting_documents where meeting_id = '00000000-0000-0000-0000-000000050050') <> 1 then
+    raise exception 'FAIL: the Admin could not attach a document to a meeting';
+  end if;
+  raise notice 'PASS: an Admin makes a meeting and attaches a document';
+end $$;
+
+-- 2. No link across orgs, no meeting on another org's board.
+do $$
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000500a1');
+  begin
+    insert into board_meeting_documents (meeting_id, document_id, org_id) values
+      ('00000000-0000-0000-0000-000000050050', '00000000-0000-0000-0000-000000050041', '00000000-0000-0000-0000-000000050010');
+    raise exception 'FAIL: a meeting was linked to another org''s document';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into board_meetings (org_id, board_id, title, meets_on) values
+      ('00000000-0000-0000-0000-000000050010', '00000000-0000-0000-0000-000000050031', 'Wrong Board', '2026-10-21');
+    raise exception 'FAIL: a meeting was put on another org''s board';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS: no meeting link or board reaches across orgs';
+end $$;
+
+-- 3. Viewer, family, signed out and another org's Admin read nothing and write nothing.
+do $$
+declare who uuid; n int;
+begin
+  foreach who in array array['00000000-0000-0000-0000-0000000500a3', '00000000-0000-0000-0000-0000000500a4', '00000000-0000-0000-0000-0000000500a5']::uuid[] loop
+    perform set_test_user(who);
+    select count(*) into n from board_meetings where org_id = '00000000-0000-0000-0000-000000050010';
+    if n <> 0 then raise exception 'FAIL: % read % meetings of an org they are not an Admin of', who, n; end if;
+    select count(*) into n from board_meeting_documents where org_id = '00000000-0000-0000-0000-000000050010';
+    if n <> 0 then raise exception 'FAIL: % read % meeting materials', who, n; end if;
+    begin
+      insert into board_meetings (org_id, title, meets_on) values ('00000000-0000-0000-0000-000000050010', 'Sneaky', '2026-10-22');
+      raise exception 'FAIL: % created a meeting', who;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+  perform set_test_user(null);
+  select count(*) into n from board_meetings;
+  if n <> 0 then raise exception 'FAIL: signed out read % meetings', n; end if;
+  raise notice 'PASS: only an org''s Admins read or write its meetings';
+end $$;
+
+-- 4. Removing a meeting removes its links and never the document; a
+-- linked document cannot be removed out from under a meeting.
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000500a1');
+  delete from board_meetings where id = '00000000-0000-0000-0000-000000050050';
+  select count(*) into n from board_meeting_documents where meeting_id = '00000000-0000-0000-0000-000000050050';
+  if n <> 0 then raise exception 'FAIL: a removed meeting left % links', n; end if;
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000050040';
+  if n <> 1 then raise exception 'FAIL: removing a meeting removed its document'; end if;
+  raise notice 'PASS: removing a meeting keeps its documents';
+end $$;
+
+-- 5. A photo path has one shape, and the photo bucket is private and small.
+reset role;
+do $$
+declare pub boolean; lim bigint;
+begin
+  begin
+    update org_members set photo_path = '../../etc/passwd'
+    where user_id = '00000000-0000-0000-0000-0000000500a1' and org_id = '00000000-0000-0000-0000-000000050010';
+    raise exception 'FAIL: a photo path outside the shape was stored';
+  exception when check_violation then null;
+  end;
+  update org_members set photo_path = '00000000-0000-0000-0000-000000050010/00000000-0000-0000-0000-0000000500a1/1.jpg'
+  where user_id = '00000000-0000-0000-0000-0000000500a1' and org_id = '00000000-0000-0000-0000-000000050010';
+  select public, file_size_limit into pub, lim from storage.buckets where id = 'member-photos';
+  if pub is distinct from false then raise exception 'FAIL: the photo bucket is public or missing'; end if;
+  if lim is distinct from 1048576 then raise exception 'FAIL: the photo bucket limit is %', lim; end if;
+  if exists (select 1 from pg_policies where schemaname = 'storage' and cmd <> 'INSERT' and (coalesce(qual, '') ilike '%member-photos%' or coalesce(with_check, '') ilike '%member-photos%')) then
+    raise exception 'FAIL: a storage policy lets someone read, replace or delete a photo';
+  end if;
+  raise notice 'PASS: photo paths have one shape and the bucket is private and 1 MB, with no read, update or delete policy';
+end $$;
+
+-- 6. An Admin adds a photo only under their own org's folder; a Viewer,
+-- a family login and another org's Admin cannot; nobody reads one back.
+set role app_user;
+do $$
+declare n int; who uuid;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000500a1');
+  insert into storage.objects (bucket_id, name) values ('member-photos', '00000000-0000-0000-0000-000000050010/00000000-0000-0000-0000-0000000500a3/1.jpg');
+  begin
+    insert into storage.objects (bucket_id, name) values ('member-photos', '00000000-0000-0000-0000-000000050020/00000000-0000-0000-0000-0000000500a5/1.jpg');
+    raise exception 'FAIL: an Admin added a photo under another org''s folder';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into storage.objects (bucket_id, name) values ('member-photos', '00000000-0000-0000-0000-000000050010/00000000-0000-0000-0000-0000000500a3/evil.png');
+    raise exception 'FAIL: a photo with another name shape was added';
+  exception when insufficient_privilege then null;
+  end;
+  select count(*) into n from storage.objects where bucket_id = 'member-photos';
+  if n <> 0 then raise exception 'FAIL: an Admin read % photo objects directly', n; end if;
+  foreach who in array array['00000000-0000-0000-0000-0000000500a3', '00000000-0000-0000-0000-0000000500a4']::uuid[] loop
+    perform set_test_user(who);
+    begin
+      insert into storage.objects (bucket_id, name) values ('member-photos', '00000000-0000-0000-0000-000000050010/00000000-0000-0000-0000-0000000500a1/2.jpg');
+      raise exception 'FAIL: % added a photo', who;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+  raise notice 'PASS: only an org''s Admins add photos, only under its folder, and nobody reads them directly';
+end $$;
+reset role;
+delete from storage.objects where bucket_id = 'member-photos' and name like '00000000-0000-0000-0000-00000005%';
+
+reset role;
+delete from storage.objects where name like '00000000-0000-0000-0000-00000005001%' or name like '00000000-0000-0000-0000-00000005002%';
+delete from orgs where id in ('00000000-0000-0000-0000-000000050010', '00000000-0000-0000-0000-000000050020');
+delete from users where id::text like '00000000-0000-0000-0000-0000000500a%';
+delete from auth.users where id::text like '00000000-0000-0000-0000-0000000500a%';
+
+\echo 'ALL 0049 AND 0050 ASSERTIONS PASSED'

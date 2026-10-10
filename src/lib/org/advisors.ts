@@ -47,12 +47,15 @@ export interface AdvisorChoice {
   advising: number;
   // Have they ever signed in? The Members screen calls the rest invited.
   signedIn: boolean;
+  // Their photo here (migration 0049), a path in the private bucket, or null.
+  photoPath: string | null;
 }
 
 interface MemberRow {
   user_id: string;
   role: string;
   title?: string | null;
+  photo_path?: string | null;
   users: { email: string | null; full_name: string | null; last_sign_in_at?: string | null } | { email: string | null; full_name: string | null; last_sign_in_at?: string | null }[] | null;
 }
 
@@ -76,7 +79,7 @@ export function sortAdvisorChoices<T extends { name: string; id: string; lastAss
 
 export async function loadAdvisorChoices(client: Client, orgId: string): Promise<AdvisorChoice[]> {
   const [{ data: memberRows }, { data: athleteRows }] = await Promise.all([
-    client.from("org_members").select("user_id, role, title, users(email, full_name, last_sign_in_at)").eq("org_id", orgId).in("role", ADVISOR_ROLES),
+    client.from("org_members").select("user_id, role, title, photo_path, users(email, full_name, last_sign_in_at)").eq("org_id", orgId).in("role", ADVISOR_ROLES),
     client.from("athletes").select("advisor_id, advisor_assigned_at").eq("org_id", orgId).is("deleted_at", null),
   ]);
 
@@ -96,7 +99,7 @@ export async function loadAdvisorChoices(client: Client, orgId: string): Promise
       const email = person?.email?.trim() ?? "";
       const name = person?.full_name?.trim() || email;
       if (!name) return null;
-      return { id: r.user_id, name, email, role: r.role as OrgRole, title: cleanTitle(r.title), lastAssignedAt: latest.get(r.user_id) ?? null, advising: counts.get(r.user_id) ?? 0, signedIn: !!person?.last_sign_in_at };
+      return { id: r.user_id, name, email, role: r.role as OrgRole, title: cleanTitle(r.title), lastAssignedAt: latest.get(r.user_id) ?? null, advising: counts.get(r.user_id) ?? 0, signedIn: !!person?.last_sign_in_at, photoPath: r.photo_path ?? null };
     })
     .filter((p): p is AdvisorChoice => p !== null);
 

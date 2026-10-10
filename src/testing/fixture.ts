@@ -15,6 +15,7 @@
 // at a school with no grading scale, and a document that failed.
 
 import { makeFile } from "./vaultFiles";
+import { FIXTURE_PHOTO_BASE64 } from "./fixturePhoto";
 import type { Dataset } from "@/testing/fakeSupabase";
 
 const BRIDGE = "00000000-0000-0000-0000-0000000000a1";
@@ -124,6 +125,8 @@ export function buildFixture(): Dataset {
         owner: FAMILY,
         base64: Buffer.from("%PDF-1.4\n%fixture score report\n1 0 obj << >> endobj\n%%EOF\n").toString("base64"),
       },
+      // The owner's photo (migration 0049).
+      { bucket: "member-photos", name: `${BRIDGE}/${OWNER}/1791600000.jpg`, base64: FIXTURE_PHOTO_BASE64 },
       // The originals behind the vault fixtures below, real bytes of each
       // format so the download route returns something a viewer can open.
       ...(
@@ -186,7 +189,7 @@ export function buildFixture(): Dataset {
       // A Title set by an Admin (migration 0041), shown in place of the
       // access level next to the owner's name, on the athlete pages
       // they advise included.
-      { id: "m1", user_id: OWNER, org_id: BRIDGE, role: "owner", title: "Head of Recruiting" },
+      { id: "m1", user_id: OWNER, org_id: BRIDGE, role: "owner", title: "Head of Recruiting", photo_path: `${BRIDGE}/${OWNER}/1791600000.jpg` },
       { id: "m2", user_id: MEMBER, org_id: BRIDGE, role: "member" },
       { id: "m3", user_id: OWNER, org_id: ELITE, role: "owner" },
       // A leftover staff row. Migration 0041 moves every one to owner;
