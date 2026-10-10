@@ -284,7 +284,11 @@ export default async function MemberPage({
           }
         >
           {advises.length === 0 && (
-            <EmptyState kind="athlete" title="Nobody Yet" />
+            <EmptyState kind="athlete" title="Nobody Yet">
+              {/* One string, so the name never loses the spaces around it
+                  (audit, issue #1). */}
+              {assignable.length > 0 ? `Tick athletes below to make ${name} their advisor.` : undefined}
+            </EmptyState>
           )}
           {advises.map((a) => (
             <Stack key={a.id} gap={2}>

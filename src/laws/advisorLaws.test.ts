@@ -295,6 +295,32 @@ describe("LAW: the sheet lists Admins most recently used first, then by name, ne
     expect(html.match(/Example Owner/g)!.length).toBe(1);
   });
 
+  // Verified this law bites: dropped the email from the meta in the
+  // Advisors page, watched it fail, reverted.
+  it("two Admins with the same name are both listed, told apart by email (issue #1)", async () => {
+    secondAdmin();
+    const twin = data.users.find((u) => u.id === LONG_INVITE_ID)!;
+    const owner = data.users.find((u) => u.id === OWNER_ID)!;
+    twin.full_name = owner.full_name;
+    twin.last_sign_in_at = "2026-10-01T00:00:00.000Z";
+    const { default: AdvisorsPage } = await import("@/app/org/[slug]/advisors/page");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const html = text(renderToStaticMarkup(await AdvisorsPage({ params: Promise.resolve({ slug: ORG_WITH_MODULES }) })));
+    expect(html.match(new RegExp(owner.full_name as string, "g"))!.length).toBe(2);
+    expect(html).toContain(owner.email as string);
+    expect(html).toContain(twin.email as string);
+  });
+
+  // Verified this law bites: put the copy back as JSX with {name}
+  // between text nodes and no spaces, watched it fail, reverted.
+  it("the member page tells an Admin advising nobody how to start, with spaces around the name (issue #1)", async () => {
+    secondAdmin();
+    data.athletes.find((a) => a.id === IDS.athleteTransfer)!.advisor_id = null;
+    const html = text(await render("@/app/org/[slug]/members/[userId]/page", { params: P({ slug: ORG_WITH_MODULES, userId: LONG_INVITE_ID }), searchParams: P({}) }));
+    expect(html).toMatch(/Tick athletes below to make \S.* their advisor\./);
+    expect(html).not.toMatch(/make\S/);
+  });
+
   it("an Admin never assigned sorts last, ties go A to Z", async () => {
     const { sortAdvisorChoices } = await import("@/lib/org/advisors");
     const sorted = sortAdvisorChoices([

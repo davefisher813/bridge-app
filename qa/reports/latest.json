@@ -1,15 +1,17 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "a0d2ca0",
-  "commitFull": "a0d2ca00ffb8bb5e666f7770006de010919ae9a3",
+  "commit": "b2b6e8b",
+  "commitFull": "b2b6e8b93000aab63a596c89d8c7b6f3486e449f",
   "branch": "claude/downloads-directory-4mf6gv",
-  "remoteBranches": [],
-  "shipped": false,
+  "remoteBranches": [
+    "origin/main"
+  ],
+  "shipped": true,
   "dirty": true,
-  "onMain": false,
-  "startedAt": "2026-10-10T03:48:45.074Z",
-  "durationMs": 30475,
+  "onMain": true,
+  "startedAt": "2026-10-10T15:12:56.020Z",
+  "durationMs": 216080,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,7 +20,7 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 2485,
+        "pass": 2487,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
@@ -32,7 +34,7 @@
         "src/laws/accessLaws.test.ts": 12,
         "src/laws/actionRun.test.ts": 181,
         "src/laws/activityLaws.test.ts": 17,
-        "src/laws/advisorLaws.test.ts": 26,
+        "src/laws/advisorLaws.test.ts": 28,
         "src/laws/assignmentLaws.test.ts": 49,
         "src/laws/athleteAutofillLaws.test.ts": 24,
         "src/laws/athleteCrudLaws.test.ts": 23,
@@ -147,7 +149,7 @@
             "location": "/login"
           }
         },
-        "ms": 1412
+        "ms": 1393
       },
       "errors": [],
       "warnings": [],
@@ -161,8 +163,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 40,
-      "filesScanned": 654
+      "touchedFiles": 3,
+      "filesScanned": 655
     },
     {
       "name": "types",

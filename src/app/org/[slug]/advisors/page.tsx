@@ -31,8 +31,12 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
   // The caller is always in, they are reading this.
   const active = staff.filter((p) => p.signedIn || p.id === me.id);
   const invited = staff.filter((p) => !(p.signedIn || p.id === me.id));
+  // Two sign-ins can carry the same name (one person with a personal and
+  // a work address, audit issue #1). Each is a real account, so neither
+  // is hidden; the email tells them apart.
+  const sameName = new Set(staff.filter((p, i) => staff.findIndex((q) => q.name === p.name) !== i).map((p) => p.name));
   const row = (p: (typeof staff)[number]) => (
-    <Row key={p.id} href={`/org/${slug}/members/${p.id}`} leading={<Avatar name={p.name} photo={photoUrl(slug, p.id, p.photoPath)} />} title={p.name} meta={`${personLabel(p)} · ${athletes(counts.byAdvisor.get(p.id) ?? 0)}`} trailing={<Chevron />} wrap />
+    <Row key={p.id} href={`/org/${slug}/members/${p.id}`} leading={<Avatar name={p.name} photo={photoUrl(slug, p.id, p.photoPath)} />} title={p.name} meta={`${personLabel(p)} · ${athletes(counts.byAdvisor.get(p.id) ?? 0)}${sameName.has(p.name) && p.email ? ` · ${p.email}` : ""}`} trailing={<Chevron />} wrap />
   );
 
   return (
