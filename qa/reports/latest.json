@@ -1,8 +1,8 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "840c1ea",
-  "commitFull": "840c1ea0d6e5bc18d6e6c43aa74a8a1d5258ba85",
+  "commit": "1de5e94",
+  "commitFull": "1de5e940d61408075517de91b6ba2c4c9becd3ff",
   "branch": "claude/downloads-directory-4mf6gv",
   "remoteBranches": [
     "origin/claude/downloads-directory-4mf6gv",
@@ -11,8 +11,8 @@
   "shipped": true,
   "dirty": true,
   "onMain": true,
-  "startedAt": "2026-10-10T20:14:04.140Z",
-  "durationMs": 55800,
+  "startedAt": "2026-10-10T20:25:57.766Z",
+  "durationMs": 40776,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -21,13 +21,13 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 2513,
+        "pass": 2522,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
         "suitesFailed": 0,
-        "filesOnDisk": 92,
-        "filesLoaded": 92
+        "filesOnDisk": 94,
+        "filesLoaded": 94
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
@@ -45,6 +45,7 @@
         "src/laws/copyLaws.test.ts": 4,
         "src/laws/dataLaws.test.ts": 12,
         "src/laws/dateLaws.test.ts": 5,
+        "src/laws/docTypeLaws.test.ts": 5,
         "src/laws/documentLaws.test.ts": 32,
         "src/laws/fitLaws.test.ts": 11,
         "src/laws/fundraisingActions.test.ts": 84,
@@ -93,6 +94,7 @@
         "src/lib/docai/resolver.test.ts": 9,
         "src/lib/docai/stubCaller.test.ts": 4,
         "src/lib/docai/versioning.test.ts": 4,
+        "src/lib/documents/fileTypes.test.ts": 4,
         "src/lib/fit/aid.test.ts": 5,
         "src/lib/fit/ncaa/approvedCourses.test.ts": 26,
         "src/lib/fit/ncaa/approvedListPaste.test.ts": 17,
@@ -155,7 +157,7 @@
             "location": "/login"
           }
         },
-        "ms": 1540
+        "ms": 1553
       },
       "errors": [],
       "warnings": [],
@@ -169,8 +171,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 14,
-      "filesScanned": 671
+      "touchedFiles": 12,
+      "filesScanned": 677
     },
     {
       "name": "types",

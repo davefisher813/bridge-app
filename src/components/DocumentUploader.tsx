@@ -1,5 +1,6 @@
 "use client";
 
+import { FILE_TYPE_LABEL, FILE_TYPES, type FileTypeId } from "@/lib/documents/fileTypes";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ingestFile } from "@/lib/docai/ingest";
@@ -23,6 +24,9 @@ import { Button, Choice, ChoiceRow, FileField, Label, Notice, SelectField, Stack
 // Review.
 
 // No Type is the default. The six types still read as they always did.
+// After them, the types the reader never reads (migration 0054): stored
+// and labelled, straight to Needs Review.
+const FILE_ONLY: { id: FileTypeId; label: string }[] = FILE_TYPES.map((id) => ({ id, label: FILE_TYPE_LABEL[id] }));
 const CATEGORIES: { id: DocCategoryId | null; label: string }[] = [
   { id: null, label: "No Type" },
   { id: "transcript", label: "Transcript" },
@@ -65,6 +69,7 @@ export interface DocumentUploaderProps {
 export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps) {
   const router = useRouter();
   const [category, setCategory] = useState<DocCategoryId | null>(boundTo?.category ?? null);
+  const [fileAs, setFileAs] = useState<FileTypeId | null>(null);
   const [sourceRole, setSourceRole] = useState<SourceRole>("coordinator");
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -151,6 +156,7 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
         originals,
         sourceRole,
         requestedCategory: category,
+        fileAs: category ? null : fileAs,
         athleteId: boundTo?.athleteId,
       });
 
@@ -172,15 +178,36 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
           <Label>What Is It</Label>
           <ChoiceRow>
             {CATEGORIES.map((c) => (
-              <Choice key={c.label} on={c.id === category} onClick={() => setCategory(c.id)}>
+              <Choice
+                key={c.label}
+                on={c.id === category && (c.id !== null || fileAs === null)}
+                onClick={() => {
+                  setCategory(c.id);
+                  setFileAs(null);
+                }}
+              >
                 {c.label}
+              </Choice>
+            ))}
+            {FILE_ONLY.map((t) => (
+              <Choice
+                key={t.id}
+                on={category === null && fileAs === t.id}
+                onClick={() => {
+                  setCategory(null);
+                  setFileAs(t.id);
+                }}
+              >
+                {t.label}
               </Choice>
             ))}
           </ChoiceRow>
           <Label>
-            {category === null
-              ? "It is stored as it is and goes to Needs Review. Pick a type to have it read."
-              : "It is read as this type. If it does not look like it, it is kept in Needs Review and says so."}
+            {category !== null
+              ? "It is read as this type. If it does not look like it, it is kept in Needs Review and says so."
+              : fileAs !== null
+                ? "It is stored and labelled as this type, not read, and goes to Needs Review."
+                : "It is stored as it is and goes to Needs Review. Pick a type to have it read."}
           </Label>
         </Stack>
       )}

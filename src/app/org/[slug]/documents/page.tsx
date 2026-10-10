@@ -1,3 +1,4 @@
+import { documentTypeLabel } from "@/lib/documents/fileTypes";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -22,6 +23,8 @@ interface DocRow {
   id: string;
   file_name: string;
   category: string | null;
+  requested_category: string | null;
+  filed_as: string | null;
   status: string;
   route: string | null;
   provenance: { confidence?: number } | null;
@@ -81,15 +84,18 @@ function DocumentRow({ slug, doc }: { slug: string; doc: DocRow }) {
   const athlete = athleteLabel(doc);
   const pct = doc.provenance?.confidence != null ? Math.round(doc.provenance.confidence * 100) : null;
   const lifecycle = (isLifecycle(doc.lifecycle) ? doc.lifecycle : "needs_review") as Lifecycle;
-  const typed = !!doc.category;
-  // A tagged document reads "Transcript · Name"; one nobody tagged is
-  // just its file name, which is the only thing known about it.
+  // The type a person picked or the reader settled on (fileTypes.ts). A
+  // read document reads "Transcript · Name"; one typed but not read is
+  // just its type, with the file name below; one nobody typed is its file
+  // name, the only thing known about it.
+  const label = documentTypeLabel(doc, CATEGORY_LABEL);
+  const typed = !!label;
   const title =
     doc.status === "filed"
       ? `Family Upload${athlete ? ` · ${athlete}` : ""}`
-      : typed
-        ? `${CATEGORY_LABEL[doc.category!] ?? doc.category}${athlete ? ` · ${athlete}` : " · no match"}`
-        : doc.file_name;
+      : doc.category
+        ? `${label}${athlete ? ` · ${athlete}` : " · no match"}`
+        : (label ?? doc.file_name);
   const reason = lifecycle === "processing" && isStaleProcessing(lifecycle, doc.lifecycle_changed_at) ? "Reading did not finish." : doc.review_reason;
   const facts = [typed || doc.status === "filed" ? doc.file_name : null, formatLabelOf(doc.format, doc.media_type), formatBytes(doc.file_size), ago(doc.created_at)].filter(Boolean);
   const notes = [doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
@@ -128,7 +134,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select("id, file_name, category, status, route, provenance, extracted, athlete_id, athletes(name, deleted_at), failure_reason, read_by, created_at, file_size, media_type, format, lifecycle, lifecycle_changed_at, review_reason")
+    .select("id, file_name, category, requested_category, filed_as, status, route, provenance, extracted, athlete_id, athletes(name, deleted_at), failure_reason, read_by, created_at, file_size, media_type, format, lifecycle, lifecycle_changed_at, review_reason")
     .eq("org_id", org.id)
     .order("created_at", { ascending: false })
     .limit(60);
@@ -139,7 +145,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const rows = q
     ? all.filter((r) => {
         const athlete = athleteLabel(r);
-        return `${r.file_name} ${r.category ?? ""} ${athlete ?? ""}`.toLowerCase().includes(q);
+        return `${r.file_name} ${documentTypeLabel(r, CATEGORY_LABEL) ?? ""} ${athlete ?? ""}`.toLowerCase().includes(q);
       })
     : all;
   const inState = (state: Lifecycle) => rows.filter((r) => r.lifecycle === state);

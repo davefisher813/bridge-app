@@ -93,6 +93,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0050_board_meetings
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0051_authority_log.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0052_close_needs_review_shelf.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0053_stub_reading_never_applied.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0054_document_filed_as.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
@@ -121,6 +122,10 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0053_stub_reading
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0053_stub_reading_never_applied.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_trigger where tgname = 'documents_stub_never_applied'\"" | grep -qx 1
 echo "==> 0053 is reversible"
+echo "==> 0054: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0054_document_filed_as_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0054_document_filed_as.sql"
+echo "==> 0054 is reversible"
 
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"

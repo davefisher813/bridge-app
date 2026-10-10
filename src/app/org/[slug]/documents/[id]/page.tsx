@@ -2,12 +2,13 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { applyDocument, discardDocument, isStubbedModel, moveDocumentAndStay } from "@/lib/actions/documents";
+import { applyDocument, discardDocument, fileDocumentAs, isStubbedModel, moveDocumentAndStay } from "@/lib/actions/documents";
+import { documentTypeLabel, FILE_TYPE_LABEL, FILE_TYPES } from "@/lib/documents/fileTypes";
 import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
 import { applyRefusal, isStubReading } from "@/lib/data/readBy";
 import { editableFields } from "@/lib/data/extractedEdit";
 import type { DocCategoryId } from "@/lib/docai/types";
-import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
+import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, SelectField, Stack } from "@/components/kit";
 import { LifecycleChip } from "@/components/LifecycleChip";
 import { longDate } from "@/lib/copy/dates";
 import { formatBytes, formatLabelOf } from "@/lib/vault/format";
@@ -27,6 +28,7 @@ interface DocDetail {
   page_count: number | null;
   category: string | null;
   requested_category: string | null;
+  filed_as: string | null;
   detected_type: string | null;
   source_role: string;
   status: string;
@@ -175,9 +177,11 @@ function displayFields(extracted: Record<string, unknown> | null): { label: stri
     .filter((f) => f.value !== "");
 }
 
-export default async function DocumentPage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ error?: string }> }) {
+export default async function DocumentPage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ error?: string; notice?: string }> }) {
   const { slug, id } = await params;
-  const error = searchParams ? (await searchParams).error : undefined;
+  const query = searchParams ? await searchParams : {};
+  const error = query.error;
+  const notice = query.notice;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   await requireRole(org.id, STAFF_ROLES);
@@ -186,7 +190,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const { data } = await supabase
     .from("documents")
     .select(
-      "id, file_name, file_size, page_count, category, requested_category, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths"
+      "id, file_name, file_size, page_count, category, requested_category, filed_as, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths"
     )
     .eq("id", id)
     .eq("org_id", org.id)
@@ -303,7 +307,9 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // size, who, when and the SHA-256 of the bytes, then a copy to save. No
   // preview in this piece; every format shows the same.
   const hash = doc.content_hash ? (doc.content_hash.match(/.{1,8}/g) ?? []).join(" ") : null;
+  const typeLabel = documentTypeLabel(doc, CATEGORY_LABEL);
   const facts: [string, string][] = [
+    ["Type", typeLabel ?? "No Type"],
     ["File Name", doc.file_name],
     ["Format", formatLabelOf(doc.format, doc.media_type)],
     ["Size", formatBytes(doc.file_size)],
@@ -323,6 +329,25 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           ))}
         </Stack>
       </Card>
+      {/* A document the reader has no type for can be filed as one the
+          reader never reads (migration 0054). A reading type stays. */}
+      {!doc.category && !doc.requested_category && !isFiled && (
+        <Form action={fileDocumentAs.bind(null, slug, doc.id)}>
+          <Stack gap={3}>
+            <SelectField name="filedAs" label="File As" defaultValue={doc.filed_as ?? ""}>
+              <option value="">No Type</option>
+              {FILE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {FILE_TYPE_LABEL[t]}
+                </option>
+              ))}
+            </SelectField>
+            <Button type="submit" variant="secondary">
+              Save Type
+            </Button>
+          </Stack>
+        </Form>
+      )}
       {files.map((_, i) => (
         <DownloadLink key={i} href={`/org/${slug}/documents/${doc.id}/download?n=${i + 1}`}>
           {files.length === 1 ? "Download" : `Download Page ${i + 1}`}
@@ -366,6 +391,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       lede={`${doc.file_name}${doc.page_count ? ` · ${doc.page_count} page${doc.page_count === 1 ? "" : "s"}` : ""} · from ${SOURCE_LABEL[doc.source_role] ?? doc.source_role}`}
       action={chip}
     >
+      {notice && <Notice tone="success" title={notice} />}
       {error && <Notice tone="danger" title={error} />}
       {doc.review_reason && lifecycle !== "ready" && lifecycle !== "archived" && <Notice tone="warning" title={doc.review_reason} />}
       {!wasRead && !isFailed ? null : isPending && refusal ? (
