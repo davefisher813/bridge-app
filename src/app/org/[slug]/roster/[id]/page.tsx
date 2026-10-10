@@ -18,7 +18,7 @@ import { isOpenStatus, loadAthleteAssignments, sortByUrgency, todayIso } from "@
 import { AssignmentRows } from "@/components/AssignmentRows";
 import { ActivityRows } from "@/components/ActivityRows";
 import { loadCoachOptions } from "@/lib/data/lookups";
-import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Grid2, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Grid2, Hidden, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { relationshipLabel } from "@/lib/copy/relationships";
 import { statusRole, stageKind } from "@/components/statusHue";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
@@ -102,9 +102,12 @@ function unwrap<T>(value: T | T[] | null): T | null {
 // and Family, as sections on one scrollable page. Closed targets,
 // messages and visits live on Recruiting History; the profile shows
 // only what is live. Dave, 2026-09-26.
-export default async function AthletePage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ notice?: string; error?: string }> }) {
+export default async function AthletePage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ notice?: string; error?: string; undo?: string }> }) {
   const { slug, id } = await params;
-  const { notice, error } = searchParams ? await searchParams : {};
+  const { notice, error, undo } = searchParams ? await searchParams : {};
+  // After an advisor change the notice offers Undo: who advised before,
+  // or "none". Anything else in the query is ignored.
+  const undoTo = undo === "none" || (undo && /^[0-9a-f-]{36}$/i.test(undo)) ? undo : null;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
@@ -269,6 +272,8 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
       // the door is offered to the same people who may go through it.
       add={user.role === "owner" ? { href: `/org/${slug}/members/new?role=owner&assignAthleteId=${id}`, label: "Add Admin" } : undefined}
       empty="Nobody here can advise yet. Add an Admin below."
+      confirm={`Make {choice} the advisor for ${athlete.name}?${advisor ? ` ${advisor.name} stops advising them.` : ""}`}
+      clearConfirm={`Clear the advisor for ${athlete.name}? Nobody advises them until someone is picked.`}
     />
   ) : undefined;
 
@@ -283,6 +288,14 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         <Notice tone="success" title="Done">
           {notice}
         </Notice>
+      )}
+      {notice && undoTo && canEdit && (
+        <Form action={advisorAction}>
+          <Hidden name="advisorId" value={undoTo === "none" ? "" : undoTo} />
+          <ConfirmButton tone="change" title="Undo the Advisor Change?" body={undoTo === "none" ? `${athlete.name} goes back to having no advisor.` : `${athlete.name} goes back to their previous advisor.`} confirmLabel="Undo">
+            Undo
+          </ConfirmButton>
+        </Form>
       )}
       {error && <Notice tone="danger" title={error} />}
 

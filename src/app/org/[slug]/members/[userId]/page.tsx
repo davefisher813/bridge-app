@@ -11,7 +11,7 @@ import { photoUrl } from "@/lib/people/photo";
 import { linkGuardian, unlinkGuardian, updateGuardianRelationship } from "@/lib/actions/guardians";
 import { canAdvise as roleCanAdvise, loadAdvisorChoices } from "@/lib/org/advisors";
 import { AdvisorSheet } from "@/components/AdvisorSheet";
-import { Avatar, Button, Card, CheckField, Chevron, ConfirmButton, EmptyState, Field, Form, Hidden, Notice, Option, Prose, Row, Screen, Section, SelectField, Stack } from "@/components/kit";
+import { Avatar, Body, Button, Card, CheckField, Chevron, ConfirmButton, EmptyState, Field, Form, Hidden, Label, Notice, Prose, Row, Screen, Section, SelectField, Stack } from "@/components/kit";
 
 interface MemberRow {
   user_id: string;
@@ -227,13 +227,33 @@ export default async function MemberPage({
           </Form>
         ) : (
           <>
-            <Form action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
-              <Stack gap={3}>
-                {ASSIGNABLE_ROLES.filter((r) => r !== "family").map((r) => (
-                  <Option key={r} name="role" value={r} selected={r === level} title={labelForRole(r)} meta={ROLE_BLURB[r]} />
-                ))}
-              </Stack>
-            </Form>
+            {/* One role at a time, each change asked first (Dave's
+                standing rule, 2026-10-06). The current one is shown, not
+                offered; the others say what changes, including who loses
+                their advisor. */}
+            <Stack gap={3}>
+              {ASSIGNABLE_ROLES.filter((r) => r !== "family").map((r) =>
+                r === level ? (
+                  <Card key={r} isStatic>
+                    <Body weight="semibold">{`${labelForRole(r)} Now`}</Body>
+                    <Label>{ROLE_BLURB[r]}</Label>
+                  </Card>
+                ) : (
+                  <Form key={r} action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
+                    <Hidden name="role" value={r} />
+                    <ConfirmButton
+                      tone="change"
+                      disabled={onlyOwner}
+                      title={`Make ${name} ${/^[AEIOU]/i.test(labelForRole(r)) ? "an" : "a"} ${labelForRole(r)}?`}
+                      body={`${ROLE_BLURB[r]}${!roleCanAdvise(r) && advises.length > 0 ? ` ${advises.length === 1 ? `${advises[0]!.name} loses their advisor.` : `${advises.length} athletes lose their advisor: ${advises.map((a) => a.name).join(", ")}.`}` : ""}`}
+                      confirmLabel="Change Role"
+                    >
+                      {`Make Them ${labelForRole(r)}`}
+                    </ConfirmButton>
+                  </Form>
+                ),
+              )}
+            </Stack>
             {onlyOwner && <Prose>The organization&apos;s only {ownerLabel}. Make someone else one before changing this.</Prose>}
             {!onlyOwner && athletes.length > 0 && (
               <Form action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
@@ -279,6 +299,7 @@ export default async function MemberPage({
                 searchLabel="Search Athletes"
                 choices={assignable.map((a) => ({ id: a.id, title: a.name, meta: a.advisor_id ? `Advised by ${staffName.get(a.advisor_id) ?? "someone else"} now` : "No advisor" }))}
                 empty="Every athlete here already has them as advisor."
+                confirm={`Make ${name} the advisor for {choice}?`}
               />
             ) : undefined
           }
@@ -313,7 +334,9 @@ export default async function MemberPage({
                     hint={a.advisor_id ? `Advised by ${staffName.get(a.advisor_id) ?? "someone else"} now` : "No advisor"}
                   />
                 ))}
-                <Button variant="secondary">Assign Ticked Athletes</Button>
+                <ConfirmButton tone="change" title={`Make ${name} Their Advisor?`} body="Each ticked athlete gets them as advisor. Anyone already advising a ticked athlete stops." confirmLabel="Assign">
+                  Assign Ticked Athletes
+                </ConfirmButton>
               </Stack>
             </Form>
           )}
@@ -327,7 +350,7 @@ export default async function MemberPage({
           </Card>
         ) : (
           <Form action={removeMemberForm.bind(null, slug, member.user_id)}>
-            <ConfirmButton title={`Remove ${name} from ${org.name}?`} body="Their account stays. They lose access to this organization only." confirmLabel="Remove">
+            <ConfirmButton title={`Remove ${name} from ${org.name}?`} body={`Their account stays. They lose access to this organization only.${advises.length > 0 ? ` ${advises.length === 1 ? `${advises[0]!.name} loses their advisor.` : `${advises.length} athletes lose their advisor.`}` : ""}`} confirmLabel="Remove">
               Remove From {org.name}
             </ConfirmButton>
           </Form>

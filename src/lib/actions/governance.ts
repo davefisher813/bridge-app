@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 import { centsToDecimalString } from "@/lib/validation/gift";
 import { toCents } from "@/lib/fundraising/rollup";
 import { BOARD_KINDS, DEFAULT_GIVE_GET_CENTS, DEFAULT_SEATS, type BoardKind } from "@/lib/governance/giveGet";
@@ -291,7 +292,7 @@ export async function removeBoardSeat(slug: string, boardId: string, memberId: s
 // the app could set it. Staff pick the person from the org's members
 // (owner, staff or member; never a family login) or clear the link.
 export async function linkSeatSignIn(slug: string, boardId: string, memberId: string, formData: FormData): Promise<void> {
-  const { org } = await requireGovernance(slug);
+  const { org, user } = await requireGovernance(slug);
   const back = `/org/${slug}/board-governance/${boardId}/seats/${memberId}`;
   const userId = String(formData.get("userId") ?? "").trim() || null;
 
@@ -314,6 +315,17 @@ export async function linkSeatSignIn(slug: string, boardId: string, memberId: st
 
   const { error } = await supabase.from("board_members").update({ user_id: userId }).eq("id", memberId).eq("org_id", org.id);
   if (error) redirect(`${back}?error=${encodeURIComponent(`Could not change the sign-in: ${error.message}`)}`);
+
+  // On the record either way (Dave's standing rule, 2026-10-06).
+  const seatName = (seat as { name: string }).name;
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    action: userId ? "seat_linked" : "seat_unlinked",
+    subjectType: "seat",
+    subjectId: memberId,
+    summary: userId ? activitySummary("seat_linked", { name: seatName, person: personName ?? "" }) : activitySummary("seat_unlinked", { name: seatName }),
+  });
 
   revalidatePath(back);
   revalidatePath(`/org/${slug}/member`);

@@ -25,6 +25,9 @@ const GLYPH: Record<ActivitySubjectType, { kind: RowKind; role: Role }> = {
   message: { kind: "message", role: "accent" },
   member: { kind: "people", role: "people" },
   view_as: { kind: "info", role: "neutral" },
+  seat: { kind: "people", role: "people" },
+  donor: { kind: "money", role: "contact" },
+  org: { kind: "org", role: "place" },
 };
 
 // These leave nothing to open: the thing they were about is gone.

@@ -322,6 +322,15 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
   // trigger only fires when an athlete is written, so the change clears
   // the column itself, or the athletes they advised keep pointing at
   // somebody who no longer may and reminders keep counting them.
+  // What the change takes away, read first so each loss is on the
+  // record below (Dave's standing rule, 2026-10-06: nothing changes
+  // silently).
+  const lostAdvisees = nextRole === "member" || becomingFamily ? await adviseesOf(admin, org.id, userId) : [];
+  const lostSeats: { id: string; name: string }[] = [];
+  if (becomingFamily) {
+    const { data: seatRows } = await admin.from("board_members").select("id, name").eq("org_id", org.id).eq("user_id", userId);
+    lostSeats.push(...((seatRows ?? []) as { id: string; name: string }[]));
+  }
   if (nextRole === "member" || becomingFamily) {
     const { error: advisorError } = await admin.from("athletes").update({ advisor_id: null }).eq("org_id", org.id).eq("advisor_id", userId);
     if (advisorError) return { ok: false, error: advisorError.message };
@@ -364,6 +373,7 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
     athleteId: becomingFamily ? athleteId : null,
     summary: activitySummary("member_role_changed", { name: (await personName(supabase, userId)) ?? "", from: labelForRole(currentRole), to: labelForRole(nextRole) }),
   });
+  await logLosses(admin, org.id, caller.id, lostAdvisees, lostSeats);
 
   revalidatePath(`/org/${slug}/members`);
   revalidatePath(`/org/${slug}/members/${userId}`);
@@ -373,6 +383,27 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
   }
   if (becomingFamily && athleteId) revalidatePath(`/org/${slug}/roster/${athleteId}`);
   return { ok: true };
+}
+
+// The athletes someone advises here, read before a change takes them
+// away.
+async function adviseesOf(admin: ReturnType<typeof createAdminClient>, orgId: string, userId: string): Promise<{ id: string; name: string }[]> {
+  const { data } = await admin.from("athletes").select("id, name").eq("org_id", orgId).eq("advisor_id", userId);
+  return (data ?? []) as { id: string; name: string }[];
+}
+
+// One log row per athlete who lost their advisor and per board seat that
+// lost its sign-in as a side effect of a role change or a removal, so the
+// Activity screen shows every one of them. Through the service role: the
+// caller may have just removed or demoted themselves, and the row still
+// names them as the actor.
+async function logLosses(admin: ReturnType<typeof createAdminClient>, orgId: string, actorId: string, advisees: { id: string; name: string }[], seats: { id: string; name: string }[]): Promise<void> {
+  for (const a of advisees) {
+    await logActivity(admin, { orgId, actorId, action: "advisor_cleared", subjectType: "athlete", subjectId: a.id, athleteId: a.id, summary: activitySummary("advisor_cleared", { name: a.name }) });
+  }
+  for (const seat of seats) {
+    await logActivity(admin, { orgId, actorId, action: "seat_unlinked", subjectType: "seat", subjectId: seat.id, summary: activitySummary("seat_unlinked", { name: seat.name }) });
+  }
 }
 
 export async function removeMember(slug: string, userId: string): Promise<{ ok: boolean; error?: string; removedSelf?: boolean }> {
@@ -399,7 +430,9 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
 
   const admin = createAdminClient();
   // The athletes they advised here lose their advisor with the
-  // membership, for the same reason as a demotion above.
+  // membership, for the same reason as a demotion above, each on the
+  // record.
+  const lostAdvisees = await adviseesOf(admin, org.id, userId);
   const { error: advisorError } = await admin.from("athletes").update({ advisor_id: null }).eq("org_id", org.id).eq("advisor_id", userId);
   if (advisorError) return { ok: false, error: advisorError.message };
   const { error: linkError } = await admin.from("athlete_guardians").delete().eq("user_id", userId).eq("org_id", org.id);
@@ -420,6 +453,7 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
     subjectId: userId,
     summary: activitySummary("member_removed", { name: name ?? "" }),
   });
+  await logLosses(admin, org.id, caller.id, lostAdvisees, []);
 
   revalidatePath(`/org/${slug}/members`);
   revalidatePath(`/org/${slug}/mine`);
@@ -559,7 +593,7 @@ export async function renameSelfForm(slug: string, formData: FormData): Promise<
 export async function setMemberTitle(slug: string, userId: string, raw: unknown): Promise<{ ok: boolean; error?: string; title?: string | null }> {
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
-  await requireOwner(org.id);
+  const caller = await requireOwner(org.id);
 
   const parsed = parseMemberTitle(raw);
   if (!parsed.ok) return { ok: false, error: parsed.error };
@@ -575,6 +609,15 @@ export async function setMemberTitle(slug: string, userId: string, raw: unknown)
   const { data, error } = await admin.from("org_members").update({ title: parsed.title }).eq("org_id", org.id).eq("user_id", userId).select("user_id");
   if (error) return { ok: false, error: error.message };
   if (!data || data.length === 0) return { ok: false, error: "That person is not in this organization." };
+
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: caller.id,
+    action: "member_title_changed",
+    subjectType: "member",
+    subjectId: userId,
+    summary: activitySummary("member_title_changed", { name: (await personName(supabase, userId)) ?? "", to: parsed.title }),
+  });
 
   // The Title shows on the members list, their page, every athlete they
   // advise and the athlete logins' screens, so the whole org refreshes.

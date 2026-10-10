@@ -51,6 +51,12 @@ const SAMPLE: { [A in ActivityAction]: ActivitySubjects[A] } = {
   member_removed: { name: "Example Member" },
   view_as_started: { name: "Example Member", role: "Viewer" },
   view_as_ended: { name: "Example Member" },
+  member_title_changed: { name: "Example Member", to: "Head Coach" },
+  seat_linked: { name: "Fixture Chair", person: "Example Member" },
+  seat_unlinked: { name: "Fixture Chair" },
+  steward_set: { name: "Fixture Donor", person: "Example Owner" },
+  steward_cleared: { name: "Fixture Donor" },
+  settings_changed: { setting: "the modules" },
 };
 
 describe("activitySummary builds one sentence per action", () => {

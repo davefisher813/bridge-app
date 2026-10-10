@@ -61,11 +61,19 @@ export const ACTIVITY_ACTIONS = [
   "member_removed",
   "view_as_started",
   "view_as_ended",
+  // Every authority change is on the record (migration 0051; Dave's
+  // standing rule, 2026-10-06).
+  "member_title_changed",
+  "seat_linked",
+  "seat_unlinked",
+  "steward_set",
+  "steward_cleared",
+  "settings_changed",
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
 
-export const ACTIVITY_SUBJECT_TYPES = ["athlete", "target", "assignment", "document", "checkin", "message", "member", "view_as"] as const;
+export const ACTIVITY_SUBJECT_TYPES = ["athlete", "target", "assignment", "document", "checkin", "message", "member", "view_as", "seat", "donor", "org"] as const;
 
 export type ActivitySubjectType = (typeof ACTIVITY_SUBJECT_TYPES)[number];
 
@@ -102,6 +110,12 @@ export const SUBJECT_TYPE_OF: Record<ActivityAction, ActivitySubjectType> = {
   member_removed: "member",
   view_as_started: "view_as",
   view_as_ended: "view_as",
+  member_title_changed: "member",
+  seat_linked: "seat",
+  seat_unlinked: "seat",
+  steward_set: "donor",
+  steward_cleared: "donor",
+  settings_changed: "org",
 };
 
 // ── The summary: a branded sentence ──────────────────────────────────
@@ -160,6 +174,18 @@ export interface ActivitySubjects {
   member_removed: { name: string; athlete?: string | null };
   view_as_started: { name: string; role?: string | null };
   view_as_ended: { name: string };
+  // `to` is the new Title, a short label an Admin typed for display; null
+  // when it was cleared.
+  member_title_changed: { name: string; to?: string | null };
+  // `name` is the seat holder's name on the board; `person` the sign-in.
+  seat_linked: { name: string; person: string };
+  seat_unlinked: { name: string };
+  // `name` is the donor's name; `person` the Admin stewarding them.
+  steward_set: { name: string; person: string };
+  steward_cleared: { name: string };
+  // `setting` is a fixed phrase built by the caller ("the modules", "the
+  // Doc AI budget to $20"), never form text.
+  settings_changed: { setting: string };
 }
 
 // Names are clipped so two of them and two statuses still fit the
@@ -231,6 +257,12 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   member_removed: (s) => (s.athlete ? `Removed ${person(s.name)} from ${who(s.athlete)}` : `Removed ${person(s.name)}`),
   view_as_started: (s) => (s.role ? `Started viewing as ${person(s.name)}, ${article(word(s.role, ""))} ${word(s.role, "")}` : `Started viewing as ${person(s.name)}`),
   view_as_ended: (s) => `Stopped viewing as ${person(s.name)}`,
+  member_title_changed: (s) => (s.to ? `Set the title for ${person(s.name)} to ${word(s.to, "a title")}` : `Cleared the title for ${person(s.name)}`),
+  seat_linked: (s) => `Linked the board seat of ${person(s.name)} to the sign-in of ${person(s.person)}`,
+  seat_unlinked: (s) => `Unlinked the board seat of ${person(s.name)} from its sign-in`,
+  steward_set: (s) => `Set ${person(s.person)} as the steward for ${clip(s.name, NAME_MAX, "a donor")}`,
+  steward_cleared: (s) => `Cleared the steward for ${clip(s.name, NAME_MAX, "a donor")}`,
+  settings_changed: (s) => `Changed ${clip(s.setting, 80, "the settings")}`,
 };
 
 // The only way to make an ActivitySummary. Takes an action and the small

@@ -190,7 +190,7 @@ describe("LAW: the athlete page assigns, changes and clears, for an Admin, on th
   it("assigns an Admin and comes back with a notice", async () => {
     const { setAdvisorFromAthleteForm } = await import("@/lib/actions/advisor");
     const r = await run(() => setAdvisorFromAthleteForm(ORG_WITH_MODULES, IDS.athleteTransfer, form({ advisorId: OWNER_ID })));
-    expect(r.redirect).toBe(`${back}?notice=Advisor%20assigned.`);
+    expect(r.redirect).toBe(`${back}?notice=Advisor%20assigned.&undo=none`);
     expect(advisorOf(IDS.athleteTransfer)).toBe(OWNER_ID);
     const update = of("athletes", "update")[0];
     expect(update?.rows[0]).toEqual({ advisor_id: OWNER_ID });
@@ -201,7 +201,7 @@ describe("LAW: the athlete page assigns, changes and clears, for an Admin, on th
   it("an empty value clears", async () => {
     const { setAdvisorFromAthleteForm } = await import("@/lib/actions/advisor");
     const r = await run(() => setAdvisorFromAthleteForm(ORG_WITH_MODULES, IDS.athlete, form({ advisorId: "" })));
-    expect(r.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}?notice=Advisor%20cleared.`);
+    expect(r.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}?notice=Advisor%20cleared.&undo=${OWNER_ID}`);
     expect(advisorOf(IDS.athlete)).toBeNull();
     expect(of("athletes", "update")[0]?.rows[0]).toEqual({ advisor_id: null });
   });
@@ -350,17 +350,23 @@ describe("LAW: the sheet lists Admins most recently used first, then by name, ne
         choices: choices.map((c) => ({ id: c.id, title: c.name, meta: c.title ?? "Admin", keywords: c.email })),
         add: { href: `/org/${ORG_WITH_MODULES}/members/new?role=owner&assignAthleteId=${IDS.athlete}`, label: "Add Admin" },
         empty: "Nobody yet.",
+        confirm: "Make {choice} the advisor for Fixture Athlete?",
+        clearConfirm: "Clear the advisor for Fixture Athlete?",
         defaultOpen: true,
       }),
     );
     expect(html).toMatch(/role="dialog"/);
     expect(html.indexOf("an.unusually.long.invited.address")).toBeLessThan(html.indexOf("Example Owner"));
-    expect(html).toMatch(/<button type="submit" value="[^"]+" disabled="" aria-pressed="true"[^>]*name="advisorId"[^>]*>[\s\S]*?Example Owner/);
+    expect(html).toMatch(/<button type="button" disabled="" aria-pressed="true"[^>]*>[\s\S]*?Example Owner/);
     expect(html).toMatch(/Assigned Now/);
-    expect(html).toMatch(/<button value=""[^>]*name="advisorId"[^>]*>Clear Advisor/);
+    expect(html).toMatch(/<button type="button"[^>]*>Clear Advisor/);
+    // A tap never writes: no row and no Clear is a submit carrying the
+    // field (Dave's standing rule, 2026-10-06). The confirm step does.
+    expect(html).not.toMatch(/name="advisorId"/);
+    expect(html).not.toMatch(/type="submit"/);
     expect(html).toContain(`href="/org/${ORG_WITH_MODULES}/members/new?role=owner&amp;assignAthleteId=${IDS.athlete}"`);
     // Closed, only the trigger shows.
-    const closed = renderToStaticMarkup(createElement(AdvisorSheet, { action: async () => {}, field: "advisorId", title: "Advisor", trigger: "Change", searchLabel: "Search Admins", choices: [], empty: "Nobody yet." }));
+    const closed = renderToStaticMarkup(createElement(AdvisorSheet, { action: async () => {}, field: "advisorId", title: "Advisor", trigger: "Change", searchLabel: "Search Admins", choices: [], empty: "Nobody yet.", confirm: "Make {choice} the advisor?" }));
     expect(closed).toContain("Change");
     expect(closed).not.toMatch(/role="dialog"/);
   });
