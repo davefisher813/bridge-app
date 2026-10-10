@@ -4041,3 +4041,21 @@ the check for that, and should be run after any manual change.
 
 **Consequences.** Pull requests no longer get a Vercel preview build, so
 `npm run qa:check` and the live driver are the pre-merge checks.
+
+## 2026-10-10: document types the reader never reads, and the chosen type sticks
+
+**Decision.** Migration 0054 adds `documents.filed_as` (Board Document,
+Athlete Profile, Other): picked on upload or later on the document
+screen (File As), stored and labelled, never read. The six reader types
+stay the reader's. Every screen now shows the type a person picked when
+the reader could not read the file or settled on nothing: before, a Word
+file tagged Transcript read as No Type.
+
+**Reason.** Alfred, 2026-10-10: 13 of the 16 prepared files had no fitting
+type, and Transcript did not visibly stick after upload.
+
+**Alternatives.** New reader categories for bylaws and profiles (they have
+no reading schema and nothing on an athlete to fill).
+
+**Consequences.** Filing never changes a document with a reader type, and
+never touches the stored file.

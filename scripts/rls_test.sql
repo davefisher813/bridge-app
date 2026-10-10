@@ -4604,3 +4604,21 @@ begin
 end $$;
 
 \echo 'ALL 0053 ASSERTIONS PASSED'
+
+-- ── Migration 0054: a file-only type ─────────────────────────────────
+-- A document can be filed as one of three types the reader never reads,
+-- and nothing else; filing it does not touch the original record.
+reset role;
+do $$
+begin
+  update documents set filed_as = 'board_document' where id = '00000000-0000-0000-0000-000000053040';
+  if (select filed_as from documents where id = '00000000-0000-0000-0000-000000053040') <> 'board_document' then
+    raise exception 'FAIL 0054: filed_as did not save';
+  end if;
+  begin
+    update documents set filed_as = 'bylaws' where id = '00000000-0000-0000-0000-000000053040';
+    raise exception 'FAIL 0054: an unknown type was accepted';
+  exception when check_violation then null;
+  end;
+end $$;
+\echo 'ALL 0054 ASSERTIONS PASSED'
