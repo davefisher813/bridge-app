@@ -72,4 +72,4 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0050_board_meetings.sql | applied | 20261010061607 0050_board_meetings |
 | 0051_authority_log.sql | applied | 20261010164800 0051_authority_log |
 | 0052_close_needs_review_shelf.sql | applied | 20261010192408 0052_close_needs_review_shelf |
-| 0053_stub_reading_never_applied.sql | pending | not on production yet; waits on the merge go-ahead |
+| 0053_stub_reading_never_applied.sql | applied | 20261010201956 0053_stub_reading_never_applied |
