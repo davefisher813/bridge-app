@@ -1,8 +1,8 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "1de5e94",
-  "commitFull": "1de5e940d61408075517de91b6ba2c4c9becd3ff",
+  "commit": "1704f10",
+  "commitFull": "1704f10e4cff029adcf64e789af709b8be3d8612",
   "branch": "claude/downloads-directory-4mf6gv",
   "remoteBranches": [
     "origin/claude/downloads-directory-4mf6gv",
@@ -11,8 +11,8 @@
   "shipped": true,
   "dirty": true,
   "onMain": true,
-  "startedAt": "2026-10-10T20:25:57.766Z",
-  "durationMs": 40776,
+  "startedAt": "2026-10-10T20:44:57.362Z",
+  "durationMs": 94610,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -21,7 +21,7 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 2522,
+        "pass": 2524,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
@@ -45,7 +45,7 @@
         "src/laws/copyLaws.test.ts": 4,
         "src/laws/dataLaws.test.ts": 12,
         "src/laws/dateLaws.test.ts": 5,
-        "src/laws/docTypeLaws.test.ts": 5,
+        "src/laws/docTypeLaws.test.ts": 7,
         "src/laws/documentLaws.test.ts": 32,
         "src/laws/fitLaws.test.ts": 11,
         "src/laws/fundraisingActions.test.ts": 84,
@@ -157,7 +157,7 @@
             "location": "/login"
           }
         },
-        "ms": 1553
+        "ms": 1389
       },
       "errors": [],
       "warnings": [],
@@ -171,8 +171,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 12,
-      "filesScanned": 677
+      "touchedFiles": 5,
+      "filesScanned": 678
     },
     {
       "name": "types",

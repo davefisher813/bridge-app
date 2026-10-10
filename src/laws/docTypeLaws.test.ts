@@ -88,21 +88,48 @@ describe("LAW: a document shows the type a person picked", () => {
   });
 });
 
+// Verified this law bites: dropped READER_TYPES from the document
+// screen's File As list, watched it fail, reverted.
+describe("LAW: the document screen offers every type the upload form does", () => {
+  it("File As lists the same ten types as the uploader", async () => {
+    const page = await render("@/app/org/[slug]/documents/[id]/page", { params: P({ slug: ORG_WITH_MODULES, id: "doc-word" }), searchParams: P({}) });
+    const select = page.slice(page.indexOf('name="filedAs"'), page.indexOf("</select>", page.indexOf('name="filedAs"')));
+    const offered = [...select.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map((m) => m[1]);
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { createElement } = await import("react");
+    const { DocumentUploader } = await import("@/components/DocumentUploader");
+    const up = text(renderToStaticMarkup(createElement(DocumentUploader, { slug: ORG_WITH_MODULES, orgId: data.orgs[0]!.id as string })));
+    expect(offered).toEqual(["No Type", "Transcript", "Test Scores", "Offer Letter", "Recommendation", "Financial Aid", "Metrics Report", "Board Document", "Athlete Profile", "Other"]);
+    for (const label of offered) expect(up).toContain(label);
+  });
+});
+
 describe("LAW: filing a document never relabels a reading", () => {
   it("files an untyped document and clears the No type chosen reason", async () => {
     doc("doc-word").review_reason = "No type chosen.";
     const { fileDocumentAs } = await import("@/lib/actions/documents");
     const to = await run(() => fileDocumentAs(ORG_WITH_MODULES, "doc-word", form({ filedAs: "athlete_profile" })));
-    expect(to).toMatch(/notice=Filed%20as%20Athlete%20Profile/);
+    expect(to).toMatch(/notice=Type%20set%20to%20Athlete%20Profile/);
     expect(doc("doc-word").filed_as).toBe("athlete_profile");
     expect(doc("doc-word").review_reason).toBeNull();
   });
 
-  it("keeps a reading type, and refuses a type it does not know", async () => {
+  it("sets a reader type on an unread document as a label, never a reading", async () => {
+    doc("doc-word").filed_as = "other";
     const { fileDocumentAs } = await import("@/lib/actions/documents");
-    const typed = data.documents.find((d) => d.category || d.requested_category)!;
-    const to = await run(() => fileDocumentAs(ORG_WITH_MODULES, typed.id as string, form({ filedAs: "board_document" })));
-    expect(decodeURIComponent(to!)).toMatch(/already has a reading type/);
+    const to = await run(() => fileDocumentAs(ORG_WITH_MODULES, "doc-word", form({ filedAs: "transcript" })));
+    expect(to).toMatch(/notice=Type%20set%20to%20Transcript/);
+    expect(doc("doc-word").requested_category).toBe("transcript");
+    expect(doc("doc-word").filed_as).toBeNull();
+    expect(doc("doc-word").category ?? null).toBeNull();
+    expect(doc("doc-word").status).toBe("pending");
+  });
+
+  it("keeps the type of a reading, and refuses a type it does not know", async () => {
+    const { fileDocumentAs } = await import("@/lib/actions/documents");
+    const read = data.documents.find((d) => d.category && d.extracted)!;
+    const to = await run(() => fileDocumentAs(ORG_WITH_MODULES, read.id as string, form({ filedAs: "board_document" })));
+    expect(decodeURIComponent(to!)).toMatch(/keeps the type of its reading/);
     const bad = await run(() => fileDocumentAs(ORG_WITH_MODULES, "doc-word", form({ filedAs: "bylaws" })));
     expect(decodeURIComponent(bad!)).toMatch(/Pick one of the types/);
     expect(writes.filter((w) => w.op === "update")).toEqual([]);

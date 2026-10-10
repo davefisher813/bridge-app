@@ -3,7 +3,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { applyDocument, discardDocument, fileDocumentAs, isStubbedModel, moveDocumentAndStay } from "@/lib/actions/documents";
-import { documentTypeLabel, FILE_TYPE_LABEL, FILE_TYPES } from "@/lib/documents/fileTypes";
+import { documentTypeLabel, FILE_TYPE_LABEL, FILE_TYPES, READER_TYPES } from "@/lib/documents/fileTypes";
 import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
 import { applyRefusal, isStubReading } from "@/lib/data/readBy";
 import { editableFields } from "@/lib/data/extractedEdit";
@@ -329,13 +329,19 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           ))}
         </Stack>
       </Card>
-      {/* A document the reader has no type for can be filed as one the
-          reader never reads (migration 0054). A reading type stays. */}
-      {!doc.category && !doc.requested_category && !isFiled && (
+      {/* The type of a document the reader has not read: the same list
+          as the upload form (fileTypes.ts). A read document keeps the
+          type of its reading. */}
+      {!doc.category && !doc.extracted && !isFiled && !isProcessing && !isApplied && (
         <Form action={fileDocumentAs.bind(null, slug, doc.id)}>
           <Stack gap={3}>
-            <SelectField name="filedAs" label="File As" defaultValue={doc.filed_as ?? ""}>
+            <SelectField name="filedAs" label="File As" defaultValue={doc.requested_category ?? doc.filed_as ?? ""}>
               <option value="">No Type</option>
+              {READER_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
               {FILE_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {FILE_TYPE_LABEL[t]}
