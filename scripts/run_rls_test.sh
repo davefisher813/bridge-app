@@ -91,6 +91,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/vault_mapping_post.sql
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0049_member_photos.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0050_board_meetings.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0051_authority_log.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0052_close_needs_review_shelf.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

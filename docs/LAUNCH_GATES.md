@@ -43,7 +43,12 @@ monthly budget).
   GPA and no test scores.
 - Every Oct 1 to 3 edit in the activity log was on a test athlete.
 
-## 3. Backups: cannot confirm, cannot enable from here
+## 3. Backups: daily backups on (Pro plan); PITR unconfirmed
+
+Update 2026-10-10: the Supabase organization is on the Pro plan, which
+includes daily backups. Point in time recovery is a separate add-on and
+is still unconfirmed.
+
 
 - Write-ahead-log archiving is on and current (487 segments, last archived
   2026-10-05 00:29 UTC). That is the mechanism backups and point-in-time
@@ -191,7 +196,7 @@ job that holds the keys.
 
 ## Needs Dave (collected)
 
-1. Backups: confirm the plan and turn on PITR (item 3).
+1. Backups: daily backups confirmed by the Pro plan; PITR is optional and unconfirmed (item 3).
 2. Supabase Authentication: Site URL, Redirect URLs with the production
    address, Magic Link and Invite templates in token-hash form (item 4).
 3. Custom SMTP credentials, so invitations and sign-in links stop hitting
@@ -200,5 +205,5 @@ job that holds the keys.
    be deleted (item 1).
 5. Dropping the two Sept 26 backup tables (his word).
 6. Approval and mailboxes for the real-account test (item 6).
-7. Which email is his real account: `dave@bffsa.org` still owns Elite Squad
-   and has no Bridge membership, so it sees no Bridge.
+7. Done 2026-10-10: `dave@bffsa.org` is a Bridge Admin. The Gmail account
+   is still on Bridge until Dave removes it in Members.

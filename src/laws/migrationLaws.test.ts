@@ -153,3 +153,22 @@ describe("LAW: 0041 changes data only by moving staff to owner", () => {
     expect(problemsIn(sql)).toEqual([]);
   });
 });
+
+// A view runs with its owner's rights unless told otherwise, and an
+// owner's rights skip row level security. public.needs_review_shelf,
+// made by hand on production, did exactly that and let a signed-out
+// visitor read every org's Needs Review file names (migration 0052).
+// Verified this law bites: added `create view public.x as select id
+// from documents;` to 0052, watched it fail, reverted.
+describe("LAW: every view a migration creates runs with the caller's rights", () => {
+  it("each create view carries security_invoker = true", () => {
+    const offenders: string[] = [];
+    for (const f of readdirSync(MIGRATIONS).filter((n) => n.endsWith(".sql"))) {
+      const sql = readFileSync(join(MIGRATIONS, f), "utf8").replace(/--.*$/gm, "");
+      for (const m of sql.matchAll(/create\s+(?:or\s+replace\s+)?view\s+([\w.]+)([\s\S]*?)\bas\b/gi)) {
+        if (!/security_invoker\s*=\s*(true|on)/i.test(m[2]!)) offenders.push(`${f}: ${m[1]}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
