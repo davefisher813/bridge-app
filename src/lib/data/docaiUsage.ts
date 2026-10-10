@@ -75,3 +75,35 @@ export async function loadMonthCalls(client: Client, orgId: string, now = new Da
     documentName: r.document_id ? (names.get(r.document_id) ?? null) : null,
   }));
 }
+
+// ── Rate limit (backend audit F-05) ──────────────────────────────────
+// The monthly cap is arithmetic on estimates after the fact; nothing
+// stopped a burst of uploads (or a stuck browser retrying) from making
+// dozens of paid calls in a minute before the cap noticed. This is a
+// hard ceiling on how many real model calls one org makes in a window,
+// counted from the same ledger every call writes to. The stand-in is
+// free and is never limited.
+export const RATE_LIMITS = [
+  { minutes: 10, max: 20 },
+  { minutes: 60, max: 60 },
+] as const;
+
+export async function loadRecentCalls(client: Client, orgId: string, now = new Date()): Promise<number[]> {
+  const longest = Math.max(...RATE_LIMITS.map((l) => l.minutes));
+  const since = new Date(now.getTime() - longest * 60_000).toISOString();
+  const { data } = await client.from("docai_usage").select("created_at").eq("org_id", orgId).gte("created_at", since);
+  return ((data ?? []) as { created_at: string }[]).map((r) => new Date(r.created_at).getTime());
+}
+
+// A sentence when this many more calls would break a window, or null.
+export function rateRefusal(callTimes: number[], requested: number, now = new Date()): string | null {
+  for (const { minutes, max } of RATE_LIMITS) {
+    const since = now.getTime() - minutes * 60_000;
+    const used = callTimes.filter((t) => t >= since).length;
+    if (used + requested > max) {
+      const left = Math.max(0, max - used);
+      return `Too many documents read in the last ${minutes === 60 ? "hour" : `${minutes} minutes`}: the limit is ${max}${left > 0 ? ` and ${left} more can be read now` : ""}. Try again in a little while.`;
+    }
+  }
+  return null;
+}
