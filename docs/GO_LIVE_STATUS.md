@@ -90,12 +90,11 @@ it's not going to cause any issues at all"):
   dave@bffsa.org, More, Members, the Gmail row, Remove.
 - Migration 0049 (member photos) applied. The Supabase org is on the Pro
   plan, which includes daily backups.
-- Migration 0050 (board meetings): not applied yet. Must be applied before
-  the branch merges, or the Governance Meetings screens fail.
+- Migration 0050 (board meetings) applied after Dave's "Go": both tables
+  have RLS on, 4 policies and the same-org trigger each. Then PR #2 merged.
 
 ## Still open
 
 1. Remove davefisher813@gmail.com from Bridge (one tap, above).
-2. Apply 0050, then merge PR #2.
-3. Henry Tolentino: on hold (Dave).
-4. Meetings for Viewers: Admin only today; Dave's call.
+2. Henry Tolentino: on hold (Dave).
+3. Meetings for Viewers: Admin only today; Dave's call.

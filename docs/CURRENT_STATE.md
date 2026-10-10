@@ -34,15 +34,15 @@ tile that goes nowhere, and every link followed to a real screen.
 
 ---
 
-## Go-live branch (`claude/downloads-directory-4mf6gv`, PR #2, not merged)
+## Go-live (PR #2, merged 2026-10-10)
 
 The Doc AI vault (0048) is on `main` and in production. On top of it, this
 branch adds member photos (migration 0049: one private JPEG per membership,
 added by an Admin on the member's page, shown on Members, the member page
 and Advisors) and board meetings (migration 0050: Governance, Meetings,
 with date, board, place, notes and documents from Documents attached;
-Admins only). Neither migration is applied to production: both wait on the
-merge and a confirmed backup or point in time recovery. The day's data
+Admins only). Both migrations are applied to production (Supabase Pro plan, daily
+backups). The day's data
 changes on production and what is still open are in `docs/GO_LIVE_STATUS.md`.
 Gate: 2,485 tests, build, lint, types, RLS suite with planted failures, 39
 browser tests, preview audit 0 findings, live driver 191 screens and 310
