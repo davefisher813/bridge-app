@@ -34,7 +34,7 @@ tile that goes nowhere, and every link followed to a real screen.
 
 ---
 
-## Go-live (PR #2, merged 2026-10-10)
+## Go-live (PR #2)
 
 The Doc AI vault (0048) is on `main` and in production. On top of it, this
 branch adds member photos (migration 0049: one private JPEG per membership,

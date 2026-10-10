@@ -91,7 +91,7 @@ it's not going to cause any issues at all"):
 - Migration 0049 (member photos) applied. The Supabase org is on the Pro
   plan, which includes daily backups.
 - Migration 0050 (board meetings) applied after Dave's "Go": both tables
-  have RLS on, 4 policies and the same-org trigger each. Then PR #2 merged.
+  have RLS on, 4 policies and the same-org trigger each. PR #2 is ready to merge.
 
 ## Still open
 
