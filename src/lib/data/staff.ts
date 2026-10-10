@@ -25,6 +25,8 @@ export interface StaffPerson {
   title: string | null;
   // Has signed in at least once; the rest are invited, as on Members.
   signedIn: boolean;
+  // Their photo here (migration 0049), or null.
+  photoPath: string | null;
 }
 
 // The org's Admins, A to Z. The rule for who that is lives in
@@ -32,7 +34,7 @@ export interface StaffPerson {
 // (src/laws/advisorLaws.test.ts).
 export async function loadStaff(supabase: Client, orgId: string): Promise<StaffPerson[]> {
   const choices = await loadAdvisorChoices(supabase, orgId);
-  return choices.map((c) => ({ id: c.id, name: c.name, email: c.email, role: c.role, title: c.title, signedIn: c.signedIn })).sort((a, b) => a.name.localeCompare(b.name));
+  return choices.map((c) => ({ id: c.id, name: c.name, email: c.email, role: c.role, title: c.title, signedIn: c.signedIn, photoPath: c.photoPath })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // How many athletes each Admin advises, for the Advisors screen under

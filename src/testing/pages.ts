@@ -165,6 +165,11 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "governance", path: "@/app/org/[slug]/board-governance/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture Executive Board/ },
   { name: "governance-board", path: "@/app/org/[slug]/board-governance/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.board }), searchParams: p({}) }, expect: /Fixture Chair/ },
   { name: "seat", path: "@/app/org/[slug]/board-governance/[id]/seats/[memberId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.board, memberId: IDS.boardMember }), searchParams: p({}) }, expect: /Fixture Chair/ },
+  { name: "meetings", path: "@/app/org/[slug]/board-governance/meetings/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fall Board Meeting[\s\S]*2 documents[\s\S]*Summer Planning Meeting/ },
+  { name: "meeting", path: "@/app/org/[slug]/board-governance/meetings/[meetingId]/page", props: { params: p({ slug: ORG_WITH_MODULES, meetingId: IDS.meetingUpcoming }), searchParams: p({}) }, expect: /Fall Board Meeting[\s\S]*team-letter\.docx[\s\S]*roster-export\.csv[\s\S]*Add to Meeting/ },
+  { name: "meeting-empty", path: "@/app/org/[slug]/board-governance/meetings/[meetingId]/page", props: { params: p({ slug: ORG_WITH_MODULES, meetingId: IDS.meetingPast }), searchParams: p({}) }, expect: /No Documents on This Meeting Yet/ },
+  { name: "new-meeting", path: "@/app/org/[slug]/board-governance/meetings/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /form|input/i },
+  { name: "edit-meeting", path: "@/app/org/[slug]/board-governance/meetings/[meetingId]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, meetingId: IDS.meetingUpcoming }) }, expect: /Edit Meeting[\s\S]*Fall Board Meeting/ },
   { name: "all-seats", path: "@/app/org/[slug]/board-governance/members/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture Chair/ },
   { name: "more", path: "@/app/org/[slug]/more/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Foundation/ },
   // Stage 5 Phase 3, 2026-09-27: More for the org with no modules has

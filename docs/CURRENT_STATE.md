@@ -1,6 +1,6 @@
 # Current state
 
-Last updated: 2026-09-30. Everything through Stage 5 Phases 1, 2, 3, 4
+Last updated: 2026-10-10 (go-live branch section below; the rest as of 2026-09-30). Everything through Stage 5 Phases 1, 2, 3, 4
 and 6 and the roles rework is deployed to production: migrations 0039 to
 0046 are applied, `main` is at the Phase 4 merge and Vercel is READY.
 Stage 5 Phase 5 (View As, migration 0047) is built, reviewed and
@@ -34,20 +34,19 @@ tile that goes nowhere, and every link followed to a real screen.
 
 ---
 
-## Doc AI vault (Piece 1, branch `claude/docai-piece1`, not merged)
+## Go-live (PR #2)
 
-Built, reviewed by the gate, not merged, migration 0048 not applied to
-production (waits on a confirmed backup or PITR for the project). Every
-upload is one of seven formats checked by extension and bytes, stored
-untouched with name, size, format, uploader, time and SHA-256, and kept for
-good: no delete exists. Five states on every row and on the document screen
-(Uploaded, Processing, Needs Review, Ready, Archived), seven allowed moves
-held in the app and by database triggers, each logged with who and when.
-Ready is only the Mark Ready tap. Untyped files and formats the reader
-cannot read go straight to Needs Review; a mismatch or reader error ends in
-Needs Review with the reason. The six old types read, review, apply and
-undo as before. Gate: 2,449 tests, build, lint, types, RLS suite (with
-planted failures), 39 browser tests, preview audit and live driver clean.
+The Doc AI vault (0048) is on `main` and in production. On top of it, this
+branch adds member photos (migration 0049: one private JPEG per membership,
+added by an Admin on the member's page, shown on Members, the member page
+and Advisors) and board meetings (migration 0050: Governance, Meetings,
+with date, board, place, notes and documents from Documents attached;
+Admins only). Both migrations are applied to production (Supabase Pro plan, daily
+backups). The day's data
+changes on production and what is still open are in `docs/GO_LIVE_STATUS.md`.
+Gate: 2,485 tests, build, lint, types, RLS suite with planted failures, 39
+browser tests, preview audit 0 findings, live driver 191 screens and 310
+links clean.
 
 ---
 

@@ -88,6 +88,8 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/vault_mapping_pre.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0048_document_vault.sql"
 echo "==> 0048: checking the old-status mapping"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/vault_mapping_post.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0049_member_photos.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0050_board_meetings.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
@@ -100,6 +102,12 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from inf
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0048_document_vault.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_trigger where tgname in ('documents_insert_guard', 'documents_original_is_immutable', 'documents_lifecycle_transition')\"" | grep -qx 3
 echo "==> 0048 is reversible"
+echo "==> 0049 and 0050: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0050_board_meetings_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0049_member_photos_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0049_member_photos.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0050_board_meetings.sql"
+echo "==> 0049 and 0050 are reversible"
 
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"

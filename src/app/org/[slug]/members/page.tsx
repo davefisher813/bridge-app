@@ -4,9 +4,11 @@ import { requireOwner } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { cleanTitle, labelForRole } from "@/lib/org/roleLabels";
 import { resendInviteForm } from "@/lib/actions/members";
+import { photoUrl } from "@/lib/people/photo";
 import { Avatar, Button, EmptyState, Form, LinkButton, Notice, Row, Screen, Section, Stat, StatRow, Chevron } from "@/components/kit";
 
 interface MemberRow {
+  photo_path?: string | null;
   user_id: string;
   role: string;
   title?: string | null;
@@ -41,7 +43,7 @@ export default async function MembersPage({
   const supabase = await createClient();
   const { data } = await supabase
     .from("org_members")
-    .select("user_id, role, title, created_at, users(email, full_name, last_sign_in_at)")
+    .select("user_id, role, title, photo_path, created_at, users(email, full_name, last_sign_in_at)")
     .eq("org_id", org.id)
     .order("created_at", { ascending: true });
 
@@ -68,7 +70,7 @@ export default async function MembersPage({
           <Row
             key={r.user_id}
             href={`/org/${slug}/members/${r.user_id}`}
-            leading={<Avatar name={r.person?.full_name || r.person?.email || "?"} />}
+            leading={<Avatar name={r.person?.full_name || r.person?.email || "?"} photo={photoUrl(slug, r.user_id, r.photo_path)} />}
             title={`${r.person?.full_name || r.person?.email || "Unknown"}${r.user_id === me.id ? " (you)" : ""}`}
             meta={`${label(r)} · ${r.person?.email ?? ""}`}
             trailing={<Chevron />}

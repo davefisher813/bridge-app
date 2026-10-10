@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { cleanTitle, labelForRole, TITLE_MAX } from "@/lib/org/roleLabels";
 import { ASSIGNABLE_ROLES } from "@/lib/validation/member";
 import { RELATIONSHIPS, relationshipLabel } from "@/lib/copy/relationships";
-import { assignAdvisorForm, changeMemberRoleForm, removeMemberForm, renameMemberForm, setMemberTitleForm, unassignAdvisorForm } from "@/lib/actions/members";
+import { assignAdvisorForm, changeMemberRoleForm, removeMemberForm, removeMemberPhotoForm, renameMemberForm, setMemberTitleForm, unassignAdvisorForm } from "@/lib/actions/members";
+import { MemberPhotoForm } from "@/components/MemberPhotoForm";
+import { photoUrl } from "@/lib/people/photo";
 import { linkGuardian, unlinkGuardian, updateGuardianRelationship } from "@/lib/actions/guardians";
 import { canAdvise as roleCanAdvise, loadAdvisorChoices } from "@/lib/org/advisors";
 import { AdvisorSheet } from "@/components/AdvisorSheet";
@@ -15,6 +17,7 @@ interface MemberRow {
   user_id: string;
   role: string;
   title?: string | null;
+  photo_path?: string | null;
   created_at: string;
   users: { email: string; full_name: string; last_sign_in_at: string | null } | { email: string; full_name: string; last_sign_in_at: string | null }[] | null;
 }
@@ -66,7 +69,7 @@ export default async function MemberPage({
   const [{ data: row }, { data: ownerRows }, { data: guardianRows }, { data: athleteRows }, advisors] = await Promise.all([
     supabase
       .from("org_members")
-      .select("user_id, role, title, created_at, users(email, full_name, last_sign_in_at)")
+      .select("user_id, role, title, photo_path, created_at, users(email, full_name, last_sign_in_at)")
       .eq("org_id", org.id)
       .eq("user_id", userId)
       .maybeSingle(),
@@ -96,6 +99,7 @@ export default async function MemberPage({
   // A leftover staff row is an Admin in every way the screen shows.
   const level = role === "staff" ? "owner" : role;
   const here = `/org/${slug}/members/${member.user_id}`;
+  const photo = photoUrl(slug, member.user_id, member.photo_path);
 
   const joined = person?.last_sign_in_at ? `joined ${new Date(member.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "invited, not signed in yet";
 
@@ -120,7 +124,7 @@ export default async function MemberPage({
 
   return (
     <Screen back={{ href: `/org/${slug}/members`, label: "Members" }}>
-      <Row leading={<Avatar name={name} size="lg" />} title={`${name}${isMe ? " (you)" : ""}`} meta={[title, labelForRole(role), person?.email, joined].filter(Boolean).join(" · ")} emphasis="bold" wrap />
+      <Row leading={<Avatar name={name} size="lg" photo={photo} />} title={`${name}${isMe ? " (you)" : ""}`} meta={[title, labelForRole(role), person?.email, joined].filter(Boolean).join(" · ")} emphasis="bold" wrap />
 
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
 
@@ -131,6 +135,17 @@ export default async function MemberPage({
             <Button variant="secondary">Save Name</Button>
           </Stack>
         </Form>
+      </Section>
+
+      <Section label="Photo" role="people" kind="people">
+        <MemberPhotoForm slug={slug} orgId={org.id} userId={member.user_id} name={name} photo={photo} />
+        {photo && (
+          <Form action={removeMemberPhotoForm.bind(null, slug, member.user_id)}>
+            <ConfirmButton title="Remove This Photo?" body="Their initials show instead. A new photo can be added any time." confirmLabel="Remove Photo">
+              Remove Photo
+            </ConfirmButton>
+          </Form>
+        )}
       </Section>
 
       <Section label="Title" role="people" kind="people">

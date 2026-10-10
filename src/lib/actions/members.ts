@@ -14,6 +14,7 @@ import { RELATIONSHIPS } from "@/lib/copy/relationships";
 import { canAdvise, isEligibleAdvisor } from "@/lib/org/advisors";
 import { labelForRole } from "@/lib/org/roleLabels";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { checkPhoto, PHOTO_PATH_SHAPE } from "@/lib/people/photo";
 
 // Who belongs to an org, and what they may do there. Owner only, and
 // every write goes through the service role on purpose: org_members has
@@ -658,4 +659,69 @@ export async function assignAdvisorForm(slug: string, advisorId: string, formDat
 export async function unassignAdvisorForm(slug: string, advisorId: string, athleteId: string): Promise<void> {
   const r = await setAthleteAdvisor(slug, [athleteId], null, { onlyFrom: advisorId });
   redirect(`/org/${slug}/members/${advisorId}?${r.ok ? `notice=${q(r.count ? "No longer their advisor." : "They were not advising that athlete.")}` : `error=${q(r.error ?? "Could not take them off.")}`}`);
+}
+
+// ── A person's photo (migration 0049) ───────────────────────────────
+// Set and cleared by an Admin of this org, on that person's page. One
+// photo per membership, so nothing here reaches into another org. The
+// browser uploads to a private bucket an Admin may add to and nobody may
+// read; the server checks the file, points the row at it, and serves it
+// by /org/<slug>/members/<user>/photo to members of this org only. The
+// photo it replaces is removed, so the bucket holds one per person.
+
+async function memberPhotoTarget(slug: string, userId: string): Promise<{ orgId: string; current: string | null } | { error: string }> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireOwner(org.id);
+  if (!serviceRoleConfigured()) return { error: "Photos are not set up on this server." };
+  const supabase = await createClient();
+  const { data } = await supabase.from("org_members").select("user_id, photo_path").eq("org_id", org.id).eq("user_id", userId).maybeSingle();
+  if (!data) return { error: "That person is not in this organization." };
+  return { orgId: org.id, current: (data as { photo_path?: string | null }).photo_path ?? null };
+}
+
+// The photo is already in the bucket: the browser put it under
+// <org>/<user>/. Read back and checked here before the row points at it;
+// a file that fails the check is removed, so nothing is left loose.
+export async function setMemberPhoto(slug: string, userId: string, storagePath: unknown): Promise<{ ok: boolean; error?: string }> {
+  const target = await memberPhotoTarget(slug, userId);
+  if ("error" in target) return { ok: false, error: target.error };
+  const path = typeof storagePath === "string" ? storagePath : "";
+  if (!PHOTO_PATH_SHAPE.test(path) || !path.startsWith(`${target.orgId}/${userId}/`)) return { ok: false, error: "That photo was not uploaded for this person." };
+  if (path === target.current) return { ok: true };
+
+  const admin = createAdminClient();
+  const { data: blob, error: readError } = await admin.storage.from("member-photos").download(path);
+  if (readError || !blob) return { ok: false, error: "The photo could not be read back after upload. Try again." };
+  const checked = checkPhoto(new Uint8Array(await blob.arrayBuffer()));
+  if (!checked.ok) {
+    await admin.storage.from("member-photos").remove([path]);
+    return { ok: false, error: checked.error };
+  }
+
+  const { error } = await admin.from("org_members").update({ photo_path: path }).eq("org_id", target.orgId).eq("user_id", userId);
+  if (error) {
+    await admin.storage.from("member-photos").remove([path]);
+    return { ok: false, error: `The photo could not be saved: ${error.message}` };
+  }
+  if (target.current && PHOTO_PATH_SHAPE.test(target.current) && target.current.startsWith(`${target.orgId}/${userId}/`)) {
+    await admin.storage.from("member-photos").remove([target.current]);
+  }
+  revalidatePath(`/org/${slug}`, "layout");
+  return { ok: true };
+}
+
+export async function removeMemberPhotoForm(slug: string, userId: string): Promise<void> {
+  const back = `/org/${slug}/members/${userId}`;
+  const target = await memberPhotoTarget(slug, userId);
+  if ("error" in target) redirect(`${back}?error=${q(target.error)}`);
+  if (!target.current) redirect(`${back}?notice=${q("No photo to remove.")}`);
+  const admin = createAdminClient();
+  const { error } = await admin.from("org_members").update({ photo_path: null }).eq("org_id", target.orgId).eq("user_id", userId);
+  if (error) redirect(`${back}?error=${q(`The photo could not be removed: ${error.message}`)}`);
+  if (PHOTO_PATH_SHAPE.test(target.current) && target.current.startsWith(`${target.orgId}/${userId}/`)) {
+    await admin.storage.from("member-photos").remove([target.current]);
+  }
+  revalidatePath(`/org/${slug}`, "layout");
+  redirect(`${back}?notice=${q("Photo removed. Their initials show instead.")}`);
 }

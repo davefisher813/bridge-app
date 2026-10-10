@@ -11,11 +11,14 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
-import { AddButton, Body, Card, EmptyState, Label, LinkButton, Meter, Notice, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
+import { AddButton, Body, Card, Chevron, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { formatMoneyShort } from "@/lib/fundraising/rollup";
 import { BOARD_KIND_LABEL } from "@/lib/governance/giveGet";
 import { loadGovernance } from "@/lib/data/governanceView";
+import { createClient } from "@/lib/supabase/server";
+import { orgToday } from "@/lib/datetime/today";
+import { longDate } from "@/lib/copy/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +47,13 @@ export default async function BoardGovernancePage({
 
   const fiscalYear = Number(year) || new Date().getFullYear();
   const view = await loadGovernance(org.id, fiscalYear);
+  // The next meeting, for the way into Meetings (migration 0050).
+  const supabase = await createClient();
+  const { data: nextRows } = await supabase.from("board_meetings").select("title, meets_on").eq("org_id", org.id).gte("meets_on", orgToday()).order("meets_on", { ascending: true }).limit(1);
+  const next = ((nextRows ?? []) as { title: string; meets_on: string }[])[0];
+  const meetingsRow = (
+    <Row href={`/org/${slug}/board-governance/meetings`} kind="board" role="place" title="Meetings" meta={next ? `Next: ${next.title}, ${longDate(next.meets_on)}` : "Agendas, minutes and materials"} trailing={<Chevron />} wrap />
+  );
 
   const totals = view.boards.reduce(
     (acc, b) => {
@@ -66,6 +76,7 @@ export default async function BoardGovernancePage({
       action={canEdit && view.boards.length > 0 ? <AddButton href={`/org/${slug}/board-governance/new`} label="Add" /> : undefined}
     >
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
+      {meetingsRow}
       {view.boards.length === 0 ? (
         <>
           <EmptyState kind="governance" title="No Boards Yet" action={canEdit && <LinkButton href={`/org/${slug}/board-governance/new`}>Add the First Board</LinkButton>}

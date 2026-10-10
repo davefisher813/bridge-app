@@ -1,17 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "ed2bba8",
-  "commitFull": "ed2bba8e45d8c9dac77b848866266182013623fe",
-  "branch": "claude/docai-piece1",
-  "remoteBranches": [
-    "origin/claude/docai-piece1"
-  ],
-  "shipped": true,
-  "dirty": false,
+  "commit": "a0d2ca0",
+  "commitFull": "a0d2ca00ffb8bb5e666f7770006de010919ae9a3",
+  "branch": "claude/downloads-directory-4mf6gv",
+  "remoteBranches": [],
+  "shipped": false,
+  "dirty": true,
   "onMain": false,
-  "startedAt": "2026-10-08T05:26:21.404Z",
-  "durationMs": 24609,
+  "startedAt": "2026-10-10T03:48:45.074Z",
+  "durationMs": 30475,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -20,13 +18,13 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 2449,
+        "pass": 2485,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
         "suitesFailed": 0,
-        "filesOnDisk": 83,
-        "filesLoaded": 83
+        "filesOnDisk": 87,
+        "filesLoaded": 87
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
@@ -52,12 +50,14 @@
         "src/laws/laws.test.ts": 13,
         "src/laws/lifecycleLaws.test.ts": 20,
         "src/laws/matchingLaws.test.ts": 41,
+        "src/laws/meetingLaws.test.ts": 6,
         "src/laws/migrationLaws.test.ts": 5,
         "src/laws/moreLaws.test.ts": 10,
         "src/laws/ncaaLaws.test.ts": 36,
         "src/laws/orgCrudLaws.test.ts": 53,
         "src/laws/otherActions.test.ts": 76,
-        "src/laws/pageRender.test.ts": 797,
+        "src/laws/pageRender.test.ts": 812,
+        "src/laws/photoLaws.test.ts": 8,
         "src/laws/publicPaths.test.ts": 2,
         "src/laws/qaFixes.test.ts": 29,
         "src/laws/referenceAutofillLaws.test.ts": 17,
@@ -98,6 +98,7 @@
         "src/lib/journey.test.ts": 7,
         "src/lib/org/modules.test.ts": 4,
         "src/lib/org/roleLabels.test.ts": 6,
+        "src/lib/people/photo.test.ts": 4,
         "src/lib/schools/csv.test.ts": 45,
         "src/lib/validation/athlete.test.ts": 18,
         "src/lib/validation/checkin.test.ts": 7,
@@ -105,6 +106,7 @@
         "src/lib/validation/contact.test.ts": 5,
         "src/lib/validation/gift.test.ts": 19,
         "src/lib/validation/gradingScale.test.ts": 19,
+        "src/lib/validation/meeting.test.ts": 3,
         "src/lib/validation/member.test.ts": 6,
         "src/lib/validation/message.test.ts": 3,
         "src/lib/validation/school.test.ts": 6,
@@ -145,7 +147,7 @@
             "location": "/login"
           }
         },
-        "ms": 1346
+        "ms": 1412
       },
       "errors": [],
       "warnings": [],
@@ -159,8 +161,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 83,
-      "filesScanned": 625
+      "touchedFiles": 40,
+      "filesScanned": 654
     },
     {
       "name": "types",
@@ -170,11 +172,11 @@
   ],
   "manual": {
     "checklist": "qa/checklist.md",
-    "checklistCommit": "52e7c58",
+    "checklistCommit": "ed2bba8",
     "checklistSays": "pass",
     "openRows": [],
-    "result": "pass",
-    "reason": "checklist.md covers this commit and says pass"
+    "result": "provisional",
+    "reason": "checklist.md is for commit ed2bba8, not this one"
   },
   "preview": {
     "applicable": null,

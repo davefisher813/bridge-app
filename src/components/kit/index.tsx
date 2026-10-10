@@ -350,10 +350,14 @@ export function Score({ score }: { score: number }) {
 // reads the corner the text actually sits on. Blue, not indigo: Dave,
 // 2026-09-27, "I don't like the color purple", and the contact pair is
 // the contrast-checked blue.
-export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg" }) {
+//
+// With a photo (migration 0049) it is the photo, cropped round, the same
+// size. Decorative: the person's name is always beside it.
+export function Avatar({ name, size = "md", photo }: { name: string; size?: "md" | "lg" | "xl"; photo?: string }) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const initials = ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "")).toUpperCase() || "?";
-  const box = size === "lg" ? "h-12 w-12 text-body" : "h-8 w-8 text-label";
+  const box = size === "xl" ? "h-24 w-24 text-title" : size === "lg" ? "h-12 w-12 text-body" : "h-8 w-8 text-label";
+  if (photo) return <img src={photo} alt="" className={`flex-shrink-0 rounded-full object-cover ${box}`} />;
   return <div className={`flex flex-shrink-0 items-center justify-center rounded-full bg-solid-contact font-extrabold text-solid-contact-on ${box}`}>{initials}</div>;
 }
 
