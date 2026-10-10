@@ -4255,9 +4255,13 @@ begin
   if not pg_temp.try_move(doc, 'needs_review') then raise exception 'FAIL: Processing to Needs Review was refused'; end if;
   if (select lifecycle_changed_at from documents where id = doc) <= before_ts then raise exception 'FAIL: the move did not stamp lifecycle_changed_at'; end if;
   if pg_temp.try_move(doc, 'uploaded') then raise exception 'FAIL: Needs Review went back to Uploaded'; end if;
-  if pg_temp.try_move(doc, 'processing') then raise exception 'FAIL: Needs Review went back to Processing'; end if;
+  -- Read Again (0055): Needs Review back to Processing, and back.
+  if not pg_temp.try_move(doc, 'processing') then raise exception 'FAIL: Needs Review to Processing (Read Again) was refused'; end if;
+  if not pg_temp.try_move(doc, 'needs_review') then raise exception 'FAIL: Processing to Needs Review was refused'; end if;
   if not pg_temp.try_move(doc, 'ready') then raise exception 'FAIL: Needs Review to Ready was refused'; end if;
-  if pg_temp.try_move(doc, 'needs_review') then raise exception 'FAIL: Ready went back to Needs Review'; end if;
+  -- The undo for Mark Ready (0055), then Ready again.
+  if not pg_temp.try_move(doc, 'needs_review') then raise exception 'FAIL: Ready back to Needs Review was refused'; end if;
+  if not pg_temp.try_move(doc, 'ready') then raise exception 'FAIL: Needs Review to Ready was refused the second time'; end if;
   if pg_temp.try_move(doc, 'processing') then raise exception 'FAIL: Ready went to Processing'; end if;
   if not pg_temp.try_move(doc, 'archived') then raise exception 'FAIL: Ready to Archived was refused'; end if;
   if pg_temp.try_move(doc, 'ready') then raise exception 'FAIL: Archived went straight to Ready'; end if;
@@ -4265,7 +4269,7 @@ begin
   if not pg_temp.try_move(doc, 'needs_review') then raise exception 'FAIL: Archived to Needs Review (Unarchive) was refused'; end if;
   if not pg_temp.try_move(doc, 'archived') then raise exception 'FAIL: Needs Review to Archived was refused'; end if;
   perform set_test_user(null);
-  raise notice 'PASS: the lifecycle moves only along the seven allowed paths';
+  raise notice 'PASS: the lifecycle moves only along the allowed paths';
 end $$;
 reset role;
 
@@ -4622,3 +4626,24 @@ begin
   end;
 end $$;
 \echo 'ALL 0054 ASSERTIONS PASSED'
+
+-- ── Migration 0055: Ready back to Needs Review, and Read Again ────────
+reset role;
+do $$
+begin
+  update documents set lifecycle = 'needs_review' where id = '00000000-0000-0000-0000-000000053041' and lifecycle <> 'needs_review';
+  update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000053041';
+  update documents set lifecycle = 'needs_review' where id = '00000000-0000-0000-0000-000000053041';
+  update documents set lifecycle = 'processing' where id = '00000000-0000-0000-0000-000000053041';
+  update documents set lifecycle = 'needs_review' where id = '00000000-0000-0000-0000-000000053041';
+  if (select lifecycle::text from documents where id = '00000000-0000-0000-0000-000000053041') <> 'needs_review' then
+    raise exception 'FAIL 0055: the new moves did not take';
+  end if;
+  begin
+    update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000053041';
+    update documents set lifecycle = 'processing' where id = '00000000-0000-0000-0000-000000053041';
+    raise exception 'FAIL 0055: ready to processing was allowed';
+  exception when check_violation then null;
+  end;
+end $$;
+\echo 'ALL 0055 ASSERTIONS PASSED'

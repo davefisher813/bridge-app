@@ -187,7 +187,7 @@ describe("LAW: Advisors lists every Admin with the athletes they advise, countin
 
   it("the fixture owner advises 2, two athletes have nobody, and the Viewer is not listed", async () => {
     const html = await advisors();
-    expect(html).toMatch(/2 athletes have no advisor yet\./);
+    expect(html).toMatch(/2 athletes still being recruited have no advisor yet\./);
     expect(html).toMatch(/Example Owner[\s\S]*Head of Recruiting<\/span> · 2 athletes/);
     expect(hrefs(html)).toContain(`/org/${ORG_WITH_MODULES}/members/${OWNER_ID}`);
     expect(html).not.toMatch(/Example Member|Fixture Parent/);
@@ -205,7 +205,7 @@ describe("LAW: Advisors lists every Admin with the athletes they advise, countin
 
     athlete(IDS.athleteTransfer).advisor_id = OWNER_ID;
     const html = await advisors();
-    expect(html).toMatch(/1 athlete has no advisor yet\./);
+    expect(html).toMatch(/1 athlete still being recruited has no advisor yet\./);
     expect(html).toMatch(/Head of Recruiting<\/span> · 1 athlete</);
   });
 

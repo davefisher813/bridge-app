@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { canMove, isStaleProcessing, LEGACY_STATUS_TO_LIFECYCLE, LIFECYCLE_STATES, STALE_PROCESSING_MS, TRANSITIONS, type Lifecycle } from "./lifecycle";
 
-describe("the five states and the seven moves", () => {
+describe("the five states and the nine moves", () => {
   it("there are exactly five states, in order", () => {
     expect([...LIFECYCLE_STATES]).toEqual(["uploaded", "processing", "needs_review", "ready", "archived"]);
   });
 
-  it("there are exactly seven allowed moves", () => {
+  it("there are exactly nine allowed moves (0055 added the two moves back)", () => {
     expect(TRANSITIONS.map((t) => `${t.from}>${t.to}`).sort()).toEqual(
-      ["uploaded>processing", "uploaded>needs_review", "processing>needs_review", "needs_review>ready", "needs_review>archived", "ready>archived", "archived>needs_review"].sort(),
+      ["uploaded>processing", "uploaded>needs_review", "processing>needs_review", "needs_review>ready", "needs_review>archived", "ready>archived", "archived>needs_review", "needs_review>processing", "ready>needs_review"].sort(),
     );
   });
 

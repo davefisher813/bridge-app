@@ -61,6 +61,8 @@ PW_CHROMIUM=/opt/pw-browsers/chromium bash scripts/live/check.sh
 - **Runtime errors and server logs:** Vercel, project `commit-app`, Logs (filter Errors).
 - **Database and auth logs:** Supabase, project `Bridge-app`, Logs.
 - **Who did what in the app:** the Activity screen (More, Activity), Admins only.
+- **Which migrations are on production:** `migrations/APPLIED.md` lists every file with its production version (a law fails the build when a migration file has no row). To confirm against the database itself: Supabase, project `Bridge-app`, Database, Migrations, or `select version, name from supabase_migrations.schema_migrations order by version`. The app has no screen for this on purpose: it is an operator fact, not an Admin setting.
+- **Doc AI rate limit:** More, Doc AI Spending, Rate Limit shows calls in the last 10 minutes (of 20) and the last hour (of 60).
 - **Files nobody points at:** `node scripts/list_unregistered_uploads.mjs` (read only, needs the service role key in the shell).
 
 ## Recovery

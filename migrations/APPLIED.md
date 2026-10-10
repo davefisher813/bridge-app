@@ -74,3 +74,4 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0052_close_needs_review_shelf.sql | applied | 20261010192408 0052_close_needs_review_shelf |
 | 0053_stub_reading_never_applied.sql | applied | 20261010201956 0053_stub_reading_never_applied |
 | 0054_document_filed_as.sql | applied | 20261010203055 0054_document_filed_as |
+| 0055_document_moves_back.sql | applied | 20261010235717 0055_document_moves_back |

@@ -8,8 +8,8 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { isStubbedModel } from "@/lib/actions/documents";
-import { dollars, loadMonthCalls, loadMonthSpend } from "@/lib/data/docaiUsage";
-import { Chevron, EmptyState, Notice, Row, Screen, Section } from "@/components/kit";
+import { dollars, loadMonthCalls, loadMonthSpend, loadRecentCalls, RATE_LIMITS } from "@/lib/data/docaiUsage";
+import { Body, Card, Chevron, EmptyState, Label, Notice, Row, Screen, Section } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,10 @@ export default async function DocAiSpendingPage({ params }: { params: Promise<{ 
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const [spend, calls, stubbed] = await Promise.all([loadMonthSpend(supabase, org.id), loadMonthCalls(supabase, org.id), isStubbedModel()]);
+  const [spend, calls, stubbed, recent] = await Promise.all([loadMonthSpend(supabase, org.id), loadMonthCalls(supabase, org.id), isStubbedModel(), loadRecentCalls(supabase, org.id)]);
+  // The rate limit (backend audit F-05), shown as it stands right now.
+  const now = Date.now();
+  const windows = RATE_LIMITS.map(({ minutes, max }) => ({ minutes, max, used: recent.filter((t) => t >= now - minutes * 60_000).length }));
 
   return (
     <Screen title="Doc AI Spending" back={{ href: `/org/${slug}/more`, label: "More" }} lede={`${dollars(spend.spentCents)} of ${dollars(spend.capCents)} this month, ${spend.calls} ${spend.calls === 1 ? "call" : "calls"}.`}>
@@ -38,6 +41,15 @@ export default async function DocAiSpendingPage({ params }: { params: Promise<{ 
           Documents are not read again until next month or a higher budget.
         </Notice>
       )}
+
+      <Section label="Rate Limit" role="time" kind="clock">
+        {windows.map((w) => (
+          <Card key={w.minutes} isStatic>
+            <Body weight="semibold" tone={w.used >= w.max ? "danger" : undefined}>{`${w.used} of ${w.max} ${w.minutes === 60 ? "This Hour" : `in ${w.minutes} Minutes`}`}</Body>
+            <Label>{w.used >= w.max ? "At the limit: new readings wait until older ones age out." : "Readings past this wait until older ones age out."}</Label>
+          </Card>
+        ))}
+      </Section>
 
       <Section label="This Month" count={calls.length} role="contact" kind="money">
         {calls.length === 0 ? (
