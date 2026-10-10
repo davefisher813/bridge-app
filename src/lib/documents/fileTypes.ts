@@ -3,6 +3,24 @@
 // there is no reading schema for it and nothing on an athlete it would
 // fill. The reader's own six types stay in src/lib/docai/categories.ts.
 
+import type { DocCategoryId } from "@/lib/docai/types";
+
+// The six types the reader reads, in the order the upload form shows
+// them. The one list both the upload form and the document screen use, so
+// the two can never offer different types again (Alfred, 2026-10-10).
+export const READER_TYPES: { id: DocCategoryId; label: string }[] = [
+  { id: "transcript", label: "Transcript" },
+  { id: "test_scores", label: "Test Scores" },
+  { id: "offer_letter", label: "Offer Letter" },
+  { id: "recommendation", label: "Recommendation" },
+  { id: "financial_aid", label: "Financial Aid" },
+  { id: "metrics", label: "Metrics Report" },
+];
+
+export function isReaderType(v: unknown): v is DocCategoryId {
+  return typeof v === "string" && READER_TYPES.some((t) => t.id === v);
+}
+
 export const FILE_TYPES = ["board_document", "athlete_profile", "other"] as const;
 export type FileTypeId = (typeof FILE_TYPES)[number];
 

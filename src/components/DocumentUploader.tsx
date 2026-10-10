@@ -1,6 +1,6 @@
 "use client";
 
-import { FILE_TYPE_LABEL, FILE_TYPES, type FileTypeId } from "@/lib/documents/fileTypes";
+import { FILE_TYPE_LABEL, FILE_TYPES, READER_TYPES, type FileTypeId } from "@/lib/documents/fileTypes";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ingestFile } from "@/lib/docai/ingest";
@@ -27,15 +27,7 @@ import { Button, Choice, ChoiceRow, FileField, Label, Notice, SelectField, Stack
 // After them, the types the reader never reads (migration 0054): stored
 // and labelled, straight to Needs Review.
 const FILE_ONLY: { id: FileTypeId; label: string }[] = FILE_TYPES.map((id) => ({ id, label: FILE_TYPE_LABEL[id] }));
-const CATEGORIES: { id: DocCategoryId | null; label: string }[] = [
-  { id: null, label: "No Type" },
-  { id: "transcript", label: "Transcript" },
-  { id: "test_scores", label: "Test Scores" },
-  { id: "offer_letter", label: "Offer Letter" },
-  { id: "recommendation", label: "Recommendation" },
-  { id: "financial_aid", label: "Financial Aid" },
-  { id: "metrics", label: "Metrics Report" },
-];
+const CATEGORIES: { id: DocCategoryId | null; label: string }[] = [{ id: null, label: "No Type" }, ...READER_TYPES];
 
 const SOURCE_ROLES: { id: SourceRole; label: string }[] = [
   { id: "coordinator", label: "I uploaded it" },

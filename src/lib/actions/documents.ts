@@ -1,6 +1,6 @@
 "use server";
 
-import { FILE_TYPE_LABEL, isFileType, type FileTypeId } from "@/lib/documents/fileTypes";
+import { FILE_TYPE_LABEL, isFileType, isReaderType, READER_TYPES, type FileTypeId } from "@/lib/documents/fileTypes";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createHash } from "node:crypto";
@@ -1532,33 +1532,44 @@ export async function moveDocumentAndStay(slug: string, documentId: string, to: 
   redirect(result.gone ? `/org/${slug}/documents?error=${reason}` : `/org/${slug}/documents/${documentId}?error=${reason}`);
 }
 
-// File a document the reader did not read as one of the types it never
-// reads (migration 0054): Board Document, Athlete Profile, Other, or no
-// type. Only for a document with no reader type, so a reading is never
-// relabelled; the stored file is not touched. Staff only.
+// Set or change the type of a document the reader has not read: any of
+// the upload form's types (the six reader types, Board Document, Athlete
+// Profile, Other) or none. A reader type set here is a label; nothing is
+// read and nothing can be applied, because applying needs a reading.
+// A document the reader read keeps its reading's type, and the stored
+// file is never touched. Staff only.
 export async function fileDocumentAs(slug: string, documentId: string, formData: FormData): Promise<void> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);
   const back = `/org/${slug}/documents/${documentId}`;
   const raw = String(formData.get("filedAs") ?? "").trim();
-  if (raw && !isFileType(raw)) redirect(`${back}?error=${encodeURIComponent("Pick one of the types listed.")}`);
-  const filedAs = raw || null;
+  if (raw && !isFileType(raw) && !isReaderType(raw)) redirect(`${back}?error=${encodeURIComponent("Pick one of the types listed.")}`);
 
   const supabase = await createClient();
-  const { data } = await supabase.from("documents").select("id, category, requested_category, review_reason").eq("id", documentId).eq("org_id", org.id).maybeSingle();
-  const doc = data as { category: string | null; requested_category: string | null; review_reason: string | null } | null;
+  const { data } = await supabase.from("documents").select("id, category, status, extracted, review_reason").eq("id", documentId).eq("org_id", org.id).maybeSingle();
+  const doc = data as { category: string | null; status: string; extracted: unknown; review_reason: string | null } | null;
   if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is not in this organization.")}`);
-  if (doc.category || doc.requested_category) redirect(`${back}?error=${encodeURIComponent("This document already has a reading type, so it keeps it.")}`);
+  if (doc.category || doc.extracted || doc.status === "processing" || doc.status === "applied" || doc.status === "filed") {
+    redirect(`${back}?error=${encodeURIComponent("This document was read, so it keeps the type of its reading.")}`);
+  }
 
+  const readerType = isReaderType(raw) ? raw : null;
+  const fileType = isFileType(raw) ? raw : null;
   const { error } = await supabase
     .from("documents")
-    .update({ filed_as: filedAs, ...(filedAs && doc.review_reason === "No type chosen." ? { review_reason: null } : {}), updated_at: new Date().toISOString() })
+    .update({
+      requested_category: readerType,
+      filed_as: fileType,
+      ...(raw && doc.review_reason === "No type chosen." ? { review_reason: null } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", documentId)
     .eq("org_id", org.id);
   if (error) redirect(`${back}?error=${encodeURIComponent(`Could not save the type: ${error.message}`)}`);
   revalidatePath(`/org/${slug}/documents`);
-  redirect(`${back}?notice=${encodeURIComponent(filedAs ? `Filed as ${FILE_TYPE_LABEL[filedAs as FileTypeId]}.` : "Type cleared.")}`);
+  const label = readerType ? READER_TYPES.find((t) => t.id === readerType)!.label : fileType ? FILE_TYPE_LABEL[fileType as FileTypeId] : null;
+  redirect(`${back}?notice=${encodeURIComponent(label ? `Type set to ${label}.` : "Type cleared.")}`);
 }
 
 export interface ExtractedEditState {
