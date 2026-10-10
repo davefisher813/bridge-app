@@ -34,7 +34,12 @@ export const TRANSITIONS: ReadonlyArray<{ from: Lifecycle; to: Lifecycle; by: Mo
   { from: "processing", to: "needs_review", by: "system", action: "document_needs_review" },
   { from: "needs_review", to: "ready", by: "staff", action: "document_ready" },
   { from: "needs_review", to: "archived", by: "staff", action: "document_archived" },
+  // Read Again (migration 0055): a person sends a reviewed document back
+  // to the reader.
+  { from: "needs_review", to: "processing", by: "staff", action: "document_reading" },
   { from: "ready", to: "archived", by: "staff", action: "document_archived" },
+  // The undo for Mark Ready (migration 0055).
+  { from: "ready", to: "needs_review", by: "staff", action: "document_needs_review" },
   { from: "archived", to: "needs_review", by: "staff", action: "document_unarchived" },
 ];
 

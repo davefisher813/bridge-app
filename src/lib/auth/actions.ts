@@ -68,3 +68,22 @@ export async function signout() {
   revalidatePath("/", "layout");
   redirect("/login");
 }
+
+// Set or change your own password, signed in (Alfred's audit, 2026-10-10:
+// no way to recover a forgotten password other than the link). Forgot
+// your password: sign in with the emailed link, then set a new one here.
+// Only ever your own account, through your own session.
+export async function setPasswordForm(returnTo: string, formData: FormData) {
+  const back = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/";
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+  const q = (s: string) => encodeURIComponent(s);
+  if (password.length < 8) redirect(`${back}?error=${q("A password needs at least 8 characters.")}`);
+  if (password !== confirm) redirect(`${back}?error=${q("The two passwords do not match.")}`);
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data?.user) redirect("/login");
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) redirect(`${back}?error=${q(`Could not set the password: ${error.message}`)}`);
+  redirect(`${back}?notice=${q("Password saved. Sign in with it next time.")}`);
+}

@@ -1,3 +1,4 @@
+import { isScoredStatus } from "@/lib/placement";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -48,6 +49,9 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
   // advisor=me narrows to the athletes this person advises (Stage 3).
   // Any other value is ignored, like an unknown status.
   const mine = sp.advisor === "me";
+  // advisor=none: still being recruited and nobody advising them, the
+  // same count the Advisors screen shows (countByAdvisor).
+  const unadvised = sp.advisor === "none";
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
@@ -77,9 +81,9 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
   // with each other, and with the tile on Today that opened this.
   const searched = q ? all.filter((a) => `${a.name} ${a.sport} ${a.position ?? ""}`.toLowerCase().includes(q)) : all;
   const byStatus = status ? searched.filter((a) => a.effective === status) : searched;
-  const rows = mine ? byStatus.filter((a) => a.advisor_id === user.id) : byStatus;
+  const rows = mine ? byStatus.filter((a) => a.advisor_id === user.id) : unadvised ? byStatus.filter((a) => !a.advisor_id && isScoredStatus(a.status)) : byStatus;
   const advisesAnyone = all.some((a) => a.advisor_id === user.id);
-  const lede = [status || mine ? `${rows.length} of ${all.length}` : null, status || null, mine ? "yours" : null].filter(Boolean).join(", ");
+  const lede = [status || mine || unadvised ? `${rows.length} of ${all.length}` : null, status || null, mine ? "yours" : null, unadvised ? "still being recruited, no advisor" : null].filter(Boolean).join(", ");
 
   return (
     <Screen title="Athletes" lede={lede || undefined} action={canEdit ? <AddButton href={`/org/${slug}/roster/new`} label="Add" /> : undefined}>
@@ -89,12 +93,12 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
           {sp.notice}
         </Notice>
       )}
-      {(status || mine) && <TextLink href={`/org/${slug}/roster`}>Show Every Athlete</TextLink>}
+      {(status || mine || unadvised) && <TextLink href={`/org/${slug}/roster`}>Show Every Athlete</TextLink>}
       {mine ? <TextLink href={`/org/${slug}/mine`}>My Athletes</TextLink> : advisesAnyone && <TextLink href={`/org/${slug}/roster?advisor=me${status ? `&status=${encodeURIComponent(status)}` : ""}`}>Just Mine</TextLink>}
       {(all.length > 5 || q) && <SearchField initial={q} placeholder="A name, a sport or a position" />}
       <Section label="Roster" count={rows.length} role="people" kind="athlete">
         {rows.length === 0 ? (
-          <EmptyState kind="athlete" title={q ? "Nobody Matches" : status || mine ? "Nothing Matches" : "No Athletes Yet"}>
+          <EmptyState kind="athlete" title={q ? "Nobody Matches" : status || mine || unadvised ? "Nothing Matches" : "No Athletes Yet"}>
             {q ? "Try a shorter name, or clear the search." : mine ? "Nobody here is assigned to you. Pick yourself as Advisor on an athlete's Edit screen." : status ? "Nobody is at this status. Show every athlete to see the rest." : canEdit ? "Add the first one below." : "Ask an Admin to add one."}
           </EmptyState>
         ) : (

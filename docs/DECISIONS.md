@@ -4059,3 +4059,24 @@ no reading schema and nothing on an athlete to fill).
 
 **Consequences.** Filing never changes a document with a reader type, and
 never touches the stored file.
+
+## 2026-10-10: Alfred's production audit, every item answered
+
+**Decision.** Migration 0055 adds two document moves: Ready back to
+Needs Review (Move Back to Needs Review, the undo for Mark Ready) and
+Needs Review to Processing (Read Again, on demand, same budget and rate
+limit as an upload). The Advisors count names its rule (only athletes
+still being recruited) and opens exactly those athletes on the roster.
+Sign-in has Forgot Your Password (the emailed link) and More has Set
+Password. Doc AI Spending shows the rate limit. Members shows what each
+access level sees, in place of View As.
+
+**Reason.** Dave, 2026-10-10: fix every item in the audit.
+
+**Alternatives.** View As (0047): still cut by Dave, so the access guide
+documents it instead. A separate meeting photo field: meetings already
+attach any document, JPG and PNG included.
+
+**Consequences.** The lifecycle law and the RLS suite now hold nine
+moves. Applied migrations are checked in migrations/APPLIED.md and
+Supabase, documented in the runbook, with no in-app screen.

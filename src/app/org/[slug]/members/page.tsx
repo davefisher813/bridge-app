@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { cleanTitle, labelForRole } from "@/lib/org/roleLabels";
 import { resendInviteForm } from "@/lib/actions/members";
 import { photoUrl } from "@/lib/people/photo";
-import { Avatar, Button, EmptyState, Form, LinkButton, Notice, Row, Screen, Section, Stat, StatRow, Chevron } from "@/components/kit";
+import { Avatar, Body, Button, Card, EmptyState, Form, Label, LinkButton, Notice, Row, Screen, Section, Stack, Stat, StatRow, Chevron } from "@/components/kit";
+import { ACCESS_GUIDE } from "@/lib/org/accessGuide";
 
 interface MemberRow {
   photo_path?: string | null;
@@ -104,6 +105,24 @@ export default async function MembersPage({
       )}
 
       <LinkButton href={`/org/${slug}/members/new`}>Invite Someone</LinkButton>
+      {/* What each access level sees, so an Admin knows before inviting
+          (Alfred's audit, 2026-10-10). The same rules the database
+          enforces; see src/lib/org/accessGuide.ts. */}
+      <Section label="What Each Access Level Sees" role="people" kind="people">
+        {ACCESS_GUIDE.map((g) => (
+          <Card key={g.level} isStatic>
+            <Stack gap={2}>
+              <Body weight="bold">{g.level}</Body>
+              {g.sees.map((line) => (
+                <Label key={line}>{`Sees: ${line}.`}</Label>
+              ))}
+              {g.never.map((line) => (
+                <Label key={line}>{`Never: ${line}.`}</Label>
+              ))}
+            </Stack>
+          </Card>
+        ))}
+      </Section>
     </Screen>
   );
 }

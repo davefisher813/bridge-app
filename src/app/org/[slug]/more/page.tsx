@@ -6,6 +6,7 @@ import { labelForRole } from "@/lib/org/roleLabels";
 import { Button, ConfirmButton, Form, Label, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 import { PresetForm } from "@/components/PresetForm";
 import { YourNameForm } from "@/components/YourNameForm";
+import { SetPasswordForm } from "@/components/SetPasswordForm";
 import { DocaiBudgetForm } from "@/components/DocaiBudgetForm";
 import { setDocaiBudget } from "@/lib/actions/docaiBudget";
 import { isStubbedModel } from "@/lib/actions/documents";
@@ -125,6 +126,7 @@ export default async function MorePage({ params, searchParams }: { params: Promi
         {canStartOrg && <Row href="/orgs/new" kind="org" role="place" title="Start Another Organization" wrap />}
         <Row kind="settings" role="people" title={user.full_name || user.email} meta={`${labelForRole(user.role)} at ${org.name}`} wrap />
         <YourNameForm slug={slug} returnTo={`/org/${slug}/more`} fullName={user.full_name} />
+        <SetPasswordForm returnTo={`/org/${slug}/more`} />
         <Form action={signout}>
           <Stack gap={2}>
             <Button variant="destructive">Sign Out</Button>

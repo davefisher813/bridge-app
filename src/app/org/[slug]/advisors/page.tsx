@@ -24,7 +24,14 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
   const [staff, counts] = await Promise.all([loadStaff(supabase, org.id), loadAdvisorCounts(supabase, org.id)]);
 
   const athletes = (n: number) => `${n} ${n === 1 ? "athlete" : "athletes"}`;
-  const unassigned = counts.unassigned === 0 ? "Every one of them has an advisor." : `${athletes(counts.unassigned)} ${counts.unassigned === 1 ? "has" : "have"} no advisor yet.`;
+  // Only athletes still being recruited are counted (placed ones, like
+  // Committed or Enrolled, need no advisor), so the sentence says so and
+  // the row opens exactly those athletes (Alfred's audit, 2026-10-10: the
+  // bare "11 have no advisor" read as wrong next to 34 on the roster).
+  const unassigned =
+    counts.unassigned === 0
+      ? "Every athlete still being recruited has an advisor."
+      : `${athletes(counts.unassigned)} still being recruited ${counts.unassigned === 1 ? "has" : "have"} no advisor yet. Placed athletes are not counted.`;
 
   // The same split as Members: someone who has never signed in is
   // invited, not yet one of the Admins, so the two screens count alike.
@@ -41,6 +48,9 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
 
   return (
     <Screen title="Advisors" back={{ href: `/org/${slug}/more`, label: "More" }} lede={unassigned}>
+      {counts.unassigned > 0 && (
+        <Row href={`/org/${slug}/roster?advisor=none`} kind="athlete" role="time" title="No Advisor Yet" meta={`${athletes(counts.unassigned)} still being recruited`} trailing={<Chevron />} wrap />
+      )}
       <Section label="Admins" count={active.length} role="people" kind="people">
         {active.map(row)}
         {active.length === 0 && (

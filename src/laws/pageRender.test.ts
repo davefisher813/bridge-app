@@ -1602,7 +1602,7 @@ describe("LAW: Advisor leads the profile, only an Admin sees its controls, More 
     const advisors = () => render("@/app/org/[slug]/advisors/page", { params: p({ slug: ORG_WITH_MODULES }) });
     const before = await advisors();
     expect(before).toMatch(/Example Owner[\s\S]*Head of Recruiting<\/span> · 2 athletes/);
-    expect(before).toMatch(/2 athletes have no advisor yet\./);
+    expect(before).toMatch(/2 athletes still being recruited have no advisor yet\./);
     expect(hrefs(before)).toContain(`/org/${ORG_WITH_MODULES}/members/${OWNER_ID}`);
     // Pausing one of the owner's athletes takes them off the count, the
     // same as the reminders; assigning the transfer takes one off the
@@ -1611,7 +1611,7 @@ describe("LAW: Advisor leads the profile, only an Admin sees its controls, More 
     data.athletes.find((a) => a.id === IDS.athleteTransfer)!.advisor_id = OWNER_ID;
     const after = await advisors();
     expect(after).toMatch(/Head of Recruiting<\/span> · 2 athletes/);
-    expect(after).toMatch(/1 athlete has no advisor yet\./);
+    expect(after).toMatch(/1 athlete still being recruited has no advisor yet\./);
     data.athletes.find((a) => a.id === IDS.athleteTransfer)!.advisor_id = null;
     expect(await advisors()).toMatch(/Head of Recruiting<\/span> · 1 athlete</);
   });

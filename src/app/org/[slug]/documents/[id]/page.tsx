@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { applyDocument, discardDocument, fileDocumentAs, isStubbedModel, moveDocumentAndStay } from "@/lib/actions/documents";
-import { documentTypeLabel, FILE_TYPE_LABEL, FILE_TYPES, READER_TYPES } from "@/lib/documents/fileTypes";
+import { applyDocument, discardDocument, fileDocumentAs, isStubbedModel, moveDocumentAndStay, readDocumentAgain } from "@/lib/actions/documents";
+import { documentTypeLabel, FILE_TYPE_LABEL, FILE_TYPES, isReaderType, READER_TYPES } from "@/lib/documents/fileTypes";
 import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
 import { applyRefusal, isStubReading } from "@/lib/data/readBy";
 import { editableFields } from "@/lib/data/extractedEdit";
@@ -11,7 +11,7 @@ import type { DocCategoryId } from "@/lib/docai/types";
 import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, SelectField, Stack } from "@/components/kit";
 import { LifecycleChip } from "@/components/LifecycleChip";
 import { longDate } from "@/lib/copy/dates";
-import { formatBytes, formatLabelOf } from "@/lib/vault/format";
+import { formatBytes, formatLabelOf, readerCanRead, type VaultFormat } from "@/lib/vault/format";
 import { isLifecycle, isStaleProcessing as isStaleLifecycle, type Lifecycle } from "@/lib/vault/lifecycle";
 import { Note } from "@/components/EligibilityVerdict";
 import type { Role } from "@/components/statusHue";
@@ -275,6 +275,13 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     "use server";
     await moveDocumentAndStay(slug, doc.id, to);
   };
+  const readAgain = async () => {
+    "use server";
+    await readDocumentAgain(slug, doc.id);
+  };
+  const readerType = doc.category ?? doc.requested_category;
+  const canReadAgain =
+    lifecycle === "needs_review" && !!readerType && isReaderType(readerType) && !isApplied && !isProcessing && !isFiled && !stubRead && !!doc.format && readerCanRead(doc.format as VaultFormat);
   // What staff can correct before applying. None for a stand-in reading.
   const correctable = isPending && !stubRead && doc.category && doc.category !== "film" && doc.extracted ? editableFields(doc.category as DocCategoryId, doc.extracted).length > 0 : false;
 
@@ -380,6 +387,28 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       {lifecycle === "archived" && (
         <Form action={moveTo("needs_review")}>
           <Button type="submit">Unarchive</Button>
+        </Form>
+      )}
+      {/* The undo for Mark Ready (migration 0055). */}
+      {lifecycle === "ready" && (
+        <Form action={moveTo("needs_review")}>
+          <Button type="submit" variant="secondary">
+            Move Back to Needs Review
+          </Button>
+        </Form>
+      )}
+      {/* Read Again (migration 0055): a document in review with a reading
+          type, in a format the reader reads, goes back to the reader. */}
+      {canReadAgain && (
+        <Form action={readAgain}>
+          <ConfirmButton
+            tone="change"
+            title={doc.read_by ? "Read This Again?" : "Read This Now?"}
+            body={`It is read as ${typeLabel ?? "its type"} from the original file and comes back to Needs Review. ${stubbed ? "No AI model is connected, so the reading is simulated and free." : "It counts toward this month's reading budget."}`}
+            confirmLabel={doc.read_by ? "Read Again" : "Read Now"}
+          >
+            {doc.read_by ? "Read Again" : "Read Now"}
+          </ConfirmButton>
         </Form>
       )}
       {stuckReading && (

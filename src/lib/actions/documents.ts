@@ -1572,6 +1572,87 @@ export async function fileDocumentAs(slug: string, documentId: string, formData:
   redirect(`${back}?notice=${encodeURIComponent(label ? `Type set to ${label}.` : "Type cleared.")}`);
 }
 
+// Read Again (Alfred's production audit, 2026-10-10: reading only ran on
+// upload). A document waiting in Needs Review with a reading type, in a
+// format the reader reads, goes back to the reader from its original
+// file and returns to Needs Review when the reading ends. The same rate
+// limit and monthly cap as an upload. Never a document already applied,
+// one being read, a family's filed copy, or one the stand-in read (that
+// label is permanent, so it is uploaded again once the key is set).
+export async function readDocumentAgain(slug: string, documentId: string): Promise<void> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  const user = await requireRole(org.id, STAFF_ROLES);
+  const back = `/org/${slug}/documents/${documentId}`;
+  const no = (why: string) => redirect(`${back}?error=${encodeURIComponent(why)}`);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("documents")
+    .select("id, category, requested_category, status, lifecycle, read_by, format, media_type, file_name, file_size, original_paths, source_role, athlete_id")
+    .eq("id", documentId)
+    .eq("org_id", org.id)
+    .maybeSingle();
+  const doc = data as {
+    category: DocCategoryId | null; requested_category: DocCategoryId | null; status: string; lifecycle: string; read_by: string | null;
+    format: VaultFormat | null; media_type: string; file_name: string; file_size: number; original_paths: string[] | null; source_role: SourceRole;
+  } | null;
+  if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is not in this organization.")}`);
+  const type = doc.category ?? doc.requested_category;
+  if (!type || !isReaderType(type)) return no("Pick a reading type under File As first.");
+  if (doc.lifecycle !== "needs_review") return no("Only a document in Needs Review can be read again.");
+  if (doc.status === "applied" || doc.status === "processing" || doc.status === "filed") return no("This document cannot be read again.");
+  if (isStubReading(doc.read_by)) return no("The stand-in read this one, and that stays on it. Upload the file again to have it read.");
+  if (!doc.format || !readerCanRead(doc.format) || !doc.original_paths?.length) return no("The reader reads PDF, JPG and PNG.");
+
+  const stubbed = await isStubbedModel();
+  if (!stubbed) {
+    const tooFast = rateRefusal(await loadRecentCalls(supabase, org.id), 1);
+    if (tooFast) return no(tooFast);
+    const spend = await loadMonthSpend(supabase, org.id);
+    if (spend.exhausted) return no(`This month's document reading budget (${dollars(spend.capCents)}) is used up. An Admin can raise it under More.`);
+  }
+
+  const requestId = `reread_${Date.now()}`;
+  const stored: StoredRecord[] = doc.original_paths.map((storagePath) => ({
+    originalName: doc.file_name,
+    originalSize: doc.file_size,
+    originalMime: doc.media_type,
+    kind: doc.format === "pdf" ? "pdf" : "image",
+    sourceRole: doc.source_role,
+    ingestedAt: new Date().toISOString(),
+    requestId,
+    mediaType: doc.media_type,
+    blockType: doc.format === "pdf" ? "document" : "image",
+    storagePath,
+  }));
+  const fetched = await readStoredRecords(supabase, org.id, stored);
+  if (!fetched.ok) return no(fetched.error);
+  const problem = validateRecords(fetched.records);
+  if (problem) return no(problem);
+
+  const kind = documentKind(type);
+  const moved = await moveLifecycle(supabase, { orgId: org.id, documentId, to: "processing", by: "staff", actorId: user.id, kind, athlete: null });
+  if (!moved.ok) return no(moved.error ?? "Could not start the reading.");
+  await supabase
+    .from("documents")
+    .update({ status: "processing", read_by: readerFor(stubbed, EXTRACTION_MODEL), failure_stage: null, failure_reason: null, updated_at: new Date().toISOString() })
+    .eq("id", documentId)
+    .eq("org_id", org.id);
+  try {
+    await readAndFile(slug, org.id, documentId, { records: stored, sourceRole: doc.source_role, requestedCategory: type }, fetched.records);
+  } catch (e) {
+    await supabase
+      .from("documents")
+      .update({ status: "failed", failure_stage: "crash", failure_reason: `Reading stopped unexpectedly: ${(e as Error).message || "unknown error"}. Nothing was changed on any athlete.`, updated_at: new Date().toISOString() })
+      .eq("id", documentId)
+      .eq("org_id", org.id);
+  }
+  await finishReading(supabase, { orgId: org.id, documentId, actorId: user.id, kind, athlete: null, category: type });
+  revalidatePath(`/org/${slug}/documents`);
+  redirect(back);
+}
+
 export interface ExtractedEditState {
   errors: Record<string, string>;
 }

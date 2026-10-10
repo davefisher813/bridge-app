@@ -347,14 +347,17 @@ describe("LAW: five statuses, enforced on the server, every move logged with who
     expect(actions).not.toMatch(/moveLifecycle\([^)]*to: "ready"/);
   });
 
-  it("the database and the app agree on the seven moves and the mapping of old rows", () => {
-    const sql = readFileSync(join(MIGRATIONS, "0048_document_vault.sql"), "utf8").replace(/^\s*--.*$/gm, "");
+  it("the database and the app agree on the moves and the mapping of old rows", () => {
+    // The latest migration that defines the move list (0048, replaced by 0055).
+    const latest = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql") && /documents_lifecycle_transition\(\) returns trigger/.test(readFileSync(join(MIGRATIONS, f), "utf8"))).sort().pop()!;
+    const sql = readFileSync(join(MIGRATIONS, latest), "utf8").replace(/^\s*--.*$/gm, "");
     const pairs = [...sql.match(/from \(values([\s\S]*?)\) as allowed/)![1].matchAll(/\('(\w+)', '(\w+)'\)/g)].map((m) => `${m[1]}>${m[2]}`).sort();
     expect(pairs).toEqual(TRANSITIONS.map((t) => `${t.from}>${t.to}`).sort());
-    const enumValues = [...sql.match(/create type doc_lifecycle as enum \(([\s\S]*?)\)/)![1].matchAll(/'(\w+)'/g)].map((m) => m[1]);
+    const base = readFileSync(join(MIGRATIONS, "0048_document_vault.sql"), "utf8").replace(/^\s*--.*$/gm, "");
+    const enumValues = [...base.match(/create type doc_lifecycle as enum \(([\s\S]*?)\)/)![1].matchAll(/'(\w+)'/g)].map((m) => m[1]);
     expect(enumValues).toEqual([...LIFECYCLE_STATES]);
     // Only discarded becomes Archived; everything else Needs Review; nothing becomes Ready.
-    expect(sql).toMatch(/case status when 'discarded' then 'archived' else 'needs_review' end/);
+    expect(base).toMatch(/case status when 'discarded' then 'archived' else 'needs_review' end/);
     expect(Object.entries(LEGACY_STATUS_TO_LIFECYCLE).filter(([, v]) => v === "archived").map(([k]) => k)).toEqual(["discarded"]);
   });
 });

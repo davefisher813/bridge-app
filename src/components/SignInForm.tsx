@@ -14,6 +14,8 @@ const EMPTY: MagicLinkState = { sent: false, email: "", error: null };
 export function SignInForm({ magicLink, password, initialError, startWithLink = false }: { magicLink: MagicLinkAction; password: PasswordAction; initialError?: string; startWithLink?: boolean }) {
   const [state, sendLink, pending] = useActionState(magicLink, EMPTY);
   const [useLink, setUseLink] = useState(startWithLink);
+  // Forgot Password: the same emailed link, with the next step said.
+  const [forgot, setForgot] = useState(false);
 
   if (state.sent) {
     return (
@@ -41,14 +43,22 @@ export function SignInForm({ magicLink, password, initialError, startWithLink = 
     return (
       <Stack gap={4}>
         <div>
-          <Heading>Sign In</Heading>
+          <Heading>{forgot ? "Forgot Your Password" : "Sign In"}</Heading>
+          {forgot && <Prose>We email you a link that signs you in. Then set a new password under More.</Prose>}
         </div>
         {(state.error || initialError) && <Notice tone="danger" title={state.error ?? initialError} />}
         <Form action={sendLink}>
           <Field name="email" label="Email" type="email" required autoComplete="email" inputMode="email" defaultValue={state.email} onPaper />
           <Button disabled={pending}>{pending ? "Sending..." : "Email Me a Link"}</Button>
         </Form>
-        <Button type="button" variant="quiet" onClick={() => setUseLink(false)}>
+        <Button
+          type="button"
+          variant="quiet"
+          onClick={() => {
+            setUseLink(false);
+            setForgot(false);
+          }}
+        >
           Use a password instead
         </Button>
       </Stack>
@@ -68,6 +78,16 @@ export function SignInForm({ magicLink, password, initialError, startWithLink = 
       </Form>
       <Button type="button" variant="quiet" onClick={() => setUseLink(true)}>
         Email Me a Link Instead
+      </Button>
+      <Button
+        type="button"
+        variant="quiet"
+        onClick={() => {
+          setForgot(true);
+          setUseLink(true);
+        }}
+      >
+        Forgot Your Password?
       </Button>
     </Stack>
   );
