@@ -75,12 +75,27 @@ From the guarded scripts in `scripts/launch/`, after a dry run of each:
 Read back afterwards: Needs Review 16, Archived 41, athletes 34, bucket
 10485760, 0 orphaned files.
 
+Later the same day, on Dave's word ("change it to dave@bffsa but only if
+it's not going to cause any issues at all"):
+
+- Checked first: davefisher813@gmail.com is tied to nothing on Bridge but
+  history (57 uploads, 212 activity rows, both kept and still credited to
+  Dave Fisher): no advisor, steward, board seat, guardian, check-in,
+  message or assignment. dave@bffsa.org is confirmed and last signed in
+  Oct 6.
+- dave@bffsa.org added to Bridge as Admin. Done.
+- Removing davefisher813@gmail.com from Bridge: not done. The Supabase
+  tool holds a delete for a confirmation that never reaches Dave, so it
+  times out and rolls back. Dave removes it in the app: signed in as
+  dave@bffsa.org, More, Members, the Gmail row, Remove.
+- Migration 0049 (member photos) applied. The Supabase org is on the Pro
+  plan, which includes daily backups.
+- Migration 0050 (board meetings): not applied yet. Must be applied before
+  the branch merges, or the Governance Meetings screens fail.
+
 ## Still open
 
-1. **Admin swap** (`1_admin_swap.sql`, dry run clean): Dave asked how it
-   changes his day to day before answering.
-2. **Henry Tolentino:** waits on his email.
-3. **Backups or point in time recovery:** unconfirmed. Blocks applying
-   0049 and 0050.
-4. **Merge** of this branch: waits on Dave.
-5. **Meetings for Viewers:** Admin only today; Dave's call.
+1. Remove davefisher813@gmail.com from Bridge (one tap, above).
+2. Apply 0050, then merge PR #2.
+3. Henry Tolentino: on hold (Dave).
+4. Meetings for Viewers: Admin only today; Dave's call.
