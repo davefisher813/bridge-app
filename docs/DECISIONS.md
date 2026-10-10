@@ -3994,3 +3994,20 @@ form, not a one-tap change, and is logged rather than confirmed. Mark
 Ready and Apply on a document are content decisions, logged and undoable
 (Archive, Undo and Discard), and unchanged. Laws:
 `src/laws/authorityLaws.test.ts`, each planted and seen to fail.
+
+## 2026-10-10: a hand-made view that skipped row security is closed
+
+**Decision.** `public.needs_review_shelf`, created on production outside
+the migrations, ran with its owner's rights and was readable by the
+signed-out role: 17 Needs Review file names and review reasons across
+orgs. Migration 0052 makes it run with the caller's rights and revokes
+access from the signed-out and signed-in roles. Not dropped: it is not
+ours to remove, and nothing in the app reads it.
+
+**Reason.** Supabase security advisor, level ERROR, confirmed by reading
+it as the signed-out role.
+
+**Consequences.** A new law (`migrationLaws.test.ts`) refuses any view in
+a migration without `security_invoker = true`. A view made by hand on
+production is outside what the laws can see; the security advisor is
+the check for that, and should be run after any manual change.

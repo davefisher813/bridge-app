@@ -93,8 +93,34 @@ it's not going to cause any issues at all"):
 - Migration 0050 (board meetings) applied after Dave's "Go": both tables
   have RLS on, 4 policies and the same-org trigger each. PR #2 merged (b2b6e8b) and deployed.
 
+## Later on 2026-10-10
+
+- PR #3 (audit issue #1): advisor copy restored, same-name Admins told
+  apart by email. Merged 3a9098e, live.
+- PR #4 (authority rule): every advisor, steward, role and seat change
+  confirms, logs and can be undone; migration 0051 applied. Merged
+  7eb8c7f, live.
+- Security: the Supabase advisor flagged `public.needs_review_shelf`
+  (ERROR). A view made by hand on production, outside the migrations,
+  that let a signed-out visitor read 17 Needs Review file names and
+  review reasons across orgs. Closed the same hour (migration 0052: runs
+  with the caller's rights, no access for signed-out or signed-in roles).
+  Advisor re-run: the ERROR is gone. Whether anyone read it before could
+  not be checked from this session (request logs need Dave's OK).
+- QA pass: everything passed. No document delete is by design (Dave
+  confirmed: archive only; the 3 Alfred QA files stay archived). Doc AI
+  lives inside Documents, by design. Members "People 0 / Invited 0" could
+  not be reproduced: the counts come from the same list shown below them,
+  and production data gives 2 and 0. Needs a screenshot.
+
 ## Still open
 
-1. Remove davefisher813@gmail.com from Bridge (one tap, above).
-2. Henry Tolentino: on hold (Dave).
-3. Meetings for Viewers: Admin only today; Dave's call.
+1. Remove davefisher813@gmail.com from Bridge (More, Members, Remove).
+2. First real board meeting and headshot (Dave), as the live check.
+3. Henry Tolentino: on hold (Dave).
+4. Meetings for Viewers, and hiding Elite Squad: Dave's call.
+5. Supabase Authentication settings and custom SMTP (docs/LAUNCH_GATES.md,
+   item 4): only Dave can read or set them.
+6. Real-account role test (LAUNCH_GATES item 6): needs Dave's approval and
+   test mailboxes.
+7. Vercel plan: Hobby is for non-commercial use; Dave to check Billing.

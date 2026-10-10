@@ -1,17 +1,18 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "3a9098e",
-  "commitFull": "3a9098ef474c5b3db9be4beef1d7733a2f740505",
+  "commit": "7eb8c7f",
+  "commitFull": "7eb8c7fcce4f95a8486c73716fbce3f53f7bfb25",
   "branch": "claude/downloads-directory-4mf6gv",
   "remoteBranches": [
+    "origin/claude/downloads-directory-4mf6gv",
     "origin/main"
   ],
   "shipped": true,
   "dirty": true,
   "onMain": true,
-  "startedAt": "2026-10-10T15:50:27.209Z",
-  "durationMs": 105943,
+  "startedAt": "2026-10-10T19:25:32.242Z",
+  "durationMs": 199861,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -20,7 +21,7 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 2498,
+        "pass": 2499,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
@@ -54,7 +55,7 @@
         "src/laws/lifecycleLaws.test.ts": 20,
         "src/laws/matchingLaws.test.ts": 41,
         "src/laws/meetingLaws.test.ts": 6,
-        "src/laws/migrationLaws.test.ts": 5,
+        "src/laws/migrationLaws.test.ts": 6,
         "src/laws/moreLaws.test.ts": 10,
         "src/laws/ncaaLaws.test.ts": 36,
         "src/laws/orgCrudLaws.test.ts": 53,
@@ -150,7 +151,7 @@
             "location": "/login"
           }
         },
-        "ms": 1571
+        "ms": 1461
       },
       "errors": [],
       "warnings": [],
@@ -164,8 +165,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 25,
-      "filesScanned": 660
+      "touchedFiles": 6,
+      "filesScanned": 662
     },
     {
       "name": "types",
