@@ -13,7 +13,7 @@ and how. Nothing in production was changed while writing this.
 | Code pushed | **Done** | `main` = d1da4b8 on GitHub and in production. |
 | 634 schools, 1,461 coaches | **Present: 638 schools, 1,461 coaches** | Row counts on production. 638, not 634: four more schools than the brief expects. |
 | Athletes import | **Nothing to import; 2 to confirm** | The 28-athlete sheet ("BFFSA Athlete Database") is all already in the app: every one of the 28 names matches a live athlete. The app has 32: the 28 plus Jeremias Perez, Jeromie Volquez, Rogerlin Paulino, Wilfredo Paulino. No duplicates. The "MASTER Bridge Recruiting Tracker" lists two athletes the app does not have: **Ricky Perez** and **Frailyn Capellan**. Their files are already uploaded. Not added: need Dave to confirm they are Bridge athletes. Some sheet statuses are older than the app's (Angel Valerio, Brandon Jimenez, JJ Batista); the app was left as is. |
-| 16 prepared files | **Uploaded, but sitting in Archived** | All 16 are in Documents (Oct 8, 13:30 to 13:33 UTC, by davefisher813@gmail.com): 7 board documents (articles of incorporation, bylaws, code of conduct, conflict of interest, fiscal policy, mission statement, NDA) and 9 athlete files (Bautista, Branche, Izquierdo, Paradis, Soroa). On Oct 9 01:42 to 01:50 every document was archived, and 17 copies were uploaded again with types chosen. Those 17 are what Needs Review shows now. Most are "Same file as" duplicates. Several have the wrong type (spreadsheets tagged Test Scores). See the decision list. |
+| 16 prepared files | **Uploaded, but sitting in Archived** | All 16 are in Documents (Oct 8, 13:30 to 13:33 UTC, by davefisher813@gmail.com): 7 board documents (articles of incorporation, bylaws, code of conduct, conflict of interest, fiscal policy, mission statement, NDA) and 9 athlete files (Bautista, Branche, Izquierdo, Paradis, Soroa). On Oct 9 01:42 to 01:50 every document was archived, and 16 copies were uploaded again with types chosen. Those 16 are what Bridge's Needs Review shows now (the 17th Needs Review row in the database is one Elite Squad document). Most are "Same file as" duplicates. Several have the wrong type (spreadsheets tagged Test Scores). See the decision list. |
 | Test data | **None found** | Searched every text column of every public table for "AUDIT TEST", "AlfredQA", "Alfred Test" and "safe to delete": 0 rows. No athlete, user, board member or donor name contains "test" or "audit". |
 
 ## 2. Deployment
@@ -63,10 +63,20 @@ and how. Nothing in production was changed while writing this.
 | dave@bffsa.org as Admin of Bridge | **Not yet.** dave@bffsa.org is an Admin of Elite Squad only. Adding it to Bridge while davefisher813@gmail.com stays would put Dave on Advisors twice. Needs the swap decision below. |
 | Runbook | `docs/RUNBOOK.md`. |
 
+## Prepared, not run
+
+`scripts/launch/` holds one guarded SQL file per decision (admin swap,
+documents, athletes, bucket limit). Each was dry run on production on
+2026-10-10 inside a transaction that raised at the end, so nothing stayed.
+Every guard and database trigger accepted the changes: the documents move
+leaves Needs Review at 16 and Archived at 41, the athletes file adds Ricky
+Perez and Frailyn Capellan, and the membership insert and delete each ran.
+Production was read again afterwards and was unchanged.
+
 ## Decisions for Dave (in addition to the seven Gate 1 items)
 
 1. **Bridge Admin account:** add dave@bffsa.org to Bridge as Admin and take davefisher813@gmail.com off Bridge? This is the only way to meet both "Dave once on Advisors" and "dave@bffsa.org is Admin".
-2. **Documents cleanup:** unarchive the 16 prepared files and archive the 17 Oct 9 duplicates? This is a list of taps in the app, nothing is deleted.
+2. **Documents cleanup:** unarchive the 16 prepared files and archive the 16 Oct 9 copies? This is a list of taps in the app, nothing is deleted.
 3. **Ricky Perez and Frailyn Capellan:** add them as Bridge athletes?
 4. **Henry Tolentino:** his email, to invite him to Elite Squad as "Asst Coach".
 5. **Headshots and the Development Board:** these look like content for the public site, not this app. If they belong here, adding photos is a new feature.
