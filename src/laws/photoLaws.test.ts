@@ -72,6 +72,8 @@ describe("LAW: an Admin sets a photo only for someone in their org, from that or
   it("a path in another org's folder, for another person, or in another shape is refused without reading anything", async () => {
     const { setMemberPhoto } = await import("@/lib/actions/members");
     for (const path of [`${ELITE()}/${MEMBER_ID}/1.jpg`, `${BRIDGE()}/${OWNER_ID}/1.jpg`, `${BRIDGE()}/${MEMBER_ID}/../x.jpg`, `${BRIDGE()}/${MEMBER_ID}/1.png`, 42]) {
+      // A real JPEG sits at each path, so only the path rule can refuse it.
+      if (typeof path === "string") put(path);
       const r = await setMemberPhoto(ORG_WITH_MODULES, MEMBER_ID, path);
       expect(r.ok, String(path)).toBe(false);
     }

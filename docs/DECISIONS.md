@@ -3928,3 +3928,37 @@ between the upload and the check can leave an unregistered file;
 Production migration only after a backup or point in time recovery for
 emllcefqxyxyhqolrllo is confirmed. View As (0047) is not merged; its
 rebase conflicts are fixed when it is.
+
+## 2026-10-10: go-live data moves, admin photos, board meetings
+
+**Decision.** On Dave's word (2026-10-10) three data changes ran on
+production from the guarded scripts in `scripts/launch/`: the 16 prepared
+files went back to Needs Review and their 16 Oct 9 copies to Archived (one
+activity row each, no actor, because nobody tapped it in the app); Ricky
+Perez and Frailyn Capellan were added as Active Bridge athletes; the
+`documents` bucket limit went from 50 MB back to 10 MB. Two features were
+built for the people who will run the org from the app. Migration 0049
+gives each membership one photo: a private `member-photos` bucket, JPEG
+only, 1 MB, shrunk in the browser to a 512 px square, uploaded by an Admin
+straight to the bucket under the org's own folder, checked on the server
+(path shape, folder, JPEG bytes, size) before the row points at it, and
+served only through `/org/<slug>/members/<id>/photo` to people in that
+org. Migration 0050 adds board meetings (title, date, optional board,
+where, notes) and links them to documents already in Documents. Both
+tables are Admin only, cross-org links are refused by triggers, and
+removing a meeting never touches its documents.
+
+**Reason.** Dave: headshots and the Development Board go "IN the app.
+They'll be admins and I'll control their access"; meeting materials:
+"Build the feature"; file size: "your call". 10 MB is what the app and
+migration 0029 already enforce, so the bucket now agrees with them.
+
+**Alternatives.** Photos as a server action body (refused by the laws: no
+file bytes through an action); a public photo bucket (photos are of
+people, kept private); copying files into meetings (two copies of one
+file; a link keeps one original).
+
+**Consequences.** Viewers do not see meetings; opening them to Viewers is a
+policy change and Dave's call. 0049 and 0050 are applied to production only
+at merge and only after a backup or point in time recovery is confirmed.
+Both have down scripts in `scripts/down/`.

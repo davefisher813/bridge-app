@@ -32,9 +32,10 @@ const broken = [];
 for (const { href, as, from } of found.values()) {
   await ctx.clearCookies();
   if (as) await ctx.addCookies([{ name: "fixture_user", value: as, url: BASE }]);
-  // A file the browser downloads rather than renders (the CSV template)
-  // is checked with a plain request instead of a navigation.
-  if (/\.(csv|pdf|png|jpg|webmanifest|ico)$/i.test(href)) {
+  // A file the browser downloads rather than renders (the CSV template, a
+  // stored document's Download) is checked with a plain request instead
+  // of a navigation.
+  if (/\.(csv|pdf|png|jpg|webmanifest|ico)$/i.test(href) || /\/download(\?|$)/.test(href)) {
     const r = await ctx.request.get(BASE + href);
     if (!r.ok()) broken.push({ href, from, as: as ?? "owner", status: r.status(), landed: href, why: `HTTP ${r.status()}` });
     continue;

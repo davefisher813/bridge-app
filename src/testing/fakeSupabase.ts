@@ -83,6 +83,9 @@ const EMBEDS: Record<string, Record<string, EmbedSpec>> = {
   documents: {
     athletes: { table: "athletes", foreignKey: "athlete_id", many: false },
   },
+  board_meetings: {
+    boards: { table: "boards", foreignKey: "board_id", many: false },
+  },
   board_members: {
     boards: { table: "boards", foreignKey: "board_id", many: false },
     donors: { table: "donors", foreignKey: "donor_id", many: false },

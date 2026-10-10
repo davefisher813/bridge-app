@@ -78,6 +78,10 @@ export const IDS = {
   assignmentComplete: "00000000-0000-0000-0000-000000000155",
   assignmentCancelled: "00000000-0000-0000-0000-000000000156",
   assignmentElite: "00000000-0000-0000-0000-000000000157",
+  // Board meetings (migration 0050): one coming up with two documents
+  // on it, one past with none.
+  meetingUpcoming: "00000000-0000-0000-0000-000000000161",
+  meetingPast: "00000000-0000-0000-0000-000000000162",
 } as const;
 
 // A day counted from whenever the fixture is built, as YYYY-MM-DD, so a
@@ -1063,6 +1067,14 @@ export function buildFixture(): Dataset {
         created_at: new Date(Date.now() - 30_000).toISOString(),
       },
     ]),
+    board_meetings: [
+      { id: IDS.meetingUpcoming, org_id: BRIDGE, board_id: IDS.board, title: "Fall Board Meeting", meets_on: inDays(10), location: "Fixture Community Room", notes: "Budget review, the fall recruiting report, and a vote on the conflict of interest policy.", created_by: OWNER, created_at: "2026-10-01T14:00:00.000Z", updated_at: "2026-10-01T14:00:00.000Z" },
+      { id: IDS.meetingPast, org_id: BRIDGE, board_id: null, title: "Summer Planning Meeting", meets_on: "2026-07-15", location: null, notes: null, created_by: OWNER, created_at: "2026-07-01T14:00:00.000Z", updated_at: "2026-07-01T14:00:00.000Z" },
+    ],
+    board_meeting_documents: [
+      { meeting_id: IDS.meetingUpcoming, document_id: "doc-word", org_id: BRIDGE, added_by: OWNER, created_at: "2026-10-01T15:00:00.000Z" },
+      { meeting_id: IDS.meetingUpcoming, document_id: "doc-ready", org_id: BRIDGE, added_by: OWNER, created_at: "2026-10-01T15:01:00.000Z" },
+    ],
     // Assignments (migration 0046). On the fixture athlete, one in each
     // status: overdue (assigned, a fixed date well past), due soon
     // (assigned, three days out), submitted (with the filed document and
