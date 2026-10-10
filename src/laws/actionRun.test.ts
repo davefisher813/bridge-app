@@ -2563,19 +2563,25 @@ describe("LAW: every action writes one activity_log row on success, none on refu
     expect(serverLogs()).toEqual([]);
     writes.length = 0;
 
+    const advised = data.athletes.filter((a) => a.advisor_id === OWNER_ID).length;
+    expect(advised).toBeGreaterThan(0);
     expect((await changeMemberRole(ORG_WITH_MODULES, OWNER_ID, "member")).ok).toBe(true);
-    expect(logs()).toHaveLength(1);
+    // The role change, and one row per athlete who lost them as advisor
+    // (Dave's standing rule, 2026-10-06: no silent side effect).
+    expect(logs().filter((l) => l.action === "member_role_changed")).toHaveLength(1);
     expect(logs()[0]).toMatchObject({ action: "member_role_changed", actor_id: OWNER_ID, subject_id: OWNER_ID, summary: "Changed Example Owner from Admin to Viewer" });
-    expect(serverLogs()).toHaveLength(1);
+    expect(logs().filter((l) => l.action === "advisor_cleared")).toHaveLength(advised);
+    expect(serverLogs()).toHaveLength(1 + advised);
     writes.length = 0;
     viaServer = [];
 
     data = buildFixture();
     data.org_members.push({ id: "m-second", user_id: OUTSIDER_ID, org_id: data.orgs[0]!.id, role: "owner" });
     expect((await removeMember(ORG_WITH_MODULES, OWNER_ID)).ok).toBe(true);
-    expect(logs()).toHaveLength(1);
+    expect(logs().filter((l) => l.action === "member_removed")).toHaveLength(1);
     expect(logs()[0]).toMatchObject({ action: "member_removed", actor_id: OWNER_ID, subject_id: OWNER_ID, summary: "Removed Example Owner" });
-    expect(serverLogs()).toHaveLength(1);
+    expect(logs().filter((l) => l.action === "advisor_cleared")).toHaveLength(advised);
+    expect(serverLogs()).toHaveLength(1 + advised);
   });
 
   it("a refused action logs nothing", async () => {

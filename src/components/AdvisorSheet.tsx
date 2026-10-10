@@ -11,11 +11,13 @@
 // the athletes this Admin does not advise yet, as Assign Athlete.
 //
 // The list is filtered in memory; it is the org's Admins or roster, not
-// a directory. Each row is a kit Option (a submit button carrying the
-// id), so the form posts exactly one field and the action decides.
+// a directory. A tap on a row never writes (Dave's standing rule,
+// 2026-10-06: no one-click authority change). It opens the confirm
+// step, which says in one sentence what will change and posts exactly
+// one field; Back returns to the list. Clear asks the same way.
 
 import { useState, type ReactNode } from "react";
-import { Button, Field, Form, Label, LinkButton, Option, Sheet, Stack } from "@/components/kit";
+import { Button, Field, Form, Hidden, Label, LinkButton, Option, Prose, Sheet, Stack } from "@/components/kit";
 
 export interface SheetChoice {
   id: string;
@@ -36,6 +38,8 @@ export function AdvisorSheet({
   clearLabel,
   add,
   empty,
+  confirm,
+  clearConfirm,
   defaultOpen = false,
 }: {
   action: (formData: FormData) => void | Promise<void>;
@@ -52,12 +56,26 @@ export function AdvisorSheet({
   clearLabel?: string;
   add?: { href: string; label: string };
   empty: string;
+  // The confirm step's question, with {choice} standing for the picked
+  // row's title: "Make {choice} the advisor for Ana Ruiz?". A string,
+  // not a function, so a server page can hand it over.
+  confirm: string;
+  // The question before Clear.
+  clearConfirm?: string;
   // Open on first render. The render laws and the preview use it; a
   // screen never does.
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [q, setQ] = useState("");
+  // The row picked and waiting for its confirm: a choice, or "" for
+  // Clear, or null while the list shows.
+  const [pending, setPending] = useState<string | null>(null);
+  const picked = pending ? choices.find((c) => c.id === pending) : null;
+  const close = () => {
+    setOpen(false);
+    setPending(null);
+  };
   const needle = q.trim().toLowerCase();
   const shown = needle ? choices.filter((c) => `${c.title} ${c.meta ?? ""} ${c.keywords ?? ""}`.toLowerCase().includes(needle)) : choices;
 
@@ -66,27 +84,40 @@ export function AdvisorSheet({
       <Button type="button" variant="quiet" inline onClick={() => setOpen(true)}>
         {trigger}
       </Button>
-      <Sheet open={open} onClose={() => setOpen(false)} title={title}>
-        {choices.length > 3 && <Field name="q" type="search" label={searchLabel} labelHidden placeholder={searchLabel} autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} onPaper />}
-        <Form action={action}>
-          <Stack gap={3}>
-            {shown.map((c) => (
-              <Option key={c.id} name={field} value={c.id} selected={c.id === currentId} title={c.title} meta={c.id === currentId ? `Assigned Now${c.meta ? ` · ${c.meta}` : ""}` : c.meta} />
-            ))}
-            {shown.length === 0 && <Label>{choices.length === 0 ? empty : "Nobody matches that search."}</Label>}
-            {currentId && clearLabel && (
-              <Button variant="secondary" name={field} value="">
-                {clearLabel}
+      <Sheet open={open} onClose={close} title={title}>
+        {pending !== null ? (
+          <Form action={action}>
+            <Stack gap={3}>
+              <Prose>{pending === "" ? clearConfirm ?? "Clear this?" : confirm.replace("{choice}", picked?.title ?? "them")}</Prose>
+              <Hidden name={field} value={pending} />
+              <Button>{pending === "" ? "Clear" : "Confirm"}</Button>
+              <Button type="button" variant="secondary" onClick={() => setPending(null)}>
+                Back
               </Button>
+            </Stack>
+          </Form>
+        ) : (
+          <>
+            {choices.length > 3 && <Field name="q" type="search" label={searchLabel} labelHidden placeholder={searchLabel} autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} onPaper />}
+            <Stack gap={3}>
+              {shown.map((c) => (
+                <Option key={c.id} selected={c.id === currentId} title={c.title} meta={c.id === currentId ? `Assigned Now${c.meta ? ` · ${c.meta}` : ""}` : c.meta} onPick={() => setPending(c.id)} />
+              ))}
+              {shown.length === 0 && <Label>{choices.length === 0 ? empty : "Nobody matches that search."}</Label>}
+              {currentId && clearLabel && (
+                <Button type="button" variant="secondary" onClick={() => setPending("")}>
+                  {clearLabel}
+                </Button>
+              )}
+            </Stack>
+            {add && (
+              <LinkButton href={add.href} variant="secondary">
+                {add.label}
+              </LinkButton>
             )}
-          </Stack>
-        </Form>
-        {add && (
-          <LinkButton href={add.href} variant="secondary">
-            {add.label}
-          </LinkButton>
+          </>
         )}
-        <Button type="button" variant="quiet" onClick={() => setOpen(false)}>
+        <Button type="button" variant="quiet" onClick={close}>
           Close
         </Button>
       </Sheet>

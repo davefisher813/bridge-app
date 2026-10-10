@@ -3962,3 +3962,35 @@ file; a link keeps one original).
 policy change and Dave's call. 0049 and 0050 are applied to production only
 at merge and only after a backup or point in time recovery is confirmed.
 Both have down scripts in `scripts/down/`.
+
+## 2026-10-10: every authority change asks, logs and can be undone
+
+**Decision.** Dave's standing rule from 2026-10-06, enforced: every
+authority decision is a setting an Admin can see, change and undo in the
+app. An audit of the code found no automatic assignment and no hardcoded
+person, but found one-tap changes and silent side effects. Now: the
+Advisor sheet (athlete page, member page) and a new Steward sheet (donor
+page) open a confirm step before writing; Admin and Viewer are confirms
+that say which athletes lose their advisor; Assign Ticked Athletes and
+Link Sign-In confirm; removing someone says who loses their advisor. An
+advisor or steward change offers Undo back to whoever it was. Every
+change is logged, side effects included: one advisor_cleared row per
+athlete when an Admin is demoted or removed, and new actions (migration
+0051) for Titles, seat links, stewards and the org's settings and Doc AI
+budget. A donor's steward, a column since 0012 that nothing showed, is
+now shown and set on the donor page. Settings shows whether this org may
+edit the shared school directory.
+
+**Reason.** Dave, 2026-10-10: "No silent assignments, no hardcoded names,
+no one-click changes without confirmation."
+
+**Alternatives.** Making the shared-directory flag editable per org (a
+change reaches every org in the app, so it stays read only and set for
+the whole app); making role-to-permission mapping editable (the three
+access levels are fixed by Dave's 2026-09-27 decision).
+
+**Consequences.** Saving a Title, the modules or the budget is a Save on a
+form, not a one-tap change, and is logged rather than confirmed. Mark
+Ready and Apply on a document are content decisions, logged and undoable
+(Archive, Undo and Discard), and unchanged. Laws:
+`src/laws/authorityLaws.test.ts`, each planted and seen to fail.

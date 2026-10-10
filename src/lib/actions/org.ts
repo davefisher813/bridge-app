@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOwner } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { mergeModules, parseCreateOrgForm, parseOrgSettingsForm, slugify, SLUG_MAX } from "@/lib/validation/org";
+import { mergeModules, MODULE_LABEL, OPTIONAL_MODULES, parseCreateOrgForm, parseOrgSettingsForm, slugify, SLUG_MAX } from "@/lib/validation/org";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 
 // An organization's own settings, and starting a new one (audit wired
 // F4). Before this a new org, or a rename, was hand-written SQL.
@@ -99,7 +100,7 @@ export async function createOrg(_prev: OrgActionState, formData: FormData): Prom
 export async function updateOrgSettings(slug: string, _prev: OrgActionState, formData: FormData): Promise<OrgActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
-  await requireOwner(org.id);
+  const caller = await requireOwner(org.id);
 
   const parsed = parseOrgSettingsForm(formData);
   if (!parsed.ok || !parsed.values) return { errors: parsed.errors, values: echo(formData) };
@@ -119,6 +120,22 @@ export async function updateOrgSettings(slug: string, _prev: OrgActionState, for
     .select("id");
   if (error) return { errors: { form: error.message }, values: echo(formData) };
   if (!data || data.length === 0) return { errors: { form: "That organization is gone." }, values: echo(formData) };
+
+  // Each switch that moved, and a new name, on the record (Dave's
+  // standing rule, 2026-10-06). Fixed phrases built from the module
+  // labels, never the typed name.
+  const moved = OPTIONAL_MODULES.filter((m) => Boolean(org.modules[m]) !== Boolean(v.modules[m])).map((m) => `${MODULE_LABEL[m].title} ${v.modules[m] ? "on" : "off"}`);
+  if (v.name !== org.name) moved.unshift("the organization name");
+  if (moved.length > 0) {
+    await logActivity(await createClient(), {
+      orgId: org.id,
+      actorId: caller.id,
+      action: "settings_changed",
+      subjectType: "org",
+      subjectId: org.id,
+      summary: activitySummary("settings_changed", { setting: `the settings: ${moved.join(", ")}` }),
+    });
+  }
 
   // The name shows on every screen in the org, and a module
   // switch adds or removes whole sections, so the whole org refreshes.

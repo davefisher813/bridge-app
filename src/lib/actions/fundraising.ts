@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 import { centsToDecimalString, parseGiftForm, parsePledgeForm, type GiftFormValues } from "@/lib/validation/gift";
 import { toCents } from "@/lib/fundraising/rollup";
 import { nameKey } from "@/lib/lookup/nameKey";
+import { isEligibleAdvisor } from "@/lib/org/advisors";
+import { activitySummary, logActivity } from "@/lib/data/activity";
 
 export interface FundraisingActionState {
   errors: Record<string, string>;
@@ -358,6 +360,46 @@ export async function updateDonor(slug: string, donorId: string, _prevState: Fun
 
   revalidateMoney(slug);
   redirect(`/org/${slug}/fundraising/donors/${donorId}?${note("Donor saved.")}`);
+}
+
+// Who stewards a donor (donors.steward_user_id, migration 0012). Until
+// now the column existed and nothing could see or set it; Dave's standing
+// rule (2026-10-06) is that every assignment is a setting an Admin sees,
+// changes and undoes in the app. The steward is an Admin of this org,
+// the same rule as an athlete's advisor; an empty value clears. Logged,
+// and the notice offers Undo back to whoever it was before.
+export async function setDonorSteward(slug: string, donorId: string, formData: FormData): Promise<void> {
+  const { org, user } = await requireFundraising(slug);
+  const back = `/org/${slug}/fundraising/donors/${donorId}`;
+  const stewardId = String(formData.get("stewardId") ?? "").trim() || null;
+
+  const supabase = await createClient();
+  const { data: donor } = await supabase.from("donors").select("id, name, steward_user_id").eq("id", donorId).eq("org_id", org.id).is("deleted_at", null).maybeSingle();
+  if (!donor) redirect(`/org/${slug}/fundraising/donors?${oops("That donor is not in this organization.")}`);
+  const d = donor as { name: string; steward_user_id: string | null };
+  if (stewardId && !(await isEligibleAdvisor(supabase, org.id, stewardId))) redirect(`${back}?${oops("Only an Admin of this organization can steward a donor.")}`);
+  if (d.steward_user_id === stewardId) redirect(back);
+
+  const { error } = await supabase.from("donors").update({ steward_user_id: stewardId }).eq("id", donorId).eq("org_id", org.id);
+  if (error) redirect(`${back}?${oops(`Could not change the steward: ${error.message}`)}`);
+
+  let stewardName = "";
+  if (stewardId) {
+    const { data: person } = await supabase.from("users").select("full_name, email").eq("id", stewardId).maybeSingle();
+    const p = person as { full_name: string | null; email: string | null } | null;
+    stewardName = p?.full_name || p?.email || "";
+  }
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    action: stewardId ? "steward_set" : "steward_cleared",
+    subjectType: "donor",
+    subjectId: donorId,
+    summary: stewardId ? activitySummary("steward_set", { name: d.name, person: stewardName }) : activitySummary("steward_cleared", { name: d.name }),
+  });
+
+  revalidatePath(back);
+  redirect(`${back}?${note(stewardId ? "Steward set." : "Steward cleared.")}&undo=${d.steward_user_id ?? "none"}`);
 }
 
 // Remove a donor from the address book. A soft delete (deleted_at, which

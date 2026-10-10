@@ -130,7 +130,9 @@ describe("LAW: a summary is built from a template, and no caller hands the log a
     // named inside them has to be one of the allowed kinds of value.
     const props = [...block.matchAll(/\{([^}]*)\}/g)].flatMap((m) => [...m[1].matchAll(/(\w+)\??:/g)].map((x) => x[1]));
     expect(props.length).toBeGreaterThan(20);
-    const allowed = new Set(["name", "from", "to", "advisor", "school", "kind", "date", "role", "athlete"]);
+    // `person` is a name like `advisor`; `setting` is a phrase the caller
+    // builds from fixed module labels and amounts (migration 0051).
+    const allowed = new Set(["name", "from", "to", "advisor", "school", "kind", "date", "role", "athlete", "person", "setting"]);
     expect(props.filter((p) => !allowed.has(p))).toEqual([]);
     expect(block).not.toMatch(/\bnotes?\b|\bbody\b|\btext\b|\bextracted\b|\bcontent\b|\binstructions\b|\bsummary\b/);
   });
@@ -335,7 +337,15 @@ describe("LAW: migration 0044 is append only, Admins only, and its family functi
       .sort()
       .flatMap((f) => [...read(join(MIGRATIONS, f)).replace(/^\s*--.*$/gm, "").matchAll(/alter type activity_action add value (?:if not exists )?'(\w+)'/g)].map((m) => m[1]));
     expect([...created, ...later].sort()).toEqual([...ACTIVITY_ACTIONS].sort());
-    const subjectTypes = [...sql.match(/subject_type in \(([^)]*)\)/)![1].matchAll(/'(\w+)'/g)].map((m) => m[1]);
+    // The subject check as created, or as the latest migration that
+    // rewrites it (0051 widens it for seats, donors and the org).
+    const rewrites = readdirSync(MIGRATIONS)
+      .filter((f) => f > "0044_" && f.endsWith(".sql"))
+      .sort()
+      .map((f) => read(join(MIGRATIONS, f)).replace(/^\s*--.*$/gm, "").match(/add constraint activity_log_subject_type_check\s+check \(subject_type in \(([^)]*)\)/))
+      .filter(Boolean);
+    const subjectSource = rewrites.length ? rewrites[rewrites.length - 1]![1] : sql.match(/subject_type in \(([^)]*)\)/)![1];
+    const subjectTypes = [...subjectSource.matchAll(/'(\w+)'/g)].map((m) => m[1]);
     expect(subjectTypes).toEqual([...ACTIVITY_SUBJECT_TYPES]);
     for (const col of ["org_id", "athlete_id", "actor_id"]) expect(sql).toMatch(new RegExp(`create index \\w+ on activity_log \\(${col}`));
   });

@@ -2,6 +2,11 @@
 
 // A destructive action that asks first.
 //
+// Also every authority change (Dave's standing rule, 2026-10-06: no
+// one-click change to who advises, holds a role or approves). Those are
+// not deletes, so tone="change" keeps the plain button and confirms in
+// the accent colour instead of red; the sheet is the same.
+//
 // Dave's pick, 2026-09-20: a confirm sheet, not an immediate delete and
 // not an in-row Yes/No. The button opens a sheet pinned to the bottom of
 // the screen with the question, a Keep and the real action. The real
@@ -17,17 +22,21 @@ export function ConfirmButton({
   body,
   confirmLabel,
   inline = false,
+  tone = "destructive",
+  disabled = false,
 }: {
   children: ReactNode;
   title: ReactNode;
   body?: ReactNode;
   confirmLabel: ReactNode;
   inline?: boolean;
+  tone?: "destructive" | "change";
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button type="button" variant={inline ? "quiet" : "destructive"} inline={inline} onClick={() => setOpen(true)}>
+      <Button type="button" variant={inline ? "quiet" : tone === "change" ? "secondary" : "destructive"} inline={inline} disabled={disabled} onClick={() => setOpen(true)}>
         {children}
       </Button>
       {open && (
@@ -45,7 +54,7 @@ export function ConfirmButton({
                 {body && <div className="text-body text-muted">{body}</div>}
               </div>
               <div className="flex flex-col gap-3">
-                <Button variant="destructive">{confirmLabel}</Button>
+                <Button variant={tone === "change" ? "primary" : "destructive"}>{confirmLabel}</Button>
                 <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
                   Keep
                 </Button>

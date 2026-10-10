@@ -566,9 +566,11 @@ export function Hidden({ name, value }: { name: string; value: string }) {
 
 // One of several choices in a form, submitted by tapping it. The
 // selected one carries a ring. `name`/`value` make the tap the submit.
-export function Option({ name, value, selected, title, meta }: { name: string; value: string; selected: boolean; title: ReactNode; meta?: ReactNode }) {
+// With onPick it is a plain button that hands the choice to a confirm
+// step instead of submitting (an authority change asks first).
+export function Option({ name, value, selected, title, meta, onPick }: { name?: string; value?: string; selected: boolean; title: ReactNode; meta?: ReactNode; onPick?: () => void }) {
   return (
-    <button type="submit" name={name} value={value} disabled={selected} aria-pressed={selected} className={`flex min-h-14 w-full flex-wrap items-center justify-between gap-3 rounded border border-line bg-paper px-4 py-3 text-left ${selected ? "ring-2 ring-accent" : ""}`}>
+    <button type={onPick ? "button" : "submit"} name={onPick ? undefined : name} value={onPick ? undefined : value} onClick={onPick} disabled={selected} aria-pressed={selected} className={`flex min-h-14 w-full flex-wrap items-center justify-between gap-3 rounded border border-line bg-paper px-4 py-3 text-left ${selected ? "ring-2 ring-accent" : ""}`}>
       {/* Same rule as a row: the title keeps 96px before the meta may
           squeeze it, and the meta drops under it rather than breaking a
           word in half on a very narrow layout. */}

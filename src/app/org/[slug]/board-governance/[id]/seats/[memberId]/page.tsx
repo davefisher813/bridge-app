@@ -203,7 +203,9 @@ export default async function SeatPage({
                     </option>
                   ))}
                 </SelectField>
-                <Button variant="secondary">Link Sign-In</Button>
+                <ConfirmButton tone="change" title="Link This Sign-In?" body={`The person you picked sees ${member.name}'s seat as theirs on their Home and Giving screens. You can unlink it here at any time.`} confirmLabel="Link">
+                  Link Sign-In
+                </ConfirmButton>
               </Stack>
             </Form>
           )}
