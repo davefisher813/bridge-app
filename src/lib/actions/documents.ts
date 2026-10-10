@@ -10,7 +10,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { detectCategory, runExtractionPipeline } from "@/lib/docai/pipeline";
 import { createStubCaller } from "@/lib/docai/stubCaller";
 import { createAnthropicCaller } from "@/lib/ai/anthropicCaller";
-import { dollars, loadMonthSpend } from "@/lib/data/docaiUsage";
+import { dollars, loadMonthSpend, loadRecentCalls, rateRefusal } from "@/lib/data/docaiUsage";
 import type { ModelCaller } from "@/lib/docai/pipeline";
 import { getCategory } from "@/lib/docai/categories";
 import { normalizeGpa } from "@/lib/docai/gpa";
@@ -90,7 +90,7 @@ async function applyGate(orgId: string, documentId: string | null): Promise<stri
 async function modelCallerFor(orgId: string, documentId: string, stub: { category: DocCategoryId; seedText: string }): Promise<ModelCaller> {
   if (await isStubbedModel()) return createStubCaller(stub);
   const supabase = await createClient();
-  return createAnthropicCaller({
+  const real = createAnthropicCaller({
     onUsage: async (u) => {
       const { error } = await supabase.from("docai_usage").insert({
         org_id: orgId,
@@ -109,6 +109,16 @@ async function modelCallerFor(orgId: string, documentId: string, stub: { categor
       if (error) throw new Error(`The reading was done but could not be recorded (${error.message}), so it was not used.`);
     },
   });
+  // Every real call passes the rate limit first, counted from the same
+  // ledger (backend audit F-05). This is the one door to the paid model,
+  // so no path can go around it; a refused call is filed by the pipeline
+  // as a failed reading with this reason, and the document waits in
+  // Needs Review.
+  return async (opts) => {
+    const tooFast = rateRefusal(await loadRecentCalls(supabase, orgId), 1);
+    if (tooFast) throw new Error(tooFast);
+    return real(opts);
+  };
 }
 
 export interface ProcessResult {
@@ -376,6 +386,13 @@ export async function processDocument(
   // The month's cap, before a row is written or a byte is read. Only
   // the real model spends money; the stub is free and never capped.
   if (!stubbed && readsAnything) {
+    // A hard ceiling on calls per window, before the month's cap (backend
+    // audit F-05): the cap is counted after the fact, this is not.
+    const tooFast = rateRefusal(await loadRecentCalls(supabase, org.id), originals.filter((o) => o.reader).length);
+    if (tooFast) {
+      claimed.forEach((p) => confirmed.add(p));
+      return refuse(tooFast);
+    }
     const spend = await loadMonthSpend(supabase, org.id);
     if (spend.exhausted) {
       claimed.forEach((p) => confirmed.add(p));

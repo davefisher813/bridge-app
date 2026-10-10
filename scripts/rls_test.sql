@@ -4562,3 +4562,45 @@ delete from users where id::text like '00000000-0000-0000-0000-0000000500a%';
 delete from auth.users where id::text like '00000000-0000-0000-0000-0000000500a%';
 
 \echo 'ALL 0049 AND 0050 ASSERTIONS PASSED'
+
+-- ── Migration 0053: a stand-in reading is never applied ─────────────
+-- Backend audit F-01. The database refuses 'applied' on a stub reading,
+-- for an update, for an insert, and from a session that skips row level
+-- security; a real model's reading still applies. Planted to fail: with
+-- the trigger dropped, the first refusal below is accepted.
+reset role;
+insert into orgs (id, name, slug) values ('00000000-0000-0000-0000-000000053010', 'Stub Org', 'stub-org');
+insert into storage.objects (bucket_id, name) values
+  ('documents', '00000000-0000-0000-0000-000000053010/req1/1-stub.pdf'),
+  ('documents', '00000000-0000-0000-0000-000000053010/req1/1-real.pdf'),
+  ('documents', '00000000-0000-0000-0000-000000053010/req1/1-new.pdf');
+insert into documents (id, org_id, file_name, file_size, media_type, source_role, status, read_by, storage_paths, original_paths) values
+  ('00000000-0000-0000-0000-000000053040', '00000000-0000-0000-0000-000000053010', 'stub.pdf', 10, 'application/pdf', 'coordinator', 'pending', 'stub',
+   array['00000000-0000-0000-0000-000000053010/req1/1-stub.pdf'], array['00000000-0000-0000-0000-000000053010/req1/1-stub.pdf']),
+  ('00000000-0000-0000-0000-000000053041', '00000000-0000-0000-0000-000000053010', 'real.pdf', 10, 'application/pdf', 'coordinator', 'pending', 'claude-model',
+   array['00000000-0000-0000-0000-000000053010/req1/1-real.pdf'], array['00000000-0000-0000-0000-000000053010/req1/1-real.pdf']);
+
+do $$
+begin
+  begin
+    update documents set status = 'applied' where id = '00000000-0000-0000-0000-000000053040';
+    raise exception 'FAIL 0053: a stub reading was applied by update';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into documents (org_id, file_name, file_size, media_type, source_role, status, read_by, storage_paths, original_paths) values
+      ('00000000-0000-0000-0000-000000053010', 'new.pdf', 10, 'application/pdf', 'coordinator', 'applied', 'stub',
+       array['00000000-0000-0000-0000-000000053010/req1/1-new.pdf'], array['00000000-0000-0000-0000-000000053010/req1/1-new.pdf']);
+    raise exception 'FAIL 0053: a stub reading was inserted as applied';
+  exception when check_violation then null;
+  end;
+  update documents set status = 'applied' where id = '00000000-0000-0000-0000-000000053041';
+  if (select status::text from documents where id = '00000000-0000-0000-0000-000000053041') <> 'applied' then
+    raise exception 'FAIL 0053: a real reading could not be applied';
+  end if;
+  if (select status::text from documents where id = '00000000-0000-0000-0000-000000053040') <> 'pending' then
+    raise exception 'FAIL 0053: the stub reading moved';
+  end if;
+end $$;
+
+\echo 'ALL 0053 ASSERTIONS PASSED'

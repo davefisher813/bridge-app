@@ -1,8 +1,8 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "7eb8c7f",
-  "commitFull": "7eb8c7fcce4f95a8486c73716fbce3f53f7bfb25",
+  "commit": "840c1ea",
+  "commitFull": "840c1ea0d6e5bc18d6e6c43aa74a8a1d5258ba85",
   "branch": "claude/downloads-directory-4mf6gv",
   "remoteBranches": [
     "origin/claude/downloads-directory-4mf6gv",
@@ -11,8 +11,8 @@
   "shipped": true,
   "dirty": true,
   "onMain": true,
-  "startedAt": "2026-10-10T19:25:32.242Z",
-  "durationMs": 199861,
+  "startedAt": "2026-10-10T20:14:04.140Z",
+  "durationMs": 55800,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -21,13 +21,13 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 2499,
+        "pass": 2513,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
         "suitesFailed": 0,
-        "filesOnDisk": 88,
-        "filesLoaded": 88
+        "filesOnDisk": 92,
+        "filesLoaded": 92
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
@@ -36,6 +36,7 @@
         "src/laws/actionRun.test.ts": 181,
         "src/laws/activityLaws.test.ts": 17,
         "src/laws/advisorLaws.test.ts": 28,
+        "src/laws/appliedLaws.test.ts": 2,
         "src/laws/assignmentLaws.test.ts": 49,
         "src/laws/athleteAutofillLaws.test.ts": 24,
         "src/laws/athleteCrudLaws.test.ts": 23,
@@ -62,18 +63,21 @@
         "src/laws/otherActions.test.ts": 76,
         "src/laws/pageRender.test.ts": 812,
         "src/laws/photoLaws.test.ts": 8,
+        "src/laws/previewLaws.test.ts": 3,
         "src/laws/publicPaths.test.ts": 2,
         "src/laws/qaFixes.test.ts": 29,
         "src/laws/referenceAutofillLaws.test.ts": 17,
         "src/laws/referenceCrudLaws.test.ts": 33,
         "src/laws/schemaLaws.test.ts": 5,
         "src/laws/sharedDirectoryLaws.test.ts": 18,
+        "src/laws/stubApplyLaws.test.ts": 3,
         "src/laws/stylingLaws.test.ts": 19,
         "src/laws/vaultLaws.test.ts": 55,
         "src/lib/ai/anthropicCaller.test.ts": 12,
         "src/lib/checkins.test.ts": 9,
         "src/lib/data/activity.test.ts": 12,
         "src/lib/data/assignments.test.ts": 32,
+        "src/lib/data/docaiRate.test.ts": 6,
         "src/lib/data/eligibilityLoop.test.ts": 10,
         "src/lib/data/fitAdapters.test.ts": 14,
         "src/lib/data/lookups.test.ts": 9,
@@ -151,7 +155,7 @@
             "location": "/login"
           }
         },
-        "ms": 1461
+        "ms": 1540
       },
       "errors": [],
       "warnings": [],
@@ -165,8 +169,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 6,
-      "filesScanned": 662
+      "touchedFiles": 14,
+      "filesScanned": 671
     },
     {
       "name": "types",

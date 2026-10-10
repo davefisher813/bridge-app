@@ -4011,3 +4011,33 @@ it as the signed-out role.
 a migration without `security_invoker = true`. A view made by hand on
 production is outside what the laws can see; the security advisor is
 the check for that, and should be run after any manual change.
+
+## 2026-10-10: backend audit fixes F-01 to F-05
+
+**Decision.**
+- F-01 (critical): a reading made by the stand-in can never be applied.
+  Migration 0053 adds a database trigger that refuses `applied` on a
+  document whose `read_by` is `stub`, on insert or update, from any
+  client. `src/laws/stubApplyLaws.test.ts` fails the build if any code
+  path writes `applied` without calling `applyGate` in the same function.
+- F-02: previews never touch production. `vercel.json` builds only
+  `main`, and `src/proxy.ts` refuses every request on a preview build
+  unless `PREVIEW_DATABASE_OK=1` is set for a preview with its own
+  database. Vercel's Preview environment still holds copies of
+  `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY` and `DATABASE_URL`;
+  removing them is a dashboard change for Dave.
+- F-03: `migrations/APPLIED.md` records every migration's production
+  status with the history entry that proves it; `appliedLaws.test.ts`
+  fails the build when a migration has no row.
+- F-04: checked on production 2026-10-10 and not true any more: the
+  Anthropic key has been set since 2026-09-21, there are 0 stub readings,
+  and the 5 real readings on file were held for review by the model
+  itself. Nothing to recover, nothing to spend.
+- F-05: every real model call passes a per-org rate limit first (20 per
+  10 minutes, 60 per hour), counted from the call ledger, in the one
+  function that builds the paid caller. The monthly cap stays as well.
+
+**Reason.** Backend audit 2026-10-06, Dave's pass-off 2026-10-10.
+
+**Consequences.** Pull requests no longer get a Vercel preview build, so
+`npm run qa:check` and the live driver are the pre-merge checks.
