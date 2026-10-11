@@ -1185,17 +1185,21 @@ describe("LAW: a document is read once, applied once, and a reading that stops l
   const bridgePath = () => `${data.orgs[0]!.id as string}/req_fixture/1-transcript.pdf`;
   const docUpdates = () => writes.filter((w) => w.table === "documents" && w.op === "update");
 
-  it("an upload with no type is stored and goes straight to Needs Review: no model is called, nothing is charged", async () => {
+  // Dave, Oct 11: every document runs through Doc AI. An upload with no
+  // type is read as Other (one charged call per reading, the same
+  // accounting), suggests its type, and waits in Needs Review: never
+  // applied, never failed for having no type.
+  it("an upload with no type is read as Other, charged like any reading, and waits in Needs Review", async () => {
     process.env.ANTHROPIC_API_KEY = "test-only";
     try {
       const { processDocument } = await import("@/lib/actions/documents");
       const r = await processDocument(ORG_WITH_MODULES, { records: [stored(bridgePath())], sourceRole: "coordinator", requestedCategory: null });
       expect(r.ok).toBe(true);
-      expect(writes.filter((w) => w.table === "docai_usage")).toEqual([]);
+      expect(writes.filter((w) => w.table === "docai_usage").length).toBeGreaterThan(0);
       const row = data.documents!.find((d) => d.id === r.documentId)!;
-      expect(row).toMatchObject({ lifecycle: "needs_review", format: "pdf", requested_category: null, read_by: null, uploaded_by: expect.any(String) });
-      expect(row.review_reason).toBe("No type chosen.");
-      expect(docUpdates().find((w) => w.rows[0]?.status === "failed")).toBeUndefined();
+      expect(row).toMatchObject({ lifecycle: "needs_review", format: "pdf", requested_category: null, category: "other", uploaded_by: expect.any(String) });
+      expect(row.status).not.toBe("applied");
+      expect(row.athlete_id ?? null).toBeNull();
     } finally {
       delete process.env.ANTHROPIC_API_KEY;
     }

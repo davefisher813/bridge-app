@@ -111,7 +111,8 @@ describe("LAW: filing a document never relabels a reading", () => {
     const { fileDocumentAs } = await import("@/lib/actions/documents");
     const to = await run(() => fileDocumentAs(ORG_WITH_MODULES, "doc-word", form({ filedAs: "board_document" })));
     expect(to).toMatch(/notice=Type%20set%20to%20Board%20Document/);
-    expect(doc("doc-word").filed_as).toBe("board_document");
+    // A reading type since Oct 11: it is asked for, not just a label.
+    expect(doc("doc-word").requested_category).toBe("board_document");
     expect(doc("doc-word").review_reason).toBeNull();
   });
 

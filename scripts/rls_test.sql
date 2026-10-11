@@ -4763,3 +4763,17 @@ begin
   raise notice 'PASS: athlete_profile is a document category';
 end $$;
 \echo 'ALL 0059 ASSERTIONS PASSED'
+
+-- ── Migration 0060: Board Document and Other are reading types ───────
+reset role;
+do $$
+declare d uuid;
+begin
+  insert into documents (org_id, file_name, file_size, media_type, source_role, status, requested_category)
+  values ('00000000-0000-0000-0000-000000000010', 'bylaws.pdf', 10, 'application/pdf', 'coordinator', 'pending', 'board_document')
+  returning id into d;
+  update documents set category = 'other' where id = d;
+  delete from documents where id = d;
+  raise notice 'PASS: board_document and other are document categories';
+end $$;
+\echo 'ALL 0060 ASSERTIONS PASSED'

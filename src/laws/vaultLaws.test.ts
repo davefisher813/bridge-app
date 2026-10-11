@@ -273,20 +273,30 @@ describe("LAW: no row without a file, no file without a row", () => {
 describe("LAW: five statuses, enforced on the server, every move logged with who", () => {
   // Planted: let moveLifecycle skip canMove: the disallowed-pair test
   // failed. Planted: dropped the logActivity call: the log test failed.
-  it("an untagged file goes Uploaded to Needs Review by itself and is logged; no reader runs", async () => {
+  // Dave, Oct 11: every document is read, untagged ones as Other, and a
+  // text file is read as its text.
+  it("an untagged file is read as Other, logged, and lands in Needs Review", async () => {
     const path = put("note.txt", makeFile("txt"));
     const r = await upload([{ path, name: "note.txt" }]);
     expect(rowOf(r.documentId).lifecycle).toBe("needs_review");
-    expect(logs().map((l) => l.action)).toEqual(["document_uploaded", "document_needs_review"]);
-    expect(writes.filter((w) => w.table === "docai_usage")).toEqual([]);
-    expect(rowOf(r.documentId).read_by).toBeNull();
+    expect(rowOf(r.documentId).category).toBe("other");
+    expect(logs().map((l) => l.action)).toEqual(["document_uploaded", "document_reading", "document_needs_review"]);
   });
 
-  it("a file in a format the reader cannot read, even tagged, is stored with the reason and not read", async () => {
+  it("a Word .docx, tagged, is read as its text", async () => {
     const path = put("letter.docx", makeFile("docx"));
-    const r = await upload([{ path, name: "letter.docx" }], "transcript");
+    const r = await upload([{ path, name: "letter.docx" }], "recommendation");
     expect(r.ok).toBe(true);
-    expect(rowOf(r.documentId)).toMatchObject({ lifecycle: "needs_review", requested_category: "transcript", review_reason: "The reader reads PDF, JPG and PNG. Stored as is.", read_by: null });
+    expect(rowOf(r.documentId)).toMatchObject({ lifecycle: "needs_review", requested_category: "recommendation" });
+    expect(rowOf(r.documentId).read_by).not.toBeNull();
+  });
+
+  it("an old .doc, even tagged, is stored with the plain reason and not read", async () => {
+    const path = put("letter.doc", makeFile("doc"));
+    const r = await upload([{ path, name: "letter.doc" }], "transcript");
+    expect(r.ok).toBe(true);
+    expect(rowOf(r.documentId)).toMatchObject({ lifecycle: "needs_review", requested_category: "transcript", read_by: null });
+    expect(String(rowOf(r.documentId).review_reason)).toMatch(/old Word \.doc file is stored but cannot be read\. Save it as \.docx/);
   });
 
   it("a tagged PDF goes Uploaded, Processing, Needs Review, each logged", async () => {

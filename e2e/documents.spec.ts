@@ -110,17 +110,24 @@ test.describe("vault: every format is stored as it came", () => {
       // A name no other test uses, so the same bytes are not a twin.
       const name = `e2e-${GOOD_NAMES[kind]}`;
       await pick(page, name, bytes);
-      await page.getByRole("button", { name: "Upload", exact: true }).click();
+      // Every document is read (Dave, Oct 11) except the old .doc and
+      // .xls, which the form says before upload.
+      const blocked = kind === "doc" || kind === "xls";
+      if (blocked) await expect(page.getByText("Stored, Not Read")).toBeVisible();
+      await page.getByRole("button", { name: blocked ? "Upload" : "Upload and Read", exact: true }).click();
 
-      await expect(page.getByRole("heading", { name: "Stored File" })).toBeVisible();
+      // Read, or kept for review when the stand-in calls the page unreadable
+      // (it does for some names, on purpose, to exercise that path).
+      await expect(page.getByRole("heading", { name: blocked ? "Stored File" : /Read$|Kept for Review/ })).toBeVisible();
       await expect(page.getByText("Needs Review", { exact: true }).first()).toBeVisible();
       await expect(page.getByText("Original File")).toBeVisible();
       await expect(page.getByText(name).first()).toBeVisible();
       await expect(page.getByText(LABEL[kind]!, { exact: true }).first()).toBeVisible();
       await expect(page.getByRole("link", { name: "Download" })).toBeVisible();
-      // No type was chosen: no reader ran, so nothing to apply.
+      // No type was chosen: read as Other at most, never applied.
       await expect(page.getByRole("button", { name: "Apply", exact: true })).toHaveCount(0);
-      expect(traffic.uploads).toHaveLength(1);
+      // A photo may go up twice: the original and the reader's copy.
+      expect(traffic.uploads.length).toBeGreaterThanOrEqual(1);
       expect(traffic.uploads[0]).toMatch(new RegExp(`^POST /storage/v1/object/documents/00000000-0000-0000-0000-0000000000a1/doc_[\\w-]+/1-e2e-`));
 
       // The download is an attachment of the stored bytes.
@@ -135,14 +142,14 @@ test.describe("vault: every format is stored as it came", () => {
 
   test("a format outside the seven is refused in the browser, naming the seven, and nothing is uploaded", async ({ page }) => {
     await pick(page, "slides.pptx", Buffer.from(makeFile("zip")));
-    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.getByRole("button", { name: "Upload and Read", exact: true }).click();
     await expect(page.getByText(/PDF, Word \(DOC, DOCX\), Excel \(XLS, XLSX\), CSV, JPG, PNG and TXT/).first()).toBeVisible();
     expect(traffic.uploads).toHaveLength(0);
   });
 
   test("a PNG renamed .jpg is refused on its bytes, and nothing is uploaded", async ({ page }) => {
     await pick(page, "renamed.jpg", Buffer.from(makeFile("png")));
-    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.getByRole("button", { name: "Upload and Read", exact: true }).click();
     await expect(page.getByText(/contents are a PNG image, not \.jpg/)).toBeVisible();
     expect(traffic.uploads).toHaveLength(0);
   });

@@ -224,10 +224,32 @@ export function safeStorageName(name: string): string {
   return cleaned.slice(0, 80) || "file";
 }
 
-// Which formats the existing reader can read: PDF and photos only.
+// Which formats the reader reads (Dave, Oct 11: every document). PDF and
+// photos go to the model as they are; Word, Excel, CSV and text are
+// turned into text on the server (textExtract.ts). The old binary .doc
+// and .xls are the exception, by name: readerTextBlocker.
 export function readerCanRead(format: VaultFormat): boolean {
-  return format === "pdf" || format === "jpg" || format === "png";
+  return format === "pdf" || format === "jpg" || format === "png" || format === "word" || format === "excel" || format === "csv" || format === "txt";
 }
+
+const extOf = (name: string) => (name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? "");
+
+// Formats sent to the model as text, by file name.
+export function isTextReadable(name: string): boolean {
+  return ["docx", "xlsx", "csv", "txt"].includes(extOf(name));
+}
+
+// The one thing that stops a stored file from being read, said before
+// upload and on the document screen; null when it can be read.
+export function readerTextBlocker(name: string): string | null {
+  const ext = extOf(name);
+  if (ext === "doc") return "An old Word .doc file is stored but cannot be read. Save it as .docx (File, Save As) and upload that to have it read.";
+  if (ext === "xls") return "An old Excel .xls file is stored but cannot be read. Save it as .xlsx (File, Save As) and upload that to have it read.";
+  return null;
+}
+
+// Said wherever a person picks a file: what the reader reads.
+export const READER_FORMATS_SENTENCE = "PDF, JPG, PNG, Word (.docx), Excel (.xlsx), CSV and TXT. Old .doc and .xls files are stored but not read";
 
 // "512 bytes", "48 KB", "1.2 MB": a file's size as a person reads it.
 export function formatBytes(bytes: number): string {

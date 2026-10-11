@@ -4,7 +4,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { applyDocument, discardDocument, fileDocumentAs, isStubbedModel, linkDocumentToAthlete, moveDocumentAndStay, readDocumentAgain } from "@/lib/actions/documents";
 import { CONTRADICTION_PREFIX } from "@/lib/docai/identity";
-import { documentTypeLabel, FILE_TYPE_LABEL, FILE_TYPES, isReaderType, READER_TYPES, readerTypeOf } from "@/lib/documents/fileTypes";
+import { documentTypeLabel, isReaderType, READER_TYPES, readerTypeOf } from "@/lib/documents/fileTypes";
 import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
 import { applyRefusal, isStubReading } from "@/lib/data/readBy";
 import { editableFields } from "@/lib/data/extractedEdit";
@@ -12,7 +12,7 @@ import type { DocCategoryId } from "@/lib/docai/types";
 import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, SelectField, Stack, TextLink } from "@/components/kit";
 import { LifecycleChip } from "@/components/LifecycleChip";
 import { longDate } from "@/lib/copy/dates";
-import { formatBytes, formatLabelOf, readerCanRead, type VaultFormat } from "@/lib/vault/format";
+import { formatBytes, formatLabelOf, readerCanRead, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
 import { isLifecycle, isStaleProcessing as isStaleLifecycle, type Lifecycle } from "@/lib/vault/lifecycle";
 import { Note } from "@/components/EligibilityVerdict";
 import type { Role } from "@/components/statusHue";
@@ -123,6 +123,25 @@ const FIELD_LABEL: Record<string, string> = {
   eventName: "Event",
   measuredOn: "Measured on",
   metrics: "Metrics",
+  // Athlete Profile, Board Document and Other (Oct 11).
+  position: "Position",
+  heightIn: "Height (in)",
+  weightLb: "Weight (lb)",
+  desiredMajor: "Desired major",
+  hometown: "Hometown",
+  suggestedType: "Suggested type",
+  documentKind: "Kind of document",
+  title: "Title",
+  organization: "Organization",
+  effectiveDate: "Effective",
+  adoptionDate: "Adopted",
+  people: "People named",
+  organizations: "Organizations",
+  dates: "Dates",
+  amounts: "Dollar figures",
+  deadlines: "Deadlines",
+  actionItems: "Action items",
+  keyFacts: "Key facts",
 };
 
 // What applying each type does, and what discarding puts back. The
@@ -154,6 +173,16 @@ function summarizeList(key: string, value: unknown): string | null {
   if (key === "awards") {
     return (value as { name?: string; amount?: number; type?: string }[]).map((a) => `${a.name || a.type || "Award"} $${Math.round(a.amount ?? 0).toLocaleString("en-US")}`).join(", ");
   }
+  if (key === "people") {
+    return (value as { name?: string; role?: string | null }[]).map((p) => `${p.name ?? "?"}${p.role ? ` (${p.role})` : ""}`).join(", ");
+  }
+  if (key === "amounts") {
+    return (value as { amount?: number; what?: string | null }[]).map((a) => `$${Math.round(a.amount ?? 0).toLocaleString("en-US")}${a.what ? ` ${a.what}` : ""}`).join("; ");
+  }
+  if (key === "deadlines" || key === "dates") {
+    return (value as { date?: string; what?: string | null }[]).map((d) => `${d.date ?? "?"}${d.what ? ` ${d.what}` : ""}`).join("; ");
+  }
+  if (key === "actionItems" || key === "keyFacts") return value.map(String).join(" · ");
   return value.map(String).join(", ");
 }
 
@@ -263,6 +292,10 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // Sent by an Athlete login with an assignment (migration 0046). Filed,
   // never read by a model, so there is nothing to apply or correct.
   const isFiled = doc.status === "filed";
+  // Read for a person, never applied to an athlete (Oct 11): Board
+  // Document and Other, and a No Type document read as Other.
+  const isReference = doc.category === "board_document" || doc.category === "other";
+  const typeLabelOf = (c: string | null) => (c ? (CATEGORY_LABEL[c] ?? c) : "Document");
   // A reading that never finished: the row was written, the function
   // was killed. It can be cleared once it is plainly not going to end.
   const isStuck = isProcessing && isStaleProcessing(doc.created_at);
@@ -290,16 +323,19 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     await readDocumentAgain(slug, doc.id);
   };
   // A legacy Athlete Profile filing reads as one (Oct 11).
-  const readerType = readerTypeOf(doc);
+  // Nothing typed reads as Other (Dave, Oct 11: every document is read).
+  const readerType = readerTypeOf(doc) ?? "other";
   // Read Again is on every document a person can still change (live
   // check, 2026-10-10: it was hidden on most of them, so it looked
   // missing). When it cannot run, the button stays, switched off, with
   // the one thing to do about it.
   const showReadAgain = (lifecycle === "needs_review" || lifecycle === "ready") && !isProcessing;
-  const readAgainBlocked: string | null = !readerType || !isReaderType(readerType)
+  const readAgainBlocked: string | null = !isReaderType(readerType)
     ? "Pick a reading type under File As (Transcript, Test Scores and the rest), then Read Again."
+    : readerTextBlocker(doc.file_name)
+      ? readerTextBlocker(doc.file_name)
     : !doc.format || !readerCanRead(doc.format as VaultFormat)
-      ? "The reader reads PDF, JPG and PNG. Upload this one in one of those to have it read."
+      ? "The reader cannot read this format."
       : isApplied
         ? "This reading is already on the athlete. Undo it first, then Read Again."
         : isFiled
@@ -321,7 +357,9 @@ export default async function DocumentPage({ params, searchParams }: { params: P
         : "Still Being Read"
     : isPending && !wasRead
       ? "Stored File"
-      : isPending
+      : isPending && isReference
+      ? `${typeLabelOf(doc.category)} Read`
+    : isPending
       ? matched || candidates.length
         ? "Check This Before It Lands"
         : "Not sure who this is"
@@ -365,19 +403,14 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       {/* The type of a document the reader has not read: the same list
           as the upload form (fileTypes.ts). A read document keeps the
           type of its reading. */}
-      {!doc.category && !doc.extracted && !isFiled && !isProcessing && !isApplied && (
+      {(!doc.category || isReference) && !isFiled && !isProcessing && !isApplied && (
         <Form action={fileDocumentAs.bind(null, slug, doc.id)}>
           <Stack gap={3}>
-            <SelectField name="filedAs" label="File As" defaultValue={doc.requested_category ?? doc.filed_as ?? ""}>
+            <SelectField name="filedAs" label="File As" defaultValue={doc.requested_category ?? readerTypeOf(doc) ?? ""}>
               <option value="">No Type</option>
               {READER_TYPES.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.label}
-                </option>
-              ))}
-              {FILE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {FILE_TYPE_LABEL[t]}
                 </option>
               ))}
             </SelectField>
@@ -501,7 +534,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
         )
       )}
 
-      {doc.requested_category === null && doc.detected_type && (
+      {doc.requested_category === null && doc.detected_type && !isReference && (
         <Note title="Worked Out the Type Itself">Nobody told it what this was. It decided: {doc.detected_type.replace(/_/g, " ")}.</Note>
       )}
 
@@ -554,7 +587,15 @@ export default async function DocumentPage({ params, searchParams }: { params: P
 
       {!isFailed && !isProcessing && (
         <>
-          {wasRead && (
+          {wasRead && isReference && (
+            <Note title="Nothing Goes on an Athlete">
+              A {typeLabelOf(doc.category).toLowerCase()} is read for a person, not put on an athlete. Check what it says below, then Mark Ready.
+              {typeof doc.extracted?.suggestedType === "string" && doc.extracted.suggestedType !== "other" && !doc.requested_category
+                ? ` It looks like a ${(CATEGORY_LABEL[doc.extracted.suggestedType as string] ?? String(doc.extracted.suggestedType)).toLowerCase()}: set File As to that and Read Again to read it as one.`
+                : ""}
+            </Note>
+          )}
+          {wasRead && !isReference && (
           <Section label={matched ? "Matched to" : "Pick the athlete"} count={matched ? undefined : candidates.length} role={matched ? "people" : "offer"} kind="athlete">
             {matched ? (
               matchedRemoved ? (

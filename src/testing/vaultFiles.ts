@@ -40,9 +40,10 @@ export function makeFile(kind: SyntheticKind, filler = 64): Uint8Array {
     case "pdf":
       return new Uint8Array([...enc.encode("%PDF-1.4\n1 0 obj<<>>endobj\n"), ...pad, ...enc.encode("\n%%EOF")]);
     case "docx":
-      return makeZip({ "[Content_Types].xml": "<Types/>", "word/document.xml": "<w:document/>" });
+      // A body with one line of text, so the reader has something to read.
+      return makeZip({ "[Content_Types].xml": "<Types/>", "word/document.xml": "<w:document><w:body><w:p><w:r><w:t>A test letter.</w:t></w:r></w:p></w:body></w:document>" });
     case "xlsx":
-      return makeZip({ "[Content_Types].xml": "<Types/>", "xl/workbook.xml": "<workbook/>" });
+      return makeZip({ "[Content_Types].xml": "<Types/>", "xl/workbook.xml": '<workbook><sheets><sheet name="List"/></sheets></workbook>', "xl/worksheets/sheet1.xml": '<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>School</t></is></c></row></sheetData></worksheet>' });
     case "zip":
       return makeZip({ "readme.txt": "just a zip" });
     case "doc":

@@ -1,13 +1,13 @@
 "use client";
 
-import { FILE_TYPE_LABEL, FILE_TYPES, READER_TYPES, type FileTypeId } from "@/lib/documents/fileTypes";
+import { READER_TYPES } from "@/lib/documents/fileTypes";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ingestFile } from "@/lib/docai/ingest";
 import type { DocCategoryId, SourceRole, StoredRecord } from "@/lib/docai/types";
 import { processDocument, type OriginalUpload } from "@/lib/actions/documents";
 import { createClient } from "@/lib/supabase/client";
-import { checkVaultFile, readerCanRead, safeStorageName, VAULT_ACCEPT, VAULT_FORMATS_SENTENCE } from "@/lib/vault/format";
+import { checkVaultFile, READER_FORMATS_SENTENCE, readerTextBlocker, safeStorageName, VAULT_ACCEPT, VAULT_FORMATS_SENTENCE } from "@/lib/vault/format";
 import { Button, Choice, ChoiceRow, FileField, Label, Notice, SelectField, Stack } from "@/components/kit";
 
 // A client component because the checks and the upload are: the file is
@@ -23,10 +23,9 @@ import { Button, Choice, ChoiceRow, FileField, Label, Notice, SelectField, Stack
 // ingest.ts, as before). No type means: stored, and straight to Needs
 // Review.
 
-// No Type is the default. The six types still read as they always did.
-// After them, the types the reader never reads (migration 0054): stored
-// and labelled, straight to Needs Review.
-const FILE_ONLY: { id: FileTypeId; label: string }[] = FILE_TYPES.map((id) => ({ id, label: FILE_TYPE_LABEL[id] }));
+// No Type is the default. Every type is read (Dave, Oct 11: every
+// document runs through Doc AI); No Type is read as Other and the
+// reading suggests the type it should be.
 const CATEGORIES: { id: DocCategoryId | null; label: string }[] = [{ id: null, label: "No Type" }, ...READER_TYPES];
 
 const SOURCE_ROLES: { id: SourceRole; label: string }[] = [
@@ -66,7 +65,6 @@ export interface DocumentUploaderProps {
 export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialAthleteId }: DocumentUploaderProps) {
   const router = useRouter();
   const [category, setCategory] = useState<DocCategoryId | null>(boundTo?.category ?? null);
-  const [fileAs, setFileAs] = useState<FileTypeId | null>(null);
   const [sourceRole, setSourceRole] = useState<SourceRole>("coordinator");
   const [linkAthleteId, setLinkAthleteId] = useState(initialAthleteId ?? "");
   const [files, setFiles] = useState<File[]>([]);
@@ -109,13 +107,20 @@ export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialA
       const readerBytes: (string | null)[] = [];
       for (let i = 0; i < files.length; i++) {
         const check = checks[i]!;
-        if (!category || !check.ok || !readerCanRead(check.format)) {
+        // PDFs and photos get a reader copy here; Word, Excel, CSV and
+        // text are turned into text on the server from the original.
+        if (!check.ok || !(check.format === "pdf" || check.format === "jpg" || check.format === "png")) {
           readers.push(null);
           readerBytes.push(null);
           continue;
         }
         const record = await ingestFile(files[i]!, { sourceRole, requestId });
-        if (record.fallbackReason && !record.base64) return fail(record.fallbackReason);
+        // A photo the browser cannot prepare is still stored, just not read.
+        if (record.fallbackReason && !record.base64) {
+          readers.push(null);
+          readerBytes.push(null);
+          continue;
+        }
         const { base64, ...rest } = record;
         readers.push({ ...rest, storagePath: "" });
         readerBytes.push(base64);
@@ -149,12 +154,12 @@ export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialA
         originals.push({ storagePath, name: file.name, reader });
       }
 
-      setStage(category ? "Reading it" : "Storing it");
+      setStage("Reading it");
       const result = await processDocument(slug, {
         originals,
         sourceRole,
         requestedCategory: category,
-        fileAs: category ? null : fileAs,
+        fileAs: null,
         athleteId: boundTo?.athleteId,
         linkAthleteId: boundTo ? null : linkAthleteId || null,
       });
@@ -177,36 +182,15 @@ export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialA
           <Label>What Is It</Label>
           <ChoiceRow>
             {CATEGORIES.map((c) => (
-              <Choice
-                key={c.label}
-                on={c.id === category && (c.id !== null || fileAs === null)}
-                onClick={() => {
-                  setCategory(c.id);
-                  setFileAs(null);
-                }}
-              >
+              <Choice key={c.label} on={c.id === category} onClick={() => setCategory(c.id)}>
                 {c.label}
-              </Choice>
-            ))}
-            {FILE_ONLY.map((t) => (
-              <Choice
-                key={t.id}
-                on={category === null && fileAs === t.id}
-                onClick={() => {
-                  setCategory(null);
-                  setFileAs(t.id);
-                }}
-              >
-                {t.label}
               </Choice>
             ))}
           </ChoiceRow>
           <Label>
             {category !== null
-              ? "It is read as this type. If it does not look like it, it is kept in Needs Review and says so."
-              : fileAs !== null
-                ? "It is stored and labelled as this type, not read, and goes to Needs Review."
-                : "It is stored as it is and goes to Needs Review. Pick a type to have it read."}
+              ? "It is read as this type and waits in Needs Review for a person. If it does not look like it, it says so."
+              : "It is read, the reading suggests its type, and it waits in Needs Review."}
           </Label>
         </Stack>
       )}
@@ -233,7 +217,7 @@ export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialA
       <FileField
         name="files"
         label={files.length ? `${files.length} File${files.length === 1 ? "" : "s"} Chosen` : "Take a Photo or Choose a File"}
-        hint={files.length ? files.map((f) => f.name).join(", ") : `${VAULT_FORMATS_SENTENCE}. Up to 10 MB each.`}
+        hint={files.length ? files.map((f) => f.name).join(", ") : `${VAULT_FORMATS_SENTENCE}. Up to 10 MB each. Read: ${READER_FORMATS_SENTENCE}.`}
         // HEIC is deliberately NOT listed. An iPhone converts a HEIC
         // photo to JPEG on the way into a file input only when HEIC is
         // not among the accepted types; listing it handed the app a
@@ -247,6 +231,17 @@ export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialA
         }}
       />
 
+      {/* Said before upload, not after (Dave, Oct 11): a file that will
+          be stored but cannot be read. */}
+      {files.map((f) => readerTextBlocker(f.name)).filter(Boolean).length > 0 && (
+        <Notice tone="warning" title="Stored, Not Read">
+          {files
+            .map((f) => (readerTextBlocker(f.name) ? `${f.name}: ${readerTextBlocker(f.name)}` : null))
+            .filter(Boolean)
+            .join(" ")}
+        </Notice>
+      )}
+
       {error && (
         <Notice tone="danger" title="Could Not Store That">
           {error}
@@ -254,7 +249,7 @@ export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialA
       )}
 
       <Button type="button" onClick={onSubmit} disabled={!files.length || busy}>
-        {busy ? (stage ?? "Working") : category ? "Upload and Read" : "Upload"}
+        {busy ? (stage ?? "Working") : files.length > 0 && files.every((f) => readerTextBlocker(f.name)) ? "Upload" : "Upload and Read"}
       </Button>
     </Stack>
   );

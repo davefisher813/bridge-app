@@ -12,7 +12,7 @@
 
 import type { z } from "zod";
 import type { DocCategory, DocCategoryId } from "./types";
-import { athleteProfileSchema, financialAidSchema, metricsReportSchema, offerLetterSchema, recommendationSchema, testScoresSchema, transcriptSchema } from "./schemas";
+import { athleteProfileSchema, boardDocumentSchema, financialAidSchema, generalDocumentSchema, metricsReportSchema, offerLetterSchema, recommendationSchema, testScoresSchema, transcriptSchema } from "./schemas";
 import { METRICS } from "@/lib/fit/contract";
 
 export const CATEGORY_SCHEMAS: Record<Exclude<DocCategoryId, "film">, z.ZodTypeAny> = {
@@ -23,6 +23,8 @@ export const CATEGORY_SCHEMAS: Record<Exclude<DocCategoryId, "film">, z.ZodTypeA
   financial_aid: financialAidSchema,
   metrics: metricsReportSchema,
   athlete_profile: athleteProfileSchema,
+  board_document: boardDocumentSchema,
+  other: generalDocumentSchema,
 };
 
 // The keys and units the metrics prompt lists, from the contract, so a
@@ -221,6 +223,52 @@ const REGISTRY: Record<DocCategoryId, DocCategory> = {
       '  "confidence": number 0-1,\n' +
       '  "warnings": []\n}\n\n' +
       "Height in inches (6'1\" is 73). A profile is self-reported: copy its GPA and scores as printed and say in `warnings` that they are self-reported.",
+  },
+  board_document: {
+    id: "board_document",
+    label: "Board Document",
+    shape: "reference",
+    triageType: "board_document",
+    extractionPrompt:
+      "Extract a nonprofit board or governance document: bylaws, a policy, minutes, an agenda, a report, a letter or a form. Return ONLY valid JSON.\n\n" +
+      "Schema:\n{\n" +
+      '  "documentKind": "bylaws" | "policy" | "minutes" | "agenda" | "report" | "letter" | "form" | "other",\n' +
+      '  "title": "the title as printed, or null",\n' +
+      '  "organization": "the organization it belongs to, as printed, or null",\n' +
+      '  "effectiveDate": "YYYY-MM-DD or null",\n' +
+      '  "adoptionDate": "YYYY-MM-DD or null (when it was adopted, approved or held)",\n' +
+      '  "people": [{ "name": "as printed", "role": "their role or title as printed, or null" }],\n' +
+      '  "amounts": [{ "amount": number, "what": "what the figure is for" }],\n' +
+      '  "deadlines": [{ "date": "YYYY-MM-DD or YYYY-MM", "what": "what is due" }],\n' +
+      '  "actionItems": ["each action item, motion or decision, one short sentence"],\n' +
+      '  "summary": "3-5 sentence plain summary of what it says",\n' +
+      '  "evidence": { "organization": "verbatim line" },\n' +
+      '  "confidence": number 0-1,\n' +
+      '  "warnings": []\n}\n\n' +
+      "List every person named with a role (officers, directors, attendees, signers). Every dollar figure as a number. Leave a list empty when the document has none.",
+  },
+  other: {
+    id: "other",
+    label: "Other",
+    shape: "reference",
+    triageType: "other",
+    extractionPrompt:
+      "Read any document and say what it is. Return ONLY valid JSON.\n\n" +
+      "Schema:\n{\n" +
+      '  "suggestedType": "transcript" | "test_scores" | "offer_letter" | "recommendation" | "financial_aid" | "metrics" | "athlete_profile" | "board_document" | "other",\n' +
+      '  "documentKind": "a few words: what kind of document this is",\n' +
+      '  "title": "the title as printed, or null",\n' +
+      '  "studentName": "the student or athlete it is about, as printed, or null",\n' +
+      '  "people": [{ "name": "as printed", "role": "role or title as printed, or null" }],\n' +
+      '  "organizations": ["each organization named"],\n' +
+      '  "dates": [{ "date": "YYYY-MM-DD or YYYY-MM", "what": "what the date is" }],\n' +
+      '  "amounts": [{ "amount": number, "what": "what the figure is for" }],\n' +
+      '  "keyFacts": ["the 3-8 facts a reader most needs, one short sentence each"],\n' +
+      '  "summary": "3-5 sentence plain summary",\n' +
+      '  "evidence": { "studentName": "verbatim line" },\n' +
+      '  "confidence": number 0-1,\n' +
+      '  "warnings": []\n}\n\n' +
+      "`suggestedType` is the File As type this document should have: a school transcript is transcript, an SAT or ACT report is test_scores, a college offer or admission letter is offer_letter, a recommendation letter is recommendation, an aid or scholarship award is financial_aid, a showcase or combine results sheet is metrics, a recruiting profile or player card is athlete_profile, bylaws or minutes or a board policy is board_document, anything else is other.",
   },
   film: {
     id: "film",

@@ -5,14 +5,16 @@
 // patch stack) - see docs/ARCHITECTURE.md for what's a faithful port vs.
 // a genuine redesign here.
 
-export type DocCategoryId = "transcript" | "test_scores" | "offer_letter" | "recommendation" | "financial_aid" | "metrics" | "athlete_profile" | "film";
+export type DocCategoryId = "transcript" | "test_scores" | "offer_letter" | "recommendation" | "financial_aid" | "metrics" | "athlete_profile" | "board_document" | "other" | "film";
 
 // A category's extraction "shape" says how the parsed JSON gets applied
 // to an athlete record: field_update overwrites scalar fields (a
 // transcript replaces GPA/course-rigor fields), collection_append adds
 // an item to an array the athlete already has (a new test score, a new
-// offer), unsupported means the pipeline stops at triage.
-export type ExtractionShape = "field_update" | "collection_append" | "unsupported";
+// offer), unsupported means the pipeline stops at triage, reference
+// means it is read for a person and never applied to an athlete (a board
+// document, anything else: Dave, Oct 11).
+export type ExtractionShape = "field_update" | "collection_append" | "reference" | "unsupported";
 
 export interface DocCategory {
   id: DocCategoryId;
@@ -31,13 +33,15 @@ export interface IngestedRecord {
   originalName: string;
   originalSize: number;
   originalMime: string;
-  kind: "pdf" | "image" | "heic" | "unknown";
+  // "text": a Word, Excel, CSV or text file, turned into plain text on
+  // the server (src/lib/vault/textExtract.ts); base64 holds UTF-8 text.
+  kind: "pdf" | "image" | "heic" | "unknown" | "text";
   sourceRole: SourceRole;
   ingestedAt: string;
   requestId: string;
   mediaType: string;
   base64: string;
-  blockType: "document" | "image";
+  blockType: "document" | "image" | "text";
   width?: number;
   height?: number;
   normalizedSkipped?: boolean;

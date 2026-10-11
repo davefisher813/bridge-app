@@ -84,6 +84,9 @@ export function contentFor(opts: ModelCallOptions): Anthropic.ContentBlockParam[
   for (const r of opts.records) {
     if (r.blockType === "document" && r.mediaType === "application/pdf" && r.base64) {
       blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: r.base64 } });
+    } else if (r.blockType === "text" && r.base64) {
+      // A Word, Excel, CSV or text file, already turned into text.
+      blocks.push({ type: "document", source: { type: "text", media_type: "text/plain", data: Buffer.from(r.base64, "base64").toString("utf8") }, title: r.originalName });
     } else if (r.blockType === "image" && IMAGE_TYPES.has(r.mediaType) && r.base64) {
       blocks.push({ type: "image", source: { type: "base64", media_type: r.mediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp", data: r.base64 } });
     } else {
