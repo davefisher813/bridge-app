@@ -56,13 +56,19 @@ export interface DocumentUploaderProps {
   // started instead of to the documents list. Used by the eligibility
   // screen, where the only useful upload is this athlete's transcript.
   boundTo?: { athleteId: string; athleteName: string; category: DocCategoryId; returnTo: string };
+  // The roster, for the optional athlete picker (migration 0058). Not
+  // shown on a bound upload: that one is already about its athlete.
+  athletes?: { id: string; name: string }[];
+  // Preselected when the upload starts from an athlete's Documents section.
+  initialAthleteId?: string;
 }
 
-export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps) {
+export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialAthleteId }: DocumentUploaderProps) {
   const router = useRouter();
   const [category, setCategory] = useState<DocCategoryId | null>(boundTo?.category ?? null);
   const [fileAs, setFileAs] = useState<FileTypeId | null>(null);
   const [sourceRole, setSourceRole] = useState<SourceRole>("coordinator");
+  const [linkAthleteId, setLinkAthleteId] = useState(initialAthleteId ?? "");
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
@@ -150,6 +156,7 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
         requestedCategory: category,
         fileAs: category ? null : fileAs,
         athleteId: boundTo?.athleteId,
+        linkAthleteId: boundTo ? null : linkAthleteId || null,
       });
 
       if (!result.ok || !result.documentId) return fail(result.error ?? "Something went wrong storing that.");
@@ -211,6 +218,17 @@ export function DocumentUploader({ slug, orgId, boundTo }: DocumentUploaderProps
           </option>
         ))}
       </SelectField>
+
+      {!boundTo && athletes.length > 0 && (
+        <SelectField name="linkAthleteId" label="Athlete" hint="Optional. Pick the athlete this is about and it shows on their page. Leave it empty for org-wide documents like bylaws." value={linkAthleteId} onChange={(e) => setLinkAthleteId(e.target.value)}>
+          <option value="">No Athlete</option>
+          {athletes.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </SelectField>
+      )}
 
       <FileField
         name="files"

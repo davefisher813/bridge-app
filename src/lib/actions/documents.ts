@@ -356,6 +356,10 @@ export async function processDocument(
     // while the user stood on the right one's page. Two athletes with
     // identical names resolved nondeterministically.
     athleteId?: string;
+    // The athlete a person picked on the upload form (migration 0058):
+    // the document is about them. Optional; never used to read or apply,
+    // so a wrong pick misfiles nothing on the athlete.
+    linkAthleteId?: string | null;
   }
 ): Promise<ProcessResult> {
   const org = await getOrgBySlug(slug);
@@ -453,6 +457,9 @@ export async function processDocument(
   for (const c of checked) if (!forReader.includes(c)) specs.push({ files: [c], reads: false });
 
   const pinned = await orgAthleteName(supabase, org.id, input.athleteId);
+  // An upload from an athlete's own page is about that athlete as well.
+  const linked = input.linkAthleteId ? await orgAthleteName(supabase, org.id, input.linkAthleteId) : pinned;
+  if (input.linkAthleteId && !linked) return refuse("That athlete is not on this organization's roster.");
   const documentIds: string[] = [];
   let readerDocumentId: string | null = null;
 
@@ -507,6 +514,7 @@ export async function processDocument(
         storage_paths: spec.reads && !readerProblem ? spec.files.map((f) => f.upload.reader!.storagePath) : spec.files.map((f) => f.upload.storagePath),
         original_paths: spec.files.map((f) => f.upload.storagePath),
         content_hash: hash,
+        ...(linked ? { linked_athlete_id: linked.id } : {}),
         // Which model reads it, written once, before the reading starts.
         // 'stub' is permanent (a trigger in migration 0040), so a reading
         // the stand-in invented can never be relabelled and applied.
@@ -1570,6 +1578,51 @@ export async function fileDocumentAs(slug: string, documentId: string, formData:
   revalidatePath(`/org/${slug}/documents`);
   const label = readerType ? READER_TYPES.find((t) => t.id === readerType)!.label : fileType ? FILE_TYPE_LABEL[fileType as FileTypeId] : null;
   redirect(`${back}?notice=${encodeURIComponent(label ? `Type set to ${label}.` : "Type cleared.")}`);
+}
+
+// Link a document to an athlete, or clear the link (migration 0058).
+// Optional and a person's choice: org-wide documents have none. Never
+// touches a reading: athlete_id (where a reading was applied) is a
+// different column, and nothing here reads or applies anything. Logged
+// either way, against the athlete it now names (or no longer names).
+export async function linkDocumentToAthlete(slug: string, documentId: string, formData: FormData): Promise<void> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  const user = await requireRole(org.id, STAFF_ROLES);
+  const back = `/org/${slug}/documents/${documentId}`;
+  const raw = String(formData.get("linkedAthleteId") ?? "").trim();
+
+  const supabase = await createClient();
+  const { data } = await supabase.from("documents").select("id, linked_athlete_id, category, requested_category, filed_as").eq("id", documentId).eq("org_id", org.id).maybeSingle();
+  const doc = data as { linked_athlete_id: string | null; category: DocCategoryId | null; requested_category: DocCategoryId | null; filed_as: string | null } | null;
+  if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is not in this organization.")}`);
+
+  const next = raw ? await orgAthleteName(supabase, org.id, raw) : null;
+  if (raw && !next) redirect(`${back}?error=${encodeURIComponent("That athlete is not on this organization's roster.")}`);
+  if ((next?.id ?? null) === doc.linked_athlete_id) redirect(`${back}?notice=${encodeURIComponent("Nothing changed.")}`);
+  const previous = await orgAthleteName(supabase, org.id, doc.linked_athlete_id);
+
+  const { error } = await supabase
+    .from("documents")
+    .update({ linked_athlete_id: next?.id ?? null, updated_at: new Date().toISOString() })
+    .eq("id", documentId)
+    .eq("org_id", org.id);
+  if (error) redirect(`${back}?error=${encodeURIComponent(`Could not save the athlete: ${error.message}`)}`);
+
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    athleteId: next?.id ?? previous?.id ?? null,
+    action: "document_linked",
+    subjectType: "document",
+    subjectId: documentId,
+    summary: activitySummary("document_linked", { kind: documentKind(doc.category ?? doc.requested_category), to: next?.name ?? null, from: previous?.name ?? null }),
+  });
+
+  revalidatePath(`/org/${slug}/documents`);
+  if (next) revalidatePath(`/org/${slug}/roster/${next.id}`);
+  if (previous) revalidatePath(`/org/${slug}/roster/${previous.id}`);
+  redirect(`${back}?notice=${encodeURIComponent(next ? `Linked to ${next.name}.` : "No athlete linked now.")}`);
 }
 
 // Read Again (Alfred's production audit, 2026-10-10: reading only ran on

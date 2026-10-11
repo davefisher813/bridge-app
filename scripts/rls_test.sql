@@ -4717,3 +4717,35 @@ begin
   raise notice 'PASS: applied_migrations is closed to anon';
 end $$;
 \echo 'ALL 0057 ASSERTIONS PASSED'
+
+-- ── Migration 0058: a document linked to an athlete ──────────────────
+-- A link to an athlete of the document's own org saves; one to another
+-- org's athlete is refused; deleting the athlete clears the link, not
+-- the document.
+reset role;
+do $$
+declare d uuid;
+begin
+  insert into documents (org_id, file_name, file_size, media_type, source_role, status)
+  values ('00000000-0000-0000-0000-000000000010', 'link.pdf', 10, 'application/pdf', 'coordinator', 'pending')
+  returning id into d;
+  update documents set linked_athlete_id = '00000000-0000-0000-0000-000000000110' where id = d;
+  if (select linked_athlete_id from documents where id = d) is distinct from '00000000-0000-0000-0000-000000000110'::uuid then
+    raise exception 'FAIL 0058: the link did not save';
+  end if;
+  begin
+    update documents set linked_athlete_id = '00000000-0000-0000-0000-000000000120' where id = d;
+    raise exception 'FAIL 0058: a document was linked to another org''s athlete';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into documents (org_id, file_name, file_size, media_type, source_role, status, linked_athlete_id)
+    values ('00000000-0000-0000-0000-000000000010', 'x.pdf', 10, 'application/pdf', 'coordinator', 'pending', '00000000-0000-0000-0000-000000000120');
+    raise exception 'FAIL 0058: a new document was linked to another org''s athlete';
+  exception when check_violation then null;
+  end;
+  update documents set linked_athlete_id = null where id = d;
+  delete from documents where id = d;
+  raise notice 'PASS: a document links only to its own org''s athlete, and the link is optional';
+end $$;
+\echo 'ALL 0058 ASSERTIONS PASSED'

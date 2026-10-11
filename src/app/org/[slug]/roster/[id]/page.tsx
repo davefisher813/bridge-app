@@ -32,6 +32,8 @@ import { checkinDue } from "@/lib/checkins";
 import { personLabel } from "@/lib/org/roleLabels";
 import { GOAL_LABEL, type AthleteGoal } from "@/lib/fit/contract";
 import type { FitTag } from "@/lib/fit/types";
+import { documentTypeLabel, READER_TYPES } from "@/lib/documents/fileTypes";
+import { isLifecycle, LIFECYCLE_LABEL } from "@/lib/vault/lifecycle";
 
 // The score above the tag already says how good the fit is, so the tag
 // is low-weight text. Same map as the board.
@@ -156,6 +158,22 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   ]);
 
   if (!athlete) notFound();
+
+  // This athlete's documents (migration 0058): the ones a person linked
+  // to them, and the ones a reading was applied to. Staff only, like
+  // this screen; a link widens nobody's access.
+  const { data: docRows } = await supabase
+    .from("documents")
+    .select("id, file_name, category, requested_category, filed_as, lifecycle, created_at, athlete_id, linked_athlete_id")
+    .eq("org_id", org.id)
+    .or(`linked_athlete_id.eq.${id},athlete_id.eq.${id}`)
+    .order("created_at", { ascending: false });
+  const readerLabels = Object.fromEntries(READER_TYPES.map((t) => [t.id, t.label]));
+  const athleteDocs = ((docRows ?? []) as { id: string; file_name: string; category: string | null; requested_category: string | null; filed_as: string | null; lifecycle: string; created_at: string }[]).map((d) => ({
+    ...d,
+    label: documentTypeLabel(d, readerLabels),
+    state: isLifecycle(d.lifecycle) ? LIFECYCLE_LABEL[d.lifecycle] : d.lifecycle,
+  }));
 
   // The family logins linked to this athlete (migration 0023), with
   // the person behind each. Staff invite one from here (Dave's pick,
@@ -525,6 +543,26 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         </Section>
       )}
 
+
+      <Section label="Documents" count={athleteDocs.length} role="accent" kind="document" action={<TextLink href={`/org/${slug}/documents/new?athlete=${id}`}>Add</TextLink>}>
+        {athleteDocs.length === 0 ? (
+          <EmptyState kind="document" title="No Documents Yet">
+            Add one here, or pick this athlete on any document.
+          </EmptyState>
+        ) : (
+          athleteDocs.map((d) => (
+            <Row
+              key={d.id}
+              href={`/org/${slug}/documents/${d.id}`}
+              kind="document"
+              title={d.label ?? d.file_name}
+              meta={[d.label ? d.file_name : null, d.state, longDate(d.created_at.slice(0, 10))].filter(Boolean).join(" · ")}
+              trailing={<Chevron />}
+              wrap
+            />
+          ))
+        )}
+      </Section>
 
       {/* Staff only (migration 0040): a dated log, newest first. Notes
           are deleted, never edited, and no family or member screen reads
