@@ -175,9 +175,13 @@ test.describe("vault: a file that does not look like its type is kept, and the s
     // Archive, then it is out of the working list until asked for.
     await page.getByRole("button", { name: "Archive", exact: true }).click();
     await expect(page.getByText("Archived", { exact: true }).first()).toBeVisible();
-    await page.goto(org("/documents"));
+    // Out of Needs Review, in Archived, and still in All (Dave, 2026-10-11:
+    // nothing is out of reach).
+    await page.goto(org("/documents?view=needs_review"));
     await expect(page.getByRole("link", { name: /offtype-june-scores\.pdf/ })).toHaveCount(0);
-    await page.getByRole("link", { name: /Show Archived/ }).click();
+    await page.goto(org("/documents"));
+    await expect(page.getByRole("link", { name: /offtype-june-scores\.pdf/ }).first()).toBeVisible();
+    await page.locator(`a[href$="/documents?view=archived"]`).click();
     await page.getByRole("link", { name: /offtype-june-scores\.pdf/ }).first().click();
 
     // Unarchive returns it to Needs Review, never to Ready.

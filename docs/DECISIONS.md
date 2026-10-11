@@ -4128,3 +4128,24 @@ law enforces it); that change shipped first (PR #11) so production never
 saw an ambiguous query. A link widens no access: the documents policies
 are unchanged, and the athlete page is Admin only. Picking an athlete on
 upload never pins or steers the reader.
+
+## 2026-10-11: athlete pages show the record; no document is out of reach
+
+**Decision.** The athlete page opens with Athlete Info: every populated
+field on the record (status, advisor, sport, position, level, class,
+school, height and weight from the newest metrics, GPA, test scores,
+transfer facts, enrollment and draft facts, goal, budget), empty ones
+left out (src/lib/athleteInfo.ts). Advisor follows it. The Documents
+screen has four views (All, Needs Review, Ready, Archived) as count
+tiles, search across whichever is open, and loads every document.
+
+**Reason.** Dave, 2026-10-11. The Documents list loaded only the newest
+60 rows, so on production (about 150) every older document, archived
+or not, was missing from the list and from search.
+
+**Consequences.** The athlete record has no email, phone, height or
+weight columns; contact details stay under Contacts, and height and
+weight come from logged metrics. The old ?archived=1 address opens the
+Archived view. The athlete page already listed every state of an
+athlete's documents; what was missing on production was the link
+(most documents are linked to no athlete).

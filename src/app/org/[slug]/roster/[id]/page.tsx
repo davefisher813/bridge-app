@@ -32,6 +32,7 @@ import { checkinDue } from "@/lib/checkins";
 import { personLabel } from "@/lib/org/roleLabels";
 import { GOAL_LABEL, type AthleteGoal } from "@/lib/fit/contract";
 import type { FitTag } from "@/lib/fit/types";
+import { athleteInfoRows } from "@/lib/athleteInfo";
 import { documentTypeLabel, READER_TYPES } from "@/lib/documents/fileTypes";
 import { isLifecycle, LIFECYCLE_LABEL } from "@/lib/vault/lifecycle";
 
@@ -120,7 +121,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const [{ data: athlete }, { data: targetRows }, { data: contactRows }, { data: schoolRows }, { data: metricRows }, fits, advisors, { data: lastCheckinRows }, threads, notes, recentActivity, assignmentRows] = await Promise.all([
     supabase
       .from("athletes")
-      .select("id, name, sport, position, recruit_type, gpa, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment, advisor_id")
+      .select("id, name, sport, position, recruit_type, gpa, gpa_verified, goal, family_budget_cents, home_state, status, detail, draft_team, draft_round, draft_year, graduated_on, first_full_time_enrollment, intended_enrollment, date_of_birth, is_international, toefl_score, ielts_score, f1_visa_status, ncaa_eligibility_status, advisor_id")
       .eq("id", id)
       .eq("org_id", org.id)
       .is("deleted_at", null)
@@ -248,6 +249,19 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   }
 
   const advisor = advisors.find((s) => s.id === athlete.advisor_id) ?? null;
+
+  // Athlete Info (Dave, 2026-10-11): every populated field on the record,
+  // nothing empty. Height and weight are the newest logged metric.
+  const latestMetrics = new Map<string, number>();
+  for (const m of metrics) if (!latestMetrics.has(m.metric)) latestMetrics.set(m.metric, Number(m.value));
+  const info = athleteInfoRows(athlete, {
+    status: placement?.state ?? athlete.status,
+    advisorName: advisor?.name ?? null,
+    recruitTypeLabel: RECRUIT_TYPE_LABEL[athlete.recruit_type] ?? athlete.recruit_type,
+    goalLabel: athlete.goal ? goal : null,
+    latestMetrics,
+    date: (iso) => longDate(iso.slice(0, 10)),
+  });
   const thread = threads.get(id);
   const lastCheckinOn = ((lastCheckinRows ?? []) as { occurred_on: string | null }[])[0]?.occurred_on ?? null;
   const checkinIsDue = checkinDue(lastCheckinOn, new Date());
@@ -316,6 +330,20 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         </Form>
       )}
       {error && <Notice tone="danger" title={error} />}
+
+      {/* Athlete Info: the record itself, first under the name. */}
+      <Section label="Athlete Info" count={info.length} role="people" kind="athlete">
+        <Card isStatic>
+          <Grid2>
+            {info.map((f) => (
+              <div key={f.label} className="min-w-0">
+                <Label>{f.label}</Label>
+                <Body weight="semibold">{f.value}</Body>
+              </div>
+            ))}
+          </Grid2>
+        </Card>
+      </Section>
 
       {/* Who checks in with this athlete, and the two things they do:
           the thread with the family and the check-in log. First on the
