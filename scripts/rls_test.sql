@@ -4558,6 +4558,33 @@ begin
 end $$;
 reset role;
 delete from storage.objects where bucket_id = 'member-photos' and name like '00000000-0000-0000-0000-00000005%';
+-- 0056 (check-in photos): the same Admin, Viewer and family logins,
+-- run here while they exist; 0056 is applied before this file runs.
+set role app_user;
+do $$
+declare n int; who uuid;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000500a1');
+  insert into storage.objects (bucket_id, name) values ('checkin-photos', '00000000-0000-0000-0000-000000050010/00000000-0000-0000-0000-0000000500b1/1.jpg');
+  begin
+    insert into storage.objects (bucket_id, name) values ('checkin-photos', '00000000-0000-0000-0000-000000050020/00000000-0000-0000-0000-0000000500b1/1.jpg');
+    raise exception 'FAIL: an Admin added a check-in photo under another org''s folder';
+  exception when insufficient_privilege then null;
+  end;
+  select count(*) into n from storage.objects where bucket_id = 'checkin-photos';
+  if n <> 0 then raise exception 'FAIL: an Admin read % check-in photo objects directly', n; end if;
+  foreach who in array array['00000000-0000-0000-0000-0000000500a3', '00000000-0000-0000-0000-0000000500a4']::uuid[] loop
+    perform set_test_user(who);
+    begin
+      insert into storage.objects (bucket_id, name) values ('checkin-photos', '00000000-0000-0000-0000-000000050010/00000000-0000-0000-0000-0000000500b1/2.jpg');
+      raise exception 'FAIL: % added a check-in photo', who;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+  raise notice 'PASS: only an org''s Admins add check-in photos, only under its folder';
+end $$;
+reset role;
+delete from storage.objects where bucket_id = 'checkin-photos' and name like '00000000-0000-0000-0000-00000005%';
 
 reset role;
 delete from storage.objects where name like '00000000-0000-0000-0000-00000005001%' or name like '00000000-0000-0000-0000-00000005002%';
@@ -4647,3 +4674,46 @@ begin
   end;
 end $$;
 \echo 'ALL 0055 ASSERTIONS PASSED'
+
+-- ═══ Migration 0056: check-in photos ════════════════════════════════
+do $$
+declare pub boolean; lim bigint;
+begin
+  if not exists (select 1 from pg_constraint where conname = 'athlete_checkins_photo_path_shape') then
+    raise exception 'FAIL: check-in photo paths have no shape check';
+  end if;
+  select public, file_size_limit into pub, lim from storage.buckets where id = 'checkin-photos';
+  if pub is distinct from false then raise exception 'FAIL: the check-in photo bucket is public or missing'; end if;
+  if lim is distinct from 1048576 then raise exception 'FAIL: the check-in photo bucket limit is %', lim; end if;
+  if exists (select 1 from pg_policies where schemaname = 'storage' and cmd <> 'INSERT' and (coalesce(qual, '') ilike '%checkin-photos%' or coalesce(with_check, '') ilike '%checkin-photos%')) then
+    raise exception 'FAIL: a storage policy lets someone read, replace or delete a check-in photo';
+  end if;
+  raise notice 'PASS: check-in photos are private, 1 MB, one path shape, no read policy';
+end $$;
+
+\echo 'ALL 0056 ASSERTIONS PASSED'
+
+-- ═══ Migration 0057: the migration history, Admins only ═════════════
+set role app_user;
+do $$
+declare n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000500a1');
+  select count(*) into n from public.applied_migrations();
+  if n <> 0 then raise exception 'FAIL: a database with no history table answered % rows', n; end if;
+  perform set_test_user('00000000-0000-0000-0000-0000000500a4');
+  perform * from public.applied_migrations();
+  raise notice 'PASS: applied_migrations answers empty where there is no history and runs for a signed-in user';
+end $$;
+reset role;
+do $$
+begin
+  if has_function_privilege('anon', 'public.applied_migrations()', 'execute') then
+    raise exception 'FAIL: a signed-out visitor can call applied_migrations';
+  end if;
+  if (select prosecdef from pg_proc where proname = 'applied_migrations') is not true then
+    raise exception 'FAIL: applied_migrations is not security definer';
+  end if;
+  raise notice 'PASS: applied_migrations is closed to anon';
+end $$;
+\echo 'ALL 0057 ASSERTIONS PASSED'

@@ -218,7 +218,8 @@ describe("LAW: an edit names the org, the athlete and the row, and says when not
   it("updateCheckin edits type, date and notes, never who checked in", async () => {
     const { updateCheckin } = await import("@/lib/actions/checkins");
     const r = await run(() => updateCheckin(ORG_WITH_MODULES, IDS.athlete, "ck1", { errors: {} }, form({ kind: "meeting", occurredOn: "2026-09-20", notes: "Met at school.", advisorId: MEMBER_ID })));
-    expect(r.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}/checkins`);
+    // Back to the check-in itself (live check, 2026-10-10: it has a page now).
+    expect(r.redirect).toBe(`/org/${ORG_WITH_MODULES}/roster/${IDS.athlete}/checkins/ck1`);
     const up = updates("athlete_checkins")[0];
     expect(filterCols(up)).toEqual(expect.arrayContaining(["id", "org_id", "athlete_id"]));
     expect(Object.keys(up?.rows[0] ?? {}).sort()).toEqual(["kind", "notes", "occurred_on"]);

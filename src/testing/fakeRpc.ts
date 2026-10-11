@@ -1,3 +1,4 @@
+import { APPLIED_LEDGER } from "@/lib/ops/appliedLedger";
 // The three SECURITY DEFINER functions of migration 0031, mirrored over
 // the fixture so a member screen renders in the harness the way it
 // does against the database.
@@ -57,6 +58,13 @@ function admitted(data: Dataset, orgId: string, userId: string | null): boolean 
 const STAGE_ORDER: Record<string, number> = { Committed: 0, Offer: 1, Visit: 2, "In Contact": 3, Target: 4 };
 
 export function fakeRpc(data: Dataset, userId: string | null, name: string, args: Record<string, unknown>): { data: unknown; error: { message: string } | null } {
+  // Migration 0057: the history, to any signed-in Admin. The fixture's
+  // database has every migration the ledger calls applied.
+  if (name === "applied_migrations") {
+    const staff = (data.org_members ?? []).some((m) => m.user_id === userId && m.role === "owner");
+    if (!staff) return { data: [], error: null };
+    return { data: APPLIED_LEDGER.flatMap((r) => r.versions.map((version) => ({ version, name: r.file }))), error: null };
+  }
   if (name === "member_program") {
     const orgId = String(args.p_org);
     if (!admitted(data, orgId, userId)) return { data: [], error: null };

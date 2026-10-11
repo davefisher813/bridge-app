@@ -176,6 +176,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // no Foundation section, and Advisors lists every Admin with a count.
   { name: "more-lite", path: "@/app/org/[slug]/more/page", props: { params: p({ slug: ORG_WITHOUT_MODULES }) }, expect: /^(?![\s\S]*Foundation)[\s\S]*Organization[\s\S]*Sign Out/ },
   { name: "doc-ai-spending", path: "@/app/org/[slug]/doc-ai-spending/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Doc AI Spending[\s\S]*\$0\.01 of \$20\.00 this month, 1 call[\s\S]*This Month[\s\S]*\$0\.01/ },
+  { name: "advisor-hub", path: "@/app/org/[slug]/advisor-hub/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Advisor Hub[\s\S]*Due for a Check-In[\s\S]*No Advisor Yet[\s\S]*Latest Check-Ins[\s\S]*checkins\/ck1/ },
   { name: "advisors", path: "@/app/org/[slug]/advisors/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Advisors[\s\S]*Example Owner[\s\S]*Head of Recruiting<\/span> · 2 athletes/ },
   // Stage 5 Phase 6, 2026-09-27: the activity log, Admins only. The org
   // screen lists every entry newest first and searches the summary and
@@ -242,6 +243,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "edit-athlete-graduated", path: "@/app/org/[slug]/roster/[id]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteGraduated }) }, expect: /Enrollment Date[\s\S]*Graduated On[\s\S]*2026-05-15/ },
   { name: "edit-contact", path: "@/app/org/[slug]/roster/[id]/contacts/[contactId]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, contactId: "ct1" }) }, expect: /Edit Contact[\s\S]*Fixture Parent[\s\S]*Save Changes/ },
   { name: "edit-metric", path: "@/app/org/[slug]/roster/[id]/metrics/[metricId]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, metricId: "mx1" }) }, expect: /Edit FB Velo[\s\S]*2026-08-15[\s\S]*Save Changes/ },
+  { name: "checkin", path: "@/app/org/[slug]/roster/[id]/checkins/[checkinId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, checkinId: "ck1" }) }, expect: /Call Check-In[\s\S]*Fixture check-in note[\s\S]*checkins\/ck1\/photo\?v=1760000000000[\s\S]*Edit/ },
   { name: "edit-checkin", path: "@/app/org/[slug]/roster/[id]/checkins/[checkinId]/edit/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, checkinId: "ck1" }) }, expect: /Edit Check-In[\s\S]*Fixture check-in note[\s\S]*Save Changes/ },
   { name: "family-link", path: "@/app/org/[slug]/roster/[id]/family/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, userId: FAMILY_ID }), searchParams: p({}) }, expect: /Fixture Parent[\s\S]*Who They Are[\s\S]*Also Sees[\s\S]*Fixture Unknown[\s\S]*Link Another Athlete[\s\S]*Unlink from Fixture Athlete/ },
   { name: "new-course", path: "@/app/org/[slug]/roster/[id]/transcript/new/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Add a Course[\s\S]*Fixture High School/ },

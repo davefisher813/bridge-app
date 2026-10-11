@@ -8,6 +8,8 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { parseCheckinForm } from "@/lib/validation/checkin";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { checkPhoto, isCheckinPhotoFor } from "@/lib/checkinPhoto";
 
 // The check-in log (migration 0039). Staff only, to read and to write:
 // these athletes are minors and an advisor's call notes never reach a
@@ -25,6 +27,31 @@ async function loadOrgAthlete(orgId: string, athleteId: string): Promise<{ id: s
   const supabase = await createClient();
   const { data } = await supabase.from("athletes").select("id, name").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).maybeSingle();
   return (data as { id: string; name: string } | null) ?? null;
+}
+
+// A photo the browser already put in the bucket (migration 0056). The
+// path is checked for shape and owner, then the bytes are read back and
+// checked, before any row points at it; a refused file is removed.
+// Returns the path to store, null for none, or an error.
+async function acceptPhoto(orgId: string, athleteId: string, formData: FormData): Promise<{ path: string | null } | { error: string }> {
+  const raw = String(formData.get("photoPath") ?? "").trim();
+  if (!raw) return { path: null };
+  if (!isCheckinPhotoFor(raw, orgId, athleteId)) return { error: "That photo was not uploaded for this athlete." };
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.FIXTURE_MODE !== "1") return { error: "Photos are not set up on this server." };
+  const admin = createAdminClient();
+  const { data: blob, error } = await admin.storage.from("checkin-photos").download(raw);
+  if (error || !blob) return { error: "The photo could not be read back after upload. Try again." };
+  const checked = checkPhoto(new Uint8Array(await blob.arrayBuffer()));
+  if (!checked.ok) {
+    await admin.storage.from("checkin-photos").remove([raw]);
+    return { error: checked.error };
+  }
+  return { path: raw };
+}
+
+async function dropPhoto(path: string | null | undefined): Promise<void> {
+  if (!path) return;
+  await createAdminClient().storage.from("checkin-photos").remove([path]);
 }
 
 function revalidateCheckins(slug: string, athleteId: string) {
@@ -47,6 +74,9 @@ export async function logCheckin(slug: string, athleteId: string, _prevState: Ch
     return { errors: { form: "That athlete isn't on this org's roster." } };
   }
 
+  const photo = await acceptPhoto(org.id, athleteId, formData);
+  if ("error" in photo) return { errors: { photo: photo.error } };
+
   const supabase = await createClient();
   const occurredOn = parsed.values.occurredOn ?? orgToday();
   const { data: created, error } = await supabase
@@ -58,10 +88,14 @@ export async function logCheckin(slug: string, athleteId: string, _prevState: Ch
       kind: parsed.values.kind,
       occurred_on: occurredOn,
       notes: parsed.values.notes ?? null,
+      ...(photo.path ? { photo_path: photo.path } : {}),
     })
     .select("id")
     .maybeSingle();
-  if (error) return { errors: { form: error.message } };
+  if (error) {
+    await dropPhoto(photo.path);
+    return { errors: { form: error.message } };
+  }
 
   // The log line carries the kind and the day. The note stays in
   // athlete_checkins, where only staff read it.
@@ -97,18 +131,35 @@ export async function updateCheckin(slug: string, athleteId: string, checkinId: 
   }
 
   const supabase = await createClient();
+  const { data: before } = await supabase.from("athlete_checkins").select("photo_path").eq("id", checkinId).eq("org_id", org.id).eq("athlete_id", athleteId).maybeSingle();
+  const current = (before as { photo_path?: string | null } | null)?.photo_path ?? null;
+
+  // A new photo replaces the old one; Remove Photo clears it; neither
+  // leaves it as it was.
+  const photo = await acceptPhoto(org.id, athleteId, formData);
+  if ("error" in photo) return { errors: { photo: photo.error } };
+  const clear = formData.get("removePhoto") === "on";
+  const nextPhoto = photo.path ?? (clear ? null : current);
+
   const { data, error } = await supabase
     .from("athlete_checkins")
-    .update({ kind: parsed.values.kind, occurred_on: parsed.values.occurredOn, notes: parsed.values.notes ?? null })
+    .update({ kind: parsed.values.kind, occurred_on: parsed.values.occurredOn, notes: parsed.values.notes ?? null, ...(nextPhoto !== current ? { photo_path: nextPhoto } : {}) })
     .eq("id", checkinId)
     .eq("org_id", org.id)
     .eq("athlete_id", athleteId)
     .select("id");
-  if (error) return { errors: { form: error.message } };
-  if (!data || data.length === 0) return { errors: { form: "That check-in is not on this athlete's log any more." } };
+  if (error) {
+    await dropPhoto(photo.path);
+    return { errors: { form: error.message } };
+  }
+  if (!data || data.length === 0) {
+    await dropPhoto(photo.path);
+    return { errors: { form: "That check-in is not on this athlete's log any more." } };
+  }
+  if (current && current !== nextPhoto) await dropPhoto(current);
 
   revalidateCheckins(slug, athleteId);
-  redirect(`/org/${slug}/roster/${athleteId}/checkins`);
+  redirect(`/org/${slug}/roster/${athleteId}/checkins/${checkinId}`);
 }
 
 // Posted by the Remove button on a log entry, the Contacts pattern:
@@ -119,7 +170,9 @@ export async function removeCheckin(slug: string, athleteId: string, checkinId: 
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  await supabase.from("athlete_checkins").delete().eq("id", checkinId).eq("org_id", org.id).eq("athlete_id", athleteId);
+  const { data: gone } = await supabase.from("athlete_checkins").delete().eq("id", checkinId).eq("org_id", org.id).eq("athlete_id", athleteId).select("photo_path");
+  // Its photo goes with it: nothing else points at the file.
+  for (const row of (gone ?? []) as { photo_path?: string | null }[]) await dropPhoto(row.photo_path);
 
   revalidateCheckins(slug, athleteId);
 }

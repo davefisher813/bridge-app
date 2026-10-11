@@ -1600,7 +1600,7 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is not in this organization.")}`);
   const type = doc.category ?? doc.requested_category;
   if (!type || !isReaderType(type)) return no("Pick a reading type under File As first.");
-  if (doc.lifecycle !== "needs_review") return no("Only a document in Needs Review can be read again.");
+  if (doc.lifecycle !== "needs_review" && doc.lifecycle !== "ready") return no("Only a document in Needs Review or Ready can be read again.");
   if (doc.status === "applied" || doc.status === "processing" || doc.status === "filed") return no("This document cannot be read again.");
   if (isStubReading(doc.read_by)) return no("The stand-in read this one, and that stays on it. Upload the file again to have it read.");
   if (!doc.format || !readerCanRead(doc.format) || !doc.original_paths?.length) return no("The reader reads PDF, JPG and PNG.");
@@ -1632,6 +1632,12 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   if (problem) return no(problem);
 
   const kind = documentKind(type);
+  // A Ready document goes back to Needs Review first (0055 allows both
+  // moves), so a reading always lands where a person checks it.
+  if (doc.lifecycle === "ready") {
+    const back1 = await moveLifecycle(supabase, { orgId: org.id, documentId, to: "needs_review", by: "staff", actorId: user.id, kind, athlete: null });
+    if (!back1.ok) return no(back1.error ?? "Could not move it back to Needs Review.");
+  }
   const moved = await moveLifecycle(supabase, { orgId: org.id, documentId, to: "processing", by: "staff", actorId: user.id, kind, athlete: null });
   if (!moved.ok) return no(moved.error ?? "Could not start the reading.");
   await supabase

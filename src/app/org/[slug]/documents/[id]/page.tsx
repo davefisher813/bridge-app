@@ -280,8 +280,23 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     await readDocumentAgain(slug, doc.id);
   };
   const readerType = doc.category ?? doc.requested_category;
-  const canReadAgain =
-    lifecycle === "needs_review" && !!readerType && isReaderType(readerType) && !isApplied && !isProcessing && !isFiled && !stubRead && !!doc.format && readerCanRead(doc.format as VaultFormat);
+  // Read Again is on every document a person can still change (live
+  // check, 2026-10-10: it was hidden on most of them, so it looked
+  // missing). When it cannot run, the button stays, switched off, with
+  // the one thing to do about it.
+  const showReadAgain = (lifecycle === "needs_review" || lifecycle === "ready") && !isProcessing;
+  const readAgainBlocked: string | null = !readerType || !isReaderType(readerType)
+    ? "Pick a reading type under File As (Transcript, Test Scores and the rest), then Read Again."
+    : !doc.format || !readerCanRead(doc.format as VaultFormat)
+      ? "The reader reads PDF, JPG and PNG. Upload this one in one of those to have it read."
+      : isApplied
+        ? "This reading is already on the athlete. Undo it first, then Read Again."
+        : isFiled
+          ? "A family upload is filed, not read."
+          : stubRead
+            ? "The stand-in read this one. Upload the file again to have it read by the model."
+            : null;
+  const canReadAgain = showReadAgain && readAgainBlocked === null;
   // What staff can correct before applying. None for a stand-in reading.
   const correctable = isPending && !stubRead && doc.category && doc.category !== "film" && doc.extracted ? editableFields(doc.category as DocCategoryId, doc.extracted).length > 0 : false;
 
@@ -403,13 +418,21 @@ export default async function DocumentPage({ params, searchParams }: { params: P
         <Form action={readAgain}>
           <ConfirmButton
             tone="change"
-            title={doc.read_by ? "Read This Again?" : "Read This Now?"}
+            title="Read This Again?"
             body={`It is read as ${typeLabel ?? "its type"} from the original file and comes back to Needs Review. ${stubbed ? "No AI model is connected, so the reading is simulated and free." : "It counts toward this month's reading budget."}`}
-            confirmLabel={doc.read_by ? "Read Again" : "Read Now"}
+            confirmLabel="Read Again"
           >
-            {doc.read_by ? "Read Again" : "Read Now"}
+            Read Again
           </ConfirmButton>
         </Form>
+      )}
+      {showReadAgain && readAgainBlocked && (
+        <Stack gap={2}>
+          <Button type="button" variant="secondary" disabled>
+            Read Again
+          </Button>
+          <Label>{readAgainBlocked}</Label>
+        </Stack>
       )}
       {stuckReading && (
         <Form action={moveTo("needs_review")}>

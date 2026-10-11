@@ -4079,4 +4079,30 @@ attach any document, JPG and PNG included.
 
 **Consequences.** The lifecycle law and the RLS suite now hold nine
 moves. Applied migrations are checked in migrations/APPLIED.md and
-Supabase, documented in the runbook, with no in-app screen.
+Supabase, documented in the runbook.
+
+## 2026-10-11: the live check of the audit fixes, four more
+
+**Decision.** Read Again shows on every document in Needs Review or
+Ready; when it cannot run it stays visible, switched off, with the one
+thing to do (pick a reading type, upload a PDF or image, undo the
+apply). A Ready document reads again by moving back to Needs Review
+first. The Advisor Hub (/advisor-hub, linked from Advisors) lists who is
+due for a check-in, the no-advisor count and the latest check-ins.
+Check-ins carry one photo (migration 0056, a private bucket, staff only,
+the 0049 pattern) on the new form, the edit form and a new check-in
+page. Organization Settings shows Database Updates: the repo ledger
+checked against the database's own history (migration 0057, an Admin
+only function returning versions and names).
+
+**Reason.** Live verification of PR #9 found Read Again hidden on most
+documents, no Advisor Hub page, no photo on a meeting, and no way to see
+applied migrations in the app.
+
+**Alternatives.** Photos as attached documents (rejected in the check:
+it wanted the photo on the check-in). Reading APPLIED.md at run time
+(the file is not in the serverless bundle); a generated copy with a law
+instead.
+
+**Consequences.** A new migration means updating APPLIED.md and running
+scripts/gen_applied_ledger.mjs.

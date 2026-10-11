@@ -26,3 +26,15 @@ describe("LAW: every migration is in the applied log", () => {
     expect(thin).toEqual([]);
   });
 });
+
+// The app's copy of the ledger (Organization Settings reads it) is the
+// ledger. Verified it bites: changed one row's status in APPLIED.md
+// without rerunning the script, watched it fail, reverted.
+describe("LAW: the app's ledger is migrations/APPLIED.md", () => {
+  it("src/lib/ops/appliedLedger.ts matches it row for row (node scripts/gen_applied_ledger.mjs)", async () => {
+    const { APPLIED_LEDGER } = await import("@/lib/ops/appliedLedger");
+    const ledger = readFileSync("migrations/APPLIED.md", "utf8");
+    const rows = [...ledger.matchAll(/^\| (\d{4}_[\w]+)\.sql \| (\w+) \| ([^|]+) \|$/gm)].map((m) => ({ file: m[1]!, recorded: m[2]!, versions: [...m[3]!.matchAll(/\b(\d{14})\b/g)].map((v) => v[1]!) }));
+    expect(APPLIED_LEDGER).toEqual(rows);
+  });
+});
