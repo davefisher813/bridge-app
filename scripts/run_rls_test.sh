@@ -98,6 +98,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0055_document_moves
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0056_checkin_photos.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0057_migration_status.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0058_document_athlete_link.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0059_doc_category_athlete_profile.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

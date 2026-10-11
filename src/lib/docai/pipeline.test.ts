@@ -53,6 +53,9 @@ const GOOD_TRANSCRIPT = JSON.stringify({
   regularCount: 1,
   ibCount: 0,
   dualCount: 0,
+  // Where the name and school were read (identity.ts, Oct 11): a reading
+  // that cannot quote them goes to review.
+  evidence: { studentName: "Student: Xavier Davis", school: "Stamford High School Official Transcript" },
   confidence: 0.92,
   warnings: [],
 });
@@ -127,10 +130,34 @@ describe("runExtractionPipeline", () => {
     }
   });
 
-  it("rejects extraction output that fails schema validation instead of trusting it", async () => {
-    const badShape = JSON.stringify({ studentName: "Xavier Davis", gpa: "not a number" });
-    const result = await runExtractionPipeline({
+  // Oct 11: a field the schema refuses is emptied and the rest kept as a
+  // partial reading, held for review. Output with nothing usable left
+  // still fails.
+  it("keeps a reading with one bad field as a partial reading, held for review, and never auto-applies it", async () => {
+    const oneBad = JSON.stringify({ ...JSON.parse(GOOD_TRANSCRIPT), gpa: "not a number" });
+    const kept = await runExtractionPipeline({
       categoryId: "transcript",
+      records: [fakeRecord()],
+      sourceRole: "admin",
+      roster,
+      rosterContext: roster,
+      priorVersions: [],
+      callModel: scriptedCaller({ _triage: GOOD_TRIAGE, _extract: oneBad }),
+    });
+    expect(kept.ok).toBe(true);
+    if (kept.ok) {
+      expect(kept.route).not.toBe("auto_apply");
+      expect(kept.extracted.gpa ?? null).toBeNull();
+      expect((kept.extracted.warnings as string[]).join(" ")).toMatch(/partial reading: gpa/);
+    }
+  });
+
+  it("rejects extraction output that fails schema validation instead of trusting it", async () => {
+    // A metrics report whose only metric is not one the engine has:
+    // emptying it leaves no metric at all, so there is nothing to keep.
+    const badShape = JSON.stringify({ studentName: "Xavier Davis", source: "pbr", measuredOn: "2026-08-15", metrics: [{ key: "notAMetric", value: 5 }], confidence: 0.9, warnings: [] });
+    const result = await runExtractionPipeline({
+      categoryId: "metrics",
       records: [fakeRecord()],
       sourceRole: "admin",
       roster,

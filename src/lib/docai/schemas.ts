@@ -30,7 +30,18 @@ const emptyToNullYear = (v: unknown) => {
   return typeof y === "number" ? Math.round(y) : y;
 };
 
+// Where on the page each identifying value was read (Oct 11 live test:
+// two readings of one file named two different schools, one of them
+// printed nowhere on it). The model quotes the line it copied a name or
+// a school from; the pipeline checks the value is in its own quote and
+// holds the reading for review when it is not. Kept as plain strings.
+const evidence = z.preprocess(
+  (v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([, x]) => x == null || typeof x === "string").map(([k, x]) => [k, x == null || String(x).trim() === "" ? null : String(x)])) : undefined),
+  z.record(z.string(), z.string().nullable()).optional(),
+);
+
 const baseFields = {
+  evidence,
   confidence: z.preprocess(toNumber, z.number().min(0).max(1).nullable()).optional(),
   warnings: z.preprocess((v) => (typeof v === "string" ? [v] : Array.isArray(v) ? v.filter((w) => typeof w === "string" && w.trim()) : []), z.array(z.string())).optional().default([]),
 };
@@ -173,7 +184,11 @@ export const offerLetterSchema = z.object({
 export const recommendationSchema = z.object({
   ...baseFields,
   studentName: strOrNull().optional().default(null),
-  recommenderName: str().pipe(z.string().min(1)),
+  // Nullable (Oct 11 live test): a letter signed illegibly or not at
+  // all failed the whole reading on this one field. The pipeline now
+  // keeps the reading and holds it for review; Apply already adds no
+  // contact without a name.
+  recommenderName: strOrNull().optional().default(null),
   recommenderTitle: enumOr(["Coach", "Teacher", "Counselor", "Mentor", "Other"], "Other"),
   recommenderOrg: strOrNull().optional(),
   recType: enumOr(["academic", "athletic", "character", "mixed"], "mixed"),
@@ -183,6 +198,27 @@ export const recommendationSchema = z.object({
   themes: z.preprocess((v) => (Array.isArray(v) ? v.filter((t) => typeof t === "string" && t.trim()) : []), z.array(z.string())).default([]),
   summary: z.preprocess((v) => (v == null ? "" : v), str()),
   wordCount: nullable(int()).optional(),
+});
+
+// An athlete profile: a recruiting profile sheet, a showcase bio, a
+// player card (Oct 11: six of them were filed and could never be read).
+// Self-reported, so its GPA and scores stay on the document; Apply only
+// fills a blank class year, high school, position or major.
+export const athleteProfileSchema = z.object({
+  ...baseFields,
+  studentName: strOrNull().optional().default(null),
+  school: strOrNull().optional().default(null),
+  gradYear: z.preprocess((v) => emptyToNullYear(v), z.number().int().min(2000).max(2100).nullable()).optional().default(null),
+  sport: strOrNull().optional(),
+  position: strOrNull().optional(),
+  heightIn: nullable(num().pipe(z.number().min(36).max(96))).optional(),
+  weightLb: nullable(num().pipe(z.number().min(50).max(450))).optional(),
+  gpa: z.preprocess(toGpa, z.number().finite().nullable()).optional().default(null),
+  satTotal: nullable(int().pipe(z.number().min(400).max(1600))).optional(),
+  actComposite: nullable(int().pipe(z.number().min(1).max(36))).optional(),
+  desiredMajor: strOrNull().optional(),
+  hometown: strOrNull().optional(),
+  summary: strOrNull().optional(),
 });
 
 export const financialAidAwardSchema = z.object({
@@ -234,7 +270,7 @@ export const triageResultSchema = z.object({
   readable: z.preprocess((v) => (v == null ? true : v), bool()),
   legibilityScore: z.preprocess(toNumber, z.number().min(0).max(1)),
   detectedType: enumOr(
-    ["transcript", "test_scores", "offer_letter", "recommendation", "financial_aid", "metrics_report", "highlight_video_screenshot", "id_document", "other", "unreadable"],
+    ["transcript", "test_scores", "offer_letter", "recommendation", "financial_aid", "metrics_report", "athlete_profile", "highlight_video_screenshot", "id_document", "other", "unreadable"],
     "other"
   ),
   typeMatchesExpected: z.preprocess((v) => (v == null ? true : v), bool()),
@@ -250,3 +286,4 @@ export type OfferLetterExtraction = z.infer<typeof offerLetterSchema>;
 export type RecommendationExtraction = z.infer<typeof recommendationSchema>;
 export type FinancialAidExtraction = z.infer<typeof financialAidSchema>;
 export type MetricsReportExtraction = z.infer<typeof metricsReportSchema>;
+export type AthleteProfileExtraction = z.infer<typeof athleteProfileSchema>;

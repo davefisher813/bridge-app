@@ -1,6 +1,6 @@
 "use server";
 
-import { FILE_TYPE_LABEL, isFileType, isReaderType, READER_TYPES, type FileTypeId } from "@/lib/documents/fileTypes";
+import { FILE_TYPE_LABEL, isFileType, isReaderType, READER_TYPES, readerTypeOf, type FileTypeId } from "@/lib/documents/fileTypes";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createHash } from "node:crypto";
@@ -32,7 +32,7 @@ import { moveLifecycle } from "@/lib/data/vault";
 import { checkVaultFile, readerCanRead, type VaultFormat } from "@/lib/vault/format";
 import { didNotLookLike, isLifecycle, isStaleProcessing as isStaleLifecycle } from "@/lib/vault/lifecycle";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
-import { applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, fillHighSchoolFromTranscript, undoContact, undoDetail, undoMetrics, undoTarget, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
+import { applyAthleteProfile, applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, fillHighSchoolFromTranscript, undoContact, undoDetail, undoMetrics, undoTarget, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
 import { activitySummary, logActivity } from "@/lib/data/activity";
 import { applyRefusal, isStubReading, readerFor } from "@/lib/data/readBy";
@@ -611,7 +611,7 @@ async function readAndFile(
   slug: string,
   orgId: string,
   documentId: string,
-  input: { records: StoredRecord[]; sourceRole: SourceRole; requestedCategory: DocCategoryId | null; athleteId?: string },
+  input: { records: StoredRecord[]; sourceRole: SourceRole; requestedCategory: DocCategoryId | null; athleteId?: string; priorReading?: Record<string, unknown> | null },
   records: IngestedRecord[]
 ): Promise<ProcessResult> {
   const supabase = await createClient();
@@ -730,6 +730,8 @@ async function readAndFile(
     priorVersions,
     callModel,
     priorTriage,
+    // Read Again: the reading this one replaces, compared on identity.
+    priorReading: input.priorReading ?? null,
     // The resolver's override is still passed, because the extraction
     // prompt uses it, but the routing decision below does not depend on
     // it: a pinned upload resolves by ID.
@@ -880,7 +882,7 @@ async function applyExtractionToAthlete(
   // used to run its own query for exactly this.
   const { data: currentAthlete } = await supabase
     .from("athletes")
-    .select("gpa, gpa_verified, date_of_birth, home_state, detail")
+    .select("gpa, gpa_verified, date_of_birth, home_state, position, detail")
     .eq("id", athleteId)
     .eq("org_id", orgId)
     .single();
@@ -947,6 +949,12 @@ async function applyExtractionToAthlete(
     }
   }
 
+  // A profile fills a blank position (a column, so it is undone with the
+  // other athlete fields); the rest of it is in applyAthleteProfile.
+  if (categoryId === "athlete_profile" && typeof extracted.position === "string" && extracted.position.trim() && !before.position) {
+    patch.position = extracted.position.trim().slice(0, 60);
+  }
+
   // The other four types, each in src/lib/data/applyExtraction.ts. A
   // change to the target or the scores is a change to a matching input,
   // so the athlete's stored matches are rescored right after.
@@ -962,7 +970,9 @@ async function applyExtractionToAthlete(
               ? await applyRecommendation(supabase, orgId, athleteId, extracted)
               : categoryId === "metrics"
                 ? await applyMetricsReport(supabase, orgId, athleteId, extracted, appliedBy)
-                : { warnings: [`${categoryId} documents are kept on file and not applied to the record.`] };
+                : categoryId === "athlete_profile"
+                  ? await applyAthleteProfile(supabase, orgId, athleteId, extracted)
+                  : { warnings: [`${categoryId} documents are kept on file and not applied to the record.`] };
     warnings.push(...part.warnings);
     if (part.detail) changes.detail = part.detail;
     if (part.target) changes.target = part.target;
@@ -1642,17 +1652,19 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select("id, category, requested_category, status, lifecycle, read_by, format, media_type, file_name, file_size, original_paths, source_role, athlete_id")
+    .select("id, category, requested_category, filed_as, extracted, status, lifecycle, read_by, format, media_type, file_name, file_size, original_paths, source_role, athlete_id")
     .eq("id", documentId)
     .eq("org_id", org.id)
     .maybeSingle();
   const doc = data as {
-    category: DocCategoryId | null; requested_category: DocCategoryId | null; status: string; lifecycle: string; read_by: string | null;
+    category: DocCategoryId | null; requested_category: DocCategoryId | null; filed_as: string | null; extracted: Record<string, unknown> | null; status: string; lifecycle: string; read_by: string | null;
     format: VaultFormat | null; media_type: string; file_name: string; file_size: number; original_paths: string[] | null; source_role: SourceRole;
   } | null;
   if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is not in this organization.")}`);
-  const type = doc.category ?? doc.requested_category;
-  if (!type || !isReaderType(type)) return no("Pick a reading type under File As first.");
+  // A profile filed before Athlete Profile was readable reads as one
+  // (Oct 11: all six were stuck behind a disabled button).
+  const type = readerTypeOf(doc);
+  if (!type) return no("Pick a reading type under File As first.");
   if (doc.lifecycle !== "needs_review" && doc.lifecycle !== "ready") return no("Only a document in Needs Review or Ready can be read again.");
   if (doc.status === "applied" || doc.status === "processing" || doc.status === "filed") return no("This document cannot be read again.");
   if (isStubReading(doc.read_by)) return no("The stand-in read this one, and that stays on it. Upload the file again to have it read.");
@@ -1695,11 +1707,19 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   if (!moved.ok) return no(moved.error ?? "Could not start the reading.");
   await supabase
     .from("documents")
-    .update({ status: "processing", read_by: readerFor(stubbed, EXTRACTION_MODEL), failure_stage: null, failure_reason: null, updated_at: new Date().toISOString() })
+    .update({
+      status: "processing",
+      read_by: readerFor(stubbed, EXTRACTION_MODEL),
+      failure_stage: null,
+      failure_reason: null,
+      // The legacy filed_as becomes the type it is read as.
+      ...(!doc.category && !doc.requested_category ? { requested_category: type, filed_as: null } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", documentId)
     .eq("org_id", org.id);
   try {
-    await readAndFile(slug, org.id, documentId, { records: stored, sourceRole: doc.source_role, requestedCategory: type }, fetched.records);
+    await readAndFile(slug, org.id, documentId, { records: stored, sourceRole: doc.source_role, requestedCategory: type, priorReading: doc.extracted }, fetched.records);
   } catch (e) {
     await supabase
       .from("documents")

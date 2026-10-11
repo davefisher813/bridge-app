@@ -29,6 +29,7 @@ import { classifyAgainstPrior } from "./versioning";
 import type { VersionClassification } from "./types";
 import { METRIC_PLAUSIBLE, metricPlausible, TEST_TOTAL_RANGE } from "./plausibility";
 import { daysAhead } from "./lenient";
+import { contradictions, contradictionWarning, FIELD_LABEL, unquotedIdentity } from "./identity";
 
 export interface ModelCallOptions {
   model: string;
@@ -63,6 +64,10 @@ export interface PipelineInput {
   // check it, which was a second model call and a second wait for no
   // new information.
   priorTriage?: TriageResult | null;
+  // The reading this one replaces, on Read Again (Oct 11). A change of
+  // school, name or recommender between the two is flagged, never
+  // silently replaced.
+  priorReading?: Record<string, unknown> | null;
 }
 
 export type PipelineStage = "unsupported" | "ingest" | "model_call" | "triage_retake" | "triage_wrong_category" | "extraction_parse" | "extraction_invalid";
@@ -109,7 +114,7 @@ async function runTriage(input: PipelineInput, requestId: string, expected: DocC
   const systemPrompt =
     "You are a document triage assistant for a youth sports recruiting platform. You receive 1+ images or PDF pages and must rapidly assess whether they can be processed for structured data extraction.\n\n" +
     "Return ONLY valid JSON, no markdown, with this exact schema:\n" +
-    '{\n  "readable": boolean,\n  "legibilityScore": number 0-1,\n  "detectedType": "transcript" | "test_scores" | "offer_letter" | "recommendation" | "financial_aid" | "metrics_report" | "highlight_video_screenshot" | "id_document" | "other" | "unreadable",\n  "typeMatchesExpected": boolean,\n  "pagesDetected": number,\n  "issues": ["array of short specific problems"],\n  "recommendation": "proceed" | "retake" | "wrong_category" | "partial_only",\n  "reason": "1-2 sentence explanation"\n}\n\n' +
+    '{\n  "readable": boolean,\n  "legibilityScore": number 0-1,\n  "detectedType": "transcript" | "test_scores" | "offer_letter" | "recommendation" | "financial_aid" | "metrics_report" | "athlete_profile" | "highlight_video_screenshot" | "id_document" | "other" | "unreadable",\n  "typeMatchesExpected": boolean,\n  "pagesDetected": number,\n  "issues": ["array of short specific problems"],\n  "recommendation": "proceed" | "retake" | "wrong_category" | "partial_only",\n  "reason": "1-2 sentence explanation"\n}\n\n' +
     "Type guide: transcript is a school's record of courses and grades; test_scores is an SAT, ACT, PSAT or AP score report; offer_letter is a college's athletic or admissions offer; recommendation is a letter about the student written by a coach, teacher or counselor; financial_aid is a FAFSA report, CSS Profile, award letter or EFC report; metrics_report is a showcase profile, event results sheet, scouting report or a measured-metrics dashboard (PBR, Perfect Game, Rapsodo, a combine); highlight_video_screenshot is a still from a video; id_document is a licence, passport or school ID.\n\n" +
     "legibilityScore is how much of the text a careful reader could make out: 1.0 is a clean print, below 0.6 means material text is guesswork. Recommend retake if anything material is illegible or cropped. Recommend partial_only if some pages or sections are usable and others are not, and list which in issues. Do NOT extract data; this is triage only.";
   const userText = expected
@@ -153,6 +158,8 @@ const DETECTED_TO_CATEGORY: Record<string, DocCategoryId | null> = {
   financial_aid: "financial_aid",
   // A showcase profile, an event results sheet, a metrics dashboard.
   metrics_report: "metrics",
+  // A recruiting profile sheet or player card (Oct 11).
+  athlete_profile: "athlete_profile",
   highlight_video_screenshot: "film",
   // A driving licence, a random page, or something unreadable is not a
   // category. Null means "ask the user", never a guess.
@@ -338,8 +345,12 @@ export async function runExtractionPipeline(input: PipelineInput): Promise<Pipel
   // the same disagreement with a politer recommendation.
   if (!reusedTriage && triage) {
     const detected = DETECTED_TO_CATEGORY[triage.detectedType];
-    const namesAnotherType = detected !== undefined && detected !== null && detected !== input.categoryId;
-    if (triage.recommendation === "wrong_category" || (!triage.typeMatchesExpected && namesAnotherType)) {
+    // A showcase profile is both a metrics report and an athlete
+    // profile; neither reading of it is the wrong category.
+    const overlaps = (a: DocCategoryId, b: DocCategoryId) => (a === "metrics" && b === "athlete_profile") || (a === "athlete_profile" && b === "metrics");
+    const namesAnotherType = detected !== undefined && detected !== null && detected !== input.categoryId && !overlaps(detected, input.categoryId);
+    const sameKind = detected != null && overlaps(detected, input.categoryId);
+    if ((triage.recommendation === "wrong_category" && !sameKind) || (!triage.typeMatchesExpected && namesAnotherType)) {
       const what = triage.detectedType === "other" ? "something else" : triage.detectedType.replace(/_/g, " ");
       return {
         ok: false,
@@ -384,7 +395,22 @@ export async function runExtractionPipeline(input: PipelineInput): Promise<Pipel
   }
 
   const schema = CATEGORY_SCHEMAS[cat.id as keyof typeof CATEGORY_SCHEMAS];
-  const validated = schema.safeParse(rawJson);
+  let validated = schema.safeParse(rawJson);
+  // A partial reading beats a failed one (Oct 11: a letter failed on
+  // every attempt over one unreadable name). The top-level fields the
+  // schema refused are emptied and it is tried once more; if that holds,
+  // the reading is kept, says what was left out, and waits for a person.
+  const salvaged: string[] = [];
+  if (!validated.success && rawJson && typeof rawJson === "object" && !Array.isArray(rawJson)) {
+    const bad = [...new Set(validated.error.issues.map((i) => String(i.path[0] ?? "")).filter(Boolean))];
+    const retry = { ...(rawJson as Record<string, unknown>) };
+    for (const k of bad) delete retry[k];
+    const second = schema.safeParse(retry);
+    if (second.success) {
+      validated = second;
+      salvaged.push(...bad);
+    }
+  }
   if (!validated.success) {
     return {
       ok: false,
@@ -397,6 +423,27 @@ export async function runExtractionPipeline(input: PipelineInput): Promise<Pipel
   const extracted = validated.data as Record<string, unknown> & { confidence?: number | null; warnings?: string[] };
   const warnings: string[] = [...(extracted.warnings ?? [])];
   let holdForReview = false;
+  if (salvaged.length) {
+    warnings.push(`Kept as a partial reading: ${salvaged.map((k) => FIELD_LABEL[k] ?? k).join(", ")} could not be read and ${salvaged.length === 1 ? "was" : "were"} left empty.`);
+    holdForReview = true;
+  }
+
+  // A name or school the model could not quote from the page is treated
+  // as not read: confidence drops and a person looks before it lands.
+  const unquoted = unquotedIdentity(extracted);
+  if (unquoted.length) {
+    warnings.push(`Not quoted from the page, so treat with care: ${unquoted.map((f) => FIELD_LABEL[f] ?? f).join(", ")}.`);
+    if (typeof extracted.confidence === "number") extracted.confidence = Math.max(0, Math.round((extracted.confidence - 0.25) * 100) / 100);
+    holdForReview = true;
+  }
+
+  // Read Again: whatever changed on identity is said, first, and the
+  // reading waits for a person rather than replacing the last one quietly.
+  const changed = contradictions(input.priorReading, extracted);
+  if (changed.length) {
+    warnings.unshift(...changed.map(contradictionWarning));
+    holdForReview = true;
+  }
 
   const warning = lowLegibilityWarning(triage?.legibilityScore ?? null);
   if (warning) warnings.push(warning);

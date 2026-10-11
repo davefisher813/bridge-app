@@ -99,7 +99,8 @@ describe("LAW: the document screen offers every type the upload form does", () =
     const { createElement } = await import("react");
     const { DocumentUploader } = await import("@/components/DocumentUploader");
     const up = text(renderToStaticMarkup(createElement(DocumentUploader, { slug: ORG_WITH_MODULES, orgId: data.orgs[0]!.id as string })));
-    expect(offered).toEqual(["No Type", "Transcript", "Test Scores", "Offer Letter", "Recommendation", "Financial Aid", "Metrics Report", "Board Document", "Athlete Profile", "Other"]);
+    // Athlete Profile is a reader type since Oct 11 (migration 0059).
+    expect(offered).toEqual(["No Type", "Transcript", "Test Scores", "Offer Letter", "Recommendation", "Financial Aid", "Metrics Report", "Athlete Profile", "Board Document", "Other"]);
     for (const label of offered) expect(up).toContain(label);
   });
 });
@@ -108,9 +109,9 @@ describe("LAW: filing a document never relabels a reading", () => {
   it("files an untyped document and clears the No type chosen reason", async () => {
     doc("doc-word").review_reason = "No type chosen.";
     const { fileDocumentAs } = await import("@/lib/actions/documents");
-    const to = await run(() => fileDocumentAs(ORG_WITH_MODULES, "doc-word", form({ filedAs: "athlete_profile" })));
-    expect(to).toMatch(/notice=Type%20set%20to%20Athlete%20Profile/);
-    expect(doc("doc-word").filed_as).toBe("athlete_profile");
+    const to = await run(() => fileDocumentAs(ORG_WITH_MODULES, "doc-word", form({ filedAs: "board_document" })));
+    expect(to).toMatch(/notice=Type%20set%20to%20Board%20Document/);
+    expect(doc("doc-word").filed_as).toBe("board_document");
     expect(doc("doc-word").review_reason).toBeNull();
   });
 
