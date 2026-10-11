@@ -48,6 +48,7 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
 
   return (
     <Screen title="Advisors" back={{ href: `/org/${slug}/more`, label: "More" }} lede={unassigned}>
+      <Row href={`/org/${slug}/advisor-hub`} kind="people" role="people" title="Advisor Hub" meta="Who is due for a check-in, who has no advisor, the latest check-ins" trailing={<Chevron />} wrap />
       {counts.unassigned > 0 && (
         <Row href={`/org/${slug}/roster?advisor=none`} kind="athlete" role="time" title="No Advisor Yet" meta={`${athletes(counts.unassigned)} still being recruited`} trailing={<Chevron />} wrap />
       )}

@@ -7,7 +7,8 @@ import { loadStaff } from "@/lib/data/staff";
 import { CHECKIN_DUE_DAYS, CHECKIN_KIND_LABEL, checkinDue, daysSinceCheckin, type CheckinKind } from "@/lib/checkins";
 import { logCheckin, removeCheckin } from "@/lib/actions/checkins";
 import { CheckinForm } from "@/components/CheckinForm";
-import { Body, Card, ConfirmButton, EmptyState, Form, Label, Notice, Screen, Section, TextLink } from "@/components/kit";
+import { checkinPhotoUrl } from "@/lib/checkinPhoto";
+import { Card, ConfirmButton, EmptyState, Form, Label, Notice, Photo, Screen, Section, TextLink } from "@/components/kit";
 
 // One athlete's check-in log (migration 0039). Staff only, to read and
 // to write: these athletes are minors and an advisor's notes never reach
@@ -23,6 +24,7 @@ interface CheckinRow {
   occurred_on: string;
   notes: string | null;
   advisor_id: string | null;
+  photo_path: string | null;
   users: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null;
 }
 
@@ -39,7 +41,7 @@ export default async function CheckinsPage({ params }: { params: Promise<{ slug:
   const supabase = await createClient();
   const [{ data: athlete }, { data: checkinRows }, staff] = await Promise.all([
     supabase.from("athletes").select("id, name, advisor_id").eq("id", id).eq("org_id", org.id).is("deleted_at", null).single(),
-    supabase.from("athlete_checkins").select("id, kind, occurred_on, notes, advisor_id, users(full_name, email)").eq("org_id", org.id).eq("athlete_id", id).order("occurred_on", { ascending: false }),
+    supabase.from("athlete_checkins").select("id, kind, occurred_on, notes, advisor_id, photo_path, users(full_name, email)").eq("org_id", org.id).eq("athlete_id", id).order("occurred_on", { ascending: false }),
     loadStaff(supabase, org.id),
   ]);
   if (!athlete) notFound();
@@ -72,9 +74,10 @@ export default async function CheckinsPage({ params }: { params: Promise<{ slug:
             <Card key={c.id}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <Body weight="bold">{`${CHECKIN_KIND_LABEL[c.kind as CheckinKind] ?? c.kind} · ${longDate(c.occurred_on)}`}</Body>
+                  <TextLink href={`/org/${slug}/roster/${id}/checkins/${c.id}`}>{`${CHECKIN_KIND_LABEL[c.kind as CheckinKind] ?? c.kind} · ${longDate(c.occurred_on)}`}</TextLink>
                   <Label>{`By ${c.by}`}</Label>
                   {c.notes && <Label>{c.notes}</Label>}
+                  {c.photo_path && <Photo src={checkinPhotoUrl(slug, id, c.id, c.photo_path)!} alt={`Photo from this check-in with ${athlete.name}`} />}
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <TextLink href={`/org/${slug}/roster/${id}/checkins/${c.id}/edit`}>Edit</TextLink>
@@ -91,7 +94,7 @@ export default async function CheckinsPage({ params }: { params: Promise<{ slug:
       </Section>
 
       <Section label="New Check-In" role="time" kind="clock">
-        <CheckinForm action={logCheckin.bind(null, slug, id)} />
+        <CheckinForm action={logCheckin.bind(null, slug, id)} orgId={org.id} athleteId={id} />
       </Section>
 
       <TextLink href={`${athleteHref}/messages`}>Open Messages</TextLink>

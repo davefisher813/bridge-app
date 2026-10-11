@@ -114,6 +114,13 @@ export function buildFixture(): Dataset {
     // the same one DocumentUploader writes. The bytes are the smallest
     // thing that sniffs as a PDF; the stub model never reads them.
     storage_objects: [
+      // A check-in photo (migration 0056): a 64 by 48 JPEG of one flat
+      // colour, a real picture so a browser draws it.
+      {
+        bucket: "checkin-photos",
+        name: `${BRIDGE}/${IDS.athlete}/1760000000000.jpg`,
+        base64: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAAwAEADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwCCiiiu45QooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/Z",
+      },
       {
         bucket: "documents",
         name: `${BRIDGE}/req_fixture/1-transcript.pdf`,
@@ -647,7 +654,7 @@ export function buildFixture(): Dataset {
     // no read marks yet. Check-ins are staff only; the family reads the
     // thread and never the log.
     athlete_checkins: [
-      { id: "ck1", org_id: BRIDGE, athlete_id: IDS.athlete, advisor_id: OWNER, kind: "call", occurred_on: new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10), notes: "Fixture check-in note.", created_at: new Date(Date.now() - 6 * 86_400_000).toISOString() },
+      { id: "ck1", org_id: BRIDGE, athlete_id: IDS.athlete, advisor_id: OWNER, kind: "call", occurred_on: new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10), notes: "Fixture check-in note.", photo_path: `${BRIDGE}/${IDS.athlete}/1760000000000.jpg`, created_at: new Date(Date.now() - 6 * 86_400_000).toISOString() },
     ],
     athlete_messages: [
       { id: "am1", org_id: BRIDGE, athlete_id: IDS.athlete, author_id: OWNER, body: "Fixture message from staff.", created_at: "2026-09-21T14:00:00.000Z" },

@@ -75,3 +75,5 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0053_stub_reading_never_applied.sql | applied | 20261010201956 0053_stub_reading_never_applied |
 | 0054_document_filed_as.sql | applied | 20261010203055 0054_document_filed_as |
 | 0055_document_moves_back.sql | applied | 20261010235717 0055_document_moves_back |
+| 0056_checkin_photos.sql | applied | 20261011045058 0056_checkin_photos |
+| 0057_migration_status.sql | applied | 20261011045101 0057_migration_status |

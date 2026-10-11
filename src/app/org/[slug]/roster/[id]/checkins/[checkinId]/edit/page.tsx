@@ -4,6 +4,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { updateCheckin } from "@/lib/actions/checkins";
 import { CheckinForm } from "@/components/CheckinForm";
+import { checkinPhotoUrl } from "@/lib/checkinPhoto";
 import { Screen } from "@/components/kit";
 
 // Edit one check-in (audit crud F21): a wrong date, type or note is fixed
@@ -18,14 +19,14 @@ export default async function EditCheckinPage({ params }: { params: Promise<{ sl
   const supabase = await createClient();
   const [{ data: athlete }, { data: entry }] = await Promise.all([
     supabase.from("athletes").select("id, name").eq("id", id).eq("org_id", org.id).is("deleted_at", null).maybeSingle(),
-    supabase.from("athlete_checkins").select("id, kind, occurred_on, notes").eq("id", checkinId).eq("athlete_id", id).eq("org_id", org.id).maybeSingle(),
+    supabase.from("athlete_checkins").select("id, kind, occurred_on, notes, photo_path").eq("id", checkinId).eq("athlete_id", id).eq("org_id", org.id).maybeSingle(),
   ]);
   if (!athlete || !entry) notFound();
-  const row = entry as { id: string; kind: string; occurred_on: string; notes: string | null };
+  const row = entry as { id: string; kind: string; occurred_on: string; notes: string | null; photo_path: string | null };
 
   return (
-    <Screen title="Edit Check-In" back={{ href: `/org/${slug}/roster/${id}/checkins`, label: "Check-Ins" }} lede={athlete.name}>
-      <CheckinForm action={updateCheckin.bind(null, slug, id, row.id)} initial={{ kind: row.kind, occurredOn: row.occurred_on, notes: row.notes }} submitLabel="Save Changes" />
+    <Screen title="Edit Check-In" back={{ href: `/org/${slug}/roster/${id}/checkins/${row.id}`, label: "Check-In" }} lede={athlete.name}>
+      <CheckinForm action={updateCheckin.bind(null, slug, id, row.id)} orgId={org.id} athleteId={id} initial={{ kind: row.kind, occurredOn: row.occurred_on, notes: row.notes, photoUrl: checkinPhotoUrl(slug, id, row.id, row.photo_path) }} submitLabel="Save Changes" />
     </Screen>
   );
 }

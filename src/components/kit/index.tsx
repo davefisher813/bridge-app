@@ -361,6 +361,13 @@ export function Avatar({ name, size = "md", photo }: { name: string; size?: "md"
   return <div className={`flex flex-shrink-0 items-center justify-center rounded-full bg-solid-contact font-extrabold text-solid-contact-on ${box}`}>{initials}</div>;
 }
 
+// A picture someone took (a check-in photo, migration 0056): full width,
+// its own shape, one radius, a hairline. The alt says what it is.
+export function Photo({ src, alt }: { src: string; alt: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} className="block h-auto max-h-96 w-full rounded border border-line bg-paper object-contain" />;
+}
+
 // An org's mark: a white shape on a transparent PNG (orgs.branding.logo),
 // drawn in ink for the theme by .org-mark in globals.css. Decorative:
 // the org's name is always beside it or is the page.
