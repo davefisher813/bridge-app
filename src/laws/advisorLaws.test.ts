@@ -459,13 +459,16 @@ describe("LAW: Add Admin invites, then assigns, and comes back to the athlete", 
 // Verified this law bites: moved the Advisor section back under Targets
 // on the athlete page; "Advisor comes first" failed on the order.
 // Reverted.
-describe("LAW: the Advisor section is first on the athlete page, with Assign or Change", () => {
+describe("LAW: the Advisor section comes right after Athlete Info on the athlete page, with Assign or Change", () => {
   const page = (id: string) => render("@/app/org/[slug]/roster/[id]/page", { params: P({ slug: ORG_WITH_MODULES, id }), searchParams: P({}) });
 
   it("Advisor comes first, above the stage and Targets, with Change when somebody is assigned", async () => {
     const html = await page(IDS.athlete);
     const advisor = html.indexOf(">Advisor<");
     expect(advisor).toBeGreaterThan(-1);
+    // Athlete Info sits above it, right under the name (Dave, 2026-10-11).
+    expect(html.indexOf(">Athlete Info<")).toBeGreaterThan(-1);
+    expect(html.indexOf(">Athlete Info<")).toBeLessThan(advisor);
     expect(advisor).toBeLessThan(html.indexOf("NCAA Eligibility"));
     expect(advisor).toBeLessThan(html.indexOf(">Targets<"));
     expect(advisor).toBeLessThan(html.indexOf(`/board?athlete=${IDS.athlete}`));

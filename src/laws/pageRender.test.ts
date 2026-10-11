@@ -1530,7 +1530,7 @@ describe("LAW: Advisor leads the profile, only an Admin sees its controls, More 
   const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
   const profile = (id: string) => render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id }), searchParams: p({}) });
 
-  it("Advisor is the first section on every staff profile, above the stage line or the placement row", async () => {
+  it("Advisor is the first section after Athlete Info on every staff profile, above the stage line or the placement row", async () => {
     // The thing directly under the header on each profile: the stage
     // card for an athlete still recruiting, the outcome buttons or the
     // draft line for a placed one.
@@ -1543,7 +1543,9 @@ describe("LAW: Advisor leads the profile, only an Admin sees its controls, More 
     ];
     for (const [id, marker] of below) {
       const html = await profile(id);
-      expect(sectionLabels(html)[0], id).toBe("Advisor");
+      // Athlete Info first, under the name (Dave, 2026-10-11); then Advisor.
+      expect(sectionLabels(html)[0], id).toBe("Athlete Info");
+      expect(sectionLabels(html)[1], id).toBe("Advisor");
       const advisor = html.indexOf(">Advisor<");
       expect(advisor, id).toBeGreaterThan(-1);
       expect(html.indexOf(marker), `${id} ${marker}`).toBeGreaterThan(advisor);
@@ -1845,8 +1847,9 @@ describe("LAW: assignments are the Admin's to give and review, the Athlete login
   it("the profile has an Assignments section right after Advisor, three most urgent rows, See All, and New Assignment", async () => {
     const html = await profile();
     const labels = sectionLabels(html);
-    expect(labels[0]).toBe("Advisor");
-    expect(labels[1]).toBe("Assignments");
+    expect(labels[0]).toBe("Athlete Info");
+    expect(labels[1]).toBe("Advisor");
+    expect(labels[2]).toBe("Assignments");
     const section = profileSection(html);
     // Four rows are open or waiting (overdue, due soon, sent back,
     // submitted, in that order of urgency); three show, the overdue one

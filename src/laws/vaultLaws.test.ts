@@ -571,18 +571,24 @@ describe("LAW: every row and every document screen shows its status, Archived is
   const listProps = (q: Record<string, string> = {}) => ({ params: Promise.resolve({ slug: ORG_WITH_MODULES }), searchParams: Promise.resolve(q) });
   const docProps = (id: string) => ({ params: Promise.resolve({ slug: ORG_WITH_MODULES, id }), searchParams: Promise.resolve({}) });
 
-  it("the list shows all four working states, each row carries its status, and Archived is behind Show Archived", async () => {
+  // Four views (Dave, 2026-10-11): All shows every state, Archived
+  // included; each view shows only its own; search runs across them.
+  it("All shows every state, each row carries its status, and the views narrow it", async () => {
     const out = await html(LIST, listProps());
-    for (const state of ["Uploaded", "Processing", "Needs Review", "Ready"]) expect(out).toContain(`text-muted">${state}<`);
-    expect(out).not.toContain("old-notes.txt");
-    expect(out).toMatch(/Show Archived \(1\)/);
+    for (const state of ["Uploaded", "Processing", "Needs Review", "Ready", "Archived"]) expect(out).toContain(`text-muted">${state}<`);
+    expect(out).toContain("old-notes.txt");
+    for (const v of ["needs_review", "ready", "archived"]) expect(out).toContain(`/documents?view=${v}`);
     const rows = out.split('data-kit="row"').length - 1;
     const chips = (out.match(/inline-flex items-center gap-2 text-label font-bold text-ink[^>]*>(?:<svg[\s\S]*?<\/svg>)?(Uploaded|Processing|Needs Review|Ready|Archived)</g) ?? []).length;
     expect(chips).toBe(rows);
-    const shown = await html(LIST, listProps({ archived: "1" }));
-    expect(shown).toContain("old-notes.txt");
-    expect(shown).toContain('text-muted">Archived<');
-    expect(shown).toMatch(/Hide Archived/);
+    const archived = await html(LIST, listProps({ view: "archived" }));
+    expect(archived).toContain("old-notes.txt");
+    expect(archived).not.toContain("team-letter.docx");
+    const ready = await html(LIST, listProps({ view: "ready" }));
+    expect(ready).not.toContain("old-notes.txt");
+    expect(ready).toContain(`text-muted">Ready<`);
+    // The old address still opens Archived.
+    expect(await html(LIST, listProps({ archived: "1" }))).toContain("Showing Archived");
   });
 
   it("a row says why it is in Needs Review", async () => {
