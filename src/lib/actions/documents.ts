@@ -29,7 +29,8 @@ import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
 import { isRealDate } from "@/lib/docai/lenient";
 import { isStaleProcessing } from "@/lib/data/documentState";
 import { moveLifecycle } from "@/lib/data/vault";
-import { checkVaultFile, readerCanRead, type VaultFormat } from "@/lib/vault/format";
+import { checkVaultFile, isTextReadable, readerCanRead, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
+import { readerText } from "@/lib/vault/textExtract";
 import { didNotLookLike, isLifecycle, isStaleProcessing as isStaleLifecycle } from "@/lib/vault/lifecycle";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
 import { applyAthleteProfile, applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, fillHighSchoolFromTranscript, undoContact, undoDetail, undoMetrics, undoTarget, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
@@ -198,6 +199,9 @@ function validateRecords(records: IngestedRecord[]): string | null {
       return `${r.originalName || "That file"} is ${mb}MB, over the ${max}MB limit.`;
     }
 
+    // Text the server made from a stored file has no signature to sniff.
+    if (r.kind === "text") continue;
+
     // Only the leading bytes are decoded, which is all a format sniff
     // needs. 64 covers every signature in magicBytes.ts with room spare.
     const header = new Uint8Array(Buffer.from(r.base64.slice(0, 88), "base64"));
@@ -275,7 +279,16 @@ async function readStoredRecords(
       return { ok: false, error: `${r.originalName || "That file"} could not be read back after upload. Try again.` };
     }
     const { storagePath: _path, ...rest } = r;
-    records.push({ ...rest, base64: Buffer.from(await data.arrayBuffer()).toString("base64") });
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    // A Word, Excel, CSV or text file goes to the reader as its text
+    // (Dave, Oct 11), turned out of the stored original here.
+    if (r.kind === "text") {
+      const t = readerText(r.originalName, bytes);
+      if (!t.ok) return { ok: false, error: t.reason };
+      records.push({ ...rest, base64: Buffer.from(t.text, "utf8").toString("base64"), ...(t.truncated ? { fallbackReason: "the file was long, so only its first part was read" } : {}) });
+      continue;
+    }
+    records.push({ ...rest, base64: Buffer.from(new Uint8Array(bytes)).toString("base64") });
   }
   return { ok: true, records };
 }
@@ -372,6 +385,10 @@ export async function processDocument(
   const supabase = await createClient();
   const stubbed = await isStubbedModel();
   const category = input.requestedCategory;
+  // Every document is read (Dave, Oct 11). One nobody typed is read as
+  // Other, and the reading suggests the type it should be; the row keeps
+  // its requested type empty.
+  const readAs: DocCategoryId = category ?? "other";
 
   // Files confirmed in the bucket by this call. A refusal removes exactly
   // these, and only if no row ends up referring to them.
@@ -389,14 +406,14 @@ export async function processDocument(
     return refuse(`That is ${originals.length} files at once. Upload up to ${MAX_RECORDS_PER_UPLOAD} at a time.`);
   }
 
-  const readsAnything = category !== null && originals.some((o) => o.reader);
+  const readsAnything = originals.some((o) => o.reader || (isTextReadable(o.name) && !readerTextBlocker(o.name)));
 
   // The month's cap, before a row is written or a byte is read. Only
   // the real model spends money; the stub is free and never capped.
   if (!stubbed && readsAnything) {
     // A hard ceiling on calls per window, before the month's cap (backend
     // audit F-05): the cap is counted after the fact, this is not.
-    const tooFast = rateRefusal(await loadRecentCalls(supabase, org.id), originals.filter((o) => o.reader).length);
+    const tooFast = rateRefusal(await loadRecentCalls(supabase, org.id), originals.filter((o) => o.reader || (isTextReadable(o.name) && !readerTextBlocker(o.name))).length);
     if (tooFast) {
       claimed.forEach((p) => confirmed.add(p));
       return refuse(tooFast);
@@ -433,7 +450,25 @@ export async function processDocument(
 
   // Which of them the reader gets: a type was chosen, the format is one
   // the reader reads, and the browser supplied a copy for it.
-  const forReader = category === null ? [] : checked.filter((c) => c.upload.reader && readerCanRead(c.format));
+  // A Word, Excel, CSV or text file has no browser copy: its reader record
+  // points at the stored original, turned into text when it is read.
+  for (const c of checked) {
+    if (!c.upload.reader && isTextReadable(c.upload.name) && !readerTextBlocker(c.upload.name)) {
+      c.upload.reader = {
+        originalName: c.upload.name,
+        originalSize: c.size,
+        originalMime: c.mediaType,
+        kind: "text",
+        sourceRole: input.sourceRole,
+        ingestedAt: new Date().toISOString(),
+        requestId: c.upload.storagePath.split("/")[1] ?? "text",
+        mediaType: "text/plain",
+        blockType: "text",
+        storagePath: c.upload.storagePath,
+      };
+    }
+  }
+  const forReader = checked.filter((c) => c.upload.reader && readerCanRead(c.format));
 
   // The reader's copies, validated the way every upload was before: size,
   // format sniff, HEIC refusal. A copy that fails does not lose the file;
@@ -489,7 +524,7 @@ export async function processDocument(
     const duplicateReason = earlier ? `Same file as ${earlier.file_name} uploaded ${new Date(earlier.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : null;
 
     const typeLabel = category ? getCategory(category).label : null;
-    const skipReason = duplicateReason ?? (spec.reads ? readerProblem : null) ?? (!spec.reads && category && !readerCanRead(first.format) ? "The reader reads PDF, JPG and PNG. Stored as is." : null);
+    const skipReason = duplicateReason ?? (spec.reads ? readerProblem : null) ?? (!spec.reads ? readerTextBlocker(first.upload.name) ?? (!readerCanRead(first.format) ? "The reader cannot read this format. Stored as is." : null) : null);
     const reads = spec.reads && !skipReason;
 
     // The row exists before the reader runs, so a crash mid-extraction
@@ -557,7 +592,7 @@ export async function processDocument(
     // reports its own failures through the pipeline result; this is for
     // the unexpected: a roster query that fails, a bug.
     try {
-      await readAndFile(slug, org.id, documentId, { records: input.records ?? spec.files.map((f) => f.upload.reader!), sourceRole: input.sourceRole, requestedCategory: category, athleteId: input.athleteId }, readerRecords);
+      await readAndFile(slug, org.id, documentId, { records: input.records ?? spec.files.map((f) => f.upload.reader!), sourceRole: input.sourceRole, requestedCategory: readAs, athleteId: input.athleteId }, readerRecords);
     } catch (e) {
       await supabase
         .from("documents")
@@ -1568,17 +1603,23 @@ export async function fileDocumentAs(slug: string, documentId: string, formData:
   const { data } = await supabase.from("documents").select("id, category, status, extracted, review_reason").eq("id", documentId).eq("org_id", org.id).maybeSingle();
   const doc = data as { category: string | null; status: string; extracted: unknown; review_reason: string | null } | null;
   if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is not in this organization.")}`);
-  if (doc.category || doc.extracted || doc.status === "processing" || doc.status === "applied" || doc.status === "filed") {
+  // A reading for a person (Other, Board Document, or No Type read as
+  // Other) can be re-typed, then read again as that type; a reading of an
+  // athlete's document keeps its type.
+  const reference = !doc.category || doc.category === "other" || doc.category === "board_document";
+  if (!reference || doc.status === "processing" || doc.status === "applied" || doc.status === "filed") {
     redirect(`${back}?error=${encodeURIComponent("This document was read, so it keeps the type of its reading.")}`);
   }
 
   const readerType = isReaderType(raw) ? raw : null;
-  const fileType = isFileType(raw) ? raw : null;
+  const fileType = !readerType && isFileType(raw) ? raw : null;
   const { error } = await supabase
     .from("documents")
     .update({
       requested_category: readerType,
       filed_as: fileType,
+      // The settled type goes with it, so Read Again reads the new one.
+      category: null,
       ...(raw && doc.review_reason === "No type chosen." ? { review_reason: null } : {}),
       updated_at: new Date().toISOString(),
     })
@@ -1663,12 +1704,14 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is not in this organization.")}`);
   // A profile filed before Athlete Profile was readable reads as one
   // (Oct 11: all six were stuck behind a disabled button).
-  const type = readerTypeOf(doc);
-  if (!type) return no("Pick a reading type under File As first.");
+  // Nothing typed at all reads as Other, which suggests a type (Oct 11).
+  const type = readerTypeOf(doc) ?? "other";
   if (doc.lifecycle !== "needs_review" && doc.lifecycle !== "ready") return no("Only a document in Needs Review or Ready can be read again.");
   if (doc.status === "applied" || doc.status === "processing" || doc.status === "filed") return no("This document cannot be read again.");
   if (isStubReading(doc.read_by)) return no("The stand-in read this one, and that stays on it. Upload the file again to have it read.");
-  if (!doc.format || !readerCanRead(doc.format) || !doc.original_paths?.length) return no("The reader reads PDF, JPG and PNG.");
+  const blocked = readerTextBlocker(doc.file_name);
+  if (blocked) return no(blocked);
+  if (!doc.format || !readerCanRead(doc.format) || !doc.original_paths?.length) return no("The reader cannot read this format.");
 
   const stubbed = await isStubbedModel();
   if (!stubbed) {
@@ -1683,12 +1726,13 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
     originalName: doc.file_name,
     originalSize: doc.file_size,
     originalMime: doc.media_type,
-    kind: doc.format === "pdf" ? "pdf" : "image",
+    // Word, Excel, CSV and text go as their text (Oct 11).
+    kind: isTextReadable(doc.file_name) ? "text" : doc.format === "pdf" ? "pdf" : "image",
     sourceRole: doc.source_role,
     ingestedAt: new Date().toISOString(),
     requestId,
-    mediaType: doc.media_type,
-    blockType: doc.format === "pdf" ? "document" : "image",
+    mediaType: isTextReadable(doc.file_name) ? "text/plain" : doc.media_type,
+    blockType: isTextReadable(doc.file_name) ? "text" : doc.format === "pdf" ? "document" : "image",
     storagePath,
   }));
   const fetched = await readStoredRecords(supabase, org.id, stored);
@@ -1713,7 +1757,7 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
       failure_stage: null,
       failure_reason: null,
       // The legacy filed_as becomes the type it is read as.
-      ...(!doc.category && !doc.requested_category ? { requested_category: type, filed_as: null } : {}),
+      ...(!doc.category && !doc.requested_category && doc.filed_as ? { requested_category: type, filed_as: null } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", documentId)

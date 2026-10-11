@@ -83,10 +83,14 @@ describe("LAW: a typed document in review can be read again, and nothing else ca
 
   it("refuses a document that is not in Needs Review, and one with no reading type", async () => {
     const { readDocumentAgain } = await import("@/lib/actions/documents");
-    const ready = await run(() => readDocumentAgain(ORG_WITH_MODULES, "doc-ready"));
-    expect(decodeURIComponent(ready ?? "")).toMatch(/error=/);
-    const untyped = await run(() => readDocumentAgain(ORG_WITH_MODULES, "doc-word"));
-    expect(decodeURIComponent(untyped!)).toMatch(/Pick a reading type/);
+    // Archived is put away: Read Again is for Needs Review and Ready.
+    const archived = await run(() => readDocumentAgain(ORG_WITH_MODULES, "doc-archived"));
+    expect(decodeURIComponent(archived ?? "")).toMatch(/error=/);
+    // An old binary Word file cannot be read at all (Oct 11: everything
+    // else can, typed or not).
+    doc("doc-word").file_name = "team-letter.doc";
+    const old = await run(() => readDocumentAgain(ORG_WITH_MODULES, "doc-word"));
+    expect(decodeURIComponent(old!)).toMatch(/old Word \.doc file/);
   });
 });
 
@@ -162,9 +166,10 @@ describe("LAW: Read Again is on every document a person can still change", () =>
   });
 
   it("a document that cannot be read still shows Read Again, switched off, with what to do", async () => {
+    doc("doc-word").file_name = "team-letter.doc";
     const html = await render("@/app/org/[slug]/documents/[id]/page", { params: P({ slug: ORG_WITH_MODULES, id: "doc-word" }), searchParams: P({}) });
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Read Again<\/button>/);
-    expect(text(html)).toMatch(/Pick a reading type under File As|The reader reads PDF, JPG and PNG/);
+    expect(text(html)).toMatch(/Save it as \.docx/);
   });
 });
 
@@ -261,6 +266,6 @@ describe("LAW: Organization Settings says which database updates are on", () => 
     const html = text(await render("@/app/org/[slug]/settings/page", { params: P({ slug: ORG_WITH_MODULES }), searchParams: P({}) }));
     expect(html).toMatch(/Database Updates/);
     expect(html).toMatch(/checked against its own history just now/);
-    expect(html).toMatch(/0055 Document Moves Back/);
+    expect(html).toMatch(/0058 Document Athlete Link/);
   });
 });

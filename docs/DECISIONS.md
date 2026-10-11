@@ -4175,3 +4175,30 @@ cost of every reading).
 **Consequences.** The quote is the model's own, so this catches a value
 it cannot point to, not a determined fabrication; a human still
 approves every reading before it lands.
+
+## 2026-10-11: every document runs through Doc AI
+
+**Decision.** Board Document and Other are reading types (migration
+0060) with their own schemas; a document nobody typed is read as Other,
+and the reading suggests the type it should be filed as. Both are
+reference readings: never applied to an athlete, always waiting in
+Needs Review, and Mark Ready is the person's approval. Word (.docx),
+Excel (.xlsx), CSV and text are turned into text on the server
+(src/lib/vault/textExtract.ts, no new dependency: a small zip reader
+over Node's zlib) and sent to the model as a text document. Old .doc
+and .xls are stored but not read, and the upload form says so before
+upload. Rows filed as Board Document or Other before this read as those
+types on Read Again. Existing documents were not re-read in bulk: each
+reading is a charge against the monthly budget, so that is a person's
+call, one Read Again at a time.
+
+**Reason.** Dave, 2026-10-11: every document in the app runs through
+Doc AI.
+
+**Alternatives.** mammoth and SheetJS for DOCX and XLSX (two
+dependencies for what a few dozen lines do); converting old .doc and
+.xls (needs LibreOffice on the server).
+
+**Consequences.** The review flow and the Doc AI Spending accounting are
+unchanged: one charged call per reading. Long files are cut at 150,000
+characters and the reading says so.

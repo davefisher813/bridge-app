@@ -35,6 +35,8 @@ const TRIAGE_TYPE: Record<DocCategoryId, string> = {
   financial_aid: "financial_aid",
   metrics: "metrics_report",
   athlete_profile: "athlete_profile",
+  board_document: "board_document",
+  other: "other",
   film: "highlight_video_screenshot",
 };
 
@@ -307,6 +309,34 @@ function stubExtraction(seed: number, category: DocCategoryId): string {
         hometown: "Sample City, CT",
         summary: "Simulated athlete profile.",
       });
+    case "board_document":
+      return JSON.stringify({
+        ...base,
+        documentKind: "bylaws",
+        title: "Sample Bylaws",
+        organization: "Sample Foundation",
+        effectiveDate: "2025-01-01",
+        adoptionDate: "2024-12-10",
+        people: [{ name: "Sample Chair", role: "Board Chair" }],
+        amounts: [],
+        deadlines: [],
+        actionItems: ["Simulated: the board adopts these bylaws."],
+        summary: "Simulated board document.",
+      });
+    case "other":
+      return JSON.stringify({
+        ...base,
+        suggestedType: "other",
+        documentKind: "letter",
+        title: "Sample Document",
+        studentName: null,
+        people: [{ name: "Sample Person", role: null }],
+        organizations: ["Sample Foundation"],
+        dates: [{ date: "2026-09-01", what: "Simulated date" }],
+        amounts: [],
+        keyFacts: ["Simulated: nothing was read from the file."],
+        summary: "Simulated general reading.",
+      });
     case "film":
       // The registry carries film as an explicit not-yet-supported
       // placeholder; the pipeline refuses it before it ever gets here.
@@ -330,7 +360,7 @@ export function createStubCaller(opts: StubCallerOptions): ModelCaller {
     // way the real reader is asked to (identity.ts), so a stand-in
     // reading is held to the same check and passes it honestly.
     const json = JSON.parse(stubExtraction(seed, opts.category)) as Record<string, unknown>;
-    json.evidence = Object.fromEntries(IDENTITY_FIELDS.filter((f) => typeof json[f] === "string").map((f) => [f, `${f}: ${json[f]}`]));
+    json.evidence = Object.fromEntries([...IDENTITY_FIELDS, "organization"].filter((f) => typeof json[f] === "string").map((f) => [f, `${f}: ${json[f]}`]));
     return JSON.stringify(json);
   };
 }

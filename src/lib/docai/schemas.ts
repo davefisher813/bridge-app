@@ -221,6 +221,49 @@ export const athleteProfileSchema = z.object({
   summary: strOrNull().optional(),
 });
 
+// Lists a model may hand back loosely: anything not a list is empty, and
+// an item that does not fit is dropped rather than failing the reading.
+const looseList = <T extends z.ZodTypeAny>(item: T) =>
+  z.preprocess((v) => (Array.isArray(v) ? v.filter((x) => item.safeParse(x).success) : []), z.array(item)).default([]);
+const textList = () => z.preprocess((v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.trim()).map((x) => String(x).trim()) : typeof v === "string" && v.trim() ? [v.trim()] : []), z.array(z.string())).default([]);
+const personItem = z.object({ name: z.string().min(1), role: strOrNull().optional().default(null) });
+const amountItem = z.object({ amount: num(), what: strOrNull().optional().default(null) });
+const datedItem = z.object({ date: z.string().min(1), what: strOrNull().optional().default(null) });
+
+// A board document (Dave, Oct 11: every document is read): bylaws, a
+// policy, minutes, an agenda, a report, a letter, a form. Never applied
+// to an athlete; a person reads it and marks it Ready.
+export const boardDocumentSchema = z.object({
+  ...baseFields,
+  documentKind: enumOr(["bylaws", "policy", "minutes", "agenda", "report", "letter", "form", "other"], "other"),
+  title: strOrNull().optional().default(null),
+  organization: strOrNull().optional().default(null),
+  effectiveDate: datedOrNull().optional().default(null),
+  adoptionDate: datedOrNull().optional().default(null),
+  people: looseList(personItem),
+  amounts: looseList(amountItem),
+  deadlines: looseList(datedItem),
+  actionItems: textList(),
+  summary: z.preprocess((v) => (v == null ? "" : v), str()).default(""),
+});
+
+// Anything else, and a document nobody typed: what it is, who and what
+// it names, and the type it should be filed as.
+export const SUGGESTABLE_TYPES = ["transcript", "test_scores", "offer_letter", "recommendation", "financial_aid", "metrics", "athlete_profile", "board_document", "other"] as const;
+export const generalDocumentSchema = z.object({
+  ...baseFields,
+  suggestedType: enumOr([...SUGGESTABLE_TYPES], "other"),
+  documentKind: strOrNull().optional().default(null),
+  title: strOrNull().optional().default(null),
+  studentName: strOrNull().optional().default(null),
+  people: looseList(personItem),
+  organizations: textList(),
+  dates: looseList(datedItem),
+  amounts: looseList(amountItem),
+  keyFacts: textList(),
+  summary: z.preprocess((v) => (v == null ? "" : v), str()).default(""),
+});
+
 export const financialAidAwardSchema = z.object({
   type: enumOr(["grant", "scholarship", "subsidized_loan", "unsubsidized_loan", "work_study", "parent_plus", "other"], "other"),
   name: z.preprocess((v) => (v == null ? "" : v), str()),
@@ -270,7 +313,7 @@ export const triageResultSchema = z.object({
   readable: z.preprocess((v) => (v == null ? true : v), bool()),
   legibilityScore: z.preprocess(toNumber, z.number().min(0).max(1)),
   detectedType: enumOr(
-    ["transcript", "test_scores", "offer_letter", "recommendation", "financial_aid", "metrics_report", "athlete_profile", "highlight_video_screenshot", "id_document", "other", "unreadable"],
+    ["transcript", "test_scores", "offer_letter", "recommendation", "financial_aid", "metrics_report", "athlete_profile", "board_document", "highlight_video_screenshot", "id_document", "other", "unreadable"],
     "other"
   ),
   typeMatchesExpected: z.preprocess((v) => (v == null ? true : v), bool()),

@@ -1,5 +1,7 @@
-// Document types the reader does not read (migration 0054). A board's
-// bylaws is stored and labelled, never read. An athlete's profile sheet
+// Document types the reader does not read (migration 0054). Since Oct 11
+// every type is read (Dave: every document runs through Doc AI), so none
+// is offered any more; these are the filed_as values rows still carry,
+// read as the reader type of the same name. An athlete's profile sheet
 // was one of these until Oct 11, when it became a reader type of its
 // own (migration 0059); rows filed that way before read as it.
 
@@ -16,6 +18,10 @@ export const READER_TYPES: { id: DocCategoryId; label: string }[] = [
   { id: "financial_aid", label: "Financial Aid" },
   { id: "metrics", label: "Metrics Report" },
   { id: "athlete_profile", label: "Athlete Profile" },
+  // Read too since Oct 11 (Dave: every document runs through Doc AI),
+  // for a person, never applied to an athlete.
+  { id: "board_document", label: "Board Document" },
+  { id: "other", label: "Other" },
 ];
 
 export function isReaderType(v: unknown): v is DocCategoryId {
@@ -33,7 +39,7 @@ export const FILE_TYPE_LABEL: Record<FileTypeId, string> = {
 // filed_as values from before a type became readable. The column still
 // allows them (migration 0054's check), and such a row is that reader
 // type: Read Again and the File As picker treat it so.
-const LEGACY_FILED_AS_READER: Record<string, DocCategoryId> = { athlete_profile: "athlete_profile" };
+const LEGACY_FILED_AS_READER: Record<string, DocCategoryId> = { athlete_profile: "athlete_profile", board_document: "board_document", other: "other" };
 
 // The type the reader reads a document as: the one it settled on, the
 // one asked for, or a legacy filed_as that is a reader type now.

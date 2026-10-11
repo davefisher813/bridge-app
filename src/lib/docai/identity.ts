@@ -8,7 +8,7 @@
 // The fields that say whose document this is and where it is from. A
 // wrong one misfiles a document; a value here is only kept if the model
 // could quote the printed line it came from.
-export const IDENTITY_FIELDS = ["studentName", "school", "college", "recommenderName", "recommenderOrg"] as const;
+export const IDENTITY_FIELDS = ["studentName", "school", "college", "recommenderName", "recommenderOrg", "organization"] as const;
 export type IdentityField = (typeof IDENTITY_FIELDS)[number];
 
 // What a re-read is compared on: the identity fields plus the ones a
@@ -21,6 +21,7 @@ export const FIELD_LABEL: Record<string, string> = {
   college: "college",
   recommenderName: "recommender",
   recommenderOrg: "recommender's organization",
+  organization: "organization",
   recommenderTitle: "recommender's role",
   gradYear: "class year",
 };

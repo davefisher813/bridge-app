@@ -343,7 +343,9 @@ export async function runExtractionPipeline(input: PipelineInput): Promise<Pipel
   // there is nothing to mismatch. The same refusal applies when the
   // model said "proceed" but named a different supported type: it is
   // the same disagreement with a politer recommendation.
-  if (!reusedTriage && triage) {
+  // A board document or anything else (Dave, Oct 11) is whatever it is:
+  // there is no wrong category for it.
+  if (!reusedTriage && triage && cat.shape !== "reference") {
     const detected = DETECTED_TO_CATEGORY[triage.detectedType];
     // A showcase profile is both a metrics report and an athlete
     // profile; neither reading of it is the wrong category.
@@ -481,7 +483,13 @@ export async function runExtractionPipeline(input: PipelineInput): Promise<Pipel
   // yet, and routeDecision cannot see it because a null score skips its
   // identity checks entirely. Auto-applying here would mean writing to
   // no record at all.
-  if (!candidates.length) {
+  // A reference reading (board document, other) is never applied to an
+  // athlete, so it never auto-applies and the athlete checks below do
+  // not apply to it: a person reads it and marks it Ready.
+  const aboutAthlete = cat.shape !== "reference";
+  if (!aboutAthlete && route === "auto_apply") route = "review";
+
+  if (aboutAthlete && !candidates.length) {
     if (route === "auto_apply") route = "review";
     warnings.push("No athlete on this roster matches the name on this document.");
   }
@@ -493,7 +501,7 @@ export async function runExtractionPipeline(input: PipelineInput): Promise<Pipel
   // only thing tying it to an athlete is whoever typed the override, so
   // it never auto-applies: a human says whose it is, and a human
   // confirms it.
-  if (!identity.studentName) {
+  if (aboutAthlete && !identity.studentName) {
     if (route === "auto_apply") route = "review";
     warnings.push("This document does not name the student, so the athlete was set by hand and needs confirming.");
   }
