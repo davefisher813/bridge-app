@@ -3,7 +3,8 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { applyDocument, discardDocument, fileDocumentAs, isStubbedModel, linkDocumentToAthlete, moveDocumentAndStay, readDocumentAgain } from "@/lib/actions/documents";
-import { documentTypeLabel, FILE_TYPE_LABEL, FILE_TYPES, isReaderType, READER_TYPES } from "@/lib/documents/fileTypes";
+import { CONTRADICTION_PREFIX } from "@/lib/docai/identity";
+import { documentTypeLabel, FILE_TYPE_LABEL, FILE_TYPES, isReaderType, READER_TYPES, readerTypeOf } from "@/lib/documents/fileTypes";
 import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
 import { applyRefusal, isStubReading } from "@/lib/data/readBy";
 import { editableFields } from "@/lib/data/extractedEdit";
@@ -64,6 +65,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   recommendation: "Recommendation",
   financial_aid: "Financial Aid",
   metrics: "Metrics Report",
+  athlete_profile: "Athlete Profile",
   film: "Film",
 };
 
@@ -246,6 +248,9 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // it was unsure of.
   const modelWarnings = Array.isArray(doc.extracted?.warnings) ? (doc.extracted!.warnings as unknown[]).filter((w): w is string => typeof w === "string" && w.trim() !== "") : [];
   const flagged = [...new Set([...modelWarnings, ...(doc.triage?.issues ?? [])])];
+  // A re-read that disagrees with the reading before it on whose
+  // document this is (Oct 11): said at the top, never replaced quietly.
+  const contradicted = modelWarnings.filter((w) => w.startsWith(CONTRADICTION_PREFIX));
   // Read by the reader, or filed to an athlete: there is a reading to
   // show. A file that was only stored (no type, or a format the reader
   // cannot read) has none, and the screen does not pretend it does.
@@ -284,7 +289,8 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     "use server";
     await readDocumentAgain(slug, doc.id);
   };
-  const readerType = doc.category ?? doc.requested_category;
+  // A legacy Athlete Profile filing reads as one (Oct 11).
+  const readerType = readerTypeOf(doc);
   // Read Again is on every document a person can still change (live
   // check, 2026-10-10: it was hidden on most of them, so it looked
   // missing). When it cannot run, the button stays, switched off, with
@@ -474,6 +480,11 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       action={chip}
     >
       {notice && <Notice tone="success" title={notice} />}
+      {contradicted.length > 0 && (
+        <Notice tone="warning" title="This Reading Disagrees With the Last One">
+          {contradicted.map((w) => w.slice(CONTRADICTION_PREFIX.length).trim()).join(" ")}
+        </Notice>
+      )}
       {error && <Notice tone="danger" title={error} />}
       {doc.review_reason && lifecycle !== "ready" && lifecycle !== "archived" && <Notice tone="warning" title={doc.review_reason} />}
       {!wasRead && !isFailed ? null : isPending && refusal ? (

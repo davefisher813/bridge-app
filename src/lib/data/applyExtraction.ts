@@ -138,6 +138,43 @@ export async function applyTestScores(client: Client, orgId: string, athleteId: 
   return { warnings, detail: changes, recompute: true };
 }
 
+// An athlete profile (Oct 11). Self-reported, so it only fills blanks:
+// a class year, a high school or a major nobody has typed. Never a GPA
+// or a score, which stay on the document, and never over a value that
+// is already there. Recorded per key, so a discard takes them back off.
+export async function applyAthleteProfile(client: Client, orgId: string, athleteId: string, extracted: Record<string, unknown>): Promise<ApplyPart> {
+  const warnings: string[] = ["A profile is self-reported: its GPA and scores stay on the document and were not put on the record."];
+  const { data: row } = await client.from("athletes").select("detail").eq("id", athleteId).eq("org_id", orgId).single();
+  const detail = ((row as { detail?: unknown } | null)?.detail ?? {}) as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...detail };
+  const changes: Record<string, FieldChange> = {};
+  const fill = (key: string, value: unknown) => {
+    if (value === null || value === undefined || value === "") return;
+    if (detail[key] !== undefined && detail[key] !== null && detail[key] !== "") return;
+    changes[key] = { before: detail[key] ?? null, after: value };
+    next[key] = value;
+  };
+  if (typeof extracted.gradYear === "number") fill("gradYear", extracted.gradYear);
+  if (typeof extracted.desiredMajor === "string") fill("desiredMajor", extracted.desiredMajor.trim());
+  if (detail.kind === "hs" && typeof extracted.school === "string") fill("highSchool", extracted.school.trim());
+  if (Object.keys(changes).length === 0) {
+    warnings.push("Nothing on the record was blank that this profile could fill.");
+    return { warnings };
+  }
+  try {
+    parseAthleteDetail(next);
+  } catch (e) {
+    warnings.push(`The profile could not be placed on the record: ${(e as Error).message}`);
+    return { warnings };
+  }
+  const { error } = await client.from("athletes").update({ detail: next }).eq("id", athleteId).eq("org_id", orgId);
+  if (error) {
+    warnings.push(`Could not write the profile to the athlete's record: ${error.message}`);
+    return { warnings };
+  }
+  return { warnings, detail: changes };
+}
+
 // What each athletes.detail key an apply can write is called on screen.
 // Every key gets its own label: until Stage 4 anything that was not
 // satTotal read back as "ACT", which was wrong the moment a transcript
@@ -147,6 +184,8 @@ export const DETAIL_LABEL: Record<string, string> = {
   actComposite: "ACT",
   highSchool: "high school",
   highSchoolId: "high school directory link",
+  gradYear: "class year",
+  desiredMajor: "desired major",
 };
 
 function detailLabel(key: string): string {

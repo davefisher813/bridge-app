@@ -4149,3 +4149,29 @@ weight come from logged metrics. The old ?archived=1 address opens the
 Archived view. The athlete page already listed every state of an
 athlete's documents; what was missing on production was the link
 (most documents are linked to no athlete).
+
+## 2026-10-11: Doc AI holds a reading to the page
+
+**Decision.** Athlete Profile is a reading type (migration 0059; rows
+filed as it before read as it). A recommendation with no readable
+signer is a reading, not a failure, and any reading whose one field the
+schema refuses keeps the rest as a partial reading held for review.
+The reading prompt no longer carries the roster's names; names and
+schools must be copied from the page, and the model quotes the line
+each came from. A value it cannot quote costs 0.25 confidence and holds
+the reading for review. Read Again compares the new reading with the
+one it replaces on student, school, college, recommender, role and
+class year, and says what changed at the top of the document.
+
+**Reason.** Oct 11 live test: six profiles unreadable, one letter
+failing on every attempt, and re-reads naming schools printed nowhere
+on the file.
+
+**Alternatives.** Sampling settings (the model rejects them); checking
+values against the file's own text (no PDF text extraction in the app
+yet, and a scan has none); a second verifying model call (doubles the
+cost of every reading).
+
+**Consequences.** The quote is the model's own, so this catches a value
+it cannot point to, not a determined fabrication; a human still
+approves every reading before it lands.

@@ -4749,3 +4749,17 @@ begin
   raise notice 'PASS: a document links only to its own org''s athlete, and the link is optional';
 end $$;
 \echo 'ALL 0058 ASSERTIONS PASSED'
+
+-- ── Migration 0059: Athlete Profile is a reading type ────────────────
+reset role;
+do $$
+declare d uuid;
+begin
+  insert into documents (org_id, file_name, file_size, media_type, source_role, status, requested_category)
+  values ('00000000-0000-0000-0000-000000000010', 'profile.pdf', 10, 'application/pdf', 'coordinator', 'pending', 'athlete_profile')
+  returning id into d;
+  update documents set category = 'athlete_profile' where id = d;
+  delete from documents where id = d;
+  raise notice 'PASS: athlete_profile is a document category';
+end $$;
+\echo 'ALL 0059 ASSERTIONS PASSED'

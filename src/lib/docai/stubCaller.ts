@@ -12,6 +12,7 @@
 // Kept outside src/lib/fit and free of Next/Supabase imports, like the rest
 // of src/lib/docai (see CLAUDE.md's walled-off-modules rule).
 
+import { IDENTITY_FIELDS } from "./identity";
 import type { ModelCaller } from "./pipeline";
 import type { DocCategoryId } from "./types";
 
@@ -33,6 +34,7 @@ const TRIAGE_TYPE: Record<DocCategoryId, string> = {
   recommendation: "recommendation",
   financial_aid: "financial_aid",
   metrics: "metrics_report",
+  athlete_profile: "athlete_profile",
   film: "highlight_video_screenshot",
 };
 
@@ -288,6 +290,23 @@ function stubExtraction(seed: number, category: DocCategoryId): string {
           { key: "exitVelo", value: 84 + Math.round(seed * 14), note: null },
         ],
       });
+    case "athlete_profile":
+      return JSON.stringify({
+        ...base,
+        studentName: "Sample Athlete",
+        school: "Sample High School",
+        gradYear: 2027,
+        sport: "Baseball",
+        position: "SS",
+        heightIn: 72,
+        weightLb: 175,
+        gpa: Number((2.8 + seed * 1.1).toFixed(2)),
+        satTotal: null,
+        actComposite: null,
+        desiredMajor: "Business",
+        hometown: "Sample City, CT",
+        summary: "Simulated athlete profile.",
+      });
     case "film":
       // The registry carries film as an explicit not-yet-supported
       // placeholder; the pipeline refuses it before it ever gets here.
@@ -307,6 +326,11 @@ export function createStubCaller(opts: StubCallerOptions): ModelCaller {
   const seed = seedOf(opts.seedText);
   return async (call) => {
     if (call.requestId.endsWith("_triage")) return stubTriage(seed, opts.category, opts.seedText);
-    return stubExtraction(seed, opts.category);
+    // The stand-in quotes the line each name and school came from, the
+    // way the real reader is asked to (identity.ts), so a stand-in
+    // reading is held to the same check and passes it honestly.
+    const json = JSON.parse(stubExtraction(seed, opts.category)) as Record<string, unknown>;
+    json.evidence = Object.fromEntries(IDENTITY_FIELDS.filter((f) => typeof json[f] === "string").map((f) => [f, `${f}: ${json[f]}`]));
+    return JSON.stringify(json);
   };
 }
