@@ -97,6 +97,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0054_document_filed
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0055_document_moves_back.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0056_checkin_photos.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0057_migration_status.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0058_document_athlete_link.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
@@ -141,6 +142,10 @@ echo "==> 0057: down, then up again"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0057_migration_status_down.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0057_migration_status.sql"
 echo "==> 0057 is reversible"
+echo "==> 0058: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0058_document_athlete_link_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0058_document_athlete_link.sql"
+echo "==> 0058 is reversible"
 
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"

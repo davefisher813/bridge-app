@@ -895,6 +895,8 @@ export function buildFixture(): Dataset {
         id: "doc-word",
         org_id: BRIDGE,
         athlete_id: null,
+        // Linked by a person (migration 0058), so the athlete page lists it.
+        linked_athlete_id: IDS.athlete,
         file_name: "team-letter.docx",
         file_size: 48213,
         media_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

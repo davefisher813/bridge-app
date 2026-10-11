@@ -36,7 +36,8 @@ test.describe("document: upload, process, apply", () => {
     // Processed: it lands on review, matched to the athlete, with what it read.
     await expect(page.getByRole("heading", { name: "Check This Before It Lands" })).toBeVisible();
     await expect(page.getByText("Needs Review", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("Fixture Athlete")).toBeVisible();
+    // The match row, not the Athlete picker's option of the same name.
+    await expect(page.locator("div", { hasText: /^Fixture Athlete$/ }).first()).toBeVisible();
     await expect(page.getByText("3.88")).toBeVisible();
     await expect(page.getByText(/not enough to change an athlete without a look/i)).toBeVisible();
     // The file went to the org's own folder, once.
@@ -194,5 +195,31 @@ test.describe("vault: a file that does not look like its type is kept, and the s
     await expect(page.getByText(/Delete/)).toHaveCount(0);
     await page.getByRole("link", { name: /fixture\.pdf|Transcript/ }).first().click();
     await expect(page.getByText(/Delete/)).toHaveCount(0);
+  });
+});
+
+test.describe("a document linked to an athlete (migration 0058)", () => {
+  test("pick an athlete on the document, it shows on their page, and No Athlete takes it off", async ({ page }) => {
+    await page.goto(org("/documents/doc-ready"));
+    await page.getByLabel("Athlete").selectOption({ label: "Fixture Athlete" });
+    await page.getByRole("button", { name: "Save Athlete" }).click();
+    await expect(page.getByText("Linked to Fixture Athlete.")).toBeVisible();
+
+    await page.goto(org(`/roster/${ATHLETE}`));
+    await expect(page.locator(`a[href$="/documents/doc-ready"]`)).toBeVisible();
+
+    await page.goto(org("/documents/doc-ready"));
+    await page.getByLabel("Athlete").selectOption({ label: "No Athlete" });
+    await page.getByRole("button", { name: "Save Athlete" }).click();
+    await expect(page.getByText("No athlete linked now.")).toBeVisible();
+    await page.goto(org(`/roster/${ATHLETE}`));
+    await expect(page.locator(`a[href$="/documents/doc-ready"]`)).toHaveCount(0);
+  });
+
+  test("the upload form offers the athlete, optional, preselected from the athlete's page", async ({ page }) => {
+    await page.goto(org(`/roster/${ATHLETE}`));
+    await page.locator(`a[href$="/documents/new?athlete=${ATHLETE}"]`).click();
+    await expect(page.getByLabel("Athlete")).toHaveValue(ATHLETE);
+    await expect(page.getByLabel("Athlete").locator("option", { hasText: "No Athlete" })).toHaveCount(1);
   });
 });

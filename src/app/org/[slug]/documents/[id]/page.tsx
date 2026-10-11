@@ -2,13 +2,13 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { applyDocument, discardDocument, fileDocumentAs, isStubbedModel, moveDocumentAndStay, readDocumentAgain } from "@/lib/actions/documents";
+import { applyDocument, discardDocument, fileDocumentAs, isStubbedModel, linkDocumentToAthlete, moveDocumentAndStay, readDocumentAgain } from "@/lib/actions/documents";
 import { documentTypeLabel, FILE_TYPE_LABEL, FILE_TYPES, isReaderType, READER_TYPES } from "@/lib/documents/fileTypes";
 import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
 import { applyRefusal, isStubReading } from "@/lib/data/readBy";
 import { editableFields } from "@/lib/data/extractedEdit";
 import type { DocCategoryId } from "@/lib/docai/types";
-import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, SelectField, Stack } from "@/components/kit";
+import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, SelectField, Stack, TextLink } from "@/components/kit";
 import { LifecycleChip } from "@/components/LifecycleChip";
 import { longDate } from "@/lib/copy/dates";
 import { formatBytes, formatLabelOf, readerCanRead, type VaultFormat } from "@/lib/vault/format";
@@ -23,6 +23,7 @@ import type { Role } from "@/components/statusHue";
 
 interface DocDetail {
   id: string;
+  linked_athlete_id: string | null;
   file_name: string;
   file_size: number;
   page_count: number | null;
@@ -190,7 +191,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const { data } = await supabase
     .from("documents")
     .select(
-      "id, file_name, file_size, page_count, category, requested_category, filed_as, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths"
+      "id, file_name, file_size, page_count, category, requested_category, filed_as, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, linked_athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths"
     )
     .eq("id", id)
     .eq("org_id", org.id)
@@ -199,6 +200,10 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   if (!data) notFound();
   const doc = data as DocDetail;
   const lifecycle = (isLifecycle(doc.lifecycle) ? doc.lifecycle : "needs_review") as Lifecycle;
+  // The roster for the optional athlete link (migration 0058).
+  const { data: rosterRows } = await supabase.from("athletes").select("id, name").eq("org_id", org.id).is("deleted_at", null).order("name");
+  const roster = (rosterRows ?? []) as { id: string; name: string }[];
+  const linkedAthlete = roster.find((a) => a.id === doc.linked_athlete_id) ?? null;
   const { data: uploader } = doc.uploaded_by ? await supabase.from("users").select("full_name, email").eq("id", doc.uploaded_by).maybeSingle() : { data: null };
   const uploadedBy = ((uploader as { full_name?: string | null; email?: string | null } | null)?.full_name || (uploader as { email?: string | null } | null)?.email || null) as string | null;
   // The files the screen offers: the untouched originals, or for a row
@@ -376,6 +381,25 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           </Stack>
         </Form>
       )}
+      {/* The athlete this document is about (migration 0058). Optional:
+          an org-wide document (bylaws, minutes) has none. A link only
+          lists it on the athlete's page; it never reads or applies. */}
+      <Form action={linkDocumentToAthlete.bind(null, slug, doc.id)}>
+        <Stack gap={3}>
+          <SelectField name="linkedAthleteId" label="Athlete" hint={linkedAthlete ? `Shows on ${linkedAthlete.name}'s page.` : "Optional. Leave it empty for org-wide documents like bylaws."} defaultValue={linkedAthlete?.id ?? ""}>
+            <option value="">No Athlete</option>
+            {roster.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </SelectField>
+          <Button type="submit" variant="secondary">
+            Save Athlete
+          </Button>
+        </Stack>
+      </Form>
+      {linkedAthlete && <TextLink href={`/org/${slug}/roster/${linkedAthlete.id}`}>{`Open ${linkedAthlete.name}`}</TextLink>}
       {files.map((_, i) => (
         <DownloadLink key={i} href={`/org/${slug}/documents/${doc.id}/download?n=${i + 1}`}>
           {files.length === 1 ? "Download" : `Download Page ${i + 1}`}

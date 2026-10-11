@@ -77,3 +77,4 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0055_document_moves_back.sql | applied | 20261010235717 0055_document_moves_back |
 | 0056_checkin_photos.sql | applied | 20261011045058 0056_checkin_photos |
 | 0057_migration_status.sql | applied | 20261011045101 0057_migration_status |
+| 0058_document_athlete_link.sql | applied | 20261011184254 0058_document_athlete_link |

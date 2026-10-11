@@ -4106,3 +4106,25 @@ instead.
 
 **Consequences.** A new migration means updating APPLIED.md and running
 scripts/gen_applied_ledger.mjs.
+
+## 2026-10-11: a document can be about an athlete
+
+**Decision.** Migration 0058 adds documents.linked_athlete_id: an
+optional athlete picked on the upload form or on the document screen
+(Athlete, with No Athlete for org-wide files like bylaws). The athlete
+page lists their documents: the linked ones and the ones a reading was
+applied to. A link or unlink is logged (document_linked).
+
+**Reason.** Dave, 2026-10-11: a document could only be typed, so athlete
+pages showed no documents.
+
+**Alternatives.** Reusing athlete_id. Rejected: athlete_id is where a
+reading was applied, and Undo clears it, which would erase a person's
+link; a pending reading with athlete_id set would also read as matched.
+
+**Consequences.** Two foreign keys now run from documents to athletes,
+so every athletes embed on documents names documents_athlete_id_fkey (a
+law enforces it); that change shipped first (PR #11) so production never
+saw an ambiguous query. A link widens no access: the documents policies
+are unchanged, and the athlete page is Admin only. Picking an athlete on
+upload never pins or steers the reader.
