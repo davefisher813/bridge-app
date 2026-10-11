@@ -134,7 +134,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select("id, file_name, category, requested_category, filed_as, status, route, provenance, extracted, athlete_id, athletes(name, deleted_at), failure_reason, read_by, created_at, file_size, media_type, format, lifecycle, lifecycle_changed_at, review_reason")
+    .select("id, file_name, category, requested_category, filed_as, status, route, provenance, extracted, athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), failure_reason, read_by, created_at, file_size, media_type, format, lifecycle, lifecycle_changed_at, review_reason")
     .eq("org_id", org.id)
     .order("created_at", { ascending: false })
     .limit(60);

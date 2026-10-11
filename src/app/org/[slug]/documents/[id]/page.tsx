@@ -190,7 +190,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const { data } = await supabase
     .from("documents")
     .select(
-      "id, file_name, file_size, page_count, category, requested_category, filed_as, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths"
+      "id, file_name, file_size, page_count, category, requested_category, filed_as, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths"
     )
     .eq("id", id)
     .eq("org_id", org.id)
