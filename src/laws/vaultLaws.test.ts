@@ -468,9 +468,13 @@ describe("LAW: the six types still read, review, apply and undo as before", () =
   });
 });
 
-// ── 7. Nothing is deleted ───────────────────────────────────────────
+// ── 7. One way to delete, and only one ──────────────────────────────
+// Until Oct 11 nothing deleted a document. Dave asked for a real Delete:
+// it is one server action, deleteDocument, behind an Admin check and a
+// confirm, through the service role. The table and the bucket still have
+// no delete policy, so nothing signed in can delete directly.
 
-describe("LAW: nothing in the app deletes a document or its file", () => {
+describe("LAW: only deleteDocument deletes a document, and only its own files", () => {
   // Planted: added `.remove(paths)` to a new action: this failed naming
   // the file. Planted: re-created the documents_delete policy in a later
   // migration: the migration law failed. Reverted.
@@ -497,13 +501,26 @@ describe("LAW: nothing in the app deletes a document or its file", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("no delete on the documents table anywhere in the app", () => {
+  it("no delete on the documents table anywhere in the app but deleteDocument, once", () => {
+    // Planted: a second documents delete in another action: this failed
+    // naming the file. Reverted.
     const offenders: string[] = [];
+    let inDelete = 0;
     for (const f of files(SRC)) {
       const src = readFileSync(f, "utf8");
-      if (/\.from\("documents"\)\s*\.delete\(/.test(src) || /\.from\("documents"\)[\s\S]{0,120}?\.delete\(\)/.test(src)) offenders.push(f.replace(SRC + "/", ""));
+      for (const m of src.matchAll(/\.from\("documents"\)\s*\.delete\(/g)) {
+        const owner = src.lastIndexOf("\nexport async function", m.index!);
+        if (f.endsWith("lib/actions/documents.ts") && src.slice(owner, owner + 60).includes("deleteDocument(")) inDelete++;
+        else offenders.push(f.replace(SRC + "/", ""));
+      }
     }
     expect(offenders).toEqual([]);
+    expect(inDelete).toBe(1);
+    const src = readFileSync(join(SRC, "lib/actions/documents.ts"), "utf8");
+    const body = src.slice(src.indexOf("export async function deleteDocument("), src.indexOf("export async function discardDocument("));
+    expect(body).toMatch(/requireRole\(org\.id, STAFF_ROLES\)/);
+    expect(body).toMatch(/createAdminClient\(\)/);
+    expect(body).toMatch(/removeUnregisteredUploads\(/);
   });
 
   it("the cleanup helper is reached only from processDocument and only removes unreferenced uploads", () => {
@@ -570,7 +587,7 @@ describe("LAW: a stored original is downloaded by staff only, as the bytes that 
 
 // ── 9. The screens ──────────────────────────────────────────────────
 
-describe("LAW: every row and every document screen shows its status, Archived is hidden until asked for, nothing says Delete", () => {
+describe("LAW: every row and every document screen shows its status, and Delete is only ever behind its confirm", () => {
   async function html(modulePath: string, props: unknown): Promise<string> {
     const { renderToStaticMarkup } = await import("react-dom/server");
     const mod = await import(/* @vite-ignore */ modulePath);
@@ -611,7 +628,8 @@ describe("LAW: every row and every document screen shows its status, Archived is
     const needs = await html(DOC, docProps("doc-word"));
     for (const t of ["Original File", "team-letter.docx", "Word", "47 KB", "SHA-256", "3f786850", "Mark Ready", "Archive", "Needs Review"]) expect(needs, t).toContain(t);
     expect(needs).toContain("/documents/doc-word/download?n=1");
-    expect(needs).not.toMatch(/Delete|Remove/);
+    expect(needs).not.toMatch(/Remove/);
+    expect(needs).toMatch(/>Delete</);
     const ready = await html(DOC, docProps("doc-ready"));
     expect(ready).toContain("Archive");
     expect(ready).not.toContain("Mark Ready");
@@ -630,7 +648,7 @@ describe("LAW: every row and every document screen shows its status, Archived is
     const out = await html(DOC, docProps("doc-mismatch"));
     expect(out).toContain("Did not look like Transcript");
     expect(out).toContain("Kept for Review");
-    expect(out).not.toMatch(/Not Used|Could Not Use|Delete/);
+    expect(out).not.toMatch(/Not Used|Could Not Use/);
   });
 
   it("no non-image file shows a preview: only the name, the format, the size and a download", async () => {

@@ -4202,3 +4202,22 @@ dependencies for what a few dozen lines do); converting old .doc and
 **Consequences.** The review flow and the Doc AI Spending accounting are
 unchanged: one charged call per reading. Long files are cut at 150,000
 characters and the reading says so.
+
+## 2026-10-11: documents get a real Delete
+
+**Decision.** One server action, deleteDocument, removes a document for
+good: the row and its readings, its stored files, its athlete link and
+its place on any meeting. Admins only, behind a confirm that names the
+file and says it cannot be undone, with the button labelled Delete.
+It runs through the service role after the Admin check; the table and
+the bucket still carry no delete policy, so nothing signed in can
+delete directly. Archive is unchanged. Logged as document_deleted
+(migration 0061).
+
+**Reason.** Dave, 2026-10-11. This reverses the 2026-10 rule that
+originals are permanent (migration 0048), on his word.
+
+**Guards.** A reading still applied to an athlete is refused until it is
+undone, so no Undo is ever lost. A stored file another document still
+points at (a duplicate upload) is kept. Spending history, course rows
+and assignments keep their own data and lose only the pointer.

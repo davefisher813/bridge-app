@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { applyDocument, discardDocument, fileDocumentAs, isStubbedModel, linkDocumentToAthlete, moveDocumentAndStay, readDocumentAgain } from "@/lib/actions/documents";
+import { applyDocument, deleteDocument, discardDocument, fileDocumentAs, isStubbedModel, linkDocumentToAthlete, moveDocumentAndStay, readDocumentAgain } from "@/lib/actions/documents";
 import { CONTRADICTION_PREFIX } from "@/lib/docai/identity";
 import { documentTypeLabel, isReaderType, READER_TYPES, readerTypeOf } from "@/lib/documents/fileTypes";
 import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
@@ -318,6 +318,13 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     "use server";
     await moveDocumentAndStay(slug, doc.id, to);
   };
+  // Delete (Dave, Oct 11): for good, behind a confirm that names the
+  // file. Archive stays as it was; this is the separate, final step.
+  const deleteAction = async () => {
+    "use server";
+    await deleteDocument(slug, doc.id);
+  };
+  const { count: meetingCount } = await supabase.from("board_meeting_documents").select("document_id", { count: "exact", head: true }).eq("document_id", doc.id).eq("org_id", org.id);
   const readAgain = async () => {
     "use server";
     await readDocumentAgain(slug, doc.id);
@@ -496,6 +503,22 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           </Button>
           <Label>{readAgainBlocked}</Label>
         </Stack>
+      )}
+      {!isProcessing && (
+        <Form action={deleteAction}>
+          <ConfirmButton
+            title={`Delete ${doc.file_name}?`}
+            body={
+              isApplied
+                ? "This reading is on an athlete. Undo it first, so the athlete goes back to how they were, then delete."
+                : `This permanently removes ${doc.file_name}, its stored file and its readings. It cannot be undone.${meetingCount ? ` It also comes off ${meetingCount === 1 ? "the meeting" : `${meetingCount} meetings`} it is attached to.` : ""} Nothing else changes. To keep it out of the way instead, use Archive.`
+            }
+            confirmLabel="Delete"
+            disabled={isApplied}
+          >
+            Delete
+          </ConfirmButton>
+        </Form>
       )}
       {stuckReading && (
         <Form action={moveTo("needs_review")}>

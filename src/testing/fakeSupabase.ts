@@ -214,6 +214,9 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
     private onUnsupported: (what: string) => never,
     private recorded: RecordedWrite[],
     private failOn: (table: string, op: string) => string | null,
+    // The service role, which RLS does not stop: the one client that may
+    // delete a document (deleteDocument, Oct 11).
+    private serviceRole = false,
   ) {}
 
   select(list?: string) {
@@ -324,7 +327,7 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
           ? child.filter((c) => c[spec.foreignKey] === row.id)
           : child.filter((c) => c.id === row[spec.foreignKey]);
         const inner = related.map((c) => {
-          const q = new FakeQuery(this.data, spec.table, this.onUnsupported, this.recorded, this.failOn);
+          const q = new FakeQuery(this.data, spec.table, this.onUnsupported, this.recorded, this.failOn, this.serviceRole);
           q.selectList = embed[2];
           return q.project(c);
         });
@@ -340,7 +343,7 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
 
   private documentRefusal(rows: Row[], table: Row[]): string | null {
     const op = this.writes!.op;
-    if (op === "delete") return "documents: permission denied, nothing signed in can delete a document";
+    if (op === "delete") return this.serviceRole ? null : "documents: permission denied, nothing signed in can delete a document";
     if (op === "insert") {
       const objects = this.data.storage_objects ?? [];
       for (const r of rows) {
@@ -493,6 +496,9 @@ export interface FakeClientOptions {
   // branch of an action is reachable. Every action has one and none of
   // them had ever run.
   failOn?: (table: string, op: string) => string | null;
+  // The service-role client: bypasses the document delete refusal, as the
+  // real service role bypasses RLS.
+  serviceRole?: boolean;
   // Make every email-sending auth call (sign-in link, invitation) answer
   // with this error, the way Supabase does when its mailer refuses.
   authFail?: string;
@@ -598,7 +604,7 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
 
   return {
     from(table: string) {
-      return new FakeQuery(data, table, unsupported, recorded, failOn);
+      return new FakeQuery(data, table, unsupported, recorded, failOn, opts.serviceRole ?? false);
     },
     // The summary functions of migration 0031, mirrored in fakeRpc.ts.
     // Awaitable like a query, so a page writes `await supabase.rpc(...)`.

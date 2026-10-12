@@ -68,8 +68,8 @@ test.describe("document: upload, process, apply", () => {
     await expect(page.getByText(/too blurry to read reliably/i).first()).toBeVisible();
     await expect(page.getByText(/nothing was changed on any athlete/i)).toBeVisible();
     await expect(page.getByRole("button", { name: "Apply", exact: true })).toHaveCount(0);
-    // Kept, not rejected and not deletable.
-    await expect(page.getByText(/Not Used|Could Not Use|Delete/)).toHaveCount(0);
+    // Kept, not rejected. (Delete exists since Oct 11, behind its confirm.)
+    await expect(page.getByText(/Not Used|Could Not Use/)).toHaveCount(0);
   });
 
   test("the reading shows up in Doc AI Spending as a call against the budget", async ({ page }) => {
@@ -201,11 +201,20 @@ test.describe("vault: a file that does not look like its type is kept, and the s
     for (const line of [/Marked a transcript Ready/, /Archived a transcript/, /Unarchived a transcript/]) await expect(page.getByText(line).first()).toBeVisible();
   });
 
-  test("a document has no Delete anywhere", async ({ page }) => {
+  // Dave, Oct 11: a real Delete, behind a confirm that names the file.
+  test("Delete asks first, naming the file, then removes it from every view", async ({ page }) => {
     await page.goto(org("/documents"));
-    await expect(page.getByText(/Delete/)).toHaveCount(0);
-    await page.getByRole("link", { name: /fixture\.pdf|Transcript/ }).first().click();
-    await expect(page.getByText(/Delete/)).toHaveCount(0);
+    const before = Number((await page.locator('a[href$="/documents"] [data-kit="stat"] .tabular-nums').first().innerText()).trim());
+    await page.goto(org("/documents/doc-archived"));
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(page.getByText(/permanently removes old-notes\.txt, its stored file and its readings\. It cannot be undone\./)).toBeVisible();
+    await page.getByRole("button", { name: "Delete", exact: true }).last().click();
+    await expect(page.getByText("Deleted old-notes.txt.")).toBeVisible();
+    await expect(page.getByText("old-notes.txt", { exact: true })).toHaveCount(0);
+    const after = Number((await page.locator('a[href$="/documents"] [data-kit="stat"] .tabular-nums').first().innerText()).trim());
+    expect(after).toBe(before - 1);
+    await page.goto(org("/documents?view=archived"));
+    await expect(page.getByRole("link", { name: /old-notes\.txt/ })).toHaveCount(0);
   });
 });
 

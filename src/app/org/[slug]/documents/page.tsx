@@ -140,11 +140,12 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
   );
 }
 
-export default async function DocumentsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string; error?: string; archived?: string; view?: string }> }) {
+export default async function DocumentsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ q?: string; error?: string; notice?: string; archived?: string; view?: string }> }) {
   const { slug } = await params;
   const sp = searchParams ? await searchParams : {};
   const q = sp.q?.trim().toLowerCase() ?? "";
   const error = sp.error;
+  const notice = sp.notice;
   // The old Show Archived address still opens Archived.
   const view: View = VIEWS.some((v) => v.id === sp.view) ? (sp.view as View) : sp.archived === "1" ? "archived" : "all";
   const org = await getOrgBySlug(slug);
@@ -190,6 +191,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
 
   return (
     <Screen title="Documents" lede={`Showing ${viewLabel}${q ? `, matching "${q}"` : ""}: ${rows.length} ${rows.length === 1 ? "document" : "documents"}.`} action={<AddButton href={`/org/${slug}/documents/new`} label="Add" />}>
+      {notice && <Notice tone="success" title={notice} />}
       {error && <Notice tone="danger" title={error} />}
       {stubbed && (
         <Notice tone="warning" title="Simulated Reading">
