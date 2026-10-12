@@ -408,14 +408,15 @@ describe("LAW: a transcript row is staff's to correct, add and remove, in its ow
   });
 });
 
-// Piece 1 of the Doc AI rebuild: originals are permanent. There is no
-// delete action, and the database would refuse one (rls_test.sql). This
-// replaces the crud F19 delete-after-discard law. Planted: exported a
-// deleteDocument again: "no action deletes a document" failed. Reverted.
-describe("LAW: a document and its file are never deleted from the app", () => {
-  it("the actions file exports no delete of a document", async () => {
+// Piece 1 of the Doc AI rebuild made originals permanent. Dave, Oct 11:
+// a real Delete. It is exactly one action, deleteDocument (its own laws
+// in documentDeleteLaws.test.ts), and the database still refuses a
+// delete from anyone signed in (rls_test.sql). Planted: exported a
+// second delete action: "exactly one" failed. Reverted.
+describe("LAW: a document is deleted only through deleteDocument, never directly", () => {
+  it("the actions file exports exactly one delete of a document", async () => {
     const actions = await import("@/lib/actions/documents");
-    expect(Object.keys(actions).filter((k) => /delete/i.test(k))).toEqual([]);
+    expect(Object.keys(actions).filter((k) => /delete/i.test(k))).toEqual(["deleteDocument"]);
   });
 
   it("a delete against documents is refused by the data layer the way the database refuses it", async () => {

@@ -72,4 +72,5 @@ export const APPLIED_LEDGER: LedgerRow[] = [
   { file: "0058_document_athlete_link", recorded: "applied", versions: ["20261011184254"] },
   { file: "0059_doc_category_athlete_profile", recorded: "applied", versions: ["20261011231334"] },
   { file: "0060_doc_category_board_other", recorded: "applied", versions: ["20261011233921"] },
+  { file: "0061_activity_document_deleted", recorded: "applied", versions: ["20261012001852"] },
 ];

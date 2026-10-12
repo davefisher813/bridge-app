@@ -1339,6 +1339,66 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
   return { ok: true };
 }
 
+// Delete a document for good (Dave, Oct 11): the row, its readings, and
+// its stored files. Until now nothing deleted a document (migration 0048
+// left no delete policy on the table or the bucket), and that stays: the
+// browser still cannot delete anything. This is the one path, on the
+// server, through the service role, after an Admin check and a confirm
+// that names the file.
+//
+// What goes with it: its readings (they live on the row), its link to an
+// athlete, and its place on any meeting (board_meeting_documents would
+// otherwise refuse the delete). What stays: spending history and any
+// course or assignment row, which keep their own data and lose only the
+// pointer (ON DELETE SET NULL). A reading still applied to an athlete is
+// refused: Undo puts the athlete back first, and a delete would lose that
+// undo for good. A stored file is removed only when no other document
+// points at it (a duplicate upload can share one).
+export async function deleteDocument(slug: string, documentId: string): Promise<void> {
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  const user = await requireRole(org.id, STAFF_ROLES);
+  const back = `/org/${slug}/documents/${documentId}`;
+  const no = (why: string) => redirect(`${back}?error=${encodeURIComponent(why)}`);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("documents")
+    .select("id, file_name, status, category, requested_category, linked_athlete_id, storage_paths, original_paths")
+    .eq("id", documentId)
+    .eq("org_id", org.id)
+    .maybeSingle();
+  const doc = data as { file_name: string; status: string; category: DocCategoryId | null; requested_category: DocCategoryId | null; linked_athlete_id: string | null; storage_paths: string[] | null; original_paths: string[] | null } | null;
+  if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is not in this organization.")}`);
+  if (doc.status === "applied") return no("This reading is on an athlete. Undo it first, so the athlete goes back to how they were, then delete.");
+  if (doc.status === "processing") return no("This is being read right now. Wait for it to finish, then delete.");
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.FIXTURE_MODE !== "1") return no("Deleting is not set up on this server.");
+
+  const admin = createAdminClient();
+  // Off any meeting first: the attachment would refuse the delete.
+  const { error: unlinkError } = await admin.from("board_meeting_documents").delete().eq("document_id", documentId).eq("org_id", org.id);
+  if (unlinkError) return no(`Could not take it off its meeting: ${unlinkError.message}`);
+  const { error } = await admin.from("documents").delete().eq("id", documentId).eq("org_id", org.id);
+  if (error) return no(`Could not delete it: ${error.message}`);
+  // The files, now that no row points at them (the helper checks every
+  // other row first, and keeps a file one of them still uses).
+  await removeUnregisteredUploads(org.id, [...(doc.storage_paths ?? []), ...(doc.original_paths ?? [])]);
+
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    athleteId: doc.linked_athlete_id,
+    action: "document_deleted",
+    subjectType: "document",
+    subjectId: null,
+    summary: activitySummary("document_deleted", { kind: documentKind(doc.category ?? doc.requested_category) }),
+  });
+
+  revalidatePath(`/org/${slug}/documents`);
+  if (doc.linked_athlete_id) revalidatePath(`/org/${slug}/roster/${doc.linked_athlete_id}`);
+  redirect(`/org/${slug}/documents?notice=${encodeURIComponent(`Deleted ${doc.file_name}.`)}`);
+}
+
 // Discarding is now an undo, not just a status change.
 //
 // Until 2026-09-16 this set a status and left everything the apply had

@@ -11,5 +11,5 @@ import { OWNER_ID } from "@/testing/fixture";
 
 export function createAdminClient() {
   if (process.env.VERCEL === "1" || process.env.VERCEL_ENV) throw new Error("The fixture admin client must never run on Vercel");
-  return createFakeClient(fixtureDataset(), { userId: OWNER_ID });
+  return createFakeClient(fixtureDataset(), { userId: OWNER_ID, serviceRole: true });
 }
