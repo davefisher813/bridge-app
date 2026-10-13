@@ -331,3 +331,122 @@ export function fakeSubmitAssignment(
   recorded.push({ op: "insert", table: "activity_log", rows: [line], filters: [], via: "rpc:submit_assignment" });
   return { data: String(a.id), error: null };
 }
+
+// The reader types a family may name (migration 0066): every reader
+// type but Board Document.
+const FAMILY_SEND_TYPES = ["transcript", "test_scores", "offer_letter", "recommendation", "financial_aid", "metrics", "athlete_profile", "other"];
+const SEND_FORMAT: Record<string, string> = { "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png" };
+
+// public.family_send_document(...), migration 0066, in plain words: the
+// caller is signed in and linked to the athlete right now (a guardian row
+// AND a live family membership in the athlete's org) and the athlete is
+// not removed, else 42501 with one message; a note is 4,000 characters or
+// fewer, a type is one of FAMILY_SEND_TYPES, the file is at
+// <org>/family/<athlete>_<request>/<file>, in the bucket and owned by the
+// caller, not filed already, has a name (200 or fewer), a positive size
+// within the bucket's limit and is a PDF, JPG or PNG; a photo's reader
+// copy sits in the same folder, is the caller's and is not filed; the same
+// hash on a live document of one of the caller's athletes is refused;
+// each of these is 23514. It files the row (status filed, lifecycle
+// needs_review, source parent, on the athlete and linked to it, signed by
+// the caller, the note kept) and logs "Uploaded a document". Returns the
+// new document's id. Writes are recorded with via:
+// "rpc:family_send_document".
+export function fakeFamilySendDocument(
+  data: Dataset,
+  userId: string | null,
+  args: Record<string, unknown>,
+  recorded: RecordedWrite[],
+  failOn: (table: string, op: string) => string | null,
+): { data: string | null; error: { message: string; code: string } | null } {
+  const refuse = (code: string, message: string) => ({ data: null, error: { code, message: `family_send_document: ${message}` } });
+  if (!userId) return refuse("42501", "sign in first");
+
+  const athleteId = typeof args.p_athlete === "string" ? args.p_athlete : null;
+  const athlete = athleteId ? (data.athletes ?? []).find((t) => t.id === athleteId) : undefined;
+  if (!athlete || athlete.deleted_at || !guardianOf(data, athlete.org_id, athlete.id, userId)) return refuse("42501", "not linked to that athlete");
+  const orgId = String(athlete.org_id);
+
+  const note = typeof args.p_note === "string" ? args.p_note : "";
+  if (note.length > 4000) return refuse("23514", "a note is 4,000 characters or fewer");
+  const type = typeof args.p_type === "string" && args.p_type.trim() ? args.p_type.trim() : null;
+  if (type && !FAMILY_SEND_TYPES.includes(type)) return refuse("23514", "that is not a document type");
+
+  const esc = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const shape = new RegExp(`^${esc(orgId)}/family/${esc(String(athlete.id))}_[A-Za-z0-9_-]+/[A-Za-z0-9._-]+$`);
+  const documents = data.documents ?? (data.documents = []);
+  const filed = (p: string) => documents.some((d) => [...((d.storage_paths as unknown[]) ?? []), ...((d.original_paths as unknown[]) ?? [])].includes(p));
+  const owned = (p: string) => (data.storage_objects ?? []).some((o) => o.bucket === "documents" && o.name === p && o.owner === userId);
+
+  const path = typeof args.p_storage_path === "string" ? args.p_storage_path : null;
+  if (!path || !shape.test(path) || /\/\.\.?$/.test(path)) return refuse("23514", "a file must be under this athlete's family folder");
+  if (!owned(path)) return refuse("23514", "that file was not uploaded by you");
+  if (filed(path)) return refuse("23514", "that file is already filed");
+  const fileName = typeof args.p_file_name === "string" ? args.p_file_name.trim() : "";
+  const size = typeof args.p_file_size === "number" ? args.p_file_size : 0;
+  if (!fileName || fileName.length > 200 || size <= 0) return refuse("23514", "a file needs a name, a size and a type");
+  const mediaType = typeof args.p_media_type === "string" ? args.p_media_type : "";
+  const format = SEND_FORMAT[mediaType];
+  if (!format) return refuse("23514", "send a PDF, JPG or PNG");
+  if (size > BUCKET_MAX_BYTES) return refuse("23514", "that file is over the size limit");
+
+  const reader = typeof args.p_reader_path === "string" ? args.p_reader_path : null;
+  if (reader !== null) {
+    const folder = (p: string) => p.slice(0, p.lastIndexOf("/"));
+    if (format === "pdf" || reader === path || !shape.test(reader) || /\/\.\.?$/.test(reader) || folder(reader) !== folder(path)) return refuse("23514", "the reader copy must sit beside the photo");
+    if (!owned(reader)) return refuse("23514", "that file was not uploaded by you");
+    if (filed(reader)) return refuse("23514", "that file is already filed");
+  }
+
+  const hash = typeof args.p_content_hash === "string" && args.p_content_hash.trim() ? args.p_content_hash.trim() : null;
+  if (hash && documents.some((d) => d.org_id === orgId && d.content_hash === hash && d.status !== "discarded" && guardianOf(data, orgId, d.athlete_id, userId))) {
+    return refuse("23514", "this exact file was already sent");
+  }
+
+  const forced = failOn("documents", "insert");
+  if (forced) return { data: null, error: { code: "XX000", message: forced } };
+  const now = new Date().toISOString();
+  const docId = `fake-documents-${documents.length + 1}`;
+  const row: Row = {
+    id: docId,
+    org_id: orgId,
+    athlete_id: athlete.id,
+    linked_athlete_id: athlete.id,
+    file_name: fileName,
+    file_size: size,
+    media_type: mediaType,
+    format,
+    source_role: "parent",
+    status: "filed",
+    lifecycle: "needs_review",
+    lifecycle_changed_at: now,
+    requested_category: type,
+    category: null,
+    uploaded_by: userId,
+    storage_paths: [reader ?? path],
+    original_paths: [path],
+    content_hash: hash,
+    family_note: note.trim() || null,
+    read_by: null,
+    extracted: null,
+    created_at: now,
+  };
+  documents.push(row);
+  recorded.push({ op: "insert", table: "documents", rows: [row], filters: [], via: "rpc:family_send_document" });
+
+  const log = data.activity_log ?? (data.activity_log = []);
+  const line: Row = {
+    id: `fake-activity_log-${log.length + 1}`,
+    org_id: orgId,
+    athlete_id: athlete.id,
+    actor_id: userId,
+    action: "document_uploaded",
+    subject_type: "document",
+    subject_id: docId,
+    summary: "Uploaded a document",
+    created_at: now,
+  };
+  log.push(line);
+  recorded.push({ op: "insert", table: "activity_log", rows: [line], filters: [], via: "rpc:family_send_document" });
+  return { data: docId, error: null };
+}

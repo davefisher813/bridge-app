@@ -1,4 +1,4 @@
-import { fakeRpc, fakeSubmitAssignment } from "./fakeRpc";
+import { fakeFamilySendDocument, fakeRpc, fakeSubmitAssignment } from "./fakeRpc";
 import { transitionFor, type Lifecycle } from "@/lib/vault/lifecycle";
 
 // An in-memory stand-in for the Supabase client, good enough to render a
@@ -611,11 +611,13 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
     // create_org (migration 0040) and log_family_message (0044) write,
     // so they live here, next to the write log, rather than in the
     // read-only mirror; submit_assignment (0046) writes too and lives in
-    // fakeRpc.ts beside the rest of the mirrors, handed the write log.
+    // fakeRpc.ts beside the rest of the mirrors, handed the write log, as
+    // does family_send_document (0066).
     async rpc(name: string, args: Record<string, unknown> = {}) {
       if (name === "create_org") return fakeCreateOrg(data, opts.userId, args, recorded, failOn);
       if (name === "log_family_message") return fakeLogFamilyMessage(data, opts.userId, args, recorded, failOn);
       if (name === "submit_assignment") return fakeSubmitAssignment(data, opts.userId, args, recorded, failOn);
+      if (name === "family_send_document") return fakeFamilySendDocument(data, opts.userId, args, recorded, failOn);
       return fakeRpc(data, opts.userId, name, args);
     },
     auth: {

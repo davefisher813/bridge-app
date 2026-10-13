@@ -34,6 +34,7 @@ import { loadDocApprovers } from "@/lib/data/docApprovers";
 import { AREA_COVERS, AREA_LABEL, readyGate } from "@/lib/documents/approvers";
 import { checkVaultFile, isTextReadable, readerCanRead, readerPageOf, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
 import { readerText } from "@/lib/vault/textExtract";
+import { storedFormatOf } from "@/lib/vault/preview";
 import { didNotLookLike, isLifecycle, isStaleProcessing as isStaleLifecycle } from "@/lib/vault/lifecycle";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
 import { applyAthleteProfile, applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, fillHighSchoolFromTranscript, undoContact, undoDetail, undoMetrics, undoTarget, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
@@ -275,14 +276,19 @@ async function removeUnregisteredUploads(orgId: string, paths: string[], opts: {
   }
 }
 
+// `includeFamily` admits the org's family folder too: Read Again of a
+// file an Athlete login sent, whose path is the row's, never the
+// browser's (Doc AI Piece 5). An upload never passes it.
 async function readStoredRecords(
   supabase: StorageReader,
   orgId: string,
-  stored: StoredRecord[]
+  stored: StoredRecord[],
+  opts: { includeFamily?: boolean } = {}
 ): Promise<{ ok: true; records: IngestedRecord[] } | { ok: false; error: string }> {
   const records: IngestedRecord[] = [];
   for (const r of stored) {
-    if (!STORAGE_PATH.test(r.storagePath) || !r.storagePath.startsWith(`${orgId}/`)) {
+    const inOrg = STORAGE_PATH.test(r.storagePath) && r.storagePath.startsWith(`${orgId}/`);
+    if (!inOrg && !(opts.includeFamily === true && isFamilyStoragePathFor(r.storagePath, orgId))) {
       return { ok: false, error: `${r.originalName || "That file"} was not uploaded to this organization's folder.` };
     }
     const { data, error } = await supabase.storage.from("documents").download(r.storagePath);
@@ -1805,7 +1811,10 @@ async function readPagesAgain(
   const ingestedAt = new Date().toISOString();
   for (const [i, storagePath] of paths.entries()) {
     const label = paths.length > 1 ? `Page ${i + 1} of ${fileName}` : fileName || "That file";
-    if (!STORAGE_PATH.test(storagePath) || !storagePath.startsWith(`${orgId}/`)) return { ok: false, error: `${label} was not uploaded to this organization's folder.` };
+    // An Athlete login's file lives in the family folder; Read Again is
+    // the one reading allowed to reach it (Doc AI Piece 5).
+    const inOrg = STORAGE_PATH.test(storagePath) && storagePath.startsWith(`${orgId}/`);
+    if (!inOrg && !isFamilyStoragePathFor(storagePath, orgId)) return { ok: false, error: `${label} was not uploaded to this organization's folder.` };
     const { data, error } = await supabase.storage.from("documents").download(storagePath);
     if (error || !data) return { ok: false, error: `${label} could not be read back. Try again.` };
     const bytes = new Uint8Array(await data.arrayBuffer());
@@ -1832,8 +1841,10 @@ async function readPagesAgain(
 // format the reader reads, goes back to the reader from its original
 // file and returns to Needs Review when the reading ends. The same rate
 // limit and monthly cap as an upload. Never a document already applied,
-// one being read, a family's filed copy, or one the stand-in read (that
-// label is permanent, so it is uploaded again once the key is set).
+// one being read, or one the stand-in read (that label is permanent, so
+// it is uploaded again once the key is set). A file an Athlete login
+// sent (filed, with an assignment or on its own) is read only this way:
+// an Admin's tap, charged like any reading (Doc AI Piece 5, 2026-10-13).
 export async function readDocumentAgain(slug: string, documentId: string): Promise<void> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
@@ -1858,11 +1869,16 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   // Nothing typed at all reads as Other, which suggests a type (Oct 11).
   const type = readerTypeOf(doc) ?? "other";
   if (doc.lifecycle !== "needs_review" && doc.lifecycle !== "ready") return no("Only a document in Needs Review or Ready can be read again.");
-  if (doc.status === "applied" || doc.status === "processing" || doc.status === "filed") return no("This document cannot be read again.");
+  if (doc.status === "applied" || doc.status === "processing") return no("This document cannot be read again.");
   if (isStubReading(doc.read_by)) return no("The stand-in read this one, and that stays on it. Upload the file again to have it read.");
   const blocked = readerTextBlocker(doc.file_name);
   if (blocked) return no(blocked);
-  if (!doc.format || !readerCanRead(doc.format) || !doc.original_paths?.length) return no("The reader cannot read this format.");
+  // An assignment's file (migration 0046) was filed without a format or
+  // original_paths: its media type says the format, and its one stored
+  // copy is the original.
+  const format = storedFormatOf(doc.format, doc.media_type);
+  const originals = doc.original_paths?.length ? doc.original_paths : (doc.storage_paths ?? []);
+  if (!format || !readerCanRead(format) || !originals.length) return no("The reader cannot read this format.");
 
   const stubbed = await isStubbedModel();
   if (!stubbed) {
@@ -1878,9 +1894,10 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   // the untouched original of a phone photo can be over the reader's size
   // limit. The reader's paths line up one to one with the originals when
   // the upload made them (a PDF's and a text file's reader path is its
-  // original), so they are used whenever they do.
+  // original), so they are used whenever they do. A file an Athlete login
+  // sent has no originals on its row: its stored copy is the original.
   const readerCopies = doc.storage_paths ?? [];
-  const sourcePaths = readerCopies.length === doc.original_paths.length ? readerCopies : doc.original_paths;
+  const sourcePaths = readerCopies.length === originals.length ? readerCopies : originals;
   // Each page goes to the reader as what its own bytes are: a document of
   // several files can be a PDF and a photo, or a Word file and a PDF, and
   // the row's format and media type are only its first file's.

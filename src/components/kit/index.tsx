@@ -451,6 +451,29 @@ export function DownloadLink({ href, children }: { href: string; children: React
   );
 }
 
+// A stored file opened in the browser's own viewer (a PDF), in a new tab
+// so the screen stays where it was. A real anchor for the same reason as
+// DownloadLink: the target answers with the file, not a page.
+export function OpenFileLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="flex min-h-12 w-full items-center justify-center rounded bg-solid-accent px-4 text-body font-bold text-solid-accent-on">
+      {children}
+    </a>
+  );
+}
+
+// Text read out of a file, folded away under its title until asked for,
+// and capped in height so a long sheet scrolls inside itself rather than
+// pushing the page. Kept as written: line breaks stay, nothing is styled.
+export function TextPreview({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <details className="rounded border border-line bg-paper">
+      <summary className="flex min-h-12 cursor-pointer items-center px-4 text-body font-bold text-ink">{title}</summary>
+      <div className="max-h-photo overflow-y-auto whitespace-pre-wrap break-words border-t border-line px-4 py-3 text-label text-ink">{children}</div>
+    </details>
+  );
+}
+
 // The add action in a screen header: a 44px accent disc with a plus.
 // Dave's pick, 2026-09-20, over the text link it replaced. The label is
 // for the screen reader; the disc says it on its own.

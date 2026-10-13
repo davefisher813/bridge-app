@@ -59,6 +59,8 @@ create policy documents_bucket_family_insert on storage.objects
     and exists (
       select 1 from private._family_upload_folders() f
       where f.org_id::text = (storage.foldername(name))[1]
-        and f.folder = (storage.foldername(name))[3]
+        -- The folder is the assignment's or the athlete's id, alone or
+        -- followed by _<request> (0066's Send a Document folder).
+        and (f.folder = (storage.foldername(name))[3] or f.folder = split_part((storage.foldername(name))[3], '_', 1))
     )
   );

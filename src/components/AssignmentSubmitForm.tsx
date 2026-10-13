@@ -9,7 +9,8 @@ import { Button, FileField, Form, Notice, Stack, TextAreaField } from "@/compone
 
 // The Athlete login's answer to one assignment: a note, and for an
 // upload assignment a file. A client component because the file goes to
-// the documents bucket from the browser, under <org>/family/<request>/,
+// the documents bucket from the browser, under <org>/family/<request>/
+// (the request folder starts with the athlete's id: migration 0066),
 // and only its path rides the action (Next caps a server action body at
 // 1MB, the same reason DocumentUploader uploads first). Then the one
 // write is submitAssignment, which reads the bytes back, checks them and
