@@ -1,15 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "c0df89f",
-  "commitFull": "c0df89fe9030013e9418a025505c35f8ef5cc976",
+  "commit": "30fc56f",
+  "commitFull": "30fc56f7b471b3a87a16e1e4daef3cb4d2db8b23",
   "branch": "claude/downloads-directory-4mf6gv",
   "remoteBranches": [],
   "shipped": false,
-  "dirty": true,
+  "dirty": false,
   "onMain": false,
-  "startedAt": "2026-10-13T15:51:29.176Z",
-  "durationMs": 270926,
+  "startedAt": "2026-10-13T20:23:45.329Z",
+  "durationMs": 244891,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,13 +18,13 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 2808,
+        "pass": 2822,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
         "suitesFailed": 0,
-        "filesOnDisk": 111,
-        "filesLoaded": 111
+        "filesOnDisk": 112,
+        "filesLoaded": 112
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
@@ -63,6 +63,7 @@
         "src/laws/kitLaws.test.ts": 12,
         "src/laws/laws.test.ts": 13,
         "src/laws/lifecycleLaws.test.ts": 20,
+        "src/laws/masterAccountLaws.test.ts": 14,
         "src/laws/matchingLaws.test.ts": 41,
         "src/laws/meetingLaws.test.ts": 6,
         "src/laws/migrationLaws.test.ts": 6,
@@ -171,7 +172,7 @@
             "location": "/login"
           }
         },
-        "ms": 1401
+        "ms": 1365
       },
       "errors": [],
       "warnings": [],
@@ -185,8 +186,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 81,
-      "filesScanned": 5330
+      "touchedFiles": 25,
+      "filesScanned": 6018
     },
     {
       "name": "types",
