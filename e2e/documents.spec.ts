@@ -31,7 +31,7 @@ async function upload(page: import("@playwright/test").Page, f: TestFile, source
 
 test.describe("document: upload, process, apply", () => {
   test("a parent's transcript is read, held for review, applied, and can be undone", async ({ page }) => {
-    await upload(page, readableTranscript(), "A parent sent it");
+    await upload(page, readableTranscript(), "A Parent Sent It");
 
     // Processed: it lands on review, matched to the athlete, with what it read.
     await expect(page.getByRole("heading", { name: "Check This Before It Lands" })).toBeVisible();
@@ -62,7 +62,7 @@ test.describe("document: upload, process, apply", () => {
   });
 
   test("an unreadable scan is kept in Needs Review with the reason, and no athlete is touched", async ({ page }) => {
-    await upload(page, unreadableScan(), "A parent sent it");
+    await upload(page, unreadableScan(), "A Parent Sent It");
     await expect(page.getByRole("heading", { name: "Kept for Review" })).toBeVisible();
     await expect(page.getByText("Needs Review", { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/too blurry to read reliably/i).first()).toBeVisible();
@@ -73,7 +73,7 @@ test.describe("document: upload, process, apply", () => {
   });
 
   test("the reading shows up in Doc AI Spending as a call against the budget", async ({ page }) => {
-    await upload(page, readableTranscript(), "A parent sent it");
+    await upload(page, readableTranscript(), "A Parent Sent It");
     await expect(page.getByRole("heading", { name: "Check This Before It Lands" })).toBeVisible();
     await page.goto(org("/doc-ai-spending"));
     await expect(page.getByRole("heading", { name: "Doc AI Spending" })).toBeVisible();
