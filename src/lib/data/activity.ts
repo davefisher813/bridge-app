@@ -72,6 +72,9 @@ export const ACTIVITY_ACTIONS = [
   "steward_set",
   "steward_cleared",
   "settings_changed",
+  // Who signs documents off in each area (migration 0067, Doc AI piece 7).
+  "doc_approver_set",
+  "doc_approver_cleared",
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -122,6 +125,8 @@ export const SUBJECT_TYPE_OF: Record<ActivityAction, ActivitySubjectType> = {
   steward_set: "donor",
   steward_cleared: "donor",
   settings_changed: "org",
+  doc_approver_set: "org",
+  doc_approver_cleared: "org",
 };
 
 // ── The summary: a branded sentence ──────────────────────────────────
@@ -198,6 +203,10 @@ export interface ActivitySubjects {
   // `setting` is a fixed phrase built by the caller ("the modules", "the
   // Doc AI budget to $20"), never form text.
   settings_changed: { setting: string };
+  // `kind` is the area (academic, eligibility, financial);
+  // `person` the Admin named for it.
+  doc_approver_set: { kind: string; person: string };
+  doc_approver_cleared: { kind: string };
 }
 
 // Names are clipped so two of them and two statuses still fit the
@@ -278,6 +287,8 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   steward_set: (s) => `Set ${person(s.person)} as the steward for ${clip(s.name, NAME_MAX, "a donor")}`,
   steward_cleared: (s) => `Cleared the steward for ${clip(s.name, NAME_MAX, "a donor")}`,
   settings_changed: (s) => `Changed ${clip(s.setting, 80, "the settings")}`,
+  doc_approver_set: (s) => `Set ${person(s.person)} as the ${word(s.kind, "document")} approver for documents`,
+  doc_approver_cleared: (s) => `Cleared the ${word(s.kind, "document")} approver for documents`,
 };
 
 // The only way to make an ActivitySummary. Takes an action and the small

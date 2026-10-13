@@ -4895,3 +4895,174 @@ begin
 end $$;
 reset role;
 \echo 'ALL 0064 ASSERTIONS PASSED'
+
+-- ── Migration 0067: document approvers ──────────────────────────────
+-- Per org and area, at most one Admin signs a document off. Admins read
+-- and write the row; a Viewer, an Athlete login and another org see and
+-- change nothing; the person must be an Admin of the same org. With an
+-- approver named, only they move a document of that area to Ready, and
+-- who approved is stamped and cleared by the database.
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000006701', 'approver67@bridge.example');
+insert into users (id, email, full_name) values ('00000000-0000-0000-0000-000000006701', 'approver67@bridge.example', 'Approver 67')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-000000006701', '00000000-0000-0000-0000-000000000010', 'owner');
+insert into documents (id, org_id, file_name, file_size, media_type, source_role, status, content_hash, category) values
+  ('00000000-0000-0000-0000-000000006710', '00000000-0000-0000-0000-000000000010', 't67.pdf', 10, 'application/pdf', 'admin', 'pending', 'hash-67t', 'transcript'),
+  ('00000000-0000-0000-0000-000000006711', '00000000-0000-0000-0000-000000000010', 's67.pdf', 10, 'application/pdf', 'admin', 'pending', 'hash-67s', 'test_scores'),
+  ('00000000-0000-0000-0000-000000006712', '00000000-0000-0000-0000-000000000010', 'r67.pdf', 10, 'application/pdf', 'admin', 'pending', 'hash-67r', 'recommendation');
+set role app_user;
+
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge OWNER
+do $$
+declare n int;
+begin
+  select count(*) into n from documents where id in ('00000000-0000-0000-0000-000000006710', '00000000-0000-0000-0000-000000006711', '00000000-0000-0000-0000-000000006712') and lifecycle = 'needs_review';
+  if n <> 3 then raise exception 'FAIL: the 0067 probe documents did not start in Needs Review (% of 3)', n; end if;
+  -- Nobody named: a transcript is one Admin tap, and who did it is kept.
+  update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000006712';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006712' and lifecycle = 'ready' and approved_by = '00000000-0000-0000-0000-000000000001' and approved_at is not null;
+  if n <> 1 then raise exception 'FAIL: with nobody named an Admin could not mark Ready, or the approval was not stamped'; end if;
+  update documents set lifecycle = 'needs_review' where id = '00000000-0000-0000-0000-000000006712';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006712' and approved_by is null and approved_at is null;
+  if n <> 1 then raise exception 'FAIL: moving back to Needs Review kept the approval'; end if;
+  raise notice 'PASS: with nobody named any Admin marks Ready, stamped and cleared by the database';
+
+  -- A Viewer is never an approver.
+  begin
+    insert into doc_approvers (org_id, area, user_id, set_by) values ('00000000-0000-0000-0000-000000000010', 'academic', '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: a Viewer was made an approver';
+  exception when check_violation then null;
+  end;
+  -- Nor an Admin of another org.
+  begin
+    insert into doc_approvers (org_id, area, user_id, set_by) values ('00000000-0000-0000-0000-000000000010', 'eligibility', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: another org''s Admin was made an approver here';
+  exception when check_violation then null;
+  end;
+  -- Nor an area that does not exist.
+  begin
+    insert into doc_approvers (org_id, area, user_id) values ('00000000-0000-0000-0000-000000000010', 'athletic', '00000000-0000-0000-0000-000000006701');
+    raise exception 'FAIL: an unknown area was accepted';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS: only an Admin of the same org holds a known area';
+
+  insert into doc_approvers (org_id, area, user_id, set_by) values ('00000000-0000-0000-0000-000000000010', 'academic', '00000000-0000-0000-0000-000000006701', '00000000-0000-0000-0000-000000000001');
+  select count(*) into n from doc_approvers where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 1 then raise exception 'FAIL: an Admin reads % approver rows, expected 1', n; end if;
+  -- One per area.
+  begin
+    insert into doc_approvers (org_id, area, user_id) values ('00000000-0000-0000-0000-000000000010', 'academic', '00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: two approvers held one area';
+  exception when unique_violation then null;
+  end;
+  -- Not into another org.
+  begin
+    insert into doc_approvers (org_id, area, user_id) values ('00000000-0000-0000-0000-000000000020', 'academic', '00000000-0000-0000-0000-000000000002');
+    raise exception 'FAIL: Bridge''s Admin named an approver for Elite Squad';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: an Admin names one approver per area in their own org only';
+
+  -- Named: the transcript waits on them; another Admin is refused.
+  begin
+    update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000006710';
+    raise exception 'FAIL: an Admin who is not the academic approver marked a transcript Ready';
+  exception when insufficient_privilege then null;
+  end;
+  -- Test scores have no named approver, so they stay one tap.
+  update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000006711';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006711' and lifecycle = 'ready';
+  if n <> 1 then raise exception 'FAIL: an area with nobody named stopped taking a single tap'; end if;
+  -- Who approved is never edited on its own.
+  update documents set approved_by = '00000000-0000-0000-0000-000000006701' where id = '00000000-0000-0000-0000-000000006711';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006711' and approved_by = '00000000-0000-0000-0000-000000000001';
+  if n <> 1 then raise exception 'FAIL: approved_by was rewritten outside a move'; end if;
+  raise notice 'PASS: a named approver gates their area only, and who approved cannot be rewritten';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000006701'); -- Bridge OWNER, the academic approver
+do $$
+declare n int;
+begin
+  update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000006710';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006710' and lifecycle = 'ready' and approved_by = '00000000-0000-0000-0000-000000006701';
+  if n <> 1 then raise exception 'FAIL: the academic approver could not mark their transcript Ready'; end if;
+  raise notice 'PASS: the named approver marks Ready and is recorded';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000003'); -- Bridge MEMBER (Viewer)
+do $$
+declare n int;
+begin
+  select count(*) into n from doc_approvers;
+  if n <> 0 then raise exception 'FAIL: a Viewer read % approver rows', n; end if;
+  update doc_approvers set user_id = '00000000-0000-0000-0000-000000000001' where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a Viewer changed an approver'; end if;
+  delete from doc_approvers where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a Viewer cleared an approver'; end if;
+  begin
+    insert into doc_approvers (org_id, area, user_id) values ('00000000-0000-0000-0000-000000000010', 'financial', '00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: a Viewer named an approver';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: a Viewer neither reads nor writes approvers';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000006301'); -- Bridge FAMILY (Athlete login)
+do $$
+declare n int;
+begin
+  select count(*) into n from doc_approvers;
+  if n <> 0 then raise exception 'FAIL: an Athlete login read % approver rows', n; end if;
+  delete from doc_approvers;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Athlete login cleared an approver'; end if;
+  begin
+    insert into doc_approvers (org_id, area, user_id) values ('00000000-0000-0000-0000-000000000010', 'financial', '00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: an Athlete login named an approver';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: an Athlete login neither reads nor writes approvers';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000002'); -- Elite OWNER, a stranger to Bridge
+do $$
+declare n int;
+begin
+  select count(*) into n from doc_approvers where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: another org''s Admin read Bridge''s approvers'; end if;
+  delete from doc_approvers where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: another org''s Admin cleared Bridge''s approver'; end if;
+  raise notice 'PASS: approvers stay inside their org';
+end $$;
+
+-- A demoted approver no longer gates: the row is stale, and the gate
+-- reads only Admins. (The app clears and logs the row on a demotion.)
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge OWNER
+do $$
+declare n int;
+begin
+  update documents set lifecycle = 'needs_review' where id = '00000000-0000-0000-0000-000000006710';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006710' and approved_by is null;
+  if n <> 1 then raise exception 'FAIL: the move back left the approval on the document'; end if;
+end $$;
+reset role;
+update org_members set role = 'member' where user_id = '00000000-0000-0000-0000-000000006701' and org_id = '00000000-0000-0000-0000-000000000010';
+set role app_user;
+do $$
+declare n int;
+begin
+  update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000006710';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006710' and lifecycle = 'ready';
+  if n <> 1 then raise exception 'FAIL: a demoted approver''s stale row still blocked Ready'; end if;
+  raise notice 'PASS: a demoted approver no longer blocks Ready';
+end $$;
+reset role;
+select set_test_user(null);
+\echo 'ALL 0067 ASSERTIONS PASSED'

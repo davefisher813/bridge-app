@@ -1102,6 +1102,9 @@ export function buildFixture(): Dataset {
       { id: IDS.assignmentElite, org_id: ELITE, athlete_id: IDS.athleteElite, title: "Squad Only Task", instructions: null, category: "other", kind: "other", due_on: "2026-09-02", status: "assigned", document_id: null, family_note: null, reviewer_comment: null, created_by: OWNER, reviewed_by: null, submitted_at: null, reviewed_at: null, created_at: "2026-08-30T14:00:00.000Z", updated_at: "2026-08-30T14:00:00.000Z" },
     ],
     benchmark_sets: [],
+    // Document approvers (migration 0067). Nobody named, as on
+    // production: Ready stays a single Admin tap.
+    doc_approvers: [],
     // The metrics log (migration 0021). Three fastball readings for the
     // pitcher from three source tiers, so "best verified, else most
     // recent" has something to choose between: the self-reported 88 is

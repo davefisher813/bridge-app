@@ -105,6 +105,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0062_activity_board
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0063_family_reads_columns_not_rows.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0064_member_giving_follows_module.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0065_family_reads_policies.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0067_doc_approvers.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
@@ -160,6 +161,13 @@ echo "==> 0058: down, then up again"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0058_document_athlete_link_down.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0058_document_athlete_link.sql"
 echo "==> 0058 is reversible"
+echo "==> 0067: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0067_doc_approvers_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from information_schema.columns where table_name = 'documents' and column_name in ('approved_by', 'approved_at')\"" | grep -qx 0
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from information_schema.tables where table_name = 'doc_approvers'\"" | grep -qx 0
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0067_doc_approvers.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_trigger where tgname in ('doc_approvers_is_admin', 'documents_ready_by_approver')\"" | grep -qx 2
+echo "==> 0067 is reversible"
 
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"

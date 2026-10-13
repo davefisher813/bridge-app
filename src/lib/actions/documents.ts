@@ -31,6 +31,8 @@ import { isRealDate } from "@/lib/docai/lenient";
 import { isStaleProcessing } from "@/lib/data/documentState";
 import { isFamilyStoragePathFor } from "@/lib/data/assignments";
 import { moveLifecycle } from "@/lib/data/vault";
+import { loadDocApprovers } from "@/lib/data/docApprovers";
+import { AREA_COVERS, AREA_LABEL, readyGate } from "@/lib/documents/approvers";
 import { checkVaultFile, isTextReadable, readerCanRead, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
 import { readerText } from "@/lib/vault/textExtract";
 import { didNotLookLike, isLifecycle, isStaleProcessing as isStaleLifecycle } from "@/lib/vault/lifecycle";
@@ -1640,9 +1642,19 @@ export async function moveDocument(slug: string, documentId: string, to: "ready"
   const user = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const { data } = await supabase.from("documents").select("id, lifecycle, lifecycle_changed_at, category, requested_category, athlete_id").eq("id", documentId).eq("org_id", org.id).maybeSingle();
-  const doc = data as { id: string; lifecycle: string; lifecycle_changed_at: string | null; category: DocCategoryId | null; requested_category: DocCategoryId | null; athlete_id: string | null } | null;
+  const { data } = await supabase.from("documents").select("id, lifecycle, lifecycle_changed_at, category, requested_category, filed_as, athlete_id").eq("id", documentId).eq("org_id", org.id).maybeSingle();
+  const doc = data as { id: string; lifecycle: string; lifecycle_changed_at: string | null; category: DocCategoryId | null; requested_category: DocCategoryId | null; filed_as: string | null; athlete_id: string | null } | null;
   if (!doc || !isLifecycle(doc.lifecycle)) return { ok: false, error: "That document is already gone.", gone: true };
+
+  // Doc AI piece 7 (migration 0067): a type with a named approver is
+  // marked Ready by that person only. Nobody named, any Admin, one tap.
+  // The database refuses the same; this says why in a sentence.
+  if (to === "ready") {
+    const gate = readyGate(readerTypeOf(doc), await loadDocApprovers(supabase, org.id), user.id);
+    if (gate.kind === "waiting") {
+      return { ok: false, error: `Waiting on ${gate.approver.name} to approve. Only the ${AREA_LABEL[gate.area]} marks ${AREA_COVERS[gate.area].toLowerCase()} Ready.` };
+    }
+  }
 
   // Out of Processing only when the reading has plainly died.
   if (doc.lifecycle === "processing" && !isStaleLifecycle(doc.lifecycle, doc.lifecycle_changed_at)) {
