@@ -60,6 +60,8 @@ const SAMPLE: { [A in ActivityAction]: ActivitySubjects[A] } = {
   steward_set: { name: "Fixture Donor", person: "Example Owner" },
   steward_cleared: { name: "Fixture Donor" },
   settings_changed: { setting: "the modules" },
+  doc_approver_set: { kind: "academic", person: "Example Owner" },
+  doc_approver_cleared: { kind: "financial" },
 };
 
 describe("activitySummary builds one sentence per action", () => {

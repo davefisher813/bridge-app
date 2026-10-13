@@ -9,6 +9,8 @@ import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
 import { applyRefusal, isStubReading } from "@/lib/data/readBy";
 import { editableFields } from "@/lib/data/extractedEdit";
 import type { DocCategoryId } from "@/lib/docai/types";
+import { loadReadyControl } from "@/lib/data/docApprovers";
+import { AREA_COVERS, AREA_LABEL, waitingTitle } from "@/lib/documents/approvers";
 import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, SelectField, Stack, TextLink } from "@/components/kit";
 import { LifecycleChip } from "@/components/LifecycleChip";
 import { longDate } from "@/lib/copy/dates";
@@ -235,7 +237,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const notice = query.notice;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireRole(org.id, STAFF_ROLES);
+  const viewer = await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -483,14 +485,24 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     </Section>
   );
 
-  // The moves a person makes. Mark Ready is only ever this tap.
+  // Who may mark it Ready (Doc AI piece 7, migration 0067), and who did.
+  const { gate, approvedBy } = await loadReadyControl(supabase, org.id, doc.id, readerType, viewer.id);
+
+  // The moves a person makes. Mark Ready is only ever this tap, by the
+  // area's named approver when there is one.
   const vaultButtons = (
     <>
-      {lifecycle === "needs_review" && (
-        <Form action={moveTo("ready")}>
-          <Button type="submit">Mark Ready</Button>
-        </Form>
-      )}
+      {lifecycle === "needs_review" &&
+        (gate.kind === "waiting" ? (
+          <Notice tone="info" title={waitingTitle(gate.approver)}>
+            {`Only the ${AREA_LABEL[gate.area]} marks ${AREA_COVERS[gate.area].toLowerCase()} Ready.`}
+          </Notice>
+        ) : (
+          <Form action={moveTo("ready")}>
+            <Button type="submit">Mark Ready</Button>
+          </Form>
+        ))}
+      {lifecycle === "ready" && approvedBy && <Label>{approvedBy}</Label>}
       {(lifecycle === "needs_review" || lifecycle === "ready") && (
         <Form action={moveTo("archived")}>
           <Button type="submit" variant="secondary">

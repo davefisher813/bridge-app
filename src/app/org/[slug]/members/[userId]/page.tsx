@@ -11,6 +11,8 @@ import { photoUrl } from "@/lib/people/photo";
 import { linkGuardian, unlinkGuardian, updateGuardianRelationship } from "@/lib/actions/guardians";
 import { canAdvise as roleCanAdvise, loadAdvisorChoices } from "@/lib/org/advisors";
 import { AdvisorSheet } from "@/components/AdvisorSheet";
+import { loadDocApprovers } from "@/lib/data/docApprovers";
+import { APPROVER_AREAS, AREA_LABEL } from "@/lib/documents/approvers";
 import { Avatar, Body, Button, Card, CheckField, Chevron, ConfirmButton, EmptyState, Field, Form, Hidden, Label, Notice, Prose, Row, Screen, Section, SelectField, Stack } from "@/components/kit";
 
 interface MemberRow {
@@ -109,6 +111,11 @@ export default async function MemberPage({
   const assignable = athletes.filter((a) => a.advisor_id !== member.user_id);
   // The one rule (src/lib/org/advisors.ts): only an Admin advises.
   const canAdvise = roleCanAdvise(role);
+  // The document areas they approve (migration 0067), named in every
+  // confirm that would take them away.
+  const approverMap = await loadDocApprovers(supabase, org.id);
+  const approves = APPROVER_AREAS.filter((a) => approverMap[a]?.id === member.user_id).map((a) => AREA_LABEL[a]);
+  const approverLoss = approves.length > 0 ? ` They stop being the ${approves.join(" and the ")}.` : "";
 
   const athleteOptions = (list: AthleteRow[] | { id: string; name: string }[]) =>
     list.map((a) => (
@@ -245,7 +252,7 @@ export default async function MemberPage({
                       tone="change"
                       disabled={onlyOwner}
                       title={`Make ${name} ${/^[AEIOU]/i.test(labelForRole(r)) ? "an" : "a"} ${labelForRole(r)}?`}
-                      body={`${ROLE_BLURB[r]}${!roleCanAdvise(r) && advises.length > 0 ? ` ${advises.length === 1 ? `${advises[0]!.name} loses their advisor.` : `${advises.length} athletes lose their advisor: ${advises.map((a) => a.name).join(", ")}.`}` : ""}`}
+                      body={`${ROLE_BLURB[r]}${!roleCanAdvise(r) && advises.length > 0 ? ` ${advises.length === 1 ? `${advises[0]!.name} loses their advisor.` : `${advises.length} athletes lose their advisor: ${advises.map((a) => a.name).join(", ")}.`}` : ""}${!roleCanAdvise(r) ? approverLoss : ""}`}
                       confirmLabel="Change Role"
                     >
                       {`Make Them ${labelForRole(r)}`}
@@ -268,7 +275,7 @@ export default async function MemberPage({
                   </SelectField>
                   <ConfirmButton
                     title={`Make ${name} ${familyLabel}?`}
-                    body={`They lose access to the rest of ${org.name}. Any athletes they advise lose their advisor, and a board seat linked to their sign-in is unlinked.`}
+                    body={`They lose access to the rest of ${org.name}. Any athletes they advise lose their advisor, and a board seat linked to their sign-in is unlinked.${approverLoss}`}
                     confirmLabel="Switch Role"
                   >
                     Switch to {familyLabel}
@@ -350,7 +357,7 @@ export default async function MemberPage({
           </Card>
         ) : (
           <Form action={removeMemberForm.bind(null, slug, member.user_id)}>
-            <ConfirmButton title={`Remove ${name} from ${org.name}?`} body={`Their account stays. They lose access to this organization only.${advises.length > 0 ? ` ${advises.length === 1 ? `${advises[0]!.name} loses their advisor.` : `${advises.length} athletes lose their advisor.`}` : ""}`} confirmLabel="Remove">
+            <ConfirmButton title={`Remove ${name} from ${org.name}?`} body={`Their account stays. They lose access to this organization only.${advises.length > 0 ? ` ${advises.length === 1 ? `${advises[0]!.name} loses their advisor.` : `${advises.length} athletes lose their advisor.`}` : ""}${approverLoss}`} confirmLabel="Remove">
               Remove From {org.name}
             </ConfirmButton>
           </Form>

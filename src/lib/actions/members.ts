@@ -14,6 +14,7 @@ import { RELATIONSHIPS } from "@/lib/copy/relationships";
 import { canAdvise, isEligibleAdvisor } from "@/lib/org/advisors";
 import { labelForRole } from "@/lib/org/roleLabels";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { areasHeldBy } from "@/lib/data/docApprovers";
 import { checkPhoto, PHOTO_PATH_SHAPE } from "@/lib/people/photo";
 
 // Who belongs to an org, and what they may do there. Owner only, and
@@ -392,12 +393,14 @@ interface Losses {
   advisees: { id: string; name: string }[];
   seats: { id: string; name: string }[];
   donors: { id: string; name: string }[];
+  // The document approver areas they held (academic, eligibility, financial).
+  approvals: string[];
   error: string | null;
 }
-const EMPTY_LOSSES: Losses = { advisees: [], seats: [], donors: [], error: null };
+const EMPTY_LOSSES: Losses = { advisees: [], seats: [], donors: [], approvals: [], error: null };
 
 async function clearAuthorityOf(admin: ReturnType<typeof createAdminClient>, orgId: string, userId: string, opts: { seats: boolean }): Promise<Losses> {
-  const out: Losses = { advisees: [], seats: [], donors: [], error: null };
+  const out: Losses = { advisees: [], seats: [], donors: [], approvals: [], error: null };
   // The trigger in 0039 only fires when an athlete is written, so the
   // column is cleared here, or the athletes they advised keep pointing at
   // somebody who no longer may and reminders keep counting them.
@@ -419,6 +422,14 @@ async function clearAuthorityOf(admin: ReturnType<typeof createAdminClient>, org
   const { error: stewardError } = await admin.from("donors").update({ steward_user_id: null }).eq("org_id", orgId).eq("steward_user_id", userId);
   if (stewardError) return { ...out, error: `their donors could not be unassigned: ${stewardError.message}` };
   out.donors = (donorRows ?? []) as { id: string; name: string }[];
+  // Only an Admin approves documents (migration 0067), so the areas they
+  // held are cleared and nobody is named until an Admin picks someone.
+  const areas = await areasHeldBy(admin, orgId, userId);
+  if (areas.length > 0) {
+    const { error: approverError } = await admin.from("doc_approvers").delete().eq("org_id", orgId).eq("user_id", userId);
+    if (approverError) return { ...out, error: `their document approver areas could not be cleared: ${approverError.message}` };
+    out.approvals = areas;
+  }
   return out;
 }
 
@@ -436,6 +447,9 @@ async function logLosses(admin: ReturnType<typeof createAdminClient>, orgId: str
   }
   for (const d of losses.donors) {
     await logActivity(admin, { orgId, actorId, action: "steward_cleared", subjectType: "donor", subjectId: d.id, summary: activitySummary("steward_cleared", { name: d.name }) });
+  }
+  for (const area of losses.approvals) {
+    await logActivity(admin, { orgId, actorId, action: "doc_approver_cleared", subjectType: "org", subjectId: orgId, summary: activitySummary("doc_approver_cleared", { kind: area }) });
   }
 }
 
