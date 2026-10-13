@@ -110,3 +110,22 @@ describe("the board page offers it behind a confirm", () => {
     expect(src).toContain("linkSeatsToDonorsByName(slug, id)");
   });
 });
+
+// Linked seats still read $0 when the gifts are last year's and the
+// screen can only show this one (Oct 13: every Bridge gift is 2024 or
+// 2025). Every give/get screen and the Fundraising overview can step
+// back a year, and the year is the org's, not the server's UTC clock.
+describe("give/get screens can show another year", () => {
+  const pages = [
+    "src/app/org/[slug]/board-governance/page.tsx",
+    "src/app/org/[slug]/board-governance/[id]/page.tsx",
+    "src/app/org/[slug]/board-governance/members/page.tsx",
+    "src/app/org/[slug]/board-governance/[id]/seats/[memberId]/page.tsx",
+    "src/app/org/[slug]/fundraising/page.tsx",
+  ];
+  it.each(pages)("%s renders a YearSwitch and takes the year from the org's day", (p) => {
+    const src = readFileSync(p, "utf8");
+    expect(src).toContain("<YearSwitch ");
+    expect(src).not.toContain("new Date().getFullYear()");
+  });
+});

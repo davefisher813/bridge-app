@@ -12,6 +12,7 @@
 //   - An in-kind gift is support, never cash.
 
 import { orgToday } from "@/lib/datetime/today";
+import { YearSwitch } from "@/components/YearSwitch";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -51,7 +52,8 @@ export default async function FundraisingPage({
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
   const today = orgToday();
-  const fiscalYear = Number(year) || Number(today.slice(0, 4));
+  const currentYear = Number(today.slice(0, 4));
+  const fiscalYear = Number(year) || currentYear;
 
   const supabase = await createClient();
   const [{ data: giftRows }, { data: pledgeRows }, { data: budgetRows }, { data: campaignRows }] = await Promise.all([
@@ -100,6 +102,7 @@ export default async function FundraisingPage({
 
   return (
     <Screen title="Fundraising" lede={fiscalYear}>
+      <YearSwitch year={fiscalYear} current={currentYear} hrefFor={(y) => `/org/${slug}/fundraising${y === currentYear ? "" : `?year=${y}`}`} />
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       <Stack gap={2}>
         <StatRow>

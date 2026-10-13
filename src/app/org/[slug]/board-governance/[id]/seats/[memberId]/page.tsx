@@ -13,6 +13,8 @@
 // test pins the counted rows to the same total giveGetProgress reports.
 
 import { notFound } from "next/navigation";
+import { YearSwitch } from "@/components/YearSwitch";
+import { orgToday } from "@/lib/datetime/today";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { Avatar, Body, Button, Card, Chip, ConfirmButton, EmptyState, Form, Label, LinkButton, Meter, Notice, Row, Screen, Section, SelectField, Stack, Stat, StatRow } from "@/components/kit";
@@ -75,7 +77,11 @@ export default async function SeatPage({
   const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
-  const fiscalYear = Number(year) || new Date().getFullYear();
+  const currentYear = Number(orgToday().slice(0, 4));
+  const fiscalYear = Number(year) || currentYear;
+  // The year rides along on every link inside give/get, so a chair
+  // looking at last year stays in last year.
+  const yq = fiscalYear === currentYear ? "" : `?year=${fiscalYear}`;
   const view = await loadGovernance(org.id, fiscalYear);
 
   const board = view.boards.find((b) => b.id === id);
@@ -111,10 +117,11 @@ export default async function SeatPage({
   return (
     <Screen
       title={member.name}
-      back={{ href: `/org/${slug}/board-governance/${board.id}`, label: board.name }}
-      lede={member.roleTitle ?? "No role set"}
+      back={{ href: `/org/${slug}/board-governance/${board.id}${yq}`, label: board.name }}
+      lede={`${member.roleTitle ?? "No role set"}, ${fiscalYear}`}
       action={<Chip label={STATUS_LABEL[member.status]} kind={SEAT_KIND[member.status]} role={member.status === "active" ? "committed" : "neutral"} />}
     >
+      <YearSwitch year={fiscalYear} current={currentYear} hrefFor={(y) => `/org/${slug}/board-governance/${board.id}/seats/${member.id}${y === currentYear ? "" : `?year=${y}`}`} />
       <StatRow>
         <Stat value={formatMoneyShort(p.givenCents)} label="Given" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts`} />
         <Stat value={formatMoneyShort(p.raisedCents)} label="Brought In" role="visit" kind="people" href={`/org/${slug}/fundraising/gifts`} />
