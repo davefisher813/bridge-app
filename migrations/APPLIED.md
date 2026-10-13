@@ -86,6 +86,6 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0064_member_giving_follows_module.sql | applied | 20261013071527 0064_member_giving_follows_module |
 | 0065_family_reads_policies.sql | applied | 20261013140655 0065_family_reads_policies |
 | 0066_family_sends_document.sql | pending | not on production yet |
-| 0067_doc_approvers.sql | pending | not on production yet |
+| 0067_doc_approvers.sql | applied | 20261013160123 0067_doc_approvers |
 | 0068_access_tightening.sql | pending | not on production yet |
-| 0069_document_title.sql | pending | not on production yet |
+| 0069_document_title.sql | applied | 20261013160125 0069_document_title |
