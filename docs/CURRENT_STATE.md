@@ -1,14 +1,23 @@
 # Current state
 
-Last updated: 2026-10-10 (go-live branch section below; the rest as of 2026-09-30). Everything through Stage 5 Phases 1, 2, 3, 4
-and 6 and the roles rework is deployed to production: migrations 0039 to
-0046 are applied, `main` is at the Phase 4 merge and Vercel is READY.
-Stage 5 Phase 5 (View As, migration 0047) is built, reviewed and
-dry-run against the production schema (rolled back, clean), and is
-pushed on branch `claude/stage5-phase5-viewas`. It is deliberately NOT
-merged and 0047 is NOT applied: Dave, 2026-09-30, "We will do that at
-the very end we don't need it right now." Spanish mode is on hold.
-Replaced wholesale when this changes meaningfully, never appended to.
+Last updated: 2026-10-13. `main` is deployed to production on Vercel.
+Migrations through 0065 are applied. 0047 (View As)
+stays cut. Replaced wholesale when this changes meaningfully, never
+appended to.
+
+**2026-10-13, finish order.** Board seats link to donor records by exact
+name behind a confirm (five of six linked on production; Dave Fisher has
+no donor record) and every give/get screen can step back a year, since
+all Bridge gifts on file are 2024 and 2025. A five-way audit's ~50
+defects are fixed with laws (recruiting windows and commitments, Today
+dates in the org's day, document undo and re-reads, Word and Excel text,
+grants and pledges, the auth callback redirect, authority side effects,
+Title Case everywhere). An Athlete login reads targets, visits and
+documents through functions that leave out staff columns (0063); Viewer
+and Athlete logins set their own name and password; the Viewer's giving
+summary follows the Fundraising module (0064). Open:
+non-admin test accounts on production (waiting on Dave), Doc AI pieces 5
+to 9 (see ROADMAP), the real bylaws (Alfred is locating them).
 
 **One-line summary.** Three access levels, each with their own app on
 the same database: an Admin runs recruiting, fundraising, governance and

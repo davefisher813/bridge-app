@@ -462,10 +462,24 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
 
 ## Doc AI rebuild, after Piece 1 (2026-10-08)
 
-Piece 1 (the vault, migration 0048) is built and awaiting review and
-merge. Ahead: Piece 2 classification, 3 extraction, 4 identity matching,
-5 and 8 family and personal uploads, 7 to 9 approver roles and the legacy
-migration.
+Status, 2026-10-13:
+
+- **1, the vault (0048):** built, in production.
+- **2, classification:** built. Every upload is read; No Type reads as
+  Other and suggests a type; a reading of the wrong type is caught.
+- **3, extraction:** built. Nine types, each Zod-validated, PDF, photos,
+  Word, Excel, CSV and text.
+- **4, identity matching:** built. Identity fields must be quoted from the
+  page, a re-read that disagrees is held, a document links to an athlete.
+- **5, family uploads:** partly. An Athlete login sends a file only as an
+  assignment answer; it is filed, not read. No open upload for families.
+- **6, previews:** not built. The document screen offers the file for
+  download, not an inline view. Never specified beyond the word.
+- **7 and 8, approver roles:** blocked. Needs Dave to name the academic,
+  eligibility and financial approvers. Until then Ready is one Admin tap.
+- **8, personal uploads:** not built and not specified.
+- **9, legacy migration:** not built. Needs the old Bridge app's documents
+  as a source; none has been handed over.
 
 **Approver roles for Pieces 7 and 8, names unassigned.** Three kinds of
 approver sign off a document before it can be treated as final: an
