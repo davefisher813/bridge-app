@@ -114,7 +114,7 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
   const typed = !!label;
   const title =
     doc.status === "filed"
-      ? `Family Upload${athlete ? ` · ${athlete}` : ""}`
+      ? `Athlete Upload${athlete ? ` · ${athlete}` : ""}`
       : doc.category
         ? // A reference reading (Board Document, Other) is never matched to
           // an athlete, so it never says "no match".

@@ -29,11 +29,11 @@ import { Button, Choice, ChoiceRow, FileField, Label, Notice, SelectField, Stack
 const CATEGORIES: { id: DocCategoryId | null; label: string }[] = [{ id: null, label: "No Type" }, ...READER_TYPES];
 
 const SOURCE_ROLES: { id: SourceRole; label: string }[] = [
-  { id: "coordinator", label: "I uploaded it" },
-  { id: "admin", label: "An Admin uploaded it" },
-  { id: "parent", label: "A parent sent it" },
-  { id: "athlete", label: "The athlete sent it" },
-  { id: "email", label: "It came in by email" },
+  { id: "coordinator", label: "I Uploaded It" },
+  { id: "admin", label: "An Admin Uploaded It" },
+  { id: "parent", label: "A Parent Sent It" },
+  { id: "athlete", label: "The Athlete Sent It" },
+  { id: "email", label: "It Came in by Email" },
 ];
 
 function newRequestId(): string {
@@ -216,7 +216,7 @@ export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialA
 
       <FileField
         name="files"
-        label={files.length ? `${files.length} File${files.length === 1 ? "" : "s"} Chosen` : "Take a Photo or Choose a File"}
+        label={files.length ? `${files.length} ${files.length === 1 ? "File" : "Files"} Chosen` : "Take a Photo or Choose a File"}
         hint={files.length ? files.map((f) => f.name).join(", ") : `${VAULT_FORMATS_SENTENCE}. Up to 10 MB each. Read: ${READER_FORMATS_SENTENCE}.`}
         // HEIC is deliberately NOT listed. An iPhone converts a HEIC
         // photo to JPEG on the way into a file input only when HEIC is

@@ -373,7 +373,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       : isApplied
         ? "This reading is already on the athlete. Undo it first, then Read Again."
         : isFiled
-          ? "A family upload is filed, not read."
+          ? "An Athlete upload is filed, not read."
           : stubRead
             ? "The stand-in read this one. Upload the file again to have it read by the model."
             : null;
@@ -382,7 +382,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const correctable = isPending && !stubRead && doc.category && doc.category !== "film" && doc.extracted ? editableFields(doc.category as DocCategoryId, doc.extracted).length > 0 : false;
 
   const headline = isFiled
-    ? "Family Upload"
+    ? "Athlete Upload"
     : isFailed
     ? "Kept for Review"
     : isProcessing

@@ -75,10 +75,7 @@ describe("LAW: a title is written in Title Case", () => {
   // board governance) still carry sentence-case titles this check finds.
   // Each comes off this list when its screen is fixed; nothing new goes
   // on it.
-  const NOT_YET_SWEPT = [
-    "src/app/org/[slug]/documents/",
-    "src/components/DocumentUploader.tsx",
-  ];
+  const NOT_YET_SWEPT: string[] = [];
   it("a title chosen by a condition or a fallback, and every label: in a list, is Title Case", () => {
     const offenders: string[] = [];
     for (const f of UI.filter((f) => !NOT_YET_SWEPT.some((p) => rel(f).startsWith(p)))) {
@@ -167,7 +164,7 @@ describe("LAW: a file the athlete login sent is an Athlete Upload, not a Family 
   // The documents screens belong to another pass and still say Family
   // Upload; they come off this list when that pass lands. Nothing new
   // goes on it.
-  const NOT_YET_SWEPT = ["src/app/org/[slug]/documents/"];
+  const NOT_YET_SWEPT: string[] = [];
   it("no screen or component outside that list says Family Upload", () => {
     const files = walk(SRC).filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f) && (f.includes("/app/") || f.includes("/components/")) && !NOT_YET_SWEPT.some((p) => rel(f).startsWith(p)));
     const offenders: string[] = [];
