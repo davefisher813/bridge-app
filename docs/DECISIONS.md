@@ -4221,3 +4221,42 @@ originals are permanent (migration 0048), on his word.
 undone, so no Undo is ever lost. A stored file another document still
 points at (a duplicate upload) is kept. Spending history, course rows
 and assignments keep their own data and lose only the pointer.
+
+## 2026-10-13: board seats link to donors by exact name, and give/get steps back a year
+
+**Decision.** The board page offers every unlinked seat whose name is
+exactly one donor's name (case, accents and punctuation set aside) as
+one confirmed step, Link Them, logged per seat (migration 0062). Two
+donors of that name, or none, is left for a person to pick on the seat.
+Boards, each board, Every Seat, each seat and the Fundraising overview
+gain Show <year before>, and the year carries between give/get screens.
+
+**Reason.** Every Bridge seat was unlinked, so the Board view read $0
+given and 0% of give/get (Dave via Alfred). Once linked it still read $0
+for 2026, because every Bridge gift on file is 2024 or 2025 and the
+screens only ever showed the current year.
+
+**Consequences.** Five of six seats linked on production. Dave Fisher's
+seat has no donor record and stays unlinked until one exists.
+
+## 2026-10-13: an Athlete login reads columns, not whole rows
+
+**Decision.** Migration 0063 takes the family clause off the read
+policies of documents, recruiting_targets and target_visits. An Athlete
+login reads them through four security-definer functions
+(family_targets, family_target_visits, family_documents,
+family_document_twin) that return only what the Athlete screens show,
+loaded through src/lib/data/familyReads.ts. Migration 0064 makes the
+Viewer's member_giving return nothing when the org runs no Fundraising.
+
+**Reason.** Role audit, 2026-10-13. Row-level security picks rows, never
+columns. With the anon key an Athlete login could read a document's
+reading (whose candidates name other athletes, all minors), a target's
+notes and coach, and a visit's notes, none of which its screens show.
+
+**Alternatives.** Views over the tables (refused by the views law, which
+holds every view to the caller's rights); moving the staff columns into
+side tables (touches every staff screen and action).
+
+**Consequences.** familyReadLaws walks every family-reachable screen and
+loader for a direct read of the three tables. Staff reads are unchanged.
