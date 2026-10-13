@@ -183,6 +183,10 @@ export function buildFixture(): Dataset {
         // coaches, transfer windows; migration 0040). Elite does not, so
         // an owner who is not a directory editor has a fixture too.
         edits_shared_directory: true,
+        // The owner holds the master account here (migration 0070), so
+        // the access actions run through the master check. Elite has
+        // none, so the old any-Admin path has a fixture too.
+        master_user_id: OWNER,
       },
       {
         id: ELITE,
@@ -194,6 +198,7 @@ export function buildFixture(): Dataset {
         scoring_preset: "balanced",
         docai_budget_cents: 0,
         edits_shared_directory: false,
+        master_user_id: null,
       },
     ],
     org_members: [

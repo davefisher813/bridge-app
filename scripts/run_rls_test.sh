@@ -109,6 +109,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0066_family_sends_d
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0067_doc_approvers.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0068_access_tightening.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0069_document_title.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0070_org_master_account.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
@@ -191,6 +192,13 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0066_family_sends_d
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_proc where proname = 'family_send_document'\"" | grep -qx 1
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_policy where polname = 'documents_bucket_family_insert' and pg_get_expr(polwithcheck, polrelid) ~ '_family_athlete_ids'\"" | grep -qx 1
 echo "==> 0066 is reversible"
+echo "==> 0070: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0070_org_master_account_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from information_schema.columns where table_name = 'orgs' and column_name = 'master_user_id'\"" | grep -qx 0
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0070_org_master_account.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_trigger where tgname in ('orgs_master_is_admin', 'org_members_master_stays')\"" | grep -qx 2
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_proc where proname = 'family_documents' and prosrc ~ 'recommendation'\"" | grep -qx 1
+echo "==> 0070 is reversible"
 
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"

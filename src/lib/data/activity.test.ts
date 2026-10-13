@@ -63,6 +63,7 @@ const SAMPLE: { [A in ActivityAction]: ActivitySubjects[A] } = {
   settings_changed: { setting: "the modules" },
   doc_approver_set: { kind: "academic", person: "Example Owner" },
   doc_approver_cleared: { kind: "financial" },
+  master_transferred: { person: "Example Owner" },
 };
 
 describe("activitySummary builds one sentence per action", () => {

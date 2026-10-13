@@ -7,6 +7,7 @@ import { resendInviteForm } from "@/lib/actions/members";
 import { photoUrl } from "@/lib/people/photo";
 import { Avatar, Body, Button, Card, EmptyState, Form, Label, LinkButton, Notice, Row, Screen, Section, Stack, Stat, StatRow, Chevron } from "@/components/kit";
 import { ACCESS_GUIDE } from "@/lib/org/accessGuide";
+import { managesAccess, masterName } from "@/lib/org/master";
 
 interface MemberRow {
   photo_path?: string | null;
@@ -55,11 +56,20 @@ export default async function MembersPage({
   const invited = rows.filter((r) => r.user_id !== me.id && !r.person?.last_sign_in_at);
   // Their Title, when an Admin has set one, then their access level:
   // this is the screen where access is managed, so it always shows.
-  const label = (r: MemberRow) => [cleanTitle(r.title), labelForRole(r.role)].filter(Boolean).join(" · ");
+  const label = (r: MemberRow) => [r.user_id === org.masterUserId ? "Master Account" : null, cleanTitle(r.title), labelForRole(r.role)].filter(Boolean).join(" · ");
+  // The master account (migration 0070): while one is named, only they
+  // invite, resend or change access; everyone else is told who does.
+  const canManage = managesAccess(org.masterUserId, me.id);
+  const master = canManage ? null : await masterName(supabase, org.masterUserId);
 
   return (
     <Screen title="Members" back={{ href: `/org/${slug}/more`, label: "More" }}>
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
+      {!canManage && (
+        <Notice tone="info" title={`Access Levels Are Set by ${master}`}>
+          {`${master} holds the master account, so only they invite people, change access or remove someone.`}
+        </Notice>
+      )}
 
       <StatRow>
         <Stat value={people.length} label="People" role="people" kind="people" />
@@ -93,18 +103,20 @@ export default async function MembersPage({
               title={r.person?.full_name || r.person?.email || "Unknown"}
               meta={`${label(r)} · invited ${shortDate(r.created_at)}`}
               trailing={
-                <Form action={resendInviteForm.bind(null, slug, r.user_id)}>
-                  <Button variant="quiet" inline>
-                    Resend
-                  </Button>
-                </Form>
+                canManage ? (
+                  <Form action={resendInviteForm.bind(null, slug, r.user_id)}>
+                    <Button variant="quiet" inline>
+                      Resend
+                    </Button>
+                  </Form>
+                ) : undefined
               }
             />
           ))}
         </Section>
       )}
 
-      <LinkButton href={`/org/${slug}/members/new`}>Invite Someone</LinkButton>
+      {canManage && <LinkButton href={`/org/${slug}/members/new`}>Invite Someone</LinkButton>}
       {/* What each access level sees, so an Admin knows before inviting
           (Alfred's audit, 2026-10-10). The same rules the database
           enforces; see src/lib/org/accessGuide.ts. */}

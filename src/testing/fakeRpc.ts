@@ -116,7 +116,8 @@ export function fakeRpc(data: Dataset, userId: string | null, name: string, args
     const athleteId = args.p_athlete;
     if (!staffOf(data, orgId, userId) && !guardianOf(data, orgId, athleteId, userId)) return { data: [], error: null };
     const rows = (data.documents ?? [])
-      .filter((d) => d.org_id === orgId && d.athlete_id === athleteId)
+      // Migration 0070: a recommendation letter is never returned.
+      .filter((d) => d.org_id === orgId && d.athlete_id === athleteId && (d.category ?? d.requested_category ?? "") !== "recommendation")
       .sort(newestFirst("created_at"))
       .map((d) => ({ id: d.id, file_name: d.file_name, category: d.category ?? null, status: d.status, media_type: d.media_type, file_size: d.file_size, created_at: d.created_at }));
     return { data: rows, error: null };

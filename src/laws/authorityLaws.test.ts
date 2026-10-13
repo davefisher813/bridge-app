@@ -126,6 +126,8 @@ describe("LAW: a role change asks first and says who loses their advisor", () =>
 describe("LAW: a demotion or a removal logs every athlete who lost their advisor", () => {
   it("one advisor_cleared row per advisee", async () => {
     data.org_members.push({ id: "m-second", user_id: "00000000-0000-0000-0000-0000000000d9", org_id: data.orgs[0]!.id, role: "owner" });
+    // No master account named, so the owner may step down (0070).
+    data.orgs[0]!.master_user_id = null;
     const advised = data.athletes.filter((a) => a.advisor_id === OWNER_ID && a.org_id === data.orgs[0]!.id).length;
     expect(advised).toBeGreaterThan(0);
     const { changeMemberRole } = await import("@/lib/actions/members");

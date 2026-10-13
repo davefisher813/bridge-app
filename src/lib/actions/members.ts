@@ -16,6 +16,7 @@ import { labelForRole } from "@/lib/org/roleLabels";
 import { activitySummary, logActivity } from "@/lib/data/activity";
 import { areasHeldBy } from "@/lib/data/docApprovers";
 import { checkPhoto, PHOTO_PATH_SHAPE } from "@/lib/people/photo";
+import { accessRefusal, managesAccess, masterName, MASTER_PROTECTED } from "@/lib/org/master";
 
 // Who belongs to an org, and what they may do there. Owner only, and
 // every write goes through the service role on purpose: org_members has
@@ -55,6 +56,14 @@ async function personName(supabase: Supabase, userId: string): Promise<string | 
   return (data as { full_name: string | null } | null)?.full_name?.trim() || null;
 }
 
+// The master account gate (migration 0070): null when this caller may
+// change who has access, or the sentence that refuses them. Runs before
+// any write.
+async function masterGate(org: { masterUserId: string | null }, callerId: string): Promise<string | null> {
+  if (managesAccess(org.masterUserId, callerId)) return null;
+  return accessRefusal(await masterName(await createClient(), org.masterUserId));
+}
+
 export async function inviteMember(slug: string, _prev: MemberActionState, formData: FormData): Promise<MemberActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
@@ -62,6 +71,8 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   // 2026-09-21: "staff invite a family from the athlete's page"). Every
   // other role is an owner's to hand out, as before.
   const user = await requireRole(org.id, STAFF_ROLES);
+  const refused = await masterGate(org, user.id);
+  if (refused) return { errors: { form: refused }, values: Object.fromEntries(formData.entries()) };
 
   const parsed = parseInviteForm(formData);
   if (!parsed.ok || !parsed.values) {
@@ -275,6 +286,8 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
   const caller = await requireOwner(org.id);
+  const refused = await masterGate(org, caller.id);
+  if (refused) return { ok: false, error: refused };
 
   // staff is retired (migration 0041) and parses as nothing, so a
   // stale form or a hand-built request for it is refused before any
@@ -314,6 +327,8 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
     if (owners.length === 1 && owners[0] === userId) {
       return { ok: false, error: "This is the organization's only Admin. Make someone else an Admin first." };
     }
+    // The master account stays an Admin until it is handed on (0070).
+    if (userId === org.masterUserId) return { ok: false, error: MASTER_PROTECTED };
   }
 
   if (!serviceRoleConfigured()) return { ok: false, error: "Changing roles is not set up on this server yet: the service role key is missing." };
@@ -457,11 +472,18 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
   const caller = await requireOwner(org.id);
+  // Leaving is always yours to do; removing anyone else is the master's
+  // when one is named. The master themselves stays until they transfer.
+  if (userId !== caller.id) {
+    const refused = await masterGate(org, caller.id);
+    if (refused) return { ok: false, error: refused };
+  }
 
   const owners = await ownersOf(org.id);
   if (owners.length === 1 && owners[0] === userId) {
     return { ok: false, error: "This is the organization's only Admin. Make someone else an Admin first." };
   }
+  if (userId === org.masterUserId) return { ok: false, error: MASTER_PROTECTED };
 
   if (!serviceRoleConfigured()) return { ok: false, error: "Removing members is not set up on this server yet: the service role key is missing." };
 
@@ -525,7 +547,9 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
 export async function resendInvite(slug: string, userId: string): Promise<{ ok: boolean; error?: string }> {
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
-  await requireOwner(org.id);
+  const caller = await requireOwner(org.id);
+  const refused = await masterGate(org, caller.id);
+  if (refused) return { ok: false, error: refused };
 
   const supabase = await createClient();
   const { data: person } = await supabase.from("users").select("email").eq("id", userId).maybeSingle();
@@ -565,6 +589,48 @@ export async function removeMemberForm(slug: string, userId: string): Promise<vo
 export async function resendInviteForm(slug: string, userId: string): Promise<void> {
   const r = await resendInvite(slug, userId);
   redirect(`/org/${slug}/members?${r.ok ? `notice=${q("A new sign-in link is on its way.")}` : `error=${q(r.error ?? "Could not send the link.")}`}`);
+}
+
+// ── The master account (migration 0070) ───────────────────────────────
+// Who alone changes access. The master hands it to another Admin; while
+// nobody holds it, any Admin may take it, for themselves only. Each is
+// asked first in the screen, written by the server (orgs has no client
+// write policy), and logged.
+export async function transferMasterAccount(slug: string, toUserId: string): Promise<{ ok: boolean; error?: string }> {
+  const org = await getOrgBySlug(slug);
+  if (!org) return { ok: false, error: "Organization not found." };
+  const caller = await requireOwner(org.id);
+  if (org.masterUserId === null ? toUserId !== caller.id : org.masterUserId !== caller.id) {
+    return { ok: false, error: org.masterUserId === null ? "You can only make yourself the master account." : accessRefusal(await masterName(await createClient(), org.masterUserId)) };
+  }
+  if (toUserId === org.masterUserId) return { ok: true };
+
+  const supabase = await createClient();
+  if (!(await isEligibleAdvisor(supabase, org.id, toUserId))) return { ok: false, error: "Only an Admin of this organization can be the master account." };
+  if (!serviceRoleConfigured()) return { ok: false, error: "Changing the master account is not set up on this server yet: the service role key is missing." };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("orgs").update({ master_user_id: toUserId }).eq("id", org.id).select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Organization not found." };
+
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: caller.id,
+    action: "master_transferred",
+    subjectType: "org",
+    subjectId: org.id,
+    summary: activitySummary("master_transferred", { person: (await personName(supabase, toUserId)) ?? "" }),
+  });
+  revalidatePath(`/org/${slug}/settings`);
+  revalidatePath(`/org/${slug}/members`);
+  return { ok: true };
+}
+
+export async function transferMasterAccountForm(slug: string, formData: FormData): Promise<void> {
+  const to = String(formData.get("userId") ?? "").trim();
+  const r = await transferMasterAccount(slug, to);
+  redirect(`/org/${slug}/settings?${r.ok ? `notice=${q("Master Account Changed.")}` : `error=${q(r.error ?? "Could not change the master account.")}`}`);
 }
 
 // ── Names (audit crud F17) ───────────────────────────────────────────

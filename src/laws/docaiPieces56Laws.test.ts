@@ -219,7 +219,9 @@ describe("LAW: an Athlete login sends a document for its own athlete, filed for 
     expect(fn).toMatch(/perform private\.log_family_document_sent\(doc_id\)/);
     expect(fn).not.toMatch(/insert into public\.activity_log/);
     const listed = fn.match(/clean_type not in \(([^)]*)\)/)?.[1]?.match(/'([a-z_]+)'/g)?.map((s) => s.slice(1, -1)) ?? [];
-    expect(listed).toEqual(FAMILY_SEND_TYPES.map((t) => t.id));
+    // The app offers the SQL's list less Recommendation (0070: a family
+    // never sees one, so is never offered one to send).
+    expect(listed.filter((t) => t !== "recommendation")).toEqual(FAMILY_SEND_TYPES.map((t) => t.id));
     expect(listed).not.toContain("board_document");
     expect(fn).toContain("'/family/' || p_athlete::text || '_[A-Za-z0-9_-]+/[A-Za-z0-9._-]+$'");
     expect(sql).toMatch(/revoke execute on function public\.family_send_document\([^)]*\) from public, anon;/);
