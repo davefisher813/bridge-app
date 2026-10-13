@@ -318,27 +318,6 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
   if (!serviceRoleConfigured()) return { ok: false, error: "Changing roles is not set up on this server yet: the service role key is missing." };
 
   const admin = createAdminClient();
-  // A member or a family login cannot advise (migration 0039). The
-  // trigger only fires when an athlete is written, so the change clears
-  // the column itself, or the athletes they advised keep pointing at
-  // somebody who no longer may and reminders keep counting them.
-  // What the change takes away, read first so each loss is on the
-  // record below (Dave's standing rule, 2026-10-06: nothing changes
-  // silently).
-  const lostAdvisees = nextRole === "member" || becomingFamily ? await adviseesOf(admin, org.id, userId) : [];
-  const lostSeats: { id: string; name: string }[] = [];
-  if (becomingFamily) {
-    const { data: seatRows } = await admin.from("board_members").select("id, name").eq("org_id", org.id).eq("user_id", userId);
-    lostSeats.push(...((seatRows ?? []) as { id: string; name: string }[]));
-  }
-  if (nextRole === "member" || becomingFamily) {
-    const { error: advisorError } = await admin.from("athletes").update({ advisor_id: null }).eq("org_id", org.id).eq("advisor_id", userId);
-    if (advisorError) return { ok: false, error: advisorError.message };
-  }
-  if (becomingFamily) {
-    const { error: seatError } = await admin.from("board_members").update({ user_id: null }).eq("org_id", org.id).eq("user_id", userId);
-    if (seatError) return { ok: false, error: seatError.message };
-  }
   if (leavingFamily) {
     const { error: linkError } = await admin.from("athlete_guardians").delete().eq("org_id", org.id).eq("user_id", userId);
     if (linkError) return { ok: false, error: linkError.message };
@@ -364,6 +343,16 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
   // An Admin who just made themselves a Viewer is no longer one, so the
   // insert policy would refuse their own client; the server records it
   // for them (the row still names them as the actor).
+  //
+  // Only now, with the role (and a family login's athlete link) in place,
+  // does anything the change takes away go: their advisor assignments
+  // (a Viewer or Athlete cannot advise, migration 0039), a board seat's
+  // sign-in (an Athlete cannot hold one), and their stewardships (only
+  // an Admin stewards). Clearing first meant a failed athlete link put
+  // the role back and left the athletes advisor-less with nothing on the
+  // record.
+  const losing = nextRole === "member" || becomingFamily;
+  const cleared = losing ? await clearAuthorityOf(admin, org.id, userId, { seats: becomingFamily }) : EMPTY_LOSSES;
   await logActivity(caller.id === userId ? admin : supabase, {
     orgId: org.id,
     actorId: caller.id,
@@ -373,7 +362,8 @@ export async function changeMemberRole(slug: string, userId: string, role: unkno
     athleteId: becomingFamily ? athleteId : null,
     summary: activitySummary("member_role_changed", { name: (await personName(supabase, userId)) ?? "", from: labelForRole(currentRole), to: labelForRole(nextRole) }),
   });
-  await logLosses(admin, org.id, caller.id, lostAdvisees, lostSeats);
+  await logLosses(admin, org.id, caller.id, cleared);
+  if (cleared.error) return { ok: false, error: `The role changed, but ${cleared.error}` };
 
   revalidatePath(`/org/${slug}/members`);
   revalidatePath(`/org/${slug}/members/${userId}`);
@@ -392,17 +382,60 @@ async function adviseesOf(admin: ReturnType<typeof createAdminClient>, orgId: st
   return (data ?? []) as { id: string; name: string }[];
 }
 
-// One log row per athlete who lost their advisor and per board seat that
-// lost its sign-in as a side effect of a role change or a removal, so the
-// Activity screen shows every one of them. Through the service role: the
-// caller may have just removed or demoted themselves, and the row still
-// names them as the actor.
-async function logLosses(admin: ReturnType<typeof createAdminClient>, orgId: string, actorId: string, advisees: { id: string; name: string }[], seats: { id: string; name: string }[]): Promise<void> {
-  for (const a of advisees) {
+// What a person loses with a demotion or a removal: the athletes they
+// advise, the board seats signed in as them, the donors they steward.
+// Each is read and then cleared, and only what was actually cleared is
+// returned, so the log below never records a loss that did not happen
+// and never misses one that did. Stops at the first failure and says
+// which.
+interface Losses {
+  advisees: { id: string; name: string }[];
+  seats: { id: string; name: string }[];
+  donors: { id: string; name: string }[];
+  error: string | null;
+}
+const EMPTY_LOSSES: Losses = { advisees: [], seats: [], donors: [], error: null };
+
+async function clearAuthorityOf(admin: ReturnType<typeof createAdminClient>, orgId: string, userId: string, opts: { seats: boolean }): Promise<Losses> {
+  const out: Losses = { advisees: [], seats: [], donors: [], error: null };
+  // The trigger in 0039 only fires when an athlete is written, so the
+  // column is cleared here, or the athletes they advised keep pointing at
+  // somebody who no longer may and reminders keep counting them.
+  // Each update runs whether or not the read found anything, so a row
+  // written in between is still cleared.
+  const advisees = await adviseesOf(admin, orgId, userId);
+  const { error: advisorError } = await admin.from("athletes").update({ advisor_id: null }).eq("org_id", orgId).eq("advisor_id", userId);
+  if (advisorError) return { ...out, error: `their athletes could not be unassigned: ${advisorError.message}` };
+  out.advisees = advisees;
+  if (opts.seats) {
+    const { data: seatRows } = await admin.from("board_members").select("id, name").eq("org_id", orgId).eq("user_id", userId);
+    const { error } = await admin.from("board_members").update({ user_id: null }).eq("org_id", orgId).eq("user_id", userId);
+    if (error) return { ...out, error: `their board seat could not be unlinked: ${error.message}` };
+    out.seats = (seatRows ?? []) as { id: string; name: string }[];
+  }
+  // Only an Admin stewards a donor (the steward picker offers Admins
+  // only), so a Viewer, an Athlete or somebody gone stops stewarding.
+  const { data: donorRows } = await admin.from("donors").select("id, name").eq("org_id", orgId).eq("steward_user_id", userId);
+  const { error: stewardError } = await admin.from("donors").update({ steward_user_id: null }).eq("org_id", orgId).eq("steward_user_id", userId);
+  if (stewardError) return { ...out, error: `their donors could not be unassigned: ${stewardError.message}` };
+  out.donors = (donorRows ?? []) as { id: string; name: string }[];
+  return out;
+}
+
+// One log row per athlete who lost their advisor, per board seat that
+// lost its sign-in and per donor who lost their steward as a side effect
+// of a role change or a removal, so the Activity screen shows every one
+// of them. Through the service role: the caller may have just removed or
+// demoted themselves, and the row still names them as the actor.
+async function logLosses(admin: ReturnType<typeof createAdminClient>, orgId: string, actorId: string, losses: Losses): Promise<void> {
+  for (const a of losses.advisees) {
     await logActivity(admin, { orgId, actorId, action: "advisor_cleared", subjectType: "athlete", subjectId: a.id, athleteId: a.id, summary: activitySummary("advisor_cleared", { name: a.name }) });
   }
-  for (const seat of seats) {
+  for (const seat of losses.seats) {
     await logActivity(admin, { orgId, actorId, action: "seat_unlinked", subjectType: "seat", subjectId: seat.id, summary: activitySummary("seat_unlinked", { name: seat.name }) });
+  }
+  for (const d of losses.donors) {
+    await logActivity(admin, { orgId, actorId, action: "steward_cleared", subjectType: "donor", subjectId: d.id, summary: activitySummary("steward_cleared", { name: d.name }) });
   }
 }
 
@@ -430,15 +463,26 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
 
   const admin = createAdminClient();
   // The athletes they advised here lose their advisor with the
-  // membership, for the same reason as a demotion above, each on the
-  // record.
-  const lostAdvisees = await adviseesOf(admin, org.id, userId);
-  const { error: advisorError } = await admin.from("athletes").update({ advisor_id: null }).eq("org_id", org.id).eq("advisor_id", userId);
-  if (advisorError) return { ok: false, error: advisorError.message };
+  // membership, for the same reason as a demotion above, and so do the
+  // board seats signed in as them and the donors they steward: a seat
+  // whose sign-in is gone would come back to life on a re-invite, and a
+  // steward who is not here stewards nobody. Each loss is on the record,
+  // logged even when a later step fails.
+  const cleared = await clearAuthorityOf(admin, org.id, userId, { seats: true });
+  if (cleared.error) {
+    await logLosses(admin, org.id, caller.id, cleared);
+    return { ok: false, error: `Not removed: ${cleared.error}` };
+  }
   const { error: linkError } = await admin.from("athlete_guardians").delete().eq("user_id", userId).eq("org_id", org.id);
-  if (linkError) return { ok: false, error: linkError.message };
+  if (linkError) {
+    await logLosses(admin, org.id, caller.id, cleared);
+    return { ok: false, error: linkError.message };
+  }
   const { error } = await admin.from("org_members").delete().eq("user_id", userId).eq("org_id", org.id);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    await logLosses(admin, org.id, caller.id, cleared);
+    return { ok: false, error: error.message };
+  }
 
   // The activity log (Stage 5, Phase 6): one row, org-level, naming who
   // left. An Admin who removed themselves is no longer a member here, and
@@ -453,7 +497,7 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
     subjectId: userId,
     summary: activitySummary("member_removed", { name: name ?? "" }),
   });
-  await logLosses(admin, org.id, caller.id, lostAdvisees, []);
+  await logLosses(admin, org.id, caller.id, cleared);
 
   revalidatePath(`/org/${slug}/members`);
   revalidatePath(`/org/${slug}/mine`);

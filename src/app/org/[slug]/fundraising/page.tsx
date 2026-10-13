@@ -106,7 +106,7 @@ export default async function FundraisingPage({
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
       <Stack gap={2}>
         <StatRow>
-          <Stat value={formatMoneyShort(s.totalCashCents)} label="Raised" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts`} />
+          <Stat value={formatMoneyShort(s.totalCashCents)} label="Raised" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts?year=${fiscalYear}`} />
           <Stat value={formatMoneyShort(s.totalBudgetCents)} label="Budget" role="contact" kind="scale" href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`} />
         </StatRow>
         <Label>{budgetPercent === null ? "Cash in the door. No budget set for the year." : `Cash in the door, ${budgetPercent}% of the year's budget.`}</Label>
@@ -135,7 +135,7 @@ export default async function FundraisingPage({
           // either believe or do not, which is the whole complaint about
           // the spreadsheet this replaces.
           return (
-            <Card key={c.category} href={`/org/${slug}/fundraising/gifts?category=${c.category}`}>
+            <Card key={c.category} href={`/org/${slug}/fundraising/gifts?category=${c.category}&year=${fiscalYear}`}>
               <Stack gap={2}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -166,7 +166,7 @@ export default async function FundraisingPage({
       {s.totalInKindCents > 0 && (
         <Section label="In Kind" role="place" kind="grant">
           <Row
-            href={`/org/${slug}/fundraising/gifts?method=in_kind`}
+            href={`/org/${slug}/fundraising/gifts?method=in_kind&year=${fiscalYear}`}
             kind="grant"
             role="place"
             emphasis="bold"

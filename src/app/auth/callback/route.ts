@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { safeLocalPath } from "@/lib/auth/safePath";
 
 // Where a magic link, an invitation or a recovery email lands. Two
 // shapes arrive here depending on how the Supabase email template is
@@ -17,11 +18,11 @@ import { createClient } from "@/lib/supabase/server";
 
 const OTP_TYPES: EmailOtpType[] = ["magiclink", "invite", "recovery", "email", "signup", "email_change"];
 
+// Only a path on this site. A full URL here would make the callback an
+// open redirect for anyone who could get a person to tap a link, and so
+// would "/\evil.com", which a browser reads as //evil.com.
 function safeNext(value: string | null): string {
-  // Only a path on this site. A full URL here would make the callback an
-  // open redirect for anyone who could get a person to tap a link.
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
-  return value;
+  return safeLocalPath(value);
 }
 
 export async function GET(request: NextRequest) {
@@ -46,5 +47,8 @@ export async function GET(request: NextRequest) {
     const message = "That sign-in link is not valid any more. Ask for a new one.";
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(message)}`, url.origin));
   }
-  return NextResponse.redirect(new URL(next, url.origin));
+  // Resolved and checked once more against this origin, so nothing that
+  // slipped past safeNext can leave the site.
+  const target = new URL(next, url.origin);
+  return NextResponse.redirect(target.origin === url.origin ? target : new URL("/", url.origin));
 }

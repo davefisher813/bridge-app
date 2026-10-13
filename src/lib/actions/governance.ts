@@ -179,9 +179,22 @@ async function readSeatForm(
   const donorId = String(formData.get("donorId") ?? "").trim() || null;
   let donor: { name: string; email: string | null; phone: string | null } | null = null;
   if (donorId) {
-    const { data } = await supabase.from("donors").select("id, name, email, phone").eq("id", donorId).eq("org_id", orgId).is("deleted_at", null).maybeSingle();
+    const { data } = await supabase.from("donors").select("id, name, email, phone, deleted_at").eq("id", donorId).eq("org_id", orgId).maybeSingle();
     if (!data) return { errors: { donorId: "That donor is not in this organization." } };
-    donor = data as { name: string; email: string | null; phone: string | null };
+    const found = data as { name: string; email: string | null; phone: string | null; deleted_at: string | null };
+    // A removed donor cannot be newly picked, but a seat already linked
+    // to one keeps the link through an edit. Rejecting it would make
+    // every save of that seat fail, and the edit screen offers it as
+    // the current choice (the same rule Edit Gift keeps).
+    if (found.deleted_at) {
+      let stored: string | null = null;
+      if (editingSeatId) {
+        const { data: seat } = await supabase.from("board_members").select("donor_id").eq("id", editingSeatId).eq("org_id", orgId).maybeSingle();
+        stored = (seat as { donor_id: string | null } | null)?.donor_id ?? null;
+      }
+      if (stored !== donorId) return { errors: { donorId: "That donor is not in this organization." } };
+    }
+    donor = found;
   }
 
   const typed = (field: string) => String(formData.get(field) ?? "").trim() || null;

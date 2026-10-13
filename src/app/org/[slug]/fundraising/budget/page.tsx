@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { orgToday } from "@/lib/datetime/today";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -22,7 +23,9 @@ export default async function BudgetPage({
   if (!org.modules.donor_fundraising) notFound();
   await requireRole(org.id, STAFF_ROLES);
 
-  const fiscalYear = Number(year) || new Date().getFullYear();
+  // The org's year, not the server's: on New Year's Eve evening UTC is
+  // already next year.
+  const fiscalYear = Number(year) || Number(orgToday().slice(0, 4));
 
   const supabase = await createClient();
   const { data } = await supabase

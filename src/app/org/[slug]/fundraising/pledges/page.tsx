@@ -61,7 +61,7 @@ export default async function PledgesPage({ params, searchParams }: { params: Pr
       wrap
       trailing={
         <Body weight="bold" numeric>
-          {r.outstanding === 0 ? "Paid" : formatMoney(r.outstanding)}
+          {r.p.status === "written_off" ? "Written Off" : r.outstanding === 0 ? "Paid" : formatMoney(r.outstanding)}
         </Body>
       }
     />

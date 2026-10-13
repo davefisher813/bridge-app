@@ -5,12 +5,13 @@
 // That is the same reason the donors list computes rather than reads.
 
 import { notFound } from "next/navigation";
+import { orgToday } from "@/lib/datetime/today";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { toGifts, toPledges, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
-import { donorTotals, formatMoney, formatMoneyShort, outstandingOn, CATEGORY_LABEL, type GiftCategory } from "@/lib/fundraising/rollup";
+import { donorTotals, formatMoney, formatMoneyShort, outstandingOn, CATEGORY_LABEL, METHOD_LABEL, type GiftCategory } from "@/lib/fundraising/rollup";
 import { Avatar, Body, Chevron, ConfirmButton, EmptyState, Form, Hidden, LinkButton, Notice, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
 import { AdvisorSheet } from "@/components/AdvisorSheet";
 import { loadAdvisorChoices } from "@/lib/org/advisors";
@@ -31,7 +32,10 @@ export default async function DonorPage({ params, searchParams }: { params: Prom
   const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
-  const fiscalYear = Number(new Date().toISOString().slice(0, 4));
+  // The org's calendar year, not the server's UTC one: from 7pm on New
+  // Year's Eve in New York, UTC is already next year and This Year would
+  // read $0.
+  const fiscalYear = Number(orgToday().slice(0, 4));
   const supabase = await createClient();
   const [{ data: donor }, { data: giftRows }, { data: pledgeRows }, { data: seatRows }] = await Promise.all([
     // A removed donor is out of the address book (audit crud F10); their
@@ -102,19 +106,24 @@ export default async function DonorPage({ params, searchParams }: { params: Prom
       </Section>
 
       <StatRow>
-        <Stat value={formatMoneyShort(totals.lifetimeCashCents)} label="Lifetime" role="committed" href={`/org/${slug}/fundraising/gifts`} />
-        <Stat value={formatMoneyShort(totals.thisYearCashCents)} label="This Year" role="contact" href={`/org/${slug}/fundraising/gifts`} />
-        <Stat value={String(totals.giftCount)} label="Gifts" href={`/org/${slug}/fundraising/gifts`} />
+        {/* Each figure opens the gifts it is made of: this donor's, and
+            for This Year only that year's, so the ledger's total is the
+            number that was tapped. */}
+        <Stat value={formatMoneyShort(totals.lifetimeCashCents)} label="Lifetime" role="committed" href={`/org/${slug}/fundraising/gifts?donor=${id}`} />
+        <Stat value={formatMoneyShort(totals.thisYearCashCents)} label="This Year" role="contact" href={`/org/${slug}/fundraising/gifts?donor=${id}&year=${fiscalYear}`} />
+        <Stat value={String(totals.giftCount)} label="Gifts" href={`/org/${slug}/fundraising/gifts?donor=${id}`} />
       </StatRow>
 
       {totals.lifetimeInKindCents > 0 && (
-        <Row href={`/org/${slug}/fundraising/gifts?method=in_kind`} kind="grant" role="place" emphasis="bold" title={`${formatMoney(totals.lifetimeInKindCents)} in Kind`} meta="Support, not cash." />
+        <Row href={`/org/${slug}/fundraising/gifts?method=in_kind&donor=${id}`} kind="grant" role="place" emphasis="bold" title={`${formatMoney(totals.lifetimeInKindCents)} in Kind`} meta="Support, not cash." />
       )}
 
       {/* A board member who gives is one person, not two records. This
           link is what stops give/get and the donor ledger reading as
           unrelated numbers. */}
-      {seat && (
+      {/* Only with the Board module on: the seat screen does not exist
+          without it, and a link to it would land on Not Found. */}
+      {seat && org.modules.board_governance && (
         <Row
           href={`/org/${slug}/board-governance/${seat.board_id}/seats/${seat.id}`}
           kind="people"
@@ -140,7 +149,7 @@ export default async function DonorPage({ params, searchParams }: { params: Prom
                 meta={p.dueOn ? `due ${longDate(p.dueOn)}` : undefined}
                 trailing={
                   <Body weight="bold" numeric>
-                    {out === 0 ? "Paid" : `${formatMoney(out)} left`}
+                    {p.status === "written_off" ? "Written Off" : out === 0 ? "Paid" : `${formatMoney(out)} left`}
                   </Body>
                 }
               />
@@ -161,7 +170,7 @@ export default async function DonorPage({ params, searchParams }: { params: Prom
               kind={g.method === "in_kind" ? "grant" : "money"}
               role={g.method === "in_kind" ? "place" : "committed"}
               title={CATEGORY_LABEL[g.category as GiftCategory] ?? g.category}
-              meta={`${longDate(g.receivedOn)} · ${g.method === "in_kind" ? "in kind" : g.method}`}
+              meta={`${longDate(g.receivedOn)} · ${METHOD_LABEL[g.method] ?? g.method}`}
               trailing={
                 <Body weight="bold" numeric>
                   {formatMoney(g.amountCents)}

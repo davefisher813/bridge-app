@@ -19,10 +19,10 @@ import { AddButton, Chip, EmptyState, LinkButton, Notice, Row, Screen, Section }
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
 import { formatMoneyShort } from "@/lib/fundraising/rollup";
+import { grantAttention, type GrantAttention, type GrantStatus } from "@/lib/fundraising/grantAttention";
 
 export const dynamic = "force-dynamic";
 
-type GrantStatus = "researching" | "applied" | "pending" | "awarded" | "declined" | "closed";
 
 // Which glyph each grant status wears, added 2026-09-17 when the pills
 // lost their fills. A status needs a shape now that the tint that used to
@@ -39,7 +39,7 @@ const GRANT_KIND: Record<GrantStatus, RowKind> = {
 const STATUS_LABEL: Record<GrantStatus, string> = {
   researching: "Researching",
   applied: "Applied",
-  pending: "Awaiting decision",
+  pending: "Awaiting Decision",
   awarded: "Awarded",
   declined: "Declined",
   closed: "Closed",
@@ -123,12 +123,19 @@ export default async function GrantsPage({ params, searchParams }: { params: Pro
   const grants = (data ?? []) as GrantRow[];
   const today = orgToday();
 
-  // Anything with a date that has passed or is close. This is the whole
-  // point of tracking grants separately from gifts.
-  const soon = grants.filter((g) => {
-    const dates = [g.deadline_on, g.decision_expected_on, g.report_due_on].filter((d): d is string => !!d);
-    return dates.some((d) => d <= today);
+  // A date that has passed, at the stage it belongs to. This is the whole
+  // point of tracking grants separately from gifts. grantAttention()
+  // skips a declined or closed grant and an awarded one with no report
+  // owed, and names the one date that applies.
+  const soon = grants.flatMap((g) => {
+    const a = grantAttention(g, today);
+    return a ? [{ g, a }] : [];
   });
+  const ATTENTION_TEXT: Record<GrantAttention["kind"], string> = {
+    report: "Report was due",
+    deadline: "Application deadline was",
+    decision: "Decision was expected",
+  };
 
   return (
     <Screen
@@ -145,20 +152,14 @@ export default async function GrantsPage({ params, searchParams }: { params: Pro
         <>
           {soon.length > 0 && (
             <Section label="Needs Attention" count={soon.length} role="offer" kind="warning">
-              {soon.map((g) => (
+              {soon.map(({ g, a }) => (
                 <Row
                   key={g.id}
                   href={canEdit ? `/org/${slug}/fundraising/grants/${g.id}/edit` : undefined}
                   kind="grant"
                   role="offer"
                   title={g.funder_name}
-                  meta={
-                    g.report_due_on && g.report_due_on <= today
-                      ? `Report was due ${shortDate(g.report_due_on)}`
-                      : g.deadline_on && g.deadline_on <= today && !g.applied_on
-                        ? `Application deadline was ${shortDate(g.deadline_on)}`
-                        : `Decision was expected ${shortDate(g.decision_expected_on)}`
-                  }
+                  meta={`${ATTENTION_TEXT[a.kind]} ${shortDate(a.on)}`}
                   wrap
                 />
               ))}

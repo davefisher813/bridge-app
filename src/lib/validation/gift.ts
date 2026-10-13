@@ -1,16 +1,13 @@
 import { z } from "zod";
-import { GIFT_CATEGORIES, toCents, type GiftCategory } from "@/lib/fundraising/rollup";
+import { GIFT_CATEGORIES, METHOD_LABEL as ROLLUP_METHOD_LABEL, toCents, type GiftCategory } from "@/lib/fundraising/rollup";
 
 export const GIFT_METHODS = ["stripe", "check", "cash", "in_kind", "other"] as const;
 export type GiftMethodValue = (typeof GIFT_METHODS)[number];
 
-export const METHOD_LABEL: Record<GiftMethodValue, string> = {
-  stripe: "Stripe",
-  check: "Check",
-  cash: "Cash",
-  in_kind: "In kind",
-  other: "Other",
-};
+// One label table for a method, the one in rollup.ts. This file had its
+// own, which called a card payment "Stripe" on the form while the ledger
+// called it "Card". The form now reads the same table as every screen.
+export const METHOD_LABEL: Record<GiftMethodValue, string> = ROLLUP_METHOD_LABEL;
 
 export interface GiftFormValues {
   amountCents: number;

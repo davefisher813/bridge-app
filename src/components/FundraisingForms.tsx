@@ -204,7 +204,7 @@ export function PledgeForm({
 const GRANT_STATUSES = [
   { value: "researching", label: "Researching" },
   { value: "applied", label: "Applied" },
-  { value: "pending", label: "Awaiting decision" },
+  { value: "pending", label: "Awaiting Decision" },
   { value: "awarded", label: "Awarded" },
   { value: "declined", label: "Declined" },
   { value: "closed", label: "Closed" },
