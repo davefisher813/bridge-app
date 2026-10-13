@@ -95,7 +95,7 @@ export default async function BoardGovernancePage({
             <Stat value={formatMoneyShort(totals.raised)} label="Delivered" role={roleFor(overallPercent)} kind="check" href={`/org/${slug}/board-governance/members${yq}`} />
           </StatRow>
 
-          <Note title={overallPercent === null ? "No commitments set" : `${overallPercent}% delivered`}>
+          <Note title={overallPercent === null ? "No Commitments Set" : `${overallPercent}% delivered`}>
             Across {totals.seats} active {totals.seats === 1 ? "seat" : "seats"}, {totals.meeting} of {totals.seats} fully met. Give/get counts both
             halves: a member meets their number by giving it or by bringing it in, and a gift is never counted twice when they did both.
           </Note>

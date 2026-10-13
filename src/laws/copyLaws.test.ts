@@ -77,11 +77,7 @@ describe("LAW: a title is written in Title Case", () => {
   // on it.
   const NOT_YET_SWEPT = [
     "src/app/org/[slug]/documents/",
-    "src/app/org/[slug]/fundraising/",
-    "src/app/org/[slug]/board-governance/",
-    "src/app/org/[slug]/member/giving/",
     "src/components/DocumentUploader.tsx",
-    "src/components/FundraisingForms.tsx",
   ];
   it("a title chosen by a condition or a fallback, and every label: in a list, is Title Case", () => {
     const offenders: string[] = [];

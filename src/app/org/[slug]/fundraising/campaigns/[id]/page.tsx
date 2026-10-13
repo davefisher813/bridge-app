@@ -85,7 +85,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
               href={g.donorId && !removed.has(g.donorId) ? `/org/${slug}/fundraising/donors/${g.donorId}` : undefined}
               kind={g.method === "in_kind" ? "grant" : "money"}
               role={g.method === "in_kind" ? "place" : "committed"}
-              title={g.donorId ? (donorName.get(g.donorId) ?? "Unknown donor") : "Anonymous"}
+              title={g.donorId ? (donorName.get(g.donorId) ?? "Unknown Donor") : "Anonymous"}
               meta={longDate(g.receivedOn)}
               trailing={
                 <Body weight="bold" numeric>

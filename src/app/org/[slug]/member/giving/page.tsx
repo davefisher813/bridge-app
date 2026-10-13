@@ -75,7 +75,7 @@ export default async function MemberGivingPage({ params }: { params: Promise<{ s
                       key={c.gift.id}
                       kind="money"
                       role={c.counted ? "high" : "target"}
-                      title={c.credit === "given" ? "Your gift" : `${(c.gift.donorId && seat.donorNames.get(c.gift.donorId)) || "A donor"}, brought in by you`}
+                      title={c.credit === "given" ? "Your Gift" : `${(c.gift.donorId && seat.donorNames.get(c.gift.donorId)) || "A Donor"}, brought in by you`}
                       meta={`${formatMoney(c.gift.amountCents)} · ${longDate(c.gift.receivedOn)}${c.counted ? "" : c.excludedBecause === "in_kind" ? " · in kind, not counted" : " · outside this year, not counted"}`}
                       wrap
                     />
