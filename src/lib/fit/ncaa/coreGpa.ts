@@ -78,6 +78,11 @@ export interface CoreCourse {
   // the row it came from. Without it the only key is the title, and both
   // halves of "English 11" answer to that.
   term?: string | null;
+  // The caller's own id for the row, carried through untouched and never
+  // read here. Title plus term is not a key: two courses can share a
+  // title in the same term, and keyed that way one row showed the
+  // other's result.
+  id?: string;
 }
 
 // Per-subject credit minimums for the division being evaluated. Passed

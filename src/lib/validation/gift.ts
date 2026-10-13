@@ -110,6 +110,9 @@ export interface PledgeFormValues {
   promisedOn: string;
   dueOn: string | null;
   campaignId: string | null;
+  // The board seat that brought the promise in, for give/get. Only on the
+  // form when the Board module is on (see updatePledge).
+  solicitedBy: string | null;
   notes: string | null;
 }
 
@@ -150,6 +153,7 @@ export function parsePledgeForm(formData: FormData): PledgeFormResult {
       promisedOn,
       dueOn,
       campaignId: strOrNull(formData.get("campaignId")),
+      solicitedBy: strOrNull(formData.get("solicitedBy")),
       notes: strOrNull(formData.get("notes")),
     },
   };

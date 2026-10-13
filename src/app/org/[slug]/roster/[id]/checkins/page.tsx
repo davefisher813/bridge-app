@@ -4,7 +4,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { longDate } from "@/lib/copy/dates";
 import { loadStaff } from "@/lib/data/staff";
-import { CHECKIN_DUE_DAYS, CHECKIN_KIND_LABEL, checkinDue, daysSinceCheckin, type CheckinKind } from "@/lib/checkins";
+import { CHECKIN_DUE_DAYS, CHECKIN_KIND_LABEL, checkinAuthorName, checkinDue, daysSinceCheckin, type CheckinKind } from "@/lib/checkins";
 import { logCheckin, removeCheckin } from "@/lib/actions/checkins";
 import { CheckinForm } from "@/components/CheckinForm";
 import { checkinPhotoUrl } from "@/lib/checkinPhoto";
@@ -26,11 +26,6 @@ interface CheckinRow {
   notes: string | null;
   advisor_id: string | null;
   photo_path: string | null;
-  users: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null;
-}
-
-function unwrap<T>(v: T | T[] | null): T | null {
-  return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
 export default async function CheckinsPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
@@ -42,7 +37,7 @@ export default async function CheckinsPage({ params }: { params: Promise<{ slug:
   const supabase = await createClient();
   const [{ data: athlete }, { data: checkinRows }, staff, { data: committedRows }] = await Promise.all([
     supabase.from("athletes").select("id, name, advisor_id, status, detail, draft_team, draft_round, draft_year").eq("id", id).eq("org_id", org.id).is("deleted_at", null).single(),
-    supabase.from("athlete_checkins").select("id, kind, occurred_on, notes, advisor_id, photo_path, users(full_name, email)").eq("org_id", org.id).eq("athlete_id", id).order("occurred_on", { ascending: false }),
+    supabase.from("athlete_checkins").select("id, kind, occurred_on, notes, advisor_id, photo_path").eq("org_id", org.id).eq("athlete_id", id).order("occurred_on", { ascending: false }),
     loadStaff(supabase, org.id),
     supabase.from("recruiting_targets").select("id, status").eq("org_id", org.id).eq("athlete_id", id).eq("status", "Committed"),
   ]);
@@ -51,10 +46,7 @@ export default async function CheckinsPage({ params }: { params: Promise<{ slug:
   // The advisor by the staff list rather than an embed: a removed or
   // demoted advisor is not on it, and reads as nobody picked.
   const advisor = staff.find((s) => s.id === athlete.advisor_id) ?? null;
-  const entries = ((checkinRows ?? []) as CheckinRow[]).map((c) => {
-    const person = c.advisor_id ? unwrap(c.users) : null;
-    return { ...c, by: person?.full_name?.trim() || person?.email?.trim() || "Someone Who Left" };
-  });
+  const entries = ((checkinRows ?? []) as CheckinRow[]).map((c) => ({ ...c, by: checkinAuthorName(staff, c.advisor_id) }));
 
   const lastOn = entries[0]?.occurred_on ?? null;
   const today = new Date();

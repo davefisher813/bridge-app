@@ -177,11 +177,12 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   const lastCheckin = latestByAthlete((checkinRows ?? []) as { athlete_id: string; occurred_on: string | null }[]);
   const staffById = new Map(staff.map((s) => [s.id, s]));
   const advised = ((athleteRows ?? []) as AthleteRow[]).filter((a) => a.advisor_id && staffById.has(a.advisor_id));
-  const checkinReminders = sortByNeed(
+  const allCheckinReminders = sortByNeed(
     advised
       .filter((a) => isScoredStatus(effectiveById.get(a.id) ?? a.status) && checkinDue(lastCheckin.get(a.id), today))
       .map((a) => ({ athleteId: a.id, name: a.name, days: daysSinceCheckin(lastCheckin.get(a.id), today), advisorFirstName: staffById.get(a.advisor_id!)!.name.split(" ")[0] })),
-  ).slice(0, 4);
+  );
+  const checkinReminders = allCheckinReminders.slice(0, 4);
   // The way into My Athletes, with the same due rule the screen uses.
   const mine = advised.filter((a) => a.advisor_id === user.id);
   const mineDue = mine.filter((a) => isScoredStatus(effectiveById.get(a.id) ?? a.status) && checkinDue(lastCheckin.get(a.id), today)).length;
@@ -193,8 +194,11 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   const { submitted: toReview, overdue: overdueWork } = partitionOrgAssignments(openAssignments, assignmentDay);
   const ASSIGNMENTS_SHOWN = 5;
 
-  const needsFollowUp = rows
-    .filter((r) => OPEN_STATUSES.includes(r.status))
+  // The count is the whole of both lists, the way every other section
+  // counts; only the rows shown are cut to the first four of each.
+  const openTargets = rows.filter((r) => OPEN_STATUSES.includes(r.status));
+  const followUpCount = allCheckinReminders.length + openTargets.length;
+  const needsFollowUp = openTargets
     .sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime())
     .slice(0, 4)
     .map((r) => ({
@@ -294,7 +298,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
         </Section>
       )}
 
-      <Section label="Needs Follow-Up" count={checkinReminders.length + needsFollowUp.length} action={needsFollowUp.length > 0 ? <TextLink href={`/org/${slug}/board`}>View Board</TextLink> : undefined}>
+      <Section label="Needs Follow-Up" count={followUpCount} action={needsFollowUp.length > 0 ? <TextLink href={`/org/${slug}/board`}>View Board</TextLink> : undefined}>
         {checkinReminders.length === 0 && needsFollowUp.length === 0 ? (
           <EmptyState kind="check" role="committed" title="Nothing Needs a Follow-Up" action={<LinkButton href={`/org/${slug}/board`}>Open Targets</LinkButton>}
           />

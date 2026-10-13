@@ -249,6 +249,7 @@ export function buildEligibilityView(input: EligibilityInput): EligibilityView {
       const original = rows[converted.sourceIndex[i]!];
       const built: CoreCourse = {
         ...c,
+        id: original?.id,
         ncaaApproved: original?.ncaa_approved ?? undefined,
         duplicateOf: original?.duplicate_of ?? undefined,
         // Without this the engine's bonus lookup finds nothing and

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { orgToday } from "@/lib/datetime/today";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -43,7 +44,7 @@ export default async function DraftAthletePage({ params }: { params: Promise<{ s
       )}
       <DraftForm
         action={markDrafted.bind(null, slug, id)}
-        initial={{ team: athlete.draft_team ?? undefined, round: athlete.draft_round ?? undefined, year: athlete.draft_year ?? new Date().getFullYear() }}
+        initial={{ team: athlete.draft_team ?? undefined, round: athlete.draft_round ?? undefined, year: athlete.draft_year ?? Number(orgToday().slice(0, 4)) }}
         submitLabel={already ? "Save Changes" : "Mark Drafted"}
       />
     </Screen>
