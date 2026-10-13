@@ -73,6 +73,9 @@ on conflict (id) do update set full_name = excluded.full_name;
 insert into orgs (id, name, slug) values
   ('00000000-0000-0000-0000-000000000010', 'Bridge', 'bridge'),
   ('00000000-0000-0000-0000-000000000020', 'Elite Squad', 'elite-squad');
+-- Bridge runs Fundraising, as on production; member_giving (0064)
+-- answers only for an org that does.
+update orgs set modules = modules || '{"donor_fundraising": true}'::jsonb where id = '00000000-0000-0000-0000-000000000010';
 insert into org_members (user_id, org_id, role) values
   ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', 'owner'),
   ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000020', 'owner'),
@@ -4870,3 +4873,25 @@ begin
   raise notice 'PASS: the family functions are for the signed in only';
 end $$;
 \echo 'ALL 0063 ASSERTIONS PASSED'
+
+-- ── Migration 0064: member_giving follows the Fundraising module ─────
+-- Elite Squad runs no Fundraising; its own Admin asking for the giving
+-- summary gets null, and Bridge's member still gets theirs.
+reset role;
+update orgs set modules = modules || '{"donor_fundraising": false}'::jsonb where id = '00000000-0000-0000-0000-000000000020';
+update orgs set modules = modules || '{"donor_fundraising": true}'::jsonb where id = '00000000-0000-0000-0000-000000000010';
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000000002'); -- Elite OWNER
+do $$
+begin
+  if member_giving('00000000-0000-0000-0000-000000000020') is not null then raise exception 'FAIL: member_giving answered for an org with Fundraising off'; end if;
+  raise notice 'PASS: member_giving returns nothing when the org runs no Fundraising';
+end $$;
+select set_test_user('00000000-0000-0000-0000-000000000003'); -- Bridge MEMBER
+do $$
+begin
+  if member_giving('00000000-0000-0000-0000-000000000010') is null then raise exception 'FAIL: member_giving went quiet for an org with Fundraising on'; end if;
+  raise notice 'PASS: member_giving still answers with Fundraising on';
+end $$;
+reset role;
+\echo 'ALL 0064 ASSERTIONS PASSED'

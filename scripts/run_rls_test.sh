@@ -103,6 +103,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0060_doc_category_b
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0061_activity_document_deleted.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0062_activity_board_seat_donor_linked.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0063_family_reads_columns_not_rows.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0064_member_giving_follows_module.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

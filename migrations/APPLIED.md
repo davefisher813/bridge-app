@@ -83,3 +83,4 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0061_activity_document_deleted.sql | applied | 20261012001852 0061_activity_document_deleted |
 | 0062_activity_board_seat_donor_linked.sql | applied | 20261013062611 0062_activity_board_seat_donor_linked |
 | 0063_family_reads_columns_not_rows.sql | pending | not on production yet |
+| 0064_member_giving_follows_module.sql | pending | not on production yet |
