@@ -205,6 +205,11 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "family-assignment", path: "@/app/org/[slug]/family/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentOverdue }) }, expect: /Send Fall Transcript[\s\S]*Overdue[\s\S]*Submit/, as: FAMILY_ID },
   { name: "family-assignment-revision", path: "@/app/org/[slug]/family/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentRevision }) }, expect: /What to Change[\s\S]*second parent[\s\S]*Fix and Resubmit/, as: FAMILY_ID },
   { name: "family-assignment-submitted", path: "@/app/org/[slug]/family/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentSubmitted }) }, expect: /Sent for Review/, as: FAMILY_ID },
+  // Doc AI Pieces 5 and 6, 2026-10-13: the Athlete login sends a document
+  // outside any assignment, and the document screen shows what a stored
+  // file holds (here a Word file's text, as the reader gets it).
+  { name: "family-send-document", path: "@/app/org/[slug]/family/[id]/documents/new/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Send a Document[\s\S]*Type[\s\S]*Note[\s\S]*Send Document/, as: FAMILY_ID },
+  { name: "document-word-preview", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: "doc-word" }), searchParams: p({}) }, expect: /team-letter\.docx[\s\S]*What the Reader Sees/ },
   { name: "approved-list", path: "@/app/org/[slug]/approved-courses/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.orgList }), searchParams: p({}) }, expect: /Unscaled High School/ },
   { name: "grading-scale", path: "@/app/org/[slug]/grading-scales/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.orgScale }) }, expect: /Fixture High School/ },
   { name: "document", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.document }) }, expect: /fixture.pdf/ },

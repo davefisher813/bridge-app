@@ -85,3 +85,4 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0063_family_reads_columns_not_rows.sql | applied | 20261013071223 0063_family_reads_functions |
 | 0064_member_giving_follows_module.sql | applied | 20261013071527 0064_member_giving_follows_module |
 | 0065_family_reads_policies.sql | applied | 20261013140655 0065_family_reads_policies |
+| 0066_family_sends_document.sql | pending | not on production yet |

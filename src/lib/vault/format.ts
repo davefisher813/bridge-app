@@ -149,6 +149,12 @@ export function extensionOf(fileName: string): string {
   return dot < 0 ? "" : base.slice(dot + 1).toLowerCase();
 }
 
+// The format a stored name says, and the media type it is served as; null
+// for a name that is none of the seven.
+export function formatOfName(fileName: string): { format: VaultFormat; mediaType: string } | null {
+  return EXTENSION_TO_FORMAT[extensionOf(fileName)] ?? null;
+}
+
 export type FormatCheck =
   | { ok: true; format: VaultFormat; extension: string; mediaType: string; size: number }
   | { ok: false; reason: string; code: "empty" | "too_big" | "not_accepted" | "mismatch" };

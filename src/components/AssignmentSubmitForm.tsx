@@ -3,13 +3,15 @@
 import { useActionState, useState } from "react";
 import { submitAssignment, type AssignmentActionState } from "@/lib/actions/assignments";
 import { SUBMIT_FIELDS, ASSIGNMENT_TEXT_MAX, familyStoragePath, type AssignmentKind } from "@/lib/data/assignments";
+import { familyRequestFolder } from "@/lib/data/familySend";
 import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
 import { createClient } from "@/lib/supabase/client";
 import { Button, FileField, Form, Notice, Stack, TextAreaField } from "@/components/kit";
 
 // The Athlete login's answer to one assignment: a note, and for an
 // upload assignment a file. A client component because the file goes to
-// the documents bucket from the browser, under <org>/family/<request>/,
+// the documents bucket from the browser, under <org>/family/<request>/
+// (the request folder starts with the athlete's id: migration 0066),
 // and only its path rides the action (Next caps a server action body at
 // 1MB, the same reason DocumentUploader uploads first). Then the one
 // write is submitAssignment, which reads the bytes back, checks them and
@@ -65,7 +67,7 @@ export function AssignmentSubmitForm({ slug, orgId, athleteId, assignmentId, kin
       if (file.size > MAX_INGEST_BYTES) {
         return { errors: { file: `${file.name} is over ${Math.floor(MAX_INGEST_BYTES / (1024 * 1024))} MB. Send a smaller file.` }, note };
       }
-      const path = familyStoragePath(orgId, newRequestId(), file.name);
+      const path = familyStoragePath(orgId, familyRequestFolder(athleteId, newRequestId()), file.name);
       if (!path) return { errors: { file: "That file could not be sent from this screen. Try again." }, note };
 
       setStage("Uploading");

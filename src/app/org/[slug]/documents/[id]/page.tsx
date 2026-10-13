@@ -9,11 +9,13 @@ import { ageOf, isStaleProcessing } from "@/lib/data/documentState";
 import { applyRefusal, isStubReading } from "@/lib/data/readBy";
 import { editableFields } from "@/lib/data/extractedEdit";
 import type { DocCategoryId } from "@/lib/docai/types";
-import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, Row, Screen, Section, SelectField, Stack, TextLink } from "@/components/kit";
+import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, OpenFileLink, Photo, Row, Screen, Section, SelectField, Stack, TextLink, TextPreview } from "@/components/kit";
 import { LifecycleChip } from "@/components/LifecycleChip";
 import { longDate } from "@/lib/copy/dates";
 import { formatBytes, formatLabelOf, readerCanRead, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
 import { isLifecycle, isStaleProcessing as isStaleLifecycle, type Lifecycle } from "@/lib/vault/lifecycle";
+import { capPreviewText, pageFormatOf, previewKindOf, storedFormatOf } from "@/lib/vault/preview";
+import { readerText } from "@/lib/vault/textExtract";
 import { Note } from "@/components/EligibilityVerdict";
 import type { Role } from "@/components/statusHue";
 
@@ -61,6 +63,8 @@ interface DocDetail {
   content_hash: string | null;
   original_paths: string[] | null;
   storage_paths: string[] | null;
+  // What an Athlete login wrote with a file it sent (migration 0066).
+  family_note: string | null;
 }
 
 // Every type's name, from the one list the upload form and File As use
@@ -241,7 +245,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const { data } = await supabase
     .from("documents")
     .select(
-      "id, file_name, file_size, page_count, category, requested_category, filed_as, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, linked_athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths"
+      "id, file_name, file_size, page_count, category, requested_category, filed_as, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, linked_athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths, family_note"
     )
     .eq("id", id)
     .eq("org_id", org.id)
@@ -259,6 +263,27 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // The files the screen offers: the untouched originals, or for a row
   // from before the vault its one stored copy.
   const files = doc.original_paths?.length ? doc.original_paths : (doc.storage_paths ?? []);
+  // What each stored page shows (Doc AI Piece 6): a photo on the page, a
+  // PDF opened in the browser, the reader's text of a Word, Excel, CSV or
+  // text file, read here with this Admin's own session, capped. A page
+  // whose bytes cannot be had shows nothing extra; the download stays.
+  const docFormat = storedFormatOf(doc.format, doc.media_type);
+  const previews = await Promise.all(
+    files.map(async (path, i) => {
+      const format: VaultFormat | null = pageFormatOf(path, docFormat);
+      const name = files.length === 1 ? doc.file_name : (path.split("/").pop() ?? doc.file_name);
+      const kind = previewKindOf(format, name);
+      const href = `/org/${slug}/documents/${doc.id}/download?n=${i + 1}&inline=1`;
+      if (kind !== "text") return { kind, href, name, text: null, reason: null };
+      const { data: blob } = await supabase.storage.from("documents").download(path);
+      if (!blob) return { kind, href, name, text: null, reason: "The file could not be opened to show its text." };
+      const read = readerText(name, new Uint8Array(await blob.arrayBuffer()));
+      return read.ok ? { kind, href, name, text: capPreviewText(read.text), reason: null } : { kind, href, name, text: null, reason: read.reason };
+    }),
+  );
+  const pageLabel = (i: number) => (files.length === 1 ? "" : ` Page ${i + 1}`);
+  // An Athlete login's file, sent with an assignment or on its own.
+  const { count: answersCount } = doc.status === "filed" ? await supabase.from("assignments").select("id", { count: "exact", head: true }).eq("document_id", doc.id).eq("org_id", org.id) : { count: 0 };
   const stuckReading = isStaleLifecycle(lifecycle, doc.lifecycle_changed_at);
 
   const stubbed = await isStubbedModel();
@@ -359,6 +384,10 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // A legacy Athlete Profile filing reads as one (Oct 11).
   // Nothing typed reads as Other (Dave, Oct 11: every document is read).
   const readerType = readerTypeOf(doc) ?? "other";
+  // An assignment's file (0046) carries no format; its media type says it.
+  // A file an Athlete login sent is read only from here, by an Admin's
+  // tap, charged like any reading (Doc AI Piece 5).
+  const storedFormat = storedFormatOf(doc.format, doc.media_type);
   // Read Again is on every document a person can still change (live
   // check, 2026-10-10: it was hidden on most of them, so it looked
   // missing). When it cannot run, the button stays, switched off, with
@@ -368,15 +397,13 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     ? "Pick a reading type under File As (Transcript, Test Scores and the rest), then Read Again."
     : readerTextBlocker(doc.file_name)
       ? readerTextBlocker(doc.file_name)
-    : !doc.format || !readerCanRead(doc.format as VaultFormat)
+    : !storedFormat || !readerCanRead(storedFormat)
       ? "The reader cannot read this format."
       : isApplied
         ? "This reading is already on the athlete. Undo it first, then Read Again."
-        : isFiled
-          ? "An Athlete upload is filed, not read."
-          : stubRead
-            ? "The stand-in read this one. Upload the file again to have it read by the model."
-            : null;
+        : stubRead
+          ? "The stand-in read this one. Upload the file again to have it read by the model."
+          : null;
   const canReadAgain = showReadAgain && readAgainBlocked === null;
   // What staff can correct before applying. None for a stand-in reading.
   const correctable = isPending && !stubRead && doc.category && doc.category !== "film" && doc.extracted ? editableFields(doc.category as DocCategoryId, doc.extracted).length > 0 : false;
@@ -409,8 +436,8 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   );
 
   // The file as it was stored: never changed after upload. Name, format,
-  // size, who, when and the SHA-256 of the bytes, then a copy to save. No
-  // preview in this piece; every format shows the same.
+  // size, who, when and the SHA-256 of the bytes, then what it shows
+  // (Piece 6) and a copy to save.
   const hash = doc.content_hash ? (doc.content_hash.match(/.{1,8}/g) ?? []).join(" ") : null;
   const typeLabel = documentTypeLabel(doc, CATEGORY_LABEL);
   const facts: [string, string][] = [
@@ -434,6 +461,22 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           ))}
         </Stack>
       </Card>
+      {previews.map((p, i) =>
+        p.kind === "photo" ? (
+          <Photo key={i} src={p.href} alt={`${doc.file_name}${pageLabel(i)}`} />
+        ) : p.kind === "pdf" ? (
+          <OpenFileLink key={i} href={p.href}>
+            {files.length === 1 ? "Open the File" : `Open${pageLabel(i)}`}
+          </OpenFileLink>
+        ) : p.kind === "text" && p.text ? (
+          <Stack key={i} gap={2}>
+            <TextPreview title={`What the Reader Sees${pageLabel(i)}`}>{p.text.shown}</TextPreview>
+            {p.text.cut && <Label>{`The first ${p.text.kept.toLocaleString("en-US")} of ${p.text.total.toLocaleString("en-US")} characters. Download for the rest.`}</Label>}
+          </Stack>
+        ) : p.kind === "text" && p.reason ? (
+          <Label key={i}>{p.reason}</Label>
+        ) : null,
+      )}
       {/* The type of a document the reader has not read: the same list
           as the upload form (fileTypes.ts). A read document keeps the
           type of its reading. A reading that failed with nothing read
@@ -591,10 +634,14 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       )}
 
       {isFiled && (
-        <Note title="Sent with an Assignment">
-          The athlete login handed this in. Nothing has read it and nothing on the athlete was changed. It is kept here with the assignment it answers.
+        <Note title={answersCount ? "Sent with an Assignment" : "Sent by the Athlete Login"}>
+          {answersCount
+            ? "The athlete login handed this in. Nothing has read it and nothing on the athlete was changed. It is kept here with the assignment it answers."
+            : "The athlete login sent this for the athlete. Nothing has read it and nothing on the athlete was changed."}
+          {canReadAgain ? " Read Again to have it read." : ""}
         </Note>
       )}
+      {doc.family_note && <Note title="Their Note">{doc.family_note}</Note>}
 
       {isProcessing && (
         <>

@@ -33,6 +33,7 @@ import { isFamilyStoragePathFor } from "@/lib/data/assignments";
 import { moveLifecycle } from "@/lib/data/vault";
 import { checkVaultFile, isTextReadable, readerCanRead, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
 import { readerText } from "@/lib/vault/textExtract";
+import { storedFormatOf } from "@/lib/vault/preview";
 import { didNotLookLike, isLifecycle, isStaleProcessing as isStaleLifecycle } from "@/lib/vault/lifecycle";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
 import { applyAthleteProfile, applyFinancialAid, applyMetricsReport, applyOfferLetter, applyRecommendation, applyTestScores, fillHighSchoolFromTranscript, undoContact, undoDetail, undoMetrics, undoTarget, type FieldChange, type TargetChange } from "@/lib/data/applyExtraction";
@@ -274,14 +275,19 @@ async function removeUnregisteredUploads(orgId: string, paths: string[], opts: {
   }
 }
 
+// `includeFamily` admits the org's family folder too: Read Again of a
+// file an Athlete login sent, whose path is the row's, never the
+// browser's (Doc AI Piece 5). An upload never passes it.
 async function readStoredRecords(
   supabase: StorageReader,
   orgId: string,
-  stored: StoredRecord[]
+  stored: StoredRecord[],
+  opts: { includeFamily?: boolean } = {}
 ): Promise<{ ok: true; records: IngestedRecord[] } | { ok: false; error: string }> {
   const records: IngestedRecord[] = [];
   for (const r of stored) {
-    if (!STORAGE_PATH.test(r.storagePath) || !r.storagePath.startsWith(`${orgId}/`)) {
+    const inOrg = STORAGE_PATH.test(r.storagePath) && r.storagePath.startsWith(`${orgId}/`);
+    if (!inOrg && !(opts.includeFamily === true && isFamilyStoragePathFor(r.storagePath, orgId))) {
       return { ok: false, error: `${r.originalName || "That file"} was not uploaded to this organization's folder.` };
     }
     const { data, error } = await supabase.storage.from("documents").download(r.storagePath);
@@ -1782,8 +1788,10 @@ export async function linkDocumentToAthlete(slug: string, documentId: string, fo
 // format the reader reads, goes back to the reader from its original
 // file and returns to Needs Review when the reading ends. The same rate
 // limit and monthly cap as an upload. Never a document already applied,
-// one being read, a family's filed copy, or one the stand-in read (that
-// label is permanent, so it is uploaded again once the key is set).
+// one being read, or one the stand-in read (that label is permanent, so
+// it is uploaded again once the key is set). A file an Athlete login
+// sent (filed, with an assignment or on its own) is read only this way:
+// an Admin's tap, charged like any reading (Doc AI Piece 5, 2026-10-13).
 export async function readDocumentAgain(slug: string, documentId: string): Promise<void> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
@@ -1808,11 +1816,16 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   // Nothing typed at all reads as Other, which suggests a type (Oct 11).
   const type = readerTypeOf(doc) ?? "other";
   if (doc.lifecycle !== "needs_review" && doc.lifecycle !== "ready") return no("Only a document in Needs Review or Ready can be read again.");
-  if (doc.status === "applied" || doc.status === "processing" || doc.status === "filed") return no("This document cannot be read again.");
+  if (doc.status === "applied" || doc.status === "processing") return no("This document cannot be read again.");
   if (isStubReading(doc.read_by)) return no("The stand-in read this one, and that stays on it. Upload the file again to have it read.");
   const blocked = readerTextBlocker(doc.file_name);
   if (blocked) return no(blocked);
-  if (!doc.format || !readerCanRead(doc.format) || !doc.original_paths?.length) return no("The reader cannot read this format.");
+  // An assignment's file (migration 0046) was filed without a format or
+  // original_paths: its media type says the format, and its one stored
+  // copy is the original.
+  const format = storedFormatOf(doc.format, doc.media_type);
+  const originals = doc.original_paths?.length ? doc.original_paths : (doc.storage_paths ?? []);
+  if (!format || !readerCanRead(format) || !originals.length) return no("The reader cannot read this format.");
 
   const stubbed = await isStubbedModel();
   if (!stubbed) {
@@ -1828,23 +1841,23 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   // the untouched original of a phone photo can be over the reader's size
   // limit. A PDF's reader copy is its original, and text is turned out of
   // the original here.
-  const photo = doc.format === "jpg" || doc.format === "png";
+  const photo = format === "jpg" || format === "png";
   const readerCopies = doc.storage_paths ?? [];
-  const sourcePaths = photo && readerCopies.length === doc.original_paths.length ? readerCopies : doc.original_paths;
+  const sourcePaths = photo && readerCopies.length === originals.length ? readerCopies : originals;
   const stored: StoredRecord[] = sourcePaths.map((storagePath) => ({
     originalName: doc.file_name,
     originalSize: doc.file_size,
     originalMime: doc.media_type,
     // Word, Excel, CSV and text go as their text (Oct 11).
-    kind: isTextReadable(doc.file_name) ? "text" : doc.format === "pdf" ? "pdf" : "image",
+    kind: isTextReadable(doc.file_name) ? "text" : format === "pdf" ? "pdf" : "image",
     sourceRole: doc.source_role,
     ingestedAt: new Date().toISOString(),
     requestId,
     mediaType: isTextReadable(doc.file_name) ? "text/plain" : doc.media_type,
-    blockType: isTextReadable(doc.file_name) ? "text" : doc.format === "pdf" ? "document" : "image",
+    blockType: isTextReadable(doc.file_name) ? "text" : format === "pdf" ? "document" : "image",
     storagePath,
   }));
-  const fetched = await readStoredRecords(supabase, org.id, stored);
+  const fetched = await readStoredRecords(supabase, org.id, stored, { includeFamily: true });
   if (!fetched.ok) return no(fetched.error);
   // A reader copy can be a JPEG made from a PNG, so a photo's media type
   // is what its bytes are, not what the original was.

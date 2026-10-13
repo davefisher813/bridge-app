@@ -105,6 +105,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0062_activity_board
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0063_family_reads_columns_not_rows.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0064_member_giving_follows_module.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0065_family_reads_policies.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0066_family_sends_document.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
@@ -160,6 +161,15 @@ echo "==> 0058: down, then up again"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0058_document_athlete_link_down.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0058_document_athlete_link.sql"
 echo "==> 0058 is reversible"
+
+echo "==> 0066: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0066_family_sends_document_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_proc where proname = 'family_send_document'\"" | grep -qx 0
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from information_schema.columns where table_name = 'documents' and column_name = 'family_note'\"" | grep -qx 0
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0066_family_sends_document.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_proc where proname = 'family_send_document'\"" | grep -qx 1
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_policy where polname = 'documents_bucket_family_insert' and pg_get_expr(polwithcheck, polrelid) ~ '_family_athlete_ids'\"" | grep -qx 1
+echo "==> 0066 is reversible"
 
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"

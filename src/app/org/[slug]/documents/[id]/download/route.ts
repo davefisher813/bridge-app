@@ -3,16 +3,22 @@ import { getCurrentUser, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
 import { VAULT_MEDIA_TYPES } from "@/lib/vault/format";
+import { inlineMediaTypeOf } from "@/lib/vault/preview";
 
 // Download one stored original: /org/<slug>/documents/<id>/download?n=1
-// (n is the page, 1 for a single file).
+// (n is the page, 1 for a single file). With &inline=1 a PDF, JPG or PNG
+// is sent to be shown rather than saved (Doc AI Piece 6): the photo on
+// the document screen, a PDF in the browser's own viewer. Inline goes by
+// the stored name, never the row's word for it, and anything else is
+// still an attachment.
 //
 // Staff only. The bytes are read with the caller's own session, so storage
 // policy decides too, and they stream straight back: no public link and no
 // signed URL is ever handed out, so nothing can be shared by link. The
 // original, never the reader's shrunk copy, is what comes back. It is sent
 // as an attachment with the stored type and nosniff, so the browser saves
-// it rather than rendering anything it holds.
+// it rather than rendering anything it holds, unless inline is asked for
+// and the name is a PDF or a photo.
 //
 // Anyone who is not staff of the org, or any id that is not theirs, gets
 // the same 404, so the route does not say which documents exist.
@@ -33,7 +39,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // Rows from before the vault have no original_paths; their one stored
   // copy is the only bytes there ever were.
   const paths = doc.original_paths?.length ? doc.original_paths : (doc.storage_paths ?? []);
-  const requested = Number(new URL(request.url).searchParams.get("n") ?? "1");
+  const query = new URL(request.url).searchParams;
+  const requested = Number(query.get("n") ?? "1");
   const page = Number.isInteger(requested) && requested >= 1 && requested <= paths.length ? requested : null;
   if (page === null) return notFound();
   const path = paths[page - 1]!;
@@ -46,13 +53,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // stored name. Only characters that are safe in a header.
   const stored = paths.length === 1 ? doc.file_name : (path.split("/").pop() ?? doc.file_name);
   const asciiName = stored.replace(/[^A-Za-z0-9._ -]+/g, "_").slice(0, 120) || "document";
-  const type = VAULT_MEDIA_TYPES.includes(doc.media_type) ? doc.media_type : "application/octet-stream";
+  const inlineType = query.get("inline") === "1" ? inlineMediaTypeOf(path) : null;
+  const type = inlineType ?? (VAULT_MEDIA_TYPES.includes(doc.media_type) ? doc.media_type : "application/octet-stream");
 
   return new NextResponse(blob, {
     status: 200,
     headers: {
       "Content-Type": type,
-      "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(stored)}`,
+      "Content-Disposition": `${inlineType ? "inline" : "attachment"}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(stored)}`,
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, no-store",
     },

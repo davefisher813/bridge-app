@@ -4261,3 +4261,29 @@ side tables (touches every staff screen and action).
 
 **Consequences.** familyReadLaws walks every family-reachable screen and
 loader for a direct read of the three tables. Staff reads are unchanged.
+
+## 2026-10-13: an Athlete login sends documents on its own; the family folder is per athlete
+
+**Decision.** Doc AI Piece 5. An Athlete login sends a PDF, JPG or PNG
+for its own athlete outside any assignment, from Send a Document. The one
+write is family_send_document (migration 0066), security definer, modelled
+on submit_assignment: the file is filed (status filed, Needs Review,
+shown as an Athlete Upload), never applied and never read on its own. An
+Admin's Read Again reads it, and any filed assignment file, charged like
+any reading. The family folder's insert policy now admits a file only
+under `<org>/family/<athlete>_<request>/`, the athlete one the login is
+linked to; the assignment upload builds its folder the same way.
+
+**Reason.** Dave's Piece 5 (family uploads). Before 0066 a family login
+could write anywhere under its org's family folder; the folder now names
+the athlete it is for, so the database can hold it to that link.
+
+**Alternatives.** Reading the file on arrival (no Doc AI spend from an
+Athlete login, so no); a form on the athlete page itself (the page keeps
+no form, a law says so); leaving the folder open (the function checks the
+link anyway, but the bucket would still take files nobody can file).
+
+**Consequences.** Deploy the app before applying 0066, or an older page's
+assignment upload is refused by the bucket. A document Read Again leaves
+the family's list unless the reading is applied to that athlete, since the
+family list follows athlete_id (unchanged from assignment files).
