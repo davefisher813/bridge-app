@@ -9,6 +9,7 @@ import { activitySummary, logActivity } from "@/lib/data/activity";
 import { centsToDecimalString } from "@/lib/validation/gift";
 import { toCents } from "@/lib/fundraising/rollup";
 import { BOARD_KINDS, DEFAULT_GIVE_GET_CENTS, DEFAULT_SEATS, type BoardKind } from "@/lib/governance/giveGet";
+import { matchSeatsToDonors } from "@/lib/governance/seatDonors";
 
 export interface GovernanceActionState {
   errors: Record<string, string>;
@@ -246,6 +247,44 @@ export async function addBoardSeat(
 // donor record and contact details. Ending a seat is a status change to
 // Emeritus or Resigned, which keeps its history; Remove is for a seat
 // that should never have existed.
+// Link every unlinked seat on a board whose name is exactly one donor's
+// (Oct 13: all six seats were unlinked, so the board showed $0 given).
+// Only unambiguous matches; anything else stays for a person to pick on
+// the seat. Behind a confirm on the board page; each link is logged.
+export async function linkSeatsToDonorsByName(slug: string, boardId: string): Promise<void> {
+  const { org, user } = await requireGovernance(slug);
+  const back = `/org/${slug}/board-governance/${boardId}`;
+  const supabase = await createClient();
+  const [{ data: seatRows }, { data: donorRows }] = await Promise.all([
+    supabase.from("board_members").select("id, name, donor_id").eq("board_id", boardId).eq("org_id", org.id),
+    supabase.from("donors").select("id, name").eq("org_id", org.id).is("deleted_at", null),
+  ]);
+  const matches = matchSeatsToDonors(
+    ((seatRows ?? []) as { id: string; name: string; donor_id: string | null }[]).map((r) => ({ id: r.id, name: r.name, donorId: r.donor_id })),
+    (donorRows ?? []) as { id: string; name: string }[],
+  );
+  if (matches.length === 0) redirect(`${back}?notice=${encodeURIComponent("No seat matches exactly one donor by name.")}`);
+  let linked = 0;
+  for (const m of matches) {
+    const { data, error } = await supabase.from("board_members").update({ donor_id: m.donorId }).eq("id", m.seatId).eq("org_id", org.id).is("donor_id", null).select("id");
+    if (error) redirect(`${back}?error=${encodeURIComponent(`Could not link ${m.seatName}: ${error.message}`)}`);
+    if (!data || data.length === 0) continue;
+    linked++;
+    await logActivity(supabase, {
+      orgId: org.id,
+      actorId: user.id,
+      athleteId: null,
+      action: "board_seat_donor_linked",
+      subjectType: "seat",
+      subjectId: m.seatId,
+      summary: activitySummary("board_seat_donor_linked", { person: m.seatName }),
+    });
+  }
+  revalidatePath(`/org/${slug}/board-governance`);
+  revalidatePath(back);
+  redirect(`${back}?notice=${encodeURIComponent(`Linked ${linked} ${linked === 1 ? "seat" : "seats"} to ${linked === 1 ? "its donor record" : "their donor records"}.`)}`);
+}
+
 export async function updateBoardSeat(slug: string, boardId: string, memberId: string, _prevState: GovernanceActionState, formData: FormData): Promise<GovernanceActionState> {
   const { org } = await requireGovernance(slug);
 
