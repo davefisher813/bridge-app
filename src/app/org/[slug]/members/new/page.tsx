@@ -6,7 +6,8 @@ import { inviteMember } from "@/lib/actions/members";
 import { parseRole } from "@/lib/validation/member";
 import { canAdvise } from "@/lib/org/advisors";
 import { InviteForm } from "@/components/InviteForm";
-import { Prose, Screen } from "@/components/kit";
+import { Notice, Prose, Screen } from "@/components/kit";
+import { managesAccess, masterName } from "@/lib/org/master";
 
 // Owner only, like the list it comes from. The person invited gets an
 // email with a sign-in link; nobody makes up a password.
@@ -21,10 +22,21 @@ export default async function InviteMemberPage({ params, searchParams }: { param
   const query = searchParams ? await searchParams : {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireOwner(org.id);
+  const me = await requireOwner(org.id);
 
   // The roster, so a family invite can name its athlete.
   const supabase = await createClient();
+  // The master account (migration 0070): nobody else is offered the form.
+  if (!managesAccess(org.masterUserId, me.id)) {
+    const master = await masterName(supabase, org.masterUserId);
+    return (
+      <Screen title="Invite Someone" back={{ href: `/org/${slug}/members`, label: "Members" }}>
+        <Notice tone="info" title={`Access Levels Are Set by ${master}`}>
+          {`Only ${master}, the master account, invites people. Ask them to send the invite.`}
+        </Notice>
+      </Screen>
+    );
+  }
   const { data: athleteRows } = await supabase.from("athletes").select("id, name").eq("org_id", org.id).is("deleted_at", null).order("name", { ascending: true });
   const athletes = ((athleteRows ?? []) as { id: string; name: string }[]).map((a) => ({ id: a.id, name: a.name }));
 

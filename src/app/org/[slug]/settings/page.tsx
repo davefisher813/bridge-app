@@ -15,6 +15,8 @@ import { personLabel } from "@/lib/org/roleLabels";
 import { loadDocApprovers } from "@/lib/data/docApprovers";
 import { APPROVER_AREAS, AREA_COVERS, AREA_LABEL, isApproverArea } from "@/lib/documents/approvers";
 import { setDocApprover } from "@/lib/actions/docApprovers";
+import { transferMasterAccountForm } from "@/lib/actions/members";
+import { masterName } from "@/lib/org/master";
 
 // Organization Settings (audit wired F4). Admin only: the name on every
 // screen and the optional modules. The org's own words for each role
@@ -27,7 +29,7 @@ export default async function OrgSettingsPage({ params, searchParams }: { params
   const { notice, error, undo, area: undoArea } = searchParams ? await searchParams : {};
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireOwner(org.id);
+  const me = await requireOwner(org.id);
 
   // Document Approvers (migration 0067, Doc AI piece 7): who signs off
   // each area before a document is treated as final. Nobody Yet means
@@ -36,6 +38,11 @@ export default async function OrgSettingsPage({ params, searchParams }: { params
   // it (Dave's standing rule, 2026-10-06).
   const supabase = await createClient();
   const [approvers, admins] = await Promise.all([loadDocApprovers(supabase, org.id), loadAdvisorChoices(supabase, org.id)]);
+  // The master account (migration 0070): who alone changes access. The
+  // master hands it to another Admin; while nobody holds it, any Admin
+  // may take it for themselves. Each asks first and is logged.
+  const master = await masterName(supabase, org.masterUserId);
+  const isMaster = org.masterUserId === me.id;
   const undoTo = undo === "none" || (undo && /^[0-9a-f-]{36}$/i.test(undo)) ? undo : null;
   const undoIn = isApproverArea(undoArea) && undoTo ? undoArea : null;
 
@@ -63,6 +70,38 @@ export default async function OrgSettingsPage({ params, searchParams }: { params
         </Form>
       )}
       <OrgSettingsForm action={updateOrgSettings.bind(null, slug)} name={org.name} modules={modules} />
+      <Section label="Master Account" role="people" kind="people">
+        <Row
+          kind="people"
+          role={master ? "committed" : "neutral"}
+          title={master ?? "Nobody Set"}
+          meta={master ? `${isMaster ? "You. " : ""}Only they invite people, change access levels or remove someone.` : "Any Admin invites people, changes access levels and removes someone."}
+          trailingAction={
+            isMaster ? (
+              <AdvisorSheet
+                action={transferMasterAccountForm.bind(null, slug)}
+                field="userId"
+                title="Transfer Master Account"
+                trigger="Transfer"
+                searchLabel="Search Admins"
+                currentId={me.id}
+                choices={admins.filter((a) => a.id !== me.id).map((a) => ({ id: a.id, title: a.name, meta: `${personLabel(a)} · ${a.email}`, keywords: a.email }))}
+                empty="Nobody else here is an Admin. Invite one under Members first."
+                confirm="Make {choice} the master account? Only they will change who has access, including yours."
+              />
+            ) : undefined
+          }
+          wrap
+        />
+        {!master && (
+          <Form action={transferMasterAccountForm.bind(null, slug)}>
+            <Hidden name="userId" value={me.id} />
+            <ConfirmButton tone="change" title="Make Me the Master Account?" body="Only you will invite people, change access levels or remove someone. Other Admins keep everything else." confirmLabel="Make Me the Master">
+              Make Me the Master Account
+            </ConfirmButton>
+          </Form>
+        )}
+      </Section>
       <Section label="Document Approvers" role="people" kind="people">
         {APPROVER_AREAS.map((area) => {
           const held = approvers[area];

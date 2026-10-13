@@ -1,17 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "20e35a3",
-  "commitFull": "20e35a3dd00cf4f34e9841953dffb79b29c2999c",
+  "commit": "30fc56f",
+  "commitFull": "30fc56f7b471b3a87a16e1e4daef3cb4d2db8b23",
   "branch": "claude/downloads-directory-4mf6gv",
-  "remoteBranches": [
-    "origin/claude/downloads-directory-4mf6gv"
-  ],
-  "shipped": true,
-  "dirty": true,
+  "remoteBranches": [],
+  "shipped": false,
+  "dirty": false,
   "onMain": false,
-  "startedAt": "2026-10-13T07:08:39.511Z",
-  "durationMs": 43684,
+  "startedAt": "2026-10-13T20:23:45.329Z",
+  "durationMs": 244891,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -20,13 +18,13 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 2722,
+        "pass": 2822,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
         "suitesFailed": 0,
-        "filesOnDisk": 105,
-        "filesLoaded": 105
+        "filesOnDisk": 112,
+        "filesLoaded": 112
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
@@ -47,12 +45,15 @@
         "src/laws/copyLaws.test.ts": 6,
         "src/laws/dataLaws.test.ts": 12,
         "src/laws/dateLaws.test.ts": 5,
+        "src/laws/docApproverLaws.test.ts": 14,
         "src/laws/docLinkLaws.test.ts": 9,
         "src/laws/docTypeLaws.test.ts": 7,
         "src/laws/docaiEverythingLaws.test.ts": 8,
         "src/laws/docaiLiveLaws.test.ts": 9,
+        "src/laws/docaiPieces56Laws.test.ts": 17,
         "src/laws/documentDeleteLaws.test.ts": 6,
         "src/laws/documentLaws.test.ts": 32,
+        "src/laws/documentTitleLaws.test.ts": 7,
         "src/laws/familyReadLaws.test.ts": 7,
         "src/laws/fitLaws.test.ts": 11,
         "src/laws/fundraisingActions.test.ts": 84,
@@ -62,6 +63,7 @@
         "src/laws/kitLaws.test.ts": 12,
         "src/laws/laws.test.ts": 13,
         "src/laws/lifecycleLaws.test.ts": 20,
+        "src/laws/masterAccountLaws.test.ts": 14,
         "src/laws/matchingLaws.test.ts": 41,
         "src/laws/meetingLaws.test.ts": 6,
         "src/laws/migrationLaws.test.ts": 6,
@@ -69,7 +71,7 @@
         "src/laws/ncaaLaws.test.ts": 36,
         "src/laws/orgCrudLaws.test.ts": 53,
         "src/laws/otherActions.test.ts": 76,
-        "src/laws/pageRender.test.ts": 818,
+        "src/laws/pageRender.test.ts": 826,
         "src/laws/photoLaws.test.ts": 8,
         "src/laws/previewLaws.test.ts": 3,
         "src/laws/publicPaths.test.ts": 2,
@@ -80,6 +82,8 @@
         "src/laws/sharedDirectoryLaws.test.ts": 18,
         "src/laws/stubApplyLaws.test.ts": 3,
         "src/laws/stylingLaws.test.ts": 19,
+        "src/laws/sweep2AccessLaws.test.ts": 14,
+        "src/laws/sweep2AppLaws.test.ts": 19,
         "src/laws/sweepDocumentLaws.test.ts": 22,
         "src/laws/sweepMoneyLaws.test.ts": 47,
         "src/laws/sweepRecruitingLaws.test.ts": 44,
@@ -104,6 +108,7 @@
         "src/lib/docai/resolver.test.ts": 9,
         "src/lib/docai/stubCaller.test.ts": 4,
         "src/lib/docai/versioning.test.ts": 4,
+        "src/lib/documents/approvers.test.ts": 7,
         "src/lib/documents/fileTypes.test.ts": 4,
         "src/lib/fit/aid.test.ts": 5,
         "src/lib/fit/ncaa/approvedCourses.test.ts": 26,
@@ -167,7 +172,7 @@
             "location": "/login"
           }
         },
-        "ms": 1414
+        "ms": 1365
       },
       "errors": [],
       "warnings": [],
@@ -181,8 +186,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 107,
-      "filesScanned": 2668
+      "touchedFiles": 25,
+      "filesScanned": 6018
     },
     {
       "name": "types",

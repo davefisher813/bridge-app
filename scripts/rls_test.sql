@@ -5466,3 +5466,100 @@ begin
   raise notice 'PASS: a document takes a title of its own, never blank, and its file name stays as uploaded';
 end $$;
 \echo 'ALL 0069 ASSERTIONS PASSED'
+
+-- ── Migration 0070: the master account, and no recommendation for a family ──
+reset role;
+select set_test_user(null);
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000700a1', 'master@m.example'),
+  ('00000000-0000-0000-0000-0000000700a2', 'admin2@m.example'),
+  ('00000000-0000-0000-0000-0000000700a3', 'viewer@m.example'),
+  ('00000000-0000-0000-0000-0000000700a4', 'family@m.example');
+insert into users (id, email, full_name) values
+  ('00000000-0000-0000-0000-0000000700a1', 'master@m.example', 'Master Admin'),
+  ('00000000-0000-0000-0000-0000000700a2', 'admin2@m.example', 'Second Admin'),
+  ('00000000-0000-0000-0000-0000000700a3', 'viewer@m.example', 'A Viewer'),
+  ('00000000-0000-0000-0000-0000000700a4', 'family@m.example', 'A Family')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into orgs (id, name, slug) values ('00000000-0000-0000-0000-000000070010', 'Master Org', 'master-org');
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-0000000700a1', '00000000-0000-0000-0000-000000070010', 'owner'),
+  ('00000000-0000-0000-0000-0000000700a2', '00000000-0000-0000-0000-000000070010', 'owner'),
+  ('00000000-0000-0000-0000-0000000700a3', '00000000-0000-0000-0000-000000070010', 'member'),
+  ('00000000-0000-0000-0000-0000000700a4', '00000000-0000-0000-0000-000000070010', 'family');
+insert into athletes (id, org_id, recruit_type, name, sport) values
+  ('00000000-0000-0000-0000-000000070110', '00000000-0000-0000-0000-000000070010', 'hs', 'Master Athlete', 'baseball');
+insert into athlete_guardians (org_id, athlete_id, user_id, relationship) values
+  ('00000000-0000-0000-0000-000000070010', '00000000-0000-0000-0000-000000070110', '00000000-0000-0000-0000-0000000700a4', 'parent');
+insert into documents (org_id, athlete_id, file_name, file_size, media_type, source_role, status, category) values
+  ('00000000-0000-0000-0000-000000070010', '00000000-0000-0000-0000-000000070110', 'transcript70.pdf', 10, 'application/pdf', 'coordinator', 'pending', 'transcript'),
+  ('00000000-0000-0000-0000-000000070010', '00000000-0000-0000-0000-000000070110', 'letter70.pdf', 10, 'application/pdf', 'coordinator', 'pending', 'recommendation');
+insert into documents (org_id, athlete_id, file_name, file_size, media_type, source_role, status, requested_category) values
+  ('00000000-0000-0000-0000-000000070010', '00000000-0000-0000-0000-000000070110', 'asked70.pdf', 10, 'application/pdf', 'coordinator', 'pending', 'recommendation');
+do $$
+begin
+  begin
+    update orgs set master_user_id = '00000000-0000-0000-0000-0000000700a3' where id = '00000000-0000-0000-0000-000000070010';
+    raise exception 'FAIL: a Viewer became the master account';
+  exception when check_violation then null;
+  end;
+  begin
+    update orgs set master_user_id = '00000000-0000-0000-0000-000000000001' where id = '00000000-0000-0000-0000-000000070010';
+    raise exception 'FAIL: another org''s Admin became the master account';
+  exception when check_violation then null;
+  end;
+  update orgs set master_user_id = '00000000-0000-0000-0000-0000000700a1' where id = '00000000-0000-0000-0000-000000070010';
+  begin
+    update org_members set role = 'member' where user_id = '00000000-0000-0000-0000-0000000700a1' and org_id = '00000000-0000-0000-0000-000000070010';
+    raise exception 'FAIL: the master account was demoted';
+  exception when check_violation then null;
+  end;
+  begin
+    delete from org_members where user_id = '00000000-0000-0000-0000-0000000700a1' and org_id = '00000000-0000-0000-0000-000000070010';
+    raise exception 'FAIL: the master account was removed';
+  exception when check_violation then null;
+  end;
+  -- A non-master Admin is demoted and restored as before.
+  update org_members set role = 'member' where user_id = '00000000-0000-0000-0000-0000000700a2' and org_id = '00000000-0000-0000-0000-000000070010';
+  update org_members set role = 'owner' where user_id = '00000000-0000-0000-0000-0000000700a2' and org_id = '00000000-0000-0000-0000-000000070010';
+  -- A title change on the master is not an access change.
+  update org_members set title = 'Founder' where user_id = '00000000-0000-0000-0000-0000000700a1' and org_id = '00000000-0000-0000-0000-000000070010';
+  -- Transfer, then the old master can step down.
+  update orgs set master_user_id = '00000000-0000-0000-0000-0000000700a2' where id = '00000000-0000-0000-0000-000000070010';
+  update org_members set role = 'member' where user_id = '00000000-0000-0000-0000-0000000700a1' and org_id = '00000000-0000-0000-0000-000000070010';
+  update org_members set role = 'owner' where user_id = '00000000-0000-0000-0000-0000000700a1' and org_id = '00000000-0000-0000-0000-000000070010';
+  raise notice 'PASS: the master account is always an Admin, cannot be demoted or removed, and transfers';
+end $$;
+-- No client writes orgs at all: the master is set by the server only.
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-0000000700a1'); -- Master Org Admin
+do $$
+declare n int;
+begin
+  update orgs set master_user_id = '00000000-0000-0000-0000-0000000700a1' where id = '00000000-0000-0000-0000-000000070010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Admin set the master account from a client'; end if;
+  raise notice 'PASS: only the server sets the master account';
+exception when insufficient_privilege then
+  raise notice 'PASS: only the server sets the master account';
+end $$;
+-- An Admin still sees the recommendation; the family never does.
+do $$
+declare n int;
+begin
+  select count(*) into n from documents where athlete_id = '00000000-0000-0000-0000-000000070110';
+  if n <> 3 then raise exception 'FAIL: an Admin read % of the athlete''s documents, expected 3', n; end if;
+end $$;
+select set_test_user('00000000-0000-0000-0000-0000000700a4'); -- Master Org FAMILY
+do $$
+declare n int;
+begin
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000070010', '00000000-0000-0000-0000-000000070110');
+  if n <> 1 then raise exception 'FAIL: the family read % documents, expected 1 (no recommendation)', n; end if;
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000070010', '00000000-0000-0000-0000-000000070110') where category = 'recommendation';
+  if n <> 0 then raise exception 'FAIL: the family read a recommendation letter'; end if;
+  raise notice 'PASS: an Athlete login never reads a recommendation letter';
+end $$;
+reset role;
+select set_test_user(null);
+\echo 'ALL 0070 ASSERTIONS PASSED'

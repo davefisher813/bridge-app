@@ -22,8 +22,12 @@ export const FAMILY_SEND_FIELDS = {
 export const FAMILY_SEND_ACCEPT = "application/pdf,image/jpeg,image/png";
 
 // The reader types, less Board Document, which is an org's and never an
-// athlete's. The same list migration 0066 checks.
-export const FAMILY_SEND_TYPES: { id: DocCategoryId; label: string }[] = READER_TYPES.filter((t) => t.id !== "board_document");
+// athlete's, and less Recommendation: an Athlete login never sees a
+// recommendation letter (migration 0070, Dave 2026-10-13), so it is never
+// offered one to send. Migration 0066's function still accepts the type;
+// the screen simply never names it.
+export const FAMILY_SEND_HIDDEN: DocCategoryId[] = ["board_document", "recommendation"];
+export const FAMILY_SEND_TYPES: { id: DocCategoryId; label: string }[] = READER_TYPES.filter((t) => !FAMILY_SEND_HIDDEN.includes(t.id));
 
 export function isFamilySendType(v: unknown): v is DocCategoryId {
   return typeof v === "string" && FAMILY_SEND_TYPES.some((t) => t.id === v);

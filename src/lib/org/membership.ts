@@ -48,6 +48,9 @@ export interface OrgSummary {
   scoringPreset: string;
   // The month's cap on document reading, in cents (migration 0025).
   docaiBudgetCents: number;
+  // The one Admin who changes who has access (migration 0070). Null:
+  // nobody is set, and any Admin does.
+  masterUserId: string | null;
 }
 
 // Cached per request: the org layout resolves the slug and then the page
@@ -55,7 +58,7 @@ export interface OrgSummary {
 // before a page had read a single row of its own.
 export const getOrgBySlug = cache(async function getOrgBySlug(slug: string): Promise<OrgSummary | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("orgs").select("id, name, slug, modules, branding, scoring_preset, docai_budget_cents").eq("slug", slug).single();
+  const { data, error } = await supabase.from("orgs").select("id, name, slug, modules, branding, scoring_preset, docai_budget_cents, master_user_id").eq("slug", slug).single();
   if (error || !data) return null;
   return {
     id: data.id,
@@ -66,5 +69,6 @@ export const getOrgBySlug = cache(async function getOrgBySlug(slug: string): Pro
     lockup: parseBranding(data.branding).lockup,
     scoringPreset: typeof data.scoring_preset === "string" ? data.scoring_preset : "money_first",
     docaiBudgetCents: typeof data.docai_budget_cents === "number" ? data.docai_budget_cents : 0,
+    masterUserId: typeof data.master_user_id === "string" ? data.master_user_id : null,
   };
 });

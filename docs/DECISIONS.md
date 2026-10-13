@@ -4320,3 +4320,53 @@ link anyway, but the bucket would still take files nobody can file).
 assignment upload is refused by the bucket. A document Read Again leaves
 the family's list unless the reading is applied to that athlete, since the
 family list follows athlete_id (unchanged from assignment files).
+
+## 2026-10-13: how 0066 to 0069 went onto production
+
+0067 and 0069 went on before the deploy (the code writes their columns).
+0066 went on after it, without its storage policy statement: 0068's
+policy replaces that statement anyway, and the policy drop could not be
+applied through the database tool (it waits for an approval that did not
+come through). 0068 is pending for the same reason. Until it is on, the
+family upload folder keeps 0048's rule (any folder under the org's
+family folder, PDF/JPG/PNG, family logins only), under which both the
+assignment upload and Send a Document work.
+
+## 2026-10-13: one master account per org decides who has access
+
+**Decision.** Dave: "Keep advisors as Admins, and make me the master
+account to control everyone's access levels." Migration 0070 adds
+orgs.master_user_id. While it is set, only that Admin invites, resends an
+invite, changes a role or removes someone; any other Admin is refused
+before any write with "Only <Name>, the master account, changes who has
+access." and the members screens hide those controls behind a note
+naming who sets access. Leaving on your own is still allowed. Titles,
+names and photos stay with every Admin. Null keeps the old rule (any
+Admin). The master hands it to another Admin from Organization Settings
+(confirm naming the person, logged as master_transferred); while nobody
+holds it, an Admin may take it for themselves only, same confirm and log.
+The database holds the master to an Admin of that org and refuses
+demoting or removing them until they transfer it. In the same migration,
+family_documents stops returning recommendation letters, and the Athlete
+login's send screen stops offering the type.
+
+**Reason.** Advisors need Admin to do their work, so access control
+could not stay "any Admin". One named person is the smallest rule that
+gives Dave control without a new role.
+
+**Alternatives considered.** A new role above Admin: rejected, it would
+reopen the fixed role names (2026-09-27). Making advisors Viewers:
+rejected by Dave.
+
+**Consequences.** Production's master is set by hand after 0070 is
+applied (no ids in migrations). 0066's family_send_document still accepts
+'recommendation' from a hand-built request; the screen never offers it,
+and the family would not see it on their list.
+
+## 2026-10-13: Dave's two logins merged into dave@bffsa.org
+
+The Gmail login held all of Dave's work (712 log rows, 142 uploads). It
+took the address dave@bffsa.org and the bffsa login's password; the old
+bffsa login was renamed "Dave Fisher (Old Login)", locked and moved to a
+dead address. History was not rewritten. Old values are kept in
+private.account_merge_20261013 for reversal.

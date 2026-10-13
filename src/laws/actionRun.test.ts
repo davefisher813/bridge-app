@@ -1421,6 +1421,8 @@ describe("LAW: a family invite from an athlete's page is a staff job, and comes 
   it("a staff member may invite a family and the relationship is written", async () => {
     withKey();
     asStaff();
+    // The old any-Admin path: no master account named (migration 0070).
+    data.orgs[0]!.master_user_id = null;
     const { inviteMember } = await import("@/lib/actions/members");
     const r = await run(() =>
       inviteMember(
@@ -1438,6 +1440,8 @@ describe("LAW: a family invite from an athlete's page is a staff job, and comes 
   it("a leftover staff row cannot invite an Admin or a Viewer", async () => {
     withKey();
     asStaff();
+    // The old any-Admin path: no master account named (migration 0070).
+    data.orgs[0]!.master_user_id = null;
     const { inviteMember } = await import("@/lib/actions/members");
     const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "new-coach@example.test", role: "owner" })));
     expect(r.redirect).toBeNull();
@@ -2561,8 +2565,10 @@ describe("LAW: every action writes one activity_log row on success, none on refu
   it("an Admin who demotes or removes themselves is logged by the server, since their own client no longer qualifies; anyone else by the session", async () => {
     withKey();
     const { changeMemberRole, removeMember } = await import("@/lib/actions/members");
-    // A second Admin, so the caller is not the org's only one.
+    // A second Admin, so the caller is not the org's only one, and no
+    // master account named, so the owner may step down (migration 0070).
     data.org_members.push({ id: "m-second", user_id: OUTSIDER_ID, org_id: data.orgs[0]!.id, role: "owner" });
+    data.orgs[0]!.master_user_id = null;
     const serverLogs = () => viaServer.filter((w) => w.table === "activity_log");
 
     expect((await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "owner")).ok).toBe(true);
@@ -2584,6 +2590,7 @@ describe("LAW: every action writes one activity_log row on success, none on refu
 
     data = buildFixture();
     data.org_members.push({ id: "m-second", user_id: OUTSIDER_ID, org_id: data.orgs[0]!.id, role: "owner" });
+    data.orgs[0]!.master_user_id = null;
     expect((await removeMember(ORG_WITH_MODULES, OWNER_ID)).ok).toBe(true);
     expect(logs().filter((l) => l.action === "member_removed")).toHaveLength(1);
     expect(logs()[0]).toMatchObject({ action: "member_removed", actor_id: OWNER_ID, subject_id: OWNER_ID, summary: "Removed Example Owner" });
