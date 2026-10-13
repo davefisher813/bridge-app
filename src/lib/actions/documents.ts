@@ -26,12 +26,11 @@ import {
   MAX_RECORDS_PER_UPLOAD,
 } from "@/lib/docai/acceptance";
 import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
-import { sniffKind } from "@/lib/docai/magicBytes";
 import { isRealDate } from "@/lib/docai/lenient";
 import { isStaleProcessing } from "@/lib/data/documentState";
 import { isFamilyStoragePathFor } from "@/lib/data/assignments";
 import { moveLifecycle } from "@/lib/data/vault";
-import { checkVaultFile, isTextReadable, readerCanRead, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
+import { checkVaultFile, isTextReadable, readerCanRead, readerPageOf, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
 import { readerText } from "@/lib/vault/textExtract";
 import { didNotLookLike, isLifecycle, isStaleProcessing as isStaleLifecycle } from "@/lib/vault/lifecycle";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
@@ -1777,6 +1776,45 @@ export async function linkDocumentToAthlete(slug: string, documentId: string, fo
   redirect(`${back}?notice=${encodeURIComponent(next ? `Linked to ${next.name}.` : "No athlete linked now.")}`);
 }
 
+// The pages of a stored document, read back for Read Again, each built
+// from its own bytes (readerPageOf): a PDF as a document, a JPG or PNG as
+// an image, a Word, Excel, CSV or text file as its text. Never from the
+// document row's format, which is only its first file's.
+async function readPagesAgain(
+  supabase: StorageReader,
+  orgId: string,
+  fileName: string,
+  sourceRole: SourceRole,
+  requestId: string,
+  paths: string[]
+): Promise<{ ok: true; records: IngestedRecord[]; stored: StoredRecord[] } | { ok: false; error: string }> {
+  const records: IngestedRecord[] = [];
+  const stored: StoredRecord[] = [];
+  const ingestedAt = new Date().toISOString();
+  for (const [i, storagePath] of paths.entries()) {
+    const label = paths.length > 1 ? `Page ${i + 1} of ${fileName}` : fileName || "That file";
+    if (!STORAGE_PATH.test(storagePath) || !storagePath.startsWith(`${orgId}/`)) return { ok: false, error: `${label} was not uploaded to this organization's folder.` };
+    const { data, error } = await supabase.storage.from("documents").download(storagePath);
+    if (error || !data) return { ok: false, error: `${label} could not be read back. Try again.` };
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    const page = readerPageOf(bytes);
+    if (!page) return { ok: false, error: `${label} is not a format the reader reads.` };
+    const meta: StoredRecord = { originalName: fileName, originalSize: bytes.length, originalMime: page.mediaType, kind: page.kind, sourceRole, ingestedAt, requestId, mediaType: page.mediaType, blockType: page.blockType, storagePath };
+    stored.push(meta);
+    const { storagePath: _path, ...rest } = meta;
+    if (page.kind === "text") {
+      // The bytes decide which text format it is, not the stored name.
+      const base = (storagePath.split("/").pop() ?? "page").replace(/\.[A-Za-z0-9]+$/, "");
+      const t = readerText(`${base}.${page.textExtension}`, bytes);
+      if (!t.ok) return { ok: false, error: t.reason };
+      records.push({ ...rest, base64: Buffer.from(t.text, "utf8").toString("base64"), ...(t.truncated ? { fallbackReason: "the file was long, so only its first part was read" } : {}) });
+      continue;
+    }
+    records.push({ ...rest, base64: Buffer.from(new Uint8Array(bytes)).toString("base64") });
+  }
+  return { ok: true, records, stored };
+}
+
 // Read Again (Alfred's production audit, 2026-10-10: reading only ran on
 // upload). A document waiting in Needs Review with a reading type, in a
 // format the reader reads, goes back to the reader from its original
@@ -1826,34 +1864,17 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   // A photo is read from the copy made for the reader at upload (scaled
   // down, a large PNG made a JPEG), the same bytes the first reading saw;
   // the untouched original of a phone photo can be over the reader's size
-  // limit. A PDF's reader copy is its original, and text is turned out of
-  // the original here.
-  const photo = doc.format === "jpg" || doc.format === "png";
+  // limit. The reader's paths line up one to one with the originals when
+  // the upload made them (a PDF's and a text file's reader path is its
+  // original), so they are used whenever they do.
   const readerCopies = doc.storage_paths ?? [];
-  const sourcePaths = photo && readerCopies.length === doc.original_paths.length ? readerCopies : doc.original_paths;
-  const stored: StoredRecord[] = sourcePaths.map((storagePath) => ({
-    originalName: doc.file_name,
-    originalSize: doc.file_size,
-    originalMime: doc.media_type,
-    // Word, Excel, CSV and text go as their text (Oct 11).
-    kind: isTextReadable(doc.file_name) ? "text" : doc.format === "pdf" ? "pdf" : "image",
-    sourceRole: doc.source_role,
-    ingestedAt: new Date().toISOString(),
-    requestId,
-    mediaType: isTextReadable(doc.file_name) ? "text/plain" : doc.media_type,
-    blockType: isTextReadable(doc.file_name) ? "text" : doc.format === "pdf" ? "document" : "image",
-    storagePath,
-  }));
-  const fetched = await readStoredRecords(supabase, org.id, stored);
+  const sourcePaths = readerCopies.length === doc.original_paths.length ? readerCopies : doc.original_paths;
+  // Each page goes to the reader as what its own bytes are: a document of
+  // several files can be a PDF and a photo, or a Word file and a PDF, and
+  // the row's format and media type are only its first file's.
+  const fetched = await readPagesAgain(supabase, org.id, doc.file_name, doc.source_role, requestId, sourcePaths);
   if (!fetched.ok) return no(fetched.error);
-  // A reader copy can be a JPEG made from a PNG, so a photo's media type
-  // is what its bytes are, not what the original was.
-  for (const r of fetched.records) {
-    if (r.kind !== "image") continue;
-    const sniffed = sniffKind(new Uint8Array(Buffer.from(r.base64.slice(0, 88), "base64")));
-    if (sniffed === "jpeg") r.mediaType = "image/jpeg";
-    else if (sniffed === "png") r.mediaType = "image/png";
-  }
+  const stored = fetched.stored;
   const problem = validateRecords(fetched.records);
   if (problem) return no(problem);
 

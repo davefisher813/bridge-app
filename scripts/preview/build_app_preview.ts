@@ -103,8 +103,8 @@ it("builds the app preview from the real pages", async () => {
     const tree = await loginMod.default({ searchParams: p(search as Record<string, string>) });
     screens.push({ route, name, html: renderToStaticMarkup(tree) });
   }
-  const unauthorized = (await import("@/app/unauthorized/page")) as { default: () => ReactNode };
-  screens.push({ route: "/unauthorized", name: "unauthorized", html: renderToStaticMarkup(unauthorized.default()) });
+  const unauthorized = (await import("@/app/unauthorized/page")) as { default: () => Promise<ReactNode> };
+  screens.push({ route: "/unauthorized", name: "unauthorized", html: renderToStaticMarkup(await unauthorized.default()) });
 
   // The marks under /public travel inside the one file.
   for (const s of screens) {

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
-import { VAULT_MEDIA_TYPES } from "@/lib/vault/format";
+import { storedPageMediaType } from "@/lib/vault/format";
 
 // Download one stored original: /org/<slug>/documents/<id>/download?n=1
 // (n is the page, 1 for a single file).
@@ -11,8 +11,10 @@ import { VAULT_MEDIA_TYPES } from "@/lib/vault/format";
 // policy decides too, and they stream straight back: no public link and no
 // signed URL is ever handed out, so nothing can be shared by link. The
 // original, never the reader's shrunk copy, is what comes back. It is sent
-// as an attachment with the stored type and nosniff, so the browser saves
-// it rather than rendering anything it holds.
+// as an attachment with its type and nosniff, so the browser saves
+// it rather than rendering anything it holds. The type is each page's
+// own, from its bytes and its own name: a document of several files can
+// be a PDF and a photo, and the row's media_type is only its first file's.
 //
 // Anyone who is not staff of the org, or any id that is not theirs, gets
 // the same 404, so the route does not say which documents exist.
@@ -46,9 +48,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // stored name. Only characters that are safe in a header.
   const stored = paths.length === 1 ? doc.file_name : (path.split("/").pop() ?? doc.file_name);
   const asciiName = stored.replace(/[^A-Za-z0-9._ -]+/g, "_").slice(0, 120) || "document";
-  const type = VAULT_MEDIA_TYPES.includes(doc.media_type) ? doc.media_type : "application/octet-stream";
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const type = storedPageMediaType(stored, bytes);
 
-  return new NextResponse(blob, {
+  return new NextResponse(bytes, {
     status: 200,
     headers: {
       "Content-Type": type,

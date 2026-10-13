@@ -77,4 +77,5 @@ export const APPLIED_LEDGER: LedgerRow[] = [
   { file: "0063_family_reads_columns_not_rows", recorded: "applied", versions: ["20261013071223"] },
   { file: "0064_member_giving_follows_module", recorded: "applied", versions: ["20261013071527"] },
   { file: "0065_family_reads_policies", recorded: "applied", versions: ["20261013140655"] },
+  { file: "0068_access_tightening", recorded: "pending", versions: [] },
 ];
