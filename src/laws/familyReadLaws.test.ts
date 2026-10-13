@@ -53,7 +53,7 @@ describe("LAW: a screen an Athlete login reaches never reads a whole target, vis
   });
 
   it("the migration takes the family clause off all three read policies", () => {
-    const sql = readFileSync(join(process.cwd(), "migrations", "0063_family_reads_columns_not_rows.sql"), "utf8").replace(/--.*$/gm, "");
+    const sql = ["0063_family_reads_columns_not_rows.sql", "0065_family_reads_policies.sql"].map((f) => readFileSync(join(process.cwd(), "migrations", f), "utf8")).join("\n").replace(/--.*$/gm, "");
     for (const t of ["documents", "recruiting_targets", "target_visits"]) {
       const policy = sql.match(new RegExp(`create policy ${t}_read on ${t} for select\\s+using \\(([^;]*)\\);`));
       expect(policy, t).not.toBeNull();

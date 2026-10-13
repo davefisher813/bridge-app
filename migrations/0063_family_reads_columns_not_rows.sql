@@ -1,5 +1,6 @@
 -- 0063: an Athlete login reads the columns its screens show, not whole
--- rows (role audit, 2026-10-13).
+-- rows (role audit, 2026-10-13). Part one: the functions. Part two, the
+-- read policies, is 0065, applied after the app reads through these.
 --
 -- Row-level security decides which rows a login reads, never which
 -- columns (the rule migration 0039 states for messages). Three family
@@ -22,19 +23,6 @@
 -- Each function carries the row rule the policy did: the staff of the
 -- org, or a family login for its own athletes. Staff keep reading the
 -- tables themselves.
-
--- ── The policies: staff only ───────────────────────────────────────────
-drop policy if exists documents_read on documents;
-create policy documents_read on documents for select
-  using (org_id in (select private._member_org_ids()));
-
-drop policy if exists recruiting_targets_read on recruiting_targets;
-create policy recruiting_targets_read on recruiting_targets for select
-  using (org_id in (select private._member_org_ids()));
-
-drop policy if exists target_visits_read on target_visits;
-create policy target_visits_read on target_visits for select
-  using (org_id in (select private._member_org_ids()));
 
 -- ── The targets: status and offer, with the school, no notes or coach ──
 create or replace function public.family_targets(p_org uuid, p_athletes uuid[])

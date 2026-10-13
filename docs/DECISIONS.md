@@ -4241,9 +4241,10 @@ seat has no donor record and stays unlinked until one exists.
 
 ## 2026-10-13: an Athlete login reads columns, not whole rows
 
-**Decision.** Migration 0063 takes the family clause off the read
+**Decision.** Migration 0065 takes the family clause off the read
 policies of documents, recruiting_targets and target_visits. An Athlete
-login reads them through four security-definer functions
+login reads them through four security-definer functions (migration
+0063)
 (family_targets, family_target_visits, family_documents,
 family_document_twin) that return only what the Athlete screens show,
 loaded through src/lib/data/familyReads.ts. Migration 0064 makes the
