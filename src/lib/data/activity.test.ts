@@ -46,6 +46,7 @@ const SAMPLE: { [A in ActivityAction]: ActivitySubjects[A] } = {
   document_unarchived: { name: null, kind: "document" },
   document_linked: { kind: "transcript", to: "Jordan Lee", from: "Sam Diaz" },
   document_deleted: { kind: "transcript" },
+  document_renamed: { kind: "board_document" },
   board_seat_donor_linked: { person: "Pat Chair" },
   checkin_logged: { name: "Fixture Athlete", kind: "call", date: "2026-09-21" },
   message_sent: { name: "Fixture Athlete" },
@@ -60,6 +61,8 @@ const SAMPLE: { [A in ActivityAction]: ActivitySubjects[A] } = {
   steward_set: { name: "Fixture Donor", person: "Example Owner" },
   steward_cleared: { name: "Fixture Donor" },
   settings_changed: { setting: "the modules" },
+  doc_approver_set: { kind: "academic", person: "Example Owner" },
+  doc_approver_cleared: { kind: "financial" },
 };
 
 describe("activitySummary builds one sentence per action", () => {

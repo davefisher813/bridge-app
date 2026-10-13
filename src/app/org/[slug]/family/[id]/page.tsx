@@ -24,9 +24,10 @@ import type { FitTag } from "@/lib/fit/types";
 // read only, with nothing from the rest of the org on it. Dave's picks
 // in the Family Access catalog (2026-09-21): this page is home, every
 // match shows its reasons, their own documents are listed, nothing is
-// editable, and staff are who to ask. Stage 3 (2026-09-26): the athlete's
-// advisor, by name with an email, and the thread with them. Check-ins
-// are staff only and never show here.
+// editable, and staff are who to ask. A document can be sent from its own
+// screen, for an Admin to look at (Doc AI Piece 5, 2026-10-13). Stage 3
+// (2026-09-26): the athlete's advisor, by name with an email, and the
+// thread with them. Check-ins are staff only and never show here.
 
 const TAG_TONE: Record<FitTag, "committed" | "ink" | "muted" | "danger"> = {
   Safety: "committed",
@@ -338,6 +339,10 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
             />
           ))
         )}
+        {/* Send a document for this athlete outside any assignment (Doc AI
+            Piece 5, migration 0066). A row to its own screen, so this page
+            keeps no form. Filed for an Admin, never read. */}
+        <Row href={`${here}/documents/new`} kind="document" role="contact" title="Send a Document" meta="A PDF or a photo, for an Admin to look at" trailing={<Chevron />} />
       </Section>
     </Screen>
   );

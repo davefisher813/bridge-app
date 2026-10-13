@@ -154,14 +154,14 @@ function dateStyles(stylesXml: string | null): Set<number> {
   const out = new Set<number>();
   if (!stylesXml) return out;
   const custom = new Map<number, string>();
-  for (const m of stylesXml.matchAll(/<numFmt\b([^>]*?)\/?>/g)) {
+  for (const m of stylesXml.matchAll(/<(?:\w+:)?numFmt\b([^>]*?)\/?>/g)) {
     const id = Number(attrOf(m[1]!, "numFmtId"));
     const code = attrOf(m[1]!, "formatCode");
     if (Number.isFinite(id) && code !== undefined) custom.set(id, code);
   }
-  const xfs = stylesXml.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/)?.[1] ?? "";
+  const xfs = stylesXml.match(/<(?:\w+:)?cellXfs\b[^>]*>([\s\S]*?)<\/(?:\w+:)?cellXfs>/)?.[1] ?? "";
   let i = 0;
-  for (const m of xfs.matchAll(/<xf\b([^>]*?)(?:\/>|>[\s\S]*?<\/xf>)/g)) {
+  for (const m of xfs.matchAll(/<(?:\w+:)?xf\b([^>]*?)(?:\/>|>[\s\S]*?<\/(?:\w+:)?xf>)/g)) {
     const id = Number(attrOf(m[1]!, "numFmtId") ?? 0);
     const code = custom.get(id);
     if (code !== undefined ? isDateFormatCode(code) : BUILTIN_DATE_FORMATS.has(id)) out.add(i);
@@ -195,7 +195,7 @@ function sheetFiles(files: Map<string, Uint8Array>): { name: string; path: strin
       if (id && target) targets.set(id, target.startsWith("/") ? target.slice(1) : `xl/${target.replace(/^\.\//, "")}`);
     }
     const out: { name: string; path: string }[] = [];
-    for (const m of utf8(wb).matchAll(/<sheet\b([^>]*?)\/?>/g)) {
+    for (const m of utf8(wb).matchAll(/<(?:\w+:)?sheet\b([^>]*?)\/?>/g)) {
       const rid = attrOf(m[1]!, "r:id");
       const path = rid ? targets.get(rid) : undefined;
       if (path && files.has(path)) out.push({ name: attrOf(m[1]!, "name") ?? path, path });
@@ -203,13 +203,17 @@ function sheetFiles(files: Map<string, Uint8Array>): { name: string; path: strin
     if (out.length) return out;
   }
   // Nothing to map by: the sheet files in number order.
-  const names = wb ? [...utf8(wb).matchAll(/<sheet\b[^>]*\bname="([^"]*)"/g)].map((m) => decodeEntities(m[1]!)) : [];
+  const names = wb ? [...utf8(wb).matchAll(/<(?:\w+:)?sheet\b[^>]*\bname="([^"]*)"/g)].map((m) => decodeEntities(m[1]!)) : [];
   return [...files.keys()]
     .filter((k) => /^xl\/worksheets\/sheet\d+\.xml$/.test(k))
     .sort((a, b) => Number(a.match(/(\d+)\.xml$/)![1]) - Number(b.match(/(\d+)\.xml$/)![1]))
     .map((path, i) => ({ name: names[i] ?? `Sheet ${i + 1}`, path }));
 }
 
+// Every SpreadsheetML element below may carry a namespace prefix
+// (<x:c>, <x:row>, <x:si>): some exporters write the main namespace
+// under a prefix instead of as the default, so each element name takes
+// an optional "<prefix>:" in front.
 // Excel: each sheet by name, each row as its cells split by " | ", with
 // empty cells kept so columns line up. Shared strings, inline strings,
 // numbers and booleans as they are stored, and a number formatted as a
@@ -218,28 +222,28 @@ export function xlsxToText(bytes: Uint8Array): string {
   const files = unzip(bytes);
   const shared: string[] = [];
   const ss = files.get("xl/sharedStrings.xml");
-  if (ss) for (const si of utf8(ss).matchAll(/<si>([\s\S]*?)<\/si>/g)) shared.push(decodeEntities([...si[1]!.matchAll(/<t(?:\s[^>]*)?>([^<]*)<\/t>/g)].map((t) => t[1]).join("")));
+  if (ss) for (const si of utf8(ss).matchAll(/<(?:\w+:)?si>([\s\S]*?)<\/(?:\w+:)?si>/g)) shared.push(decodeEntities([...si[1]!.matchAll(/<(?:\w+:)?t(?:\s[^>]*)?>([^<]*)<\/(?:\w+:)?t>/g)].map((t) => t[1]).join("")));
   const styles = files.get("xl/styles.xml");
   const dates = dateStyles(styles ? utf8(styles) : null);
   const wb = files.get("xl/workbook.xml");
-  const date1904 = wb ? /<workbookPr\b[^>]*\bdate1904="(1|true)"/.test(utf8(wb)) : false;
+  const date1904 = wb ? /<(?:\w+:)?workbookPr\b[^>]*\bdate1904="(1|true)"/.test(utf8(wb)) : false;
   const sheets = sheetFiles(files);
   if (!sheets.length) throw new Error("no sheets in this Excel file");
   const out: string[] = [];
   for (const sheet of sheets) {
     out.push(`Sheet: ${sheet.name}`);
-    for (const row of utf8(files.get(sheet.path)!).matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+    for (const row of utf8(files.get(sheet.path)!).matchAll(/<(?:\w+:)?row\b[^>]*>([\s\S]*?)<\/(?:\w+:)?row>/g)) {
       const cells: string[] = [];
-      for (const c of row[1]!.matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+      for (const c of row[1]!.matchAll(/<(?:\w+:)?c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?c>)/g)) {
         const attrs = c[1]!;
         const inner = c[2] ?? "";
         const ref = attrs.match(/\br="([A-Z]+\d+)"/)?.[1];
         const type = attrs.match(/\bt="([a-zA-Z]+)"/)?.[1];
         const style = attrs.match(/\bs="(\d+)"/)?.[1];
-        const v = inner.match(/<v>([\s\S]*?)<\/v>/)?.[1];
+        const v = inner.match(/<(?:\w+:)?v>([\s\S]*?)<\/(?:\w+:)?v>/)?.[1];
         let value = "";
         if (type === "s" && v !== undefined) value = shared[Number(v)] ?? "";
-        else if (type === "inlineStr") value = decodeEntities([...inner.matchAll(/<t(?:\s[^>]*)?>([^<]*)<\/t>/g)].map((t) => t[1]).join(""));
+        else if (type === "inlineStr") value = decodeEntities([...inner.matchAll(/<(?:\w+:)?t(?:\s[^>]*)?>([^<]*)<\/(?:\w+:)?t>/g)].map((t) => t[1]).join(""));
         else if (type === "b" && v !== undefined) value = v === "1" ? "TRUE" : "FALSE";
         else if (v !== undefined && (type === undefined || type === "n") && style !== undefined && dates.has(Number(style))) value = excelSerialToDate(Number(v), date1904) ?? decodeEntities(v);
         else if (v !== undefined) value = decodeEntities(v);

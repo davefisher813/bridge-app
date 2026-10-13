@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { longDate } from "@/lib/copy/dates";
 import { loadStaff } from "@/lib/data/staff";
 import { effectiveStatus, isScoredStatus, placementAthlete, type PlacementTarget } from "@/lib/placement";
-import { CHECKIN_DUE_DAYS, CHECKIN_KIND_LABEL, checkinDue, daysSinceCheckin, latestByAthlete, sortByNeed, type CheckinKind } from "@/lib/checkins";
+import { CHECKIN_DUE_DAYS, CHECKIN_KIND_LABEL, checkinAuthorName, checkinDue, daysSinceCheckin, latestByAthlete, sortByNeed, type CheckinKind } from "@/lib/checkins";
 import { Avatar, Chevron, EmptyState, Row, Screen, Section } from "@/components/kit";
 
 // Advisor Hub (live check, 2026-10-10): the whole program's advising in
@@ -121,7 +121,7 @@ export default async function AdvisorHubPage({ params }: { params: Promise<{ slu
               href={`/org/${slug}/roster/${c.athlete_id}/checkins/${c.id}`}
               leading={<Avatar name={athleteNames.get(c.athlete_id) ?? "Athlete"} />}
               title={athleteNames.get(c.athlete_id) ?? "An Athlete No Longer Listed"}
-              meta={`${CHECKIN_KIND_LABEL[c.kind as CheckinKind] ?? c.kind} · ${longDate(c.occurred_on)} · by ${advisorOf(c.advisor_id) ?? "someone who left"}${c.photo_path ? " · photo" : ""}`}
+              meta={`${CHECKIN_KIND_LABEL[c.kind as CheckinKind] ?? c.kind} · ${longDate(c.occurred_on)} · by ${checkinAuthorName(staff, c.advisor_id)}${c.photo_path ? " · photo" : ""}`}
               trailing={<Chevron />}
               wrap
             />

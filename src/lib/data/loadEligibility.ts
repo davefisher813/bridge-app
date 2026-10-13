@@ -34,6 +34,11 @@ export interface EligibilityBundle {
   };
   courses: AthleteCourseRow[];
   division: string;
+  // Schools the athlete is aiming for (every target but Not Interested),
+  // NCAA or not. With no division and some of these, every one of them
+  // is NAIA, junior college or another level the NCAA does not govern,
+  // which is a different thing to say than "no targets yet".
+  aimedTargets: number;
   view: EligibilityView;
 }
 
@@ -76,6 +81,11 @@ export function divisionForTargets(rows: EligibilityTargetRow[]): string {
   const committed = pickDivision(rows.filter((t) => t.status === "Committed").flatMap(divisionOf));
   if (committed) return committed;
   return pickDivision(rows.filter((t) => t.status !== "Not Interested").flatMap(divisionOf));
+}
+
+// How many targets the athlete is aiming for, whatever their level.
+export function aimedTargetCount(rows: EligibilityTargetRow[]): number {
+  return rows.filter((t) => t.status !== "Not Interested").length;
 }
 
 type ScaleQueryRow = {
@@ -210,5 +220,7 @@ export async function loadEligibility(orgId: string, athleteId: string, today: s
     today,
   });
 
-  return { athlete: athlete as EligibilityBundle["athlete"], courses, division, view };
+  const aimedTargets = aimedTargetCount((targetRows ?? []) as EligibilityTargetRow[]);
+
+  return { athlete: athlete as EligibilityBundle["athlete"], courses, division, aimedTargets, view };
 }

@@ -149,6 +149,12 @@ export function extensionOf(fileName: string): string {
   return dot < 0 ? "" : base.slice(dot + 1).toLowerCase();
 }
 
+// The format a stored name says, and the media type it is served as; null
+// for a name that is none of the seven.
+export function formatOfName(fileName: string): { format: VaultFormat; mediaType: string } | null {
+  return EXTENSION_TO_FORMAT[extensionOf(fileName)] ?? null;
+}
+
 export type FormatCheck =
   | { ok: true; format: VaultFormat; extension: string; mediaType: string; size: number }
   | { ok: false; reason: string; code: "empty" | "too_big" | "not_accepted" | "mismatch" };
@@ -267,4 +273,37 @@ export function formatLabelOf(format: string | null | undefined, mediaType?: str
   if (mediaType === "image/jpeg") return "JPG";
   if (mediaType === "image/png") return "PNG";
   return "File";
+}
+
+// How one stored page of a document goes to the reader, decided by its
+// own bytes. A document of several files can mix formats (a PDF and a
+// photo, a Word file and a PDF), so Read Again cannot take the
+// document's first-file format for every page. Null when the bytes are
+// nothing the reader reads (an old .doc or .xls, a HEIC, a renamed zip).
+export type ReaderPage =
+  | { kind: "pdf"; mediaType: "application/pdf"; blockType: "document" }
+  | { kind: "image"; mediaType: "image/jpeg" | "image/png"; blockType: "image" }
+  | { kind: "text"; mediaType: "text/plain"; blockType: "text"; textExtension: "docx" | "xlsx" | "txt" };
+
+export function readerPageOf(bytes: Uint8Array): ReaderPage | null {
+  const kind = sniffBytes(bytes);
+  if (kind === "pdf") return { kind: "pdf", mediaType: "application/pdf", blockType: "document" };
+  if (kind === "jpg") return { kind: "image", mediaType: "image/jpeg", blockType: "image" };
+  if (kind === "png") return { kind: "image", mediaType: "image/png", blockType: "image" };
+  if (kind === "zip") {
+    const names = zipEntryNames(bytes);
+    if (names.includes("word/document.xml")) return { kind: "text", mediaType: "text/plain", blockType: "text", textExtension: "docx" };
+    if (names.includes("xl/workbook.xml")) return { kind: "text", mediaType: "text/plain", blockType: "text", textExtension: "xlsx" };
+    return null;
+  }
+  if (kind === "text") return { kind: "text", mediaType: "text/plain", blockType: "text", textExtension: "txt" };
+  return null;
+}
+
+// The Content-Type one stored page is sent with: what its own bytes are,
+// agreed with its own name (a page of a mixed document is not its first
+// file's type). Anything that does not check out goes as plain bytes.
+export function storedPageMediaType(name: string, bytes: Uint8Array): string {
+  const check = checkVaultFile(name, bytes, Number.MAX_SAFE_INTEGER);
+  return check.ok && VAULT_MEDIA_TYPES.includes(check.mediaType) ? check.mediaType : "application/octet-stream";
 }

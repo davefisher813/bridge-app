@@ -50,6 +50,20 @@ export async function moveLifecycle(client: Client, args: MoveArgs): Promise<Mov
   // person, finds it already moved and changes nothing.
   const patch: Record<string, unknown> = { lifecycle: args.to, updated_at: new Date().toISOString() };
   if (args.reviewReason !== undefined) patch.review_reason = args.reviewReason;
+  // Who approved it (migration 0067): stamped on the move to Ready,
+  // cleared when it goes back to be checked again. The database stamps
+  // the same from the signed-in caller; this keeps the two in step.
+  if (args.to === "ready") {
+    patch.approved_by = args.actorId;
+    patch.approved_at = patch.updated_at;
+  } else if (from === "ready" || from === "archived") {
+    // Back to be checked again. (Only these two can have carried an
+    // approval; Archive itself keeps it, as the record of who approved.)
+    if (args.to === "needs_review") {
+      patch.approved_by = null;
+      patch.approved_at = null;
+    }
+  }
   const { data: moved, error } = await client
     .from("documents")
     .update(patch)

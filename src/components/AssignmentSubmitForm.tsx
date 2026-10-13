@@ -9,7 +9,8 @@ import { Button, FileField, Form, Notice, Stack, TextAreaField } from "@/compone
 
 // The Athlete login's answer to one assignment: a note, and for an
 // upload assignment a file. A client component because the file goes to
-// the documents bucket from the browser, under <org>/family/<request>/,
+// the documents bucket from the browser, under <org>/family/<request>/
+// (the request folder starts with the athlete's id: migration 0066),
 // and only its path rides the action (Next caps a server action body at
 // 1MB, the same reason DocumentUploader uploads first). Then the one
 // write is submitAssignment, which reads the bytes back, checks them and
@@ -19,8 +20,12 @@ import { Button, FileField, Form, Notice, Stack, TextAreaField } from "@/compone
 // below is a courtesy so a person is told before a slow upload; the
 // action and the bucket both check it again.
 
-function newRequestId(): string {
-  return `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+// The folder is the assignment's own id (the storage policy admits a
+// family upload only under an assignment of the login's own athlete,
+// migration 0068); the stamp keeps a resubmission from colliding with
+// the file sent the first time.
+function newUploadStamp(): string {
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 const EMPTY_STATE: AssignmentActionState = { errors: {} };
@@ -65,7 +70,7 @@ export function AssignmentSubmitForm({ slug, orgId, athleteId, assignmentId, kin
       if (file.size > MAX_INGEST_BYTES) {
         return { errors: { file: `${file.name} is over ${Math.floor(MAX_INGEST_BYTES / (1024 * 1024))} MB. Send a smaller file.` }, note };
       }
-      const path = familyStoragePath(orgId, newRequestId(), file.name);
+      const path = familyStoragePath(orgId, assignmentId, file.name, newUploadStamp());
       if (!path) return { errors: { file: "That file could not be sent from this screen. Try again." }, note };
 
       setStage("Uploading");

@@ -23,6 +23,7 @@ import { isStubReading } from "@/lib/data/readBy";
 interface DocRow {
   id: string;
   file_name: string;
+  title: string | null;
   category: string | null;
   requested_category: string | null;
   filed_as: string | null;
@@ -112,8 +113,11 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
   // name, the only thing known about it.
   const label = documentTypeLabel(doc, CATEGORY_LABEL);
   const typed = !!label;
-  const title =
-    doc.status === "filed"
+  // A title an Admin gave it (migration 0069) says what it is, ahead of
+  // anything worked out; its type and file name go below.
+  const title = doc.title
+    ? `${doc.title}${athlete ? ` · ${athlete}` : ""}`
+    : doc.status === "filed"
       ? `Athlete Upload${athlete ? ` · ${athlete}` : ""}`
       : doc.category
         ? // A reference reading (Board Document, Other) is never matched to
@@ -121,7 +125,7 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
           `${label}${athlete ? ` · ${athlete}` : doc.category === "board_document" || doc.category === "other" ? "" : " · No Match"}`
         : (label ?? doc.file_name);
   const reason = lifecycle === "processing" && isStaleProcessing(lifecycle, doc.lifecycle_changed_at) ? "Reading did not finish." : doc.review_reason;
-  const facts = [typed || doc.status === "filed" ? doc.file_name : null, formatLabelOf(doc.format, doc.media_type), formatBytes(doc.file_size), ago(doc.created_at)].filter(Boolean);
+  const facts = [doc.title ? label : null, doc.title || typed || doc.status === "filed" ? doc.file_name : null, formatLabelOf(doc.format, doc.media_type), formatBytes(doc.file_size), ago(doc.created_at)].filter(Boolean);
   const notes = [doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
   return (
     <Row
@@ -163,7 +167,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const [{ data }, { data: athleteRows }] = await Promise.all([
     supabase
       .from("documents")
-      .select("id, file_name, category, requested_category, filed_as, status, route, provenance, extracted, athlete_id, linked_athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), failure_reason, read_by, created_at, file_size, media_type, format, lifecycle, lifecycle_changed_at, review_reason")
+      .select("id, file_name, title, category, requested_category, filed_as, status, route, provenance, extracted, athlete_id, linked_athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), failure_reason, read_by, created_at, file_size, media_type, format, lifecycle, lifecycle_changed_at, review_reason")
       .eq("org_id", org.id)
       .order("created_at", { ascending: false })
       .limit(LOAD_CAP),
@@ -178,7 +182,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const matched = q
     ? all.filter((r) => {
         const athlete = athleteLabel(r, linkedNames);
-        return `${r.file_name} ${documentTypeLabel(r, CATEGORY_LABEL) ?? ""} ${athlete ?? ""}`.toLowerCase().includes(q);
+        return `${r.title ?? ""} ${r.file_name} ${documentTypeLabel(r, CATEGORY_LABEL) ?? ""} ${athlete ?? ""}`.toLowerCase().includes(q);
       })
     : all;
   const inView = (v: View) => (v === "all" ? matched : matched.filter((r) => r.lifecycle === v));

@@ -66,3 +66,14 @@ export function sortByNeed<T extends { days: number | null; name?: string | null
     return (a.name ?? "").localeCompare(b.name ?? "");
   });
 }
+
+// Who logged a check-in, the same on the log, on one check-in and on
+// the Advisor Hub: the name on the staff list, or "Someone Who Left" for
+// an author who is no longer on it (or none recorded). The log used to
+// read the users embed and showed a departed author's real name while
+// the other two screens said they had left.
+export const CHECKIN_AUTHOR_GONE = "Someone Who Left";
+
+export function checkinAuthorName(staff: readonly { id: string; name: string }[], advisorId: string | null | undefined): string {
+  return (advisorId && staff.find((s) => s.id === advisorId)?.name) || CHECKIN_AUTHOR_GONE;
+}

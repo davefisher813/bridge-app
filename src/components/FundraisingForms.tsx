@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { GIFT_CATEGORIES, CATEGORY_LABEL, formatMoney, toCents } from "@/lib/fundraising/rollup";
 import type { FundraisingActionState } from "@/lib/actions/fundraising";
+import type { BoardMemberOption } from "@/components/GiftForm";
 import { Body, Button, Field, Form, Grid2, Prose, Row, Section, SelectField, Stack, SuggestField, TextAreaField } from "@/components/kit";
 
 type ServerAction = (prevState: FundraisingActionState, formData: FormData) => Promise<FundraisingActionState>;
@@ -126,6 +127,7 @@ export interface PledgeInitial {
   promisedOn: string;
   dueOn: string | null;
   campaignId: string | null;
+  solicitedBy: string | null;
   notes: string | null;
   status: string;
 }
@@ -134,6 +136,7 @@ export function PledgeForm({
   action,
   donors,
   campaigns,
+  boardMembers = [],
   today,
   initial,
   submitLabel = "Record the Pledge",
@@ -141,6 +144,9 @@ export function PledgeForm({
   action: ServerAction;
   donors: Array<{ id: string; name: string }>;
   campaigns: Array<{ id: string; name: string }>;
+  // The seats a pledge can credit, as on the gift form. Empty when the
+  // Board module is off, which keeps the field off the screen.
+  boardMembers?: BoardMemberOption[];
   today: string;
   initial?: PledgeInitial;
   submitLabel?: string;
@@ -181,6 +187,17 @@ export function PledgeForm({
           {campaigns.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
+            </option>
+          ))}
+        </SelectField>
+      )}
+
+      {boardMembers.length > 0 && (
+        <SelectField name="solicitedBy" label="Brought in By" error={err("solicitedBy")} defaultValue={initial?.solicitedBy ?? ""}>
+          <option value="">Nobody in particular</option>
+          {boardMembers.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}, {m.boardName}
             </option>
           ))}
         </SelectField>

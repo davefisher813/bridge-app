@@ -4261,3 +4261,62 @@ side tables (touches every staff screen and action).
 
 **Consequences.** familyReadLaws walks every family-reachable screen and
 loader for a direct read of the three tables. Staff reads are unchanged.
+
+## 2026-10-13: document approvers are a setting, with nobody named
+
+**Decision.** Doc AI piece 7 is built as a mechanism with no names in
+it. Migration 0067 adds doc_approvers (one Admin per org per area:
+academic for transcripts and recommendations, eligibility for test
+scores, financial for aid letters and offers) and documents.approved_by
+and approved_at. An Admin names, changes or clears each area under
+Organization Settings, Document Approvers, through a confirm naming the
+person and the area; each change is logged and offers Undo. With an
+area's approver named, only they mark its documents Ready: everyone
+else sees "Waiting on <Name> to Approve", the server action refuses
+them, and a database trigger refuses the move as a backstop. With
+nobody named, any Admin marks Ready with one tap, as before. A demoted
+or removed approver's areas clear, one log row each. The type-to-area
+map lives in src/lib/documents/approvers.ts and in 0067's
+private.doc_approval_area; a law holds the two equal.
+
+**Reason.** The roadmap names three approver roles and Dave has not
+named anyone. Building the switch now means naming someone later is a
+settings change, not a build, and the authority rule (2026-10-06) says
+who holds such a role is a setting an Admin sees, changes and undoes.
+
+**Alternatives.** A per-document approval list (more than the roadmap
+asks; nobody has asked for sign-off by more than one person per area);
+an approval step separate from Ready (a sixth lifecycle state, which
+every list and the vault trigger would have to learn).
+
+**Consequences.** 0067 is pending: it must be on the database before
+this code deploys, because Mark Ready, Move Back to Needs Review and
+Unarchive write approved_by. NCAA documents have no type of their own
+yet, so only Test Scores fall under eligibility. Piece 8's "personal
+uploads" is still unspecified.
+
+## 2026-10-13: an Athlete login sends documents on its own; the family folder is per athlete
+
+**Decision.** Doc AI Piece 5. An Athlete login sends a PDF, JPG or PNG
+for its own athlete outside any assignment, from Send a Document. The one
+write is family_send_document (migration 0066), security definer, modelled
+on submit_assignment: the file is filed (status filed, Needs Review,
+shown as an Athlete Upload), never applied and never read on its own. An
+Admin's Read Again reads it, and any filed assignment file, charged like
+any reading. The family folder's insert policy now admits a file only
+under `<org>/family/<athlete>_<request>/`, the athlete one the login is
+linked to; the assignment upload builds its folder the same way.
+
+**Reason.** Dave's Piece 5 (family uploads). Before 0066 a family login
+could write anywhere under its org's family folder; the folder now names
+the athlete it is for, so the database can hold it to that link.
+
+**Alternatives.** Reading the file on arrival (no Doc AI spend from an
+Athlete login, so no); a form on the athlete page itself (the page keeps
+no form, a law says so); leaving the folder open (the function checks the
+link anyway, but the bucket would still take files nobody can file).
+
+**Consequences.** Deploy the app before applying 0066, or an older page's
+assignment upload is refused by the bucket. A document Read Again leaves
+the family's list unless the reading is applied to that athlete, since the
+family list follows athlete_id (unchanged from assignment files).

@@ -471,12 +471,21 @@ Status, 2026-10-13:
   Word, Excel, CSV and text.
 - **4, identity matching:** built. Identity fields must be quoted from the
   page, a re-read that disagrees is held, a document links to an athlete.
-- **5, family uploads:** partly. An Athlete login sends a file only as an
-  assignment answer; it is filed, not read. No open upload for families.
-- **6, previews:** not built. The document screen offers the file for
-  download, not an inline view. Never specified beyond the word.
-- **7 and 8, approver roles:** blocked. Needs Dave to name the academic,
-  eligibility and financial approvers. Until then Ready is one Admin tap.
+- **5, family uploads:** built (0066, pending on production). An Athlete
+  login sends a PDF, JPG or PNG for its own athlete from Send a Document,
+  outside any assignment, with an optional type and note. It is filed in
+  Needs Review as an Athlete Upload, never applied, never read on its
+  own; an Admin's Read Again reads it and charges as usual (assignment
+  files too). The family folder now takes files only under a folder
+  named for a linked athlete. Deploy the app before applying 0066.
+- **6, previews:** built. The document screen shows a photo inline, opens
+  a PDF in the browser, shows the reader's text of a Word, Excel, CSV or
+  text file (capped, folded), each page its own. Staff only.
+- **7 and 8, approver roles:** built, nobody named (migration 0067,
+  pending). Organization Settings, Document Approvers sets one Admin per
+  area, confirmed, logged, undoable. Once an area has a name, only that
+  person marks its documents Ready and the document shows who approved;
+  until then Ready is one Admin tap. Waiting on Dave to name people.
 - **8, personal uploads:** not built and not specified.
 - **9, legacy migration:** not built. Needs the old Bridge app's documents
   as a source; none has been handed over.
@@ -486,4 +495,7 @@ approver sign off a document before it can be treated as final: an
 academic approver (transcripts, recommendations), an eligibility approver
 (test scores, NCAA documents) and a financial approver (aid letters,
 offers). Who holds each role is not decided and nobody is named. Until
-then Ready stays a single tap by an Admin.
+then Ready stays a single tap by an Admin. The switch is built (see
+DECISIONS, 2026-10-13): naming someone is a settings change. NCAA
+documents have no type of their own yet, so eligibility covers Test
+Scores only.

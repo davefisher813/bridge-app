@@ -186,7 +186,15 @@ export async function createAthlete(slug: string, _prevState: AthleteActionState
     }
   }
   if (metricsWarning) {
-    return { errors: { form: `${parsed.values.name} was added, but the metrics could not be logged: ${metricsWarning}. Log them from the athlete's Metrics screen.` }, values: valuesFromFormData(formData) };
+    // The athlete exists now, so the roster is refreshed like any add;
+    // only the measurement is missing, and the message says which.
+    revalidatePath(`/org/${slug}/roster`);
+    if (created?.id) revalidatePath(`/org/${slug}/roster/${created.id}`);
+    const count = first.metrics?.entries.length ?? 0;
+    return {
+      errors: { form: `${parsed.values.name} was added, but the ${count === 1 ? "measurement was" : "measurements were"} not saved: ${metricsWarning}. Log ${count === 1 ? "it" : "them"} from the athlete's Metrics screen.` },
+      values: valuesFromFormData(formData),
+    };
   }
 
   // Land on the record that was just made, not the list it sits in. A

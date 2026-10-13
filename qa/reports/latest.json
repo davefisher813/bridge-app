@@ -1,15 +1,17 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "bf23bf3",
-  "commitFull": "bf23bf3c98cadb72b1292fad684324b413ab8f41",
+  "commit": "20e35a3",
+  "commitFull": "20e35a3dd00cf4f34e9841953dffb79b29c2999c",
   "branch": "claude/downloads-directory-4mf6gv",
-  "remoteBranches": [],
-  "shipped": false,
-  "dirty": false,
+  "remoteBranches": [
+    "origin/claude/downloads-directory-4mf6gv"
+  ],
+  "shipped": true,
+  "dirty": true,
   "onMain": false,
-  "startedAt": "2026-10-13T06:28:44.464Z",
-  "durationMs": 39822,
+  "startedAt": "2026-10-13T07:08:39.511Z",
+  "durationMs": 43684,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -18,13 +20,13 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 2600,
+        "pass": 2722,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
         "suitesFailed": 0,
-        "filesOnDisk": 101,
-        "filesLoaded": 101
+        "filesOnDisk": 105,
+        "filesLoaded": 105
       },
       "filesNotLoaded": [],
       "filesWithNoTests": [],
@@ -42,7 +44,7 @@
         "src/laws/authorityLaws.test.ts": 11,
         "src/laws/autofillLaws.test.ts": 21,
         "src/laws/boardSeatDonorLaws.test.ts": 12,
-        "src/laws/copyLaws.test.ts": 4,
+        "src/laws/copyLaws.test.ts": 6,
         "src/laws/dataLaws.test.ts": 12,
         "src/laws/dateLaws.test.ts": 5,
         "src/laws/docLinkLaws.test.ts": 9,
@@ -51,6 +53,7 @@
         "src/laws/docaiLiveLaws.test.ts": 9,
         "src/laws/documentDeleteLaws.test.ts": 6,
         "src/laws/documentLaws.test.ts": 32,
+        "src/laws/familyReadLaws.test.ts": 7,
         "src/laws/fitLaws.test.ts": 11,
         "src/laws/fundraisingActions.test.ts": 84,
         "src/laws/fundraisingLaws.test.ts": 13,
@@ -77,6 +80,9 @@
         "src/laws/sharedDirectoryLaws.test.ts": 18,
         "src/laws/stubApplyLaws.test.ts": 3,
         "src/laws/stylingLaws.test.ts": 19,
+        "src/laws/sweepDocumentLaws.test.ts": 22,
+        "src/laws/sweepMoneyLaws.test.ts": 47,
+        "src/laws/sweepRecruitingLaws.test.ts": 44,
         "src/laws/vaultLaws.test.ts": 56,
         "src/lib/ai/anthropicCaller.test.ts": 12,
         "src/lib/checkins.test.ts": 9,
@@ -161,7 +167,7 @@
             "location": "/login"
           }
         },
-        "ms": 1638
+        "ms": 1414
       },
       "errors": [],
       "warnings": [],
@@ -175,8 +181,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 7,
-      "filesScanned": 729
+      "touchedFiles": 107,
+      "filesScanned": 2668
     },
     {
       "name": "types",

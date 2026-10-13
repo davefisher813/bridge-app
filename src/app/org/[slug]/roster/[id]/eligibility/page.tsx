@@ -60,7 +60,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   // bug that sat in this very file for a release.
   const bundle = await loadEligibility(org.id, id, orgToday());
   if (!bundle) notFound();
-  const { athlete, view, division, courses } = bundle;
+  const { athlete, view, division, courses, aimedTargets } = bundle;
 
   const { eligibility, ageClock } = view;
   const std = eligibility.division ? DIVISION_STANDARDS[eligibility.division] : null;
@@ -77,6 +77,20 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
       <DocumentUploader slug={slug} orgId={org.id} boundTo={{ athleteId: id, athleteName: athlete.name, category: "transcript", returnTo: here }} />
     </Section>
   );
+
+  // Targets, but none of them NCAA (NAIA, junior college, or another
+  // level): no NCAA standard applies, and saying there are no targets
+  // would be false.
+  if (!division && aimedTargets > 0) {
+    return (
+      <Screen title="NCAA Eligibility" back={back}>
+        <EmptyState kind="school" title="No NCAA Standard Applies">
+          {aimedTargets === 1 ? "The one target school is" : `All ${aimedTargets} target schools are`} outside the NCAA (NAIA, junior college or another level), so no NCAA academic standard applies. Add an NCAA school to see a verdict.
+        </EmptyState>
+        {uploader}
+      </Screen>
+    );
+  }
 
   // No targets at all: there is no division to judge against, and
   // guessing D1 would put a verdict on screen that nothing supports.

@@ -5,6 +5,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { recordPledge } from "@/lib/actions/fundraising";
 import { PledgeForm } from "@/components/FundraisingForms";
+import { loadSeatOptions } from "@/lib/data/seatOptions";
 import { LinkButton, Notice, Screen } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
@@ -17,9 +18,10 @@ export default async function NewPledgePage({ params }: { params: Promise<{ slug
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const [{ data: donorRows }, { data: campaignRows }] = await Promise.all([
+  const [{ data: donorRows }, { data: campaignRows }, boardMembers] = await Promise.all([
     supabase.from("donors").select("id, name").eq("org_id", org.id).is("deleted_at", null).order("name"),
     supabase.from("campaigns").select("id, name").eq("org_id", org.id).order("name"),
+    loadSeatOptions(supabase, org),
   ]);
 
   const donors = (donorRows ?? []) as Array<{ id: string; name: string }>;
@@ -41,6 +43,7 @@ export default async function NewPledgePage({ params }: { params: Promise<{ slug
           action={recordPledge.bind(null, slug)}
           donors={donors}
           campaigns={(campaignRows ?? []) as Array<{ id: string; name: string }>}
+          boardMembers={boardMembers}
           today={orgToday()}
         />
       )}

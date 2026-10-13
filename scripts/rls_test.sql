@@ -3531,6 +3531,10 @@ insert into storage.objects (bucket_id, name, owner) values
   ('documents', '00000000-0000-0000-0000-000000000020/family/req1/report-card.pdf', '00000000-0000-0000-0000-000000000005'),
   ('documents', '00000000-0000-0000-0000-000000000020/family/req2/second.pdf', '00000000-0000-0000-0000-000000000005'),
   ('documents', '00000000-0000-0000-0000-000000000020/family/req3/theirs.pdf', '00000000-0000-0000-0000-000000000002'),
+  -- The same, in a folder named for the login's athlete (0066's shape).
+  ('documents', '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-000000000120_req3/theirs.pdf', '00000000-0000-0000-0000-000000000002'),
+  -- The same, in a folder 0068 lets the Athlete login write to.
+  ('documents', '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-0000000a0002/theirs.pdf', '00000000-0000-0000-0000-000000000002'),
   ('documents', '00000000-0000-0000-0000-000000000020/family/req4/third.pdf', '00000000-0000-0000-0000-000000000005'),
   -- Objects the login owns whose paths are wrong in shape: another org's
   -- folder, a staff request folder, a climb out of the folder, a bare
@@ -3788,7 +3792,10 @@ declare n int; who uuid; target text;
 begin
   perform set_test_user('00000000-0000-0000-0000-000000000005'); -- Athlete login, Elite
   insert into storage.objects (bucket_id, name, owner) values
-    ('documents', '00000000-0000-0000-0000-000000000020/family/x/f.pdf', '00000000-0000-0000-0000-000000000005');
+    -- The request folder starts with the linked athlete's id (0066).
+    ('documents', '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-000000000120_x/f.pdf', '00000000-0000-0000-0000-000000000005'),
+    -- Or the id of one of its athlete's assignments (0068).
+    ('documents', '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-0000000a0002/f.pdf', '00000000-0000-0000-0000-000000000005');
   foreach target in array array[
     '00000000-0000-0000-0000-000000000020/req9/f.pdf',
     '00000000-0000-0000-0000-000000000020/other/x/f.pdf',
@@ -3807,18 +3814,24 @@ begin
   -- Onto a name someone else already holds, in its own family folder: a
   -- second object cannot take the name (no overwrite, no lookalike that
   -- would carry the login's ownership into a submission).
-  begin
-    insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000000020/family/req3/theirs.pdf', '00000000-0000-0000-0000-000000000005');
-    raise exception 'FAIL: an Athlete login wrote a second object onto another person''s file name';
-  exception when unique_violation then null;
-  end;
+  foreach target in array array[
+    '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-000000000120_req3/theirs.pdf',
+    '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-0000000a0002/theirs.pdf'
+  ] loop
+    begin
+      insert into storage.objects (bucket_id, name, owner) values ('documents', target, '00000000-0000-0000-0000-000000000005');
+      raise exception 'FAIL: an Athlete login wrote a second object onto another person''s file name at %', target;
+    exception when unique_violation then null;
+    end;
+  end loop;
   -- Its own upload is not readable, and it cannot remove one.
   select count(*) into n from storage.objects where bucket_id = 'documents';
   if n <> 0 then raise exception 'FAIL: an Athlete login read % objects from the documents bucket', n; end if;
   delete from storage.objects where name like '00000000-0000-0000-0000-000000000020/family/%';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: an Athlete login deleted % objects from the family folder', n; end if;
-  update storage.objects set name = '00000000-0000-0000-0000-000000000020/family/x/renamed.pdf' where name = '00000000-0000-0000-0000-000000000020/family/x/f.pdf';
+  update storage.objects set name = '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-000000000120_x/renamed.pdf' where name = '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-000000000120_x/f.pdf';
+  update storage.objects set name = '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-0000000a0002/renamed.pdf' where name = '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-0000000a0002/f.pdf';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: an Athlete login renamed % objects', n; end if;
   raise notice 'PASS: an Athlete login writes only under <org>/family/, and reads, renames and deletes nothing in the bucket';
@@ -4352,12 +4365,12 @@ declare bad text;
 begin
   perform set_test_user('00000000-0000-0000-0000-0000000480a4');
   insert into storage.objects (bucket_id, name, owner) values
-    ('documents', '00000000-0000-0000-0000-000000048010/family/x/ok.pdf', '00000000-0000-0000-0000-0000000480a4'),
-    ('documents', '00000000-0000-0000-0000-000000048010/family/x/PHOTO.JPEG', '00000000-0000-0000-0000-0000000480a4'),
-    ('documents', '00000000-0000-0000-0000-000000048010/family/x/scan.png', '00000000-0000-0000-0000-0000000480a4');
+    ('documents', '00000000-0000-0000-0000-000000048010/family/00000000-0000-0000-0000-000000048110_x/ok.pdf', '00000000-0000-0000-0000-0000000480a4'),
+    ('documents', '00000000-0000-0000-0000-000000048010/family/00000000-0000-0000-0000-000000048110_x/PHOTO.JPEG', '00000000-0000-0000-0000-0000000480a4'),
+    ('documents', '00000000-0000-0000-0000-000000048010/family/00000000-0000-0000-0000-000000048110_x/scan.png', '00000000-0000-0000-0000-0000000480a4');
   foreach bad in array array['bad.docx', 'sheet.xlsx', 'list.csv', 'note.txt', 'run.exe', 'pdf', 'x.pdf.exe'] loop
     begin
-      insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000048010/family/x/' || bad, '00000000-0000-0000-0000-0000000480a4');
+      insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000048010/family/00000000-0000-0000-0000-000000048110_x/' || bad, '00000000-0000-0000-0000-0000000480a4');
       raise exception 'FAIL: the family folder took %', bad;
     exception when insufficient_privilege then null;
     end;
@@ -4895,3 +4908,561 @@ begin
 end $$;
 reset role;
 \echo 'ALL 0064 ASSERTIONS PASSED'
+
+-- ═══ Migration 0066: an Athlete login sends a document ═══════════════
+-- family_send_document files a document for the caller's own athlete,
+-- outside any assignment: filed, Needs Review, never read, one literal
+-- log line. Its own orgs and users. a1 is Org A's Admin (staff only),
+-- a2 an Athlete login in Org A linked to athlete 066110 (not to 066111),
+-- a3 a Viewer in Org A, a4 an Athlete login in Org B linked to 066210.
+--
+-- Planted and reverted, each failing where named: the link check dropped
+-- from the function (an Athlete login filed a document for an athlete it
+-- is not linked to); the owner check dropped (an Athlete login filed a
+-- file someone else uploaded); the hash check dropped (the same bytes
+-- filed twice); the athlete line dropped from the storage policy (an
+-- Athlete login wrote into another athlete's folder); the anon revoke
+-- skipped (anon could execute family_send_document).
+reset role;
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000660a1', 'send-owner@s.example'),
+  ('00000000-0000-0000-0000-0000000660a2', 'send-family@s.example'),
+  ('00000000-0000-0000-0000-0000000660a3', 'send-viewer@s.example'),
+  ('00000000-0000-0000-0000-0000000660a4', 'send-family-b@s.example');
+insert into users (id, email, full_name) values
+  ('00000000-0000-0000-0000-0000000660a1', 'send-owner@s.example', 'Send Owner'),
+  ('00000000-0000-0000-0000-0000000660a2', 'send-family@s.example', 'Send Family'),
+  ('00000000-0000-0000-0000-0000000660a3', 'send-viewer@s.example', 'Send Viewer'),
+  ('00000000-0000-0000-0000-0000000660a4', 'send-family-b@s.example', 'Send Family B')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into orgs (id, name, slug) values
+  ('00000000-0000-0000-0000-000000066010', 'Send Org A', 'send-org-a'),
+  ('00000000-0000-0000-0000-000000066020', 'Send Org B', 'send-org-b');
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-0000000660a1', '00000000-0000-0000-0000-000000066010', 'owner'),
+  ('00000000-0000-0000-0000-0000000660a2', '00000000-0000-0000-0000-000000066010', 'family'),
+  ('00000000-0000-0000-0000-0000000660a3', '00000000-0000-0000-0000-000000066010', 'member'),
+  ('00000000-0000-0000-0000-0000000660a4', '00000000-0000-0000-0000-000000066020', 'family');
+insert into athletes (id, org_id, recruit_type, name, sport) values
+  ('00000000-0000-0000-0000-000000066110', '00000000-0000-0000-0000-000000066010', 'hs', 'Send Athlete One', 'baseball'),
+  ('00000000-0000-0000-0000-000000066111', '00000000-0000-0000-0000-000000066010', 'hs', 'Send Athlete Two', 'baseball'),
+  ('00000000-0000-0000-0000-000000066210', '00000000-0000-0000-0000-000000066020', 'hs', 'Send Athlete B', 'baseball');
+insert into athlete_guardians (org_id, athlete_id, user_id, relationship) values
+  ('00000000-0000-0000-0000-000000066010', '00000000-0000-0000-0000-000000066110', '00000000-0000-0000-0000-0000000660a2', 'parent'),
+  ('00000000-0000-0000-0000-000000066020', '00000000-0000-0000-0000-000000066210', '00000000-0000-0000-0000-0000000660a4', 'parent');
+-- Objects in the bucket, seeded as the superuser with their owners.
+insert into storage.objects (bucket_id, name, owner) values
+  ('documents', '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r1/report.pdf', '00000000-0000-0000-0000-0000000660a2'),
+  ('documents', '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r2/photo.jpg', '00000000-0000-0000-0000-0000000660a2'),
+  ('documents', '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r2/reader-photo.jpg', '00000000-0000-0000-0000-0000000660a2'),
+  ('documents', '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r3/same.pdf', '00000000-0000-0000-0000-0000000660a2'),
+  ('documents', '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066111_r1/other.pdf', '00000000-0000-0000-0000-0000000660a2'),
+  ('documents', '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r4/theirs.pdf', '00000000-0000-0000-0000-0000000660a1'),
+  ('documents', '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r5/later.pdf', '00000000-0000-0000-0000-0000000660a2'),
+  ('documents', '00000000-0000-0000-0000-000000066010/req_staff/staff.pdf', '00000000-0000-0000-0000-0000000660a2'),
+  ('documents', '00000000-0000-0000-0000-000000066020/family/00000000-0000-0000-0000-000000066210_r1/b.pdf', '00000000-0000-0000-0000-0000000660a4');
+
+-- 1. The shape: the function, its grants, the note column.
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'documents' and column_name = 'family_note') then raise exception 'FAIL: documents has no family_note'; end if;
+  if has_function_privilege('anon', 'public.family_send_document(uuid, text, int, text, text, text, text, text, text)', 'execute') then raise exception 'FAIL: anon can execute family_send_document'; end if;
+  if has_function_privilege('public', 'public.family_send_document(uuid, text, int, text, text, text, text, text, text)', 'execute') then raise exception 'FAIL: family_send_document is still granted to PUBLIC'; end if;
+  if not has_function_privilege('authenticated', 'public.family_send_document(uuid, text, int, text, text, text, text, text, text)', 'execute') then raise exception 'FAIL: a signed-in caller cannot execute family_send_document'; end if;
+  if has_function_privilege('authenticated', 'private.log_family_document_sent(uuid)', 'execute') then raise exception 'FAIL: a signed-in caller can write the send log line directly'; end if;
+  raise notice 'PASS: family_send_document is for the signed in only, its log helper for nobody, and documents carries family_note';
+end $$;
+
+-- 2. The linked Athlete login sends for its own athlete: a PDF with a
+-- note and a type, then a photo with its reader copy.
+set role app_user;
+do $$
+declare doc uuid; photo uuid; n int;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000660a2');
+  doc := family_send_document('00000000-0000-0000-0000-000000066110', 'report.pdf', 1200, 'application/pdf',
+    '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r1/report.pdf', 'hash-send-one', '  the fall report  ', 'transcript');
+  if doc is null then raise exception 'FAIL: family_send_document returned no id'; end if;
+  photo := family_send_document('00000000-0000-0000-0000-000000066110', 'photo.jpg', 900, 'image/jpeg',
+    '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r2/photo.jpg', 'hash-send-two', null, null,
+    '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r2/reader-photo.jpg');
+  -- The family reads its own documents back through family_documents.
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000066010', '00000000-0000-0000-0000-000000066110') f where f.id in (doc, photo) and f.status = 'filed';
+  if n <> 2 then raise exception 'FAIL: the family sees % of the 2 documents it sent', n; end if;
+  perform set_test_user(null);
+  raise notice 'PASS: a linked Athlete login sends a PDF and a photo for its own athlete';
+end $$;
+reset role;
+do $$
+declare d record; n int;
+begin
+  select * into d from documents where file_name = 'report.pdf' and org_id = '00000000-0000-0000-0000-000000066010';
+  if d.status <> 'filed' or d.lifecycle <> 'needs_review' or d.source_role <> 'parent' or d.format <> 'pdf' then
+    raise exception 'FAIL: a sent document is %/%/%/%, expected filed, needs_review, parent, pdf', d.status, d.lifecycle, d.source_role, d.format;
+  end if;
+  if d.athlete_id is distinct from '00000000-0000-0000-0000-000000066110' or d.linked_athlete_id is distinct from '00000000-0000-0000-0000-000000066110' then raise exception 'FAIL: a sent document is not on its athlete'; end if;
+  if d.uploaded_by is distinct from '00000000-0000-0000-0000-0000000660a2' then raise exception 'FAIL: a sent document is not signed by its sender'; end if;
+  if d.family_note is distinct from 'the fall report' then raise exception 'FAIL: the note was kept as %', d.family_note; end if;
+  if d.requested_category::text is distinct from 'transcript' then raise exception 'FAIL: the type was kept as %', d.requested_category; end if;
+  if d.read_by is not null or d.extracted is not null then raise exception 'FAIL: a sent document carries a reading'; end if;
+  if d.content_hash is distinct from 'hash-send-one' then raise exception 'FAIL: the hash was not kept'; end if;
+  select * into d from documents where file_name = 'photo.jpg' and org_id = '00000000-0000-0000-0000-000000066010';
+  if d.storage_paths <> array['00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r2/reader-photo.jpg']
+     or d.original_paths <> array['00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r2/photo.jpg'] or d.format <> 'jpg' then
+    raise exception 'FAIL: a photo is filed with % and %, expected its reader copy and its original', d.storage_paths, d.original_paths;
+  end if;
+  select count(*) into n from activity_log where org_id = '00000000-0000-0000-0000-000000066010' and action = 'document_uploaded' and subject_type = 'document'
+    and summary = 'Uploaded a document' and actor_id = '00000000-0000-0000-0000-0000000660a2' and athlete_id = '00000000-0000-0000-0000-000000066110';
+  if n <> 2 then raise exception 'FAIL: % log lines for 2 sent documents', n; end if;
+  if exists (select 1 from activity_log where org_id = '00000000-0000-0000-0000-000000066010' and (summary ~* 'fall report|report\.pdf|Send Athlete')) then raise exception 'FAIL: the note, file name or athlete name reached the log'; end if;
+  raise notice 'PASS: a sent document is filed, in Needs Review, on its athlete, signed, unread, with one literal log line each';
+end $$;
+
+-- 3. Refusals, each with nothing written.
+set role app_user;
+do $$
+declare
+  before_docs int; after_docs int; got text; i int;
+  base text := '00000000-0000-0000-0000-000000066010/family/';
+  cases text[][];
+begin
+  cases := array[
+    -- athlete, path, media type, size, type, hash, expected
+    array['00000000-0000-0000-0000-000000066111', base || '00000000-0000-0000-0000-000000066111_r1/other.pdf', 'application/pdf', '100', '', '', 'priv'],
+    array['00000000-0000-0000-0000-000000066210', '00000000-0000-0000-0000-000000066020/family/00000000-0000-0000-0000-000000066210_r1/b.pdf', 'application/pdf', '100', '', '', 'priv'],
+    array['00000000-0000-0000-0000-000000066110', base || '00000000-0000-0000-0000-000000066111_r1/other.pdf', 'application/pdf', '100', '', '', 'check'],
+    array['00000000-0000-0000-0000-000000066110', base || '00000000-0000-0000-0000-000000066110_r4/theirs.pdf', 'application/pdf', '100', '', '', 'check'],
+    array['00000000-0000-0000-0000-000000066110', base || '00000000-0000-0000-0000-000000066110_r9/missing.pdf', 'application/pdf', '100', '', '', 'check'],
+    array['00000000-0000-0000-0000-000000066110', '00000000-0000-0000-0000-000000066010/req_staff/staff.pdf', 'application/pdf', '100', '', '', 'check'],
+    array['00000000-0000-0000-0000-000000066110', base || '00000000-0000-0000-0000-000000066110_r1/report.pdf', 'application/pdf', '100', '', '', 'check'],
+    array['00000000-0000-0000-0000-000000066110', base || '00000000-0000-0000-0000-000000066110_r3/same.pdf', 'application/pdf', '100', '', 'hash-send-one', 'check'],
+    array['00000000-0000-0000-0000-000000066110', base || '00000000-0000-0000-0000-000000066110_r5/later.pdf', 'text/html', '100', '', '', 'check'],
+    array['00000000-0000-0000-0000-000000066110', base || '00000000-0000-0000-0000-000000066110_r5/later.pdf', 'application/pdf', '10485761', '', '', 'check'],
+    array['00000000-0000-0000-0000-000000066110', base || '00000000-0000-0000-0000-000000066110_r5/later.pdf', 'application/pdf', '0', '', '', 'check'],
+    array['00000000-0000-0000-0000-000000066110', base || '00000000-0000-0000-0000-000000066110_r5/later.pdf', 'application/pdf', '100', 'board_document', '', 'check']
+  ];
+  perform set_test_user('00000000-0000-0000-0000-0000000660a2');
+  select count(*) into before_docs from family_documents('00000000-0000-0000-0000-000000066010', '00000000-0000-0000-0000-000000066110');
+  for i in 1 .. array_length(cases, 1) loop
+    got := null;
+    begin
+      perform family_send_document(cases[i][1]::uuid, 'x.pdf', cases[i][4]::int, cases[i][3], cases[i][2], nullif(cases[i][6], ''), null, nullif(cases[i][5], ''));
+      raise exception 'FAIL: family_send_document accepted case % (%)', i, cases[i][2];
+    exception
+      when insufficient_privilege then got := 'priv';
+      when check_violation then got := 'check';
+    end;
+    if got is distinct from cases[i][7] then raise exception 'FAIL: family_send_document case % was refused as %, expected %', i, got, cases[i][7]; end if;
+  end loop;
+  -- A note over the limit, and a reader copy for a PDF from another folder.
+  begin
+    perform family_send_document('00000000-0000-0000-0000-000000066110', 'later.pdf', 100, 'application/pdf', base || '00000000-0000-0000-0000-000000066110_r5/later.pdf', null, repeat('x', 4001));
+    raise exception 'FAIL: family_send_document took a note over 4,000 characters';
+  exception when check_violation then null;
+  end;
+  begin
+    perform family_send_document('00000000-0000-0000-0000-000000066110', 'later.pdf', 100, 'application/pdf', base || '00000000-0000-0000-0000-000000066110_r5/later.pdf', null, null, null,
+      base || '00000000-0000-0000-0000-000000066110_r3/same.pdf');
+    raise exception 'FAIL: family_send_document took a reader copy for a PDF from another folder';
+  exception when check_violation then null;
+  end;
+  select count(*) into after_docs from family_documents('00000000-0000-0000-0000-000000066010', '00000000-0000-0000-0000-000000066110');
+  if after_docs <> before_docs then raise exception 'FAIL: a refused send left % documents behind', after_docs - before_docs; end if;
+  perform set_test_user(null);
+  raise notice 'PASS: family_send_document refuses another athlete, another org, another folder, a file not the caller''s, a filed file, the same bytes, a bad type, size or document type';
+end $$;
+
+-- 4. Not an Athlete login for this athlete, or not signed in: refused.
+do $$
+declare who uuid;
+begin
+  foreach who in array array['00000000-0000-0000-0000-0000000660a1', '00000000-0000-0000-0000-0000000660a3', '00000000-0000-0000-0000-0000000660a4']::uuid[] loop
+    perform set_test_user(who);
+    begin
+      perform family_send_document('00000000-0000-0000-0000-000000066110', 'later.pdf', 100, 'application/pdf',
+        '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r5/later.pdf');
+      raise exception 'FAIL: % sent a document through family_send_document', who;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+  perform set_test_user(null);
+  begin
+    perform family_send_document('00000000-0000-0000-0000-000000066110', 'later.pdf', 100, 'application/pdf',
+      '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r5/later.pdf');
+    raise exception 'FAIL: a signed-out caller sent a document';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: an Admin, a Viewer, another org''s Athlete login and a signed-out caller cannot send through family_send_document';
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from documents where org_id = '00000000-0000-0000-0000-000000066010' and file_name = 'later.pdf';
+  if n <> 0 then raise exception 'FAIL: a refused caller filed % documents', n; end if;
+  select count(*) into n from activity_log where org_id = '00000000-0000-0000-0000-000000066010';
+  if n <> 2 then raise exception 'FAIL: % log lines in Org A, expected the 2 sends only', n; end if;
+  raise notice 'PASS: the refusals wrote no document and no log line';
+end $$;
+set role anon;
+do $$
+begin
+  perform family_send_document('00000000-0000-0000-0000-000000066110', 'later.pdf', 100, 'application/pdf',
+    '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r5/later.pdf');
+  raise exception 'FAIL: anon executed family_send_document';
+exception when insufficient_privilege then
+  raise notice 'PASS: anon cannot execute family_send_document';
+end $$;
+reset role;
+
+-- 5. The family folder, tightened: only under a folder named for an
+-- athlete the login is linked to.
+set role app_user;
+do $$
+declare target text;
+begin
+  perform set_test_user('00000000-0000-0000-0000-0000000660a2');
+  insert into storage.objects (bucket_id, name, owner) values
+    ('documents', '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_req_new/new.pdf', '00000000-0000-0000-0000-0000000660a2');
+  foreach target in array array[
+    '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066111_req_new/new.pdf',
+    '00000000-0000-0000-0000-000000066010/family/req_new/new.pdf',
+    '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066111/new.pdf',
+    '00000000-0000-0000-0000-000000066020/family/00000000-0000-0000-0000-000000066210_req_new/new.pdf',
+    '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_req_new/new.docx'
+  ] loop
+    begin
+      insert into storage.objects (bucket_id, name, owner) values ('documents', target, '00000000-0000-0000-0000-0000000660a2');
+      raise exception 'FAIL: an Athlete login wrote to %', target;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+  perform set_test_user(null);
+  raise notice 'PASS: an Athlete login writes only under a family folder named for its own athlete';
+end $$;
+reset role;
+
+\echo 'ALL 0066 ASSERTIONS PASSED'
+
+-- ── Migration 0068: access tightening ───────────────────────────────
+-- 1. An Athlete login uploads only into a folder it can account for: an
+--    assignment of its own athlete, or its own athlete's id. A made-up
+--    folder, another athlete's id or assignment, and another org's
+--    folder are refused.
+-- 2. applied_migrations answers Admins only (0057's own check, proved
+--    here against a stand-in history table, which the plain database
+--    does not otherwise have).
+-- 3. log_family_message writes nothing for a login with no message.
+-- Family 63 (Bridge, linked to athlete A only) from the 0063 block.
+reset role;
+insert into assignments (id, org_id, athlete_id, title, kind, status, created_by) values
+  ('00000000-0000-0000-0000-0000000a6801', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', 'Bridge Other Athlete Upload', 'upload', 'assigned', '00000000-0000-0000-0000-000000000001');
+set role app_user;
+do $$
+declare target text;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000006301');
+  -- An assignment of its own athlete, and its own athlete's id: allowed.
+  insert into storage.objects (bucket_id, name, owner) values
+    ('documents', '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-0000000a0001/68-a.pdf', '00000000-0000-0000-0000-000000006301'),
+    ('documents', '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000110/68-b.jpg', '00000000-0000-0000-0000-000000006301');
+  foreach target in array array[
+    -- A folder named by nobody.
+    '00000000-0000-0000-0000-000000000010/family/req_made_up/68-c.pdf',
+    -- Another athlete of the same org, by id and by assignment.
+    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000111/68-d.pdf',
+    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-0000000a6801/68-e.pdf',
+    -- Another org's athlete under this org's folder.
+    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000120/68-f.pdf',
+    -- Its own assignment under another org's folder.
+    '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-0000000a0001/68-g.pdf',
+    -- Its own folder, a format the family path does not take.
+    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000110/68-h.html'
+  ] loop
+    begin
+      insert into storage.objects (bucket_id, name, owner) values ('documents', target, '00000000-0000-0000-0000-000000006301');
+      raise exception 'FAIL 0068: an Athlete login wrote to %', target;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+  perform set_test_user(null);
+  raise notice 'PASS: an Athlete login uploads only under an assignment of its own athlete or its own athlete''s id';
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from storage.objects where name like '%/family/%/68-%';
+  if n <> 2 then raise exception 'FAIL 0068: % family objects stored, expected the 2 allowed', n; end if;
+  delete from storage.objects where name like '%/family/%/68-%';
+  delete from assignments where id = '00000000-0000-0000-0000-0000000a6801';
+end $$;
+
+-- 2. A stand-in for Supabase's history table, so the Admin check inside
+-- applied_migrations is what decides, not the missing table.
+reset role;
+-- A Viewer of Bridge and nothing else (user 3 is staff at Elite by now,
+-- which makes them an Admin of some org, so they would rightly see it).
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000006802', 'viewer68@bridge.example');
+insert into users (id, email, full_name) values ('00000000-0000-0000-0000-000000006802', 'viewer68@bridge.example', 'Viewer 68')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-000000006802', '00000000-0000-0000-0000-000000000010', 'member');
+-- And a signed-in person in no org at all.
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000006803', 'nobody68@nowhere.example');
+insert into users (id, email, full_name) values ('00000000-0000-0000-0000-000000006803', 'nobody68@nowhere.example', 'Nobody 68')
+on conflict (id) do update set full_name = excluded.full_name;
+create schema supabase_migrations;
+create table supabase_migrations.schema_migrations (version text primary key, name text);
+insert into supabase_migrations.schema_migrations values ('20261013000000', 'access_tightening');
+set role app_user;
+do $$
+declare n int; who uuid;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge OWNER
+  select count(*) into n from public.applied_migrations();
+  if n <> 1 then raise exception 'FAIL 0068: an Admin read % migration rows, expected 1', n; end if;
+  foreach who in array array[
+    '00000000-0000-0000-0000-000000006802', -- Bridge MEMBER (Viewer) only
+    '00000000-0000-0000-0000-000000006301', -- Bridge FAMILY (Athlete login)
+    '00000000-0000-0000-0000-000000006803'  -- in no org
+  ]::uuid[] loop
+    perform set_test_user(who);
+    select count(*) into n from public.applied_migrations();
+    if n <> 0 then raise exception 'FAIL 0068: % read % migration rows, expected none', who, n; end if;
+  end loop;
+  perform set_test_user(null);
+  select count(*) into n from public.applied_migrations();
+  if n <> 0 then raise exception 'FAIL 0068: a signed-out session read % migration rows', n; end if;
+  raise notice 'PASS: applied_migrations answers an Admin and nobody else';
+end $$;
+reset role;
+drop schema supabase_migrations cascade;
+
+-- 3. log_family_message with no message behind it: refused, no row.
+reset role;
+do $$
+begin
+  if exists (select 1 from athlete_messages where author_id = '00000000-0000-0000-0000-000000006301') then
+    raise exception 'FAIL 0068: the test login already has a message, so this would prove nothing';
+  end if;
+end $$;
+create temp table log_rows_0068 as select count(*) as n from activity_log;
+set role app_user;
+do $$
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000006301');
+  begin
+    perform log_family_message('00000000-0000-0000-0000-000000000110');
+    raise exception 'FAIL 0068: an Athlete login logged "Sent a message" with no message';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_test_user(null);
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from activity_log;
+  if n <> (select l.n from log_rows_0068 l) then raise exception 'FAIL 0068: a refused log_family_message wrote a row'; end if;
+  raise notice 'PASS: log_family_message refuses a linked Athlete login that sent no message, and writes nothing';
+end $$;
+drop table log_rows_0068;
+\echo 'ALL 0068 ASSERTIONS PASSED'
+
+-- ── Migration 0067: document approvers ──────────────────────────────
+-- Per org and area, at most one Admin signs a document off. Admins read
+-- and write the row; a Viewer, an Athlete login and another org see and
+-- change nothing; the person must be an Admin of the same org. With an
+-- approver named, only they move a document of that area to Ready, and
+-- who approved is stamped and cleared by the database.
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000006701', 'approver67@bridge.example');
+insert into users (id, email, full_name) values ('00000000-0000-0000-0000-000000006701', 'approver67@bridge.example', 'Approver 67')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-000000006701', '00000000-0000-0000-0000-000000000010', 'owner');
+insert into documents (id, org_id, file_name, file_size, media_type, source_role, status, content_hash, category) values
+  ('00000000-0000-0000-0000-000000006710', '00000000-0000-0000-0000-000000000010', 't67.pdf', 10, 'application/pdf', 'admin', 'pending', 'hash-67t', 'transcript'),
+  ('00000000-0000-0000-0000-000000006711', '00000000-0000-0000-0000-000000000010', 's67.pdf', 10, 'application/pdf', 'admin', 'pending', 'hash-67s', 'test_scores'),
+  ('00000000-0000-0000-0000-000000006712', '00000000-0000-0000-0000-000000000010', 'r67.pdf', 10, 'application/pdf', 'admin', 'pending', 'hash-67r', 'recommendation');
+set role app_user;
+
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge OWNER
+do $$
+declare n int;
+begin
+  select count(*) into n from documents where id in ('00000000-0000-0000-0000-000000006710', '00000000-0000-0000-0000-000000006711', '00000000-0000-0000-0000-000000006712') and lifecycle = 'needs_review';
+  if n <> 3 then raise exception 'FAIL: the 0067 probe documents did not start in Needs Review (% of 3)', n; end if;
+  -- Nobody named: a transcript is one Admin tap, and who did it is kept.
+  update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000006712';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006712' and lifecycle = 'ready' and approved_by = '00000000-0000-0000-0000-000000000001' and approved_at is not null;
+  if n <> 1 then raise exception 'FAIL: with nobody named an Admin could not mark Ready, or the approval was not stamped'; end if;
+  update documents set lifecycle = 'needs_review' where id = '00000000-0000-0000-0000-000000006712';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006712' and approved_by is null and approved_at is null;
+  if n <> 1 then raise exception 'FAIL: moving back to Needs Review kept the approval'; end if;
+  raise notice 'PASS: with nobody named any Admin marks Ready, stamped and cleared by the database';
+
+  -- A Viewer is never an approver.
+  begin
+    insert into doc_approvers (org_id, area, user_id, set_by) values ('00000000-0000-0000-0000-000000000010', 'academic', '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: a Viewer was made an approver';
+  exception when check_violation then null;
+  end;
+  -- Nor an Admin of another org.
+  begin
+    insert into doc_approvers (org_id, area, user_id, set_by) values ('00000000-0000-0000-0000-000000000010', 'eligibility', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: another org''s Admin was made an approver here';
+  exception when check_violation then null;
+  end;
+  -- Nor an area that does not exist.
+  begin
+    insert into doc_approvers (org_id, area, user_id) values ('00000000-0000-0000-0000-000000000010', 'athletic', '00000000-0000-0000-0000-000000006701');
+    raise exception 'FAIL: an unknown area was accepted';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS: only an Admin of the same org holds a known area';
+
+  insert into doc_approvers (org_id, area, user_id, set_by) values ('00000000-0000-0000-0000-000000000010', 'academic', '00000000-0000-0000-0000-000000006701', '00000000-0000-0000-0000-000000000001');
+  select count(*) into n from doc_approvers where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 1 then raise exception 'FAIL: an Admin reads % approver rows, expected 1', n; end if;
+  -- One per area.
+  begin
+    insert into doc_approvers (org_id, area, user_id) values ('00000000-0000-0000-0000-000000000010', 'academic', '00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: two approvers held one area';
+  exception when unique_violation then null;
+  end;
+  -- Not into another org.
+  begin
+    insert into doc_approvers (org_id, area, user_id) values ('00000000-0000-0000-0000-000000000020', 'academic', '00000000-0000-0000-0000-000000000002');
+    raise exception 'FAIL: Bridge''s Admin named an approver for Elite Squad';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: an Admin names one approver per area in their own org only';
+
+  -- Named: the transcript waits on them; another Admin is refused.
+  begin
+    update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000006710';
+    raise exception 'FAIL: an Admin who is not the academic approver marked a transcript Ready';
+  exception when insufficient_privilege then null;
+  end;
+  -- Test scores have no named approver, so they stay one tap.
+  update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000006711';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006711' and lifecycle = 'ready';
+  if n <> 1 then raise exception 'FAIL: an area with nobody named stopped taking a single tap'; end if;
+  -- Who approved is never edited on its own.
+  update documents set approved_by = '00000000-0000-0000-0000-000000006701' where id = '00000000-0000-0000-0000-000000006711';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006711' and approved_by = '00000000-0000-0000-0000-000000000001';
+  if n <> 1 then raise exception 'FAIL: approved_by was rewritten outside a move'; end if;
+  raise notice 'PASS: a named approver gates their area only, and who approved cannot be rewritten';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000006701'); -- Bridge OWNER, the academic approver
+do $$
+declare n int;
+begin
+  update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000006710';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006710' and lifecycle = 'ready' and approved_by = '00000000-0000-0000-0000-000000006701';
+  if n <> 1 then raise exception 'FAIL: the academic approver could not mark their transcript Ready'; end if;
+  raise notice 'PASS: the named approver marks Ready and is recorded';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000003'); -- Bridge MEMBER (Viewer)
+do $$
+declare n int;
+begin
+  select count(*) into n from doc_approvers;
+  if n <> 0 then raise exception 'FAIL: a Viewer read % approver rows', n; end if;
+  update doc_approvers set user_id = '00000000-0000-0000-0000-000000000001' where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a Viewer changed an approver'; end if;
+  delete from doc_approvers where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a Viewer cleared an approver'; end if;
+  begin
+    insert into doc_approvers (org_id, area, user_id) values ('00000000-0000-0000-0000-000000000010', 'financial', '00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: a Viewer named an approver';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: a Viewer neither reads nor writes approvers';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000006301'); -- Bridge FAMILY (Athlete login)
+do $$
+declare n int;
+begin
+  select count(*) into n from doc_approvers;
+  if n <> 0 then raise exception 'FAIL: an Athlete login read % approver rows', n; end if;
+  delete from doc_approvers;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an Athlete login cleared an approver'; end if;
+  begin
+    insert into doc_approvers (org_id, area, user_id) values ('00000000-0000-0000-0000-000000000010', 'financial', '00000000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: an Athlete login named an approver';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: an Athlete login neither reads nor writes approvers';
+end $$;
+
+select set_test_user('00000000-0000-0000-0000-000000000002'); -- Elite OWNER, a stranger to Bridge
+do $$
+declare n int;
+begin
+  select count(*) into n from doc_approvers where org_id = '00000000-0000-0000-0000-000000000010';
+  if n <> 0 then raise exception 'FAIL: another org''s Admin read Bridge''s approvers'; end if;
+  delete from doc_approvers where org_id = '00000000-0000-0000-0000-000000000010';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: another org''s Admin cleared Bridge''s approver'; end if;
+  raise notice 'PASS: approvers stay inside their org';
+end $$;
+
+-- A demoted approver no longer gates: the row is stale, and the gate
+-- reads only Admins. (The app clears and logs the row on a demotion.)
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge OWNER
+do $$
+declare n int;
+begin
+  update documents set lifecycle = 'needs_review' where id = '00000000-0000-0000-0000-000000006710';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006710' and approved_by is null;
+  if n <> 1 then raise exception 'FAIL: the move back left the approval on the document'; end if;
+end $$;
+reset role;
+update org_members set role = 'member' where user_id = '00000000-0000-0000-0000-000000006701' and org_id = '00000000-0000-0000-0000-000000000010';
+set role app_user;
+do $$
+declare n int;
+begin
+  update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-000000006710';
+  select count(*) into n from documents where id = '00000000-0000-0000-0000-000000006710' and lifecycle = 'ready';
+  if n <> 1 then raise exception 'FAIL: a demoted approver''s stale row still blocked Ready'; end if;
+  raise notice 'PASS: a demoted approver no longer blocks Ready';
+end $$;
+reset role;
+select set_test_user(null);
+\echo 'ALL 0067 ASSERTIONS PASSED'
+
+-- ── Migration 0069: a document's title is its own, the file name never changes ──
+reset role;
+do $$
+declare d uuid;
+begin
+  insert into documents (org_id, file_name, file_size, media_type, source_role, status)
+  values ('00000000-0000-0000-0000-000000000010', 'updated-cert-of-inc.pdf', 10, 'application/pdf', 'coordinator', 'pending')
+  returning id into d;
+  update documents set title = 'NY DOS Rejection Letter' where id = d;
+  if (select title from documents where id = d) <> 'NY DOS Rejection Letter' then raise exception 'FAIL: a title did not save'; end if;
+  begin
+    update documents set file_name = 'renamed.pdf' where id = d;
+    raise exception 'FAIL: the file name changed';
+  exception when check_violation then null;
+  end;
+  begin
+    update documents set title = '   ' where id = d;
+    raise exception 'FAIL: a blank title saved';
+  exception when check_violation then null;
+  end;
+  update documents set title = null where id = d;
+  delete from documents where id = d;
+  raise notice 'PASS: a document takes a title of its own, never blank, and its file name stays as uploaded';
+end $$;
+\echo 'ALL 0069 ASSERTIONS PASSED'

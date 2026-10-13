@@ -17,6 +17,7 @@ import { Button, ConfirmButton, DownloadLink, EmptyState, Form, LinkButton, Noti
 interface DocRow {
   id: string;
   file_name: string;
+  title: string | null;
   format: string | null;
   media_type: string;
   lifecycle: string;
@@ -40,7 +41,7 @@ export default async function MeetingPage({ params, searchParams }: { params: Pr
   const [{ data: m }, { data: links }, { data: docs }] = await Promise.all([
     supabase.from("board_meetings").select("id, title, meets_on, location, notes, boards(name)").eq("id", meetingId).eq("org_id", org.id).maybeSingle(),
     supabase.from("board_meeting_documents").select("document_id, created_at").eq("meeting_id", meetingId).eq("org_id", org.id).order("created_at", { ascending: true }),
-    supabase.from("documents").select("id, file_name, format, media_type, lifecycle, original_paths, storage_paths").eq("org_id", org.id).order("created_at", { ascending: false }).limit(200),
+    supabase.from("documents").select("id, file_name, title, format, media_type, lifecycle, original_paths, storage_paths").eq("org_id", org.id).order("created_at", { ascending: false }).limit(200),
   ]);
   if (!m) notFound();
   const meeting = m as { id: string; title: string; meets_on: string; location: string | null; notes: string | null; boards: { name: string } | { name: string }[] | null };
@@ -51,7 +52,7 @@ export default async function MeetingPage({ params, searchParams }: { params: Pr
   // off the meeting without a word.
   const linkIds = ((links ?? []) as { document_id: string }[]).map((l) => l.document_id);
   const { data: attachedRows } = linkIds.length
-    ? await supabase.from("documents").select("id, file_name, format, media_type, lifecycle, original_paths, storage_paths").eq("org_id", org.id).in("id", linkIds)
+    ? await supabase.from("documents").select("id, file_name, title, format, media_type, lifecycle, original_paths, storage_paths").eq("org_id", org.id).in("id", linkIds)
     : { data: [] };
   const byId = new Map(((attachedRows ?? []) as DocRow[]).map((d) => [d.id, d]));
   const attached = linkIds.map((docId) => byId.get(docId)).filter((d): d is DocRow => !!d);
@@ -81,12 +82,12 @@ export default async function MeetingPage({ params, searchParams }: { params: Pr
                 href={`/org/${slug}/documents/${d.id}`}
                 kind="document"
                 role="place"
-                title={d.file_name}
+                title={d.title ?? d.file_name}
                 meta={formatLabelOf(d.format, d.media_type)}
                 trailing={<LifecycleChip lifecycle={(isLifecycle(d.lifecycle) ? d.lifecycle : "needs_review") as Lifecycle} />}
                 wrap
               />
-              {files.length > 0 && <DownloadLink href={`/org/${slug}/documents/${d.id}/download?n=1`}>Download {d.file_name}</DownloadLink>}
+              {files.length > 0 && <DownloadLink href={`/org/${slug}/documents/${d.id}/download?n=1`}>Download {d.title ?? d.file_name}</DownloadLink>}
               <Form action={detachMeetingDocument.bind(null, slug, meetingId, d.id)}>
                 <ConfirmButton title="Take This Off the Meeting?" body="The document stays in Documents. Only this meeting's list changes." confirmLabel="Take Off">
                   Take Off the Meeting
@@ -106,7 +107,7 @@ export default async function MeetingPage({ params, searchParams }: { params: Pr
               </option>
               {addable.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.file_name}
+                  {d.title ?? d.file_name}
                 </option>
               ))}
             </SelectField>
