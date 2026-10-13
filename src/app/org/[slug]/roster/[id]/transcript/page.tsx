@@ -44,11 +44,11 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
   const { athlete, courses, view } = bundle;
   const core = view.eligibility.coreGpa;
 
-  // Keyed on title plus term, not title alone: a year-long course
-  // appears twice and the two halves are different rows with different
-  // grades.
-  const countedBy = new Map((core?.counted ?? []).map((c) => [c.course.title + "|" + (c.course.term ?? ""), c]));
-  const excludedBy = new Map((core?.excluded ?? []).map((x) => [x.course.title + "|" + (x.course.term ?? ""), x]));
+  // Keyed on the course's own id, carried through the engine. Title plus
+  // term was not a key: two courses with the same title in the same term
+  // both took one row's result.
+  const countedBy = new Map((core?.counted ?? []).flatMap((c) => (c.course.id ? [[c.course.id, c] as const] : [])));
+  const excludedBy = new Map((core?.excluded ?? []).flatMap((x) => (x.course.id ? [[x.course.id, x] as const] : [])));
 
   const byTerm = new Map<string, typeof courses>();
   for (const c of courses) {
@@ -83,9 +83,8 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
         terms.map((term) => (
           <Section key={term} label={term} count={byTerm.get(term)!.length} role="contact" kind="course">
             {byTerm.get(term)!.map((c) => {
-              const key = c.title + "|" + (c.term ?? "");
-              const hit = countedBy.get(key);
-              const miss = excludedBy.get(key);
+              const hit = countedBy.get(c.id);
+              const miss = excludedBy.get(c.id);
               const role = hit ? "committed" : miss ? "target" : "contact";
               // The reason, on the row it belongs to. A list of excluded
               // titles at the bottom of another screen makes you match

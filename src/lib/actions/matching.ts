@@ -24,28 +24,39 @@ export async function addMatchToBoard(slug: string, athleteId: string, schoolId:
   const athlete = data as { id: string; name: string } | null;
   if (!athlete) redirect(`/org/${slug}/roster`);
 
+  // Already on the board is not an error worth a screen; land on it.
+  // Looked up before the insert, and again when the insert loses a race
+  // to the unique pair (23505), so both ways in end on the target that
+  // is there rather than back on Matches.
+  const existingTarget = async (): Promise<string | null> => {
+    const { data: row } = await supabase.from("recruiting_targets").select("id").eq("org_id", org.id).eq("athlete_id", athleteId).eq("school_id", schoolId).maybeSingle();
+    return (row as { id?: string } | null)?.id ?? null;
+  };
+  const already = await existingTarget();
+  if (already) redirect(`/org/${slug}/board/${already}`);
+
   const { data: created, error } = await supabase
     .from("recruiting_targets")
     .insert({ org_id: org.id, athlete_id: athleteId, school_id: schoolId, status: "Target" })
     .select("id")
     .single();
-  // Already on the board is not an error worth a screen; land on it.
-  if (error && error.code !== "23505") redirect(`/org/${slug}/roster/${athleteId}/matches`);
+  if (error) {
+    const raced = error.code === "23505" ? await existingTarget() : null;
+    redirect(raced ? `/org/${slug}/board/${raced}` : `/org/${slug}/roster/${athleteId}/matches`);
+  }
 
   // Logged only when a target was actually made; landing on one that
-  // was already there changed nothing.
-  if (!error) {
-    const { data: school } = await supabase.from("schools").select("name").eq("id", schoolId).maybeSingle();
-    await logActivity(supabase, {
-      orgId: org.id,
-      actorId: user.id,
-      athleteId: athlete.id,
-      action: "target_added",
-      subjectType: "target",
-      subjectId: (created as { id?: string } | null)?.id ?? null,
-      summary: activitySummary("target_added", { name: athlete.name, school: (school as { name?: string | null } | null)?.name ?? "" }),
-    });
-  }
+  // was already there changed nothing (and returned above).
+  const { data: school } = await supabase.from("schools").select("name").eq("id", schoolId).maybeSingle();
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: user.id,
+    athleteId: athlete.id,
+    action: "target_added",
+    subjectType: "target",
+    subjectId: (created as { id?: string } | null)?.id ?? null,
+    summary: activitySummary("target_added", { name: athlete.name, school: (school as { name?: string | null } | null)?.name ?? "" }),
+  });
 
   revalidatePath(`/org/${slug}/board`);
   revalidatePath(`/org/${slug}/roster/${athleteId}`);

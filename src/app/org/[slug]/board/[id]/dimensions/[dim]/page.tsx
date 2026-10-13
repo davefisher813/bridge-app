@@ -18,6 +18,7 @@ import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
 import { scoreRole } from "@/components/statusHue";
 import { loadTarget } from "@/lib/data/loadTarget";
+import { isPlacedStatus } from "@/lib/placement";
 import type { DimensionResult } from "@/lib/fit/types";
 
 export const dynamic = "force-dynamic";
@@ -58,13 +59,30 @@ export default async function DimensionPage({ params }: { params: Promise<{ slug
   const bundle = await loadTarget(org.id, id);
   if (!bundle) notFound();
 
+  const meta = DIM[dim];
+
+  // Nothing scores for an athlete who is placed or Inactive (Dave,
+  // 2026-09-26), and a direct link to a dimension is no way around that.
+  // The target page shows their status instead of a score; so does this.
+  if (!bundle.fit) {
+    const placed = isPlacedStatus(bundle.athleteStatus);
+    return (
+      <Screen title={meta.label} back={{ href: `/org/${slug}/board/${id}`, label: bundle.school.name }}>
+        <EmptyState kind={meta.kind} title={placed ? "No Score While Placed" : "No Score While Inactive"}>
+          {placed
+            ? `${bundle.athlete.name} is ${bundle.athleteStatus}, so recruiting is done and nothing is scored.`
+            : `${bundle.athlete.name} is ${bundle.athleteStatus}, so nothing is being scored.`}
+        </EmptyState>
+      </Screen>
+    );
+  }
+
   const d = bundle.fit[dim] as DimensionResult | undefined;
   // Eligibility is only computed for a transfer. A high school athlete
   // has no transfer dimension, and an empty page saying "0" would be a
   // claim rather than an absence.
   if (!d) notFound();
 
-  const meta = DIM[dim];
   const role = d.veto ? "offer" : d.score >= 70 ? "committed" : d.score >= 40 ? "contact" : "target";
 
   return (

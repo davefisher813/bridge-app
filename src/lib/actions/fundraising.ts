@@ -138,11 +138,14 @@ export async function recordPledge(
     const { data: campaign } = await supabase.from("campaigns").select("id").eq("id", v.campaignId).eq("org_id", org.id).maybeSingle();
     if (!campaign) return { errors: { form: "That campaign is not in this organization." } };
   }
+  const seatError = await checkPledgeSeat(supabase, org.id, v.solicitedBy);
+  if (seatError) return { errors: { solicitedBy: seatError } };
 
   const { error } = await supabase.from("pledges").insert({
     org_id: org.id,
     donor_id: v.donorId,
     campaign_id: v.campaignId,
+    solicited_by: v.solicitedBy,
     amount: centsToDecimalString(v.amountCents),
     promised_on: v.promisedOn,
     due_on: v.dueOn,
@@ -153,6 +156,15 @@ export async function recordPledge(
   revalidatePath(`/org/${slug}/fundraising`);
   revalidatePath(`/org/${slug}/fundraising/pledges`);
   redirect(`/org/${slug}/fundraising/pledges`);
+}
+
+// The seat a pledge credits must be this org's, the same guard the gift
+// makes: a seat from another org would count toward somebody else's
+// give/get, which RLS on the pledge alone does not prevent.
+async function checkPledgeSeat(supabase: Supabase, orgId: string, seatId: string | null): Promise<string | null> {
+  if (!seatId) return null;
+  const { data } = await supabase.from("board_members").select("id").eq("id", seatId).eq("org_id", orgId).maybeSingle();
+  return data ? null : "That board member is not in this organization.";
 }
 
 // A pledge's status from its payments: fulfilled once they cover it,
@@ -265,12 +277,18 @@ export async function updatePledge(slug: string, pledgeId: string, _prevState: F
     const { data: campaign } = await supabase.from("campaigns").select("id").eq("id", v.campaignId).eq("org_id", org.id).maybeSingle();
     if (!campaign) return { errors: { form: "That campaign is not in this organization." } };
   }
+  const seatError = await checkPledgeSeat(supabase, org.id, v.solicitedBy);
+  if (seatError) return { errors: { solicitedBy: seatError } };
 
   const { error } = await supabase
     .from("pledges")
     .update({
       donor_id: v.donorId,
       campaign_id: v.campaignId,
+      // Brought In By is only on the form when the Board module is on
+      // with a seat to pick, the same rule as updateGift: absent means
+      // nobody changed it, so the stored credit is kept.
+      ...(formData.has("solicitedBy") ? { solicited_by: v.solicitedBy } : {}),
       amount: centsToDecimalString(v.amountCents),
       promised_on: v.promisedOn,
       due_on: v.dueOn,

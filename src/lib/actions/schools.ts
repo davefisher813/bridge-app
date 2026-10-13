@@ -182,6 +182,19 @@ export async function importSchools(slug: string, _prevState: ImportActionState,
   }
 
   const ids: string[] = [];
+  // A database error part way through cannot unwrite the schools before
+  // it, so it does not pretend to: those rows are rescored like a full
+  // import's, and the message says how many were saved.
+  const stopped = async (message: string): Promise<ImportActionState> => {
+    if (ids.length > 0) {
+      await recomputeFitsForSchools(admin, ids);
+      revalidatePath(`/org/${slug}/schools`);
+      revalidatePath(`/org/${slug}/board`);
+      revalidatePath(`/org/${slug}`);
+    }
+    const saved = ids.length === 0 ? "No schools were saved" : `${ids.length} of ${rows.length} ${rows.length === 1 ? "school was" : "schools were"} saved before the import stopped`;
+    return { errors: { form: `${saved}: ${message}` }, problems: [] };
+  };
   for (const r of rows) {
     const s = r.school;
     const columns = {
@@ -212,10 +225,10 @@ export async function importSchools(slug: string, _prevState: ImportActionState,
       };
       delete merged.name;
       const { error } = await admin.from("schools").update(merged).eq("id", existingId);
-      if (error) return { errors: { form: error.message }, problems: [] };
+      if (error) return stopped(error.message);
     } else {
       const { data: created, error } = await admin.from("schools").insert(columns).select("id").single();
-      if (error) return { errors: { form: error.message }, problems: [] };
+      if (error) return stopped(error.message);
       id = created?.id;
       // A sheet naming the same school twice updates the row it just
       // added rather than adding a second.
@@ -235,7 +248,7 @@ export async function importSchools(slug: string, _prevState: ImportActionState,
       },
       { onConflict: "org_id,school_id" },
     );
-    if (noteError) return { errors: { form: noteError.message }, problems: [] };
+    if (noteError) return stopped(noteError.message);
   }
 
   await recomputeFitsForSchools(admin, ids);

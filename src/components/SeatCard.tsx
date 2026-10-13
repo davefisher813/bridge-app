@@ -20,16 +20,16 @@ export function SeatCard({ seat, fiscalYear, href }: { seat: NonNullable<GivingV
   const lines: [string, string][] = [
     ["Commitment", formatMoney(p.commitmentCents)],
     ["Given", formatMoney(p.givenCents)],
-    ["Brought in", formatMoney(p.raisedCents)],
-    ["Still to go", formatMoney(p.remainingCents)],
+    ["Brought In", formatMoney(p.raisedCents)],
+    ["Still to Go", formatMoney(p.remainingCents)],
   ];
-  if (p.pledgedCents > 0) lines.push(["Promised, not yet received", formatMoney(p.pledgedCents)]);
+  if (p.pledgedCents > 0) lines.push(["Promised, Not Yet Received", formatMoney(p.pledgedCents)]);
 
   return (
     <Card href={href}>
       <Stack gap={2}>
         <div className="flex items-start justify-between gap-3">
-          <Body weight="bold">{seat.member.roleTitle ? `${seat.member.roleTitle}${seat.board ? ` · ${seat.board.name}` : ""}` : (seat.board?.name ?? "Your seat")}</Body>
+          <Body weight="bold">{seat.member.roleTitle ? `${seat.member.roleTitle}${seat.board ? ` · ${seat.board.name}` : ""}` : (seat.board?.name ?? "Your Seat")}</Body>
           <Body weight="bold" numeric tone={role}>
             {p.percent === null ? "no target" : `${p.percent}%`}
           </Body>

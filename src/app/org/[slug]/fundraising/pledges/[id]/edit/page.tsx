@@ -5,6 +5,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { removePledge, updatePledge } from "@/lib/actions/fundraising";
 import { PledgeForm } from "@/components/FundraisingForms";
+import { loadSeatOptions } from "@/lib/data/seatOptions";
 import { toCents } from "@/lib/fundraising/rollup";
 import { centsToDecimalString } from "@/lib/validation/gift";
 import { ConfirmButton, Form, Notice, Screen, Section } from "@/components/kit";
@@ -24,13 +25,14 @@ export default async function EditPledgePage({ params, searchParams }: { params:
 
   const supabase = await createClient();
   const [{ data }, { data: donorRows }, { data: campaignRows }] = await Promise.all([
-    supabase.from("pledges").select("id, donor_id, campaign_id, amount, promised_on, due_on, status, notes").eq("id", id).eq("org_id", org.id).maybeSingle(),
+    supabase.from("pledges").select("id, donor_id, campaign_id, solicited_by, amount, promised_on, due_on, status, notes").eq("id", id).eq("org_id", org.id).maybeSingle(),
     supabase.from("donors").select("id, name, deleted_at").eq("org_id", org.id).order("name"),
     supabase.from("campaigns").select("id, name").eq("org_id", org.id).order("name"),
   ]);
   if (!data) notFound();
-  const p = data as { id: string; donor_id: string; campaign_id: string | null; amount: number | string; promised_on: string; due_on: string | null; status: string; notes: string | null };
+  const p = data as { id: string; donor_id: string; campaign_id: string | null; solicited_by: string | null; amount: number | string; promised_on: string; due_on: string | null; status: string; notes: string | null };
   const donors = ((donorRows ?? []) as { id: string; name: string; deleted_at: string | null }[]).filter((d) => !d.deleted_at || d.id === p.donor_id).map((d) => ({ id: d.id, name: d.name }));
+  const boardMembers = await loadSeatOptions(supabase, org, p.solicited_by);
   const who = donors.find((d) => d.id === p.donor_id)?.name ?? "Pledge";
 
   return (
@@ -40,9 +42,10 @@ export default async function EditPledgePage({ params, searchParams }: { params:
         action={updatePledge.bind(null, slug, p.id)}
         donors={donors}
         campaigns={(campaignRows ?? []) as Array<{ id: string; name: string }>}
+        boardMembers={boardMembers}
         today={orgToday()}
         submitLabel="Save Pledge"
-        initial={{ donorId: p.donor_id, amount: centsToDecimalString(toCents(p.amount)), promisedOn: p.promised_on, dueOn: p.due_on, campaignId: p.campaign_id, notes: p.notes, status: p.status }}
+        initial={{ donorId: p.donor_id, amount: centsToDecimalString(toCents(p.amount)), promisedOn: p.promised_on, dueOn: p.due_on, campaignId: p.campaign_id, solicitedBy: p.solicited_by, notes: p.notes, status: p.status }}
       />
       <Section label="Remove" role="danger" kind="blocked">
         <Form action={removePledge.bind(null, slug, p.id)}>

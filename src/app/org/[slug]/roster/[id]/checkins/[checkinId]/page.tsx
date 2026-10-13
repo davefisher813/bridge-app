@@ -4,7 +4,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { longDate } from "@/lib/copy/dates";
 import { loadStaff } from "@/lib/data/staff";
-import { CHECKIN_KIND_LABEL, type CheckinKind } from "@/lib/checkins";
+import { CHECKIN_KIND_LABEL, checkinAuthorName, type CheckinKind } from "@/lib/checkins";
 import { checkinPhotoUrl } from "@/lib/checkinPhoto";
 import { removeCheckin } from "@/lib/actions/checkins";
 import { Body, Card, ConfirmButton, Form, Label, LinkButton, Photo, Screen, Section, Stack } from "@/components/kit";
@@ -26,7 +26,7 @@ export default async function CheckinPage({ params }: { params: Promise<{ slug: 
   ]);
   if (!athlete || !entry) notFound();
   const c = entry as { id: string; kind: string; occurred_on: string; notes: string | null; advisor_id: string | null; photo_path: string | null };
-  const by = (c.advisor_id && staff.find((s) => s.id === c.advisor_id)?.name) || "Someone Who Left";
+  const by = checkinAuthorName(staff, c.advisor_id);
   const photo = checkinPhotoUrl(slug, id, c.id, c.photo_path);
   const kind = CHECKIN_KIND_LABEL[c.kind as CheckinKind] ?? c.kind;
   const logHref = `/org/${slug}/roster/${id}/checkins`;

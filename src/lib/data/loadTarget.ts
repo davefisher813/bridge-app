@@ -30,6 +30,7 @@ import {
 import { scoreFit } from "@/lib/fit/score";
 import { loadFitForPair } from "@/lib/data/fits";
 import type { Athlete, FitResult, School } from "@/lib/fit/types";
+import { isScoredStatus } from "@/lib/placement";
 
 export interface CommunicationRow {
   target_id: string;
@@ -66,7 +67,10 @@ export interface TargetBundle {
   athleteStatus: string;
   athlete: Athlete;
   school: School;
-  fit: FitResult;
+  // Null when the athlete is not being recruited (placed or Inactive):
+  // nothing scores for them, so nothing is computed, even with no stored
+  // row to read. The target page and every list say the same.
+  fit: FitResult | null;
   communications: CommunicationRow[];
   visits: VisitRow[];
 }
@@ -135,8 +139,9 @@ export async function loadTarget(orgId: string, targetId: string): Promise<Targe
     offer: targetOfferToSignal(row),
   };
 
-  const fit: FitResult =
-    (await loadFitForPair(supabase, orgId, athlete.id, school.id, signals)) ??
+  const fit: FitResult | null = !isScoredStatus(athleteRow.status)
+    ? null
+    : (await loadFitForPair(supabase, orgId, athlete.id, school.id, signals)) ??
     // Nothing stored and nothing loadable (a row that vanished between
     // the two reads): the bare engine with what this screen has.
     scoreFit(athlete, school, {
