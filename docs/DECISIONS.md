@@ -4320,3 +4320,14 @@ link anyway, but the bucket would still take files nobody can file).
 assignment upload is refused by the bucket. A document Read Again leaves
 the family's list unless the reading is applied to that athlete, since the
 family list follows athlete_id (unchanged from assignment files).
+
+## 2026-10-13: how 0066 to 0069 went onto production
+
+0067 and 0069 went on before the deploy (the code writes their columns).
+0066 went on after it, without its storage policy statement: 0068's
+policy replaces that statement anyway, and the policy drop could not be
+applied through the database tool (it waits for an approval that did not
+come through). 0068 is pending for the same reason. Until it is on, the
+family upload folder keeps 0048's rule (any folder under the org's
+family folder, PDF/JPG/PNG, family logins only), under which both the
+assignment upload and Send a Document work.
