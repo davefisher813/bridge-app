@@ -166,7 +166,7 @@ describe("LAW: every upload is read, and every reading waits for a person", () =
     expect(doc("doc-mismatch").category).toBe("board_document");
     const html = text(await render("@/app/org/[slug]/documents/[id]/page", { params: P({ slug: ORG_WITH_MODULES, id: "doc-mismatch" }), searchParams: P({}) }));
     expect(html).toMatch(/Nothing Goes on an Athlete/);
-    expect(html).toMatch(/Kind of document/);
-    expect(html).not.toMatch(/Pick the athlete/);
+    expect(html).toMatch(/Kind of Document/);
+    expect(html).not.toMatch(/Pick the Athlete/i);
   });
 });

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +16,11 @@ import { formatBytes, formatLabelOf, readerCanRead, readerTextBlocker, type Vaul
 import { isLifecycle, isStaleProcessing as isStaleLifecycle, type Lifecycle } from "@/lib/vault/lifecycle";
 import { Note } from "@/components/EligibilityVerdict";
 import type { Role } from "@/components/statusHue";
+
+// Read Again runs the model from this page's form, and a real model call
+// on a scanned transcript can run past a minute: the same limit as the
+// upload page, or Vercel kills the reading partway.
+export const maxDuration = 300;
 
 // One document: what was read off it, who it matched, and what happens
 // next. Three shapes depending on where the pipeline routed it, because
@@ -58,16 +63,16 @@ interface DocDetail {
   storage_paths: string[] | null;
 }
 
+// Every type's name, from the one list the upload form and File As use
+// (fileTypes.ts), so Board Document and Other read as themselves and not
+// as their ids ("other Read"). Film is a type the reader refuses.
 const CATEGORY_LABEL: Record<string, string> = {
-  transcript: "Transcript",
-  test_scores: "Test Scores",
-  offer_letter: "Offer Letter",
-  recommendation: "Recommendation",
-  financial_aid: "Financial Aid",
-  metrics: "Metrics Report",
-  athlete_profile: "Athlete Profile",
+  ...Object.fromEntries(READER_TYPES.map((t) => [t.id, t.label])),
   film: "Film",
 };
+
+// "a" or "an" before a type's name.
+const withArticle = (label: string) => `${/^[aeiou]/i.test(label) ? "an" : "a"} ${label}`;
 
 const REMOVED_ATHLETE = "Removed Athlete";
 
@@ -82,66 +87,67 @@ const SOURCE_LABEL: Record<string, string> = {
 // Only the fields worth showing a human, in the order they matter. A raw
 // jsonb dump would technically be more complete and considerably less
 // useful.
+// Each is a row title, so each is Title Case (copyLaws).
 const FIELD_LABEL: Record<string, string> = {
   gpa: "GPA",
-  gpaScale: "GPA scale",
-  gradYear: "Grad year",
-  courseLoad: "Course load",
-  apCount: "AP courses",
-  honorsCount: "Honors courses",
-  ibCount: "IB courses",
-  dualCount: "Dual enrollment",
-  satTotal: "SAT total",
-  actComposite: "ACT composite",
-  testDate: "Test date",
+  gpaScale: "GPA Scale",
+  gradYear: "Grad Year",
+  courseLoad: "Course Load",
+  apCount: "AP Courses",
+  honorsCount: "Honors Courses",
+  ibCount: "IB Courses",
+  dualCount: "Dual Enrollment",
+  satTotal: "SAT Total",
+  actComposite: "ACT Composite",
+  testDate: "Test Date",
   school: "School",
-  studentName: "Name on document",
-  offerType: "Offer type",
+  studentName: "Name on Document",
+  offerType: "Offer Type",
   scholarshipPercent: "Scholarship",
-  totalCostOfAttendance: "Cost of attendance",
-  grantAid: "Grant aid",
+  totalCostOfAttendance: "Cost of Attendance",
+  grantAid: "Grant Aid",
   recommenderName: "Recommender",
-  recommenderTitle: "Their role",
-  recommenderOrg: "Their organization",
-  recType: "Kind of letter",
+  recommenderTitle: "Their Role",
+  recommenderOrg: "Their Organization",
+  recType: "Kind of Letter",
   tone: "Tone",
-  letterDate: "Letter date",
+  letterDate: "Letter Date",
   summary: "Summary",
   college: "College",
-  offerDate: "Offer date",
-  decisionDeadline: "Decide by",
+  offerDate: "Offer Date",
+  decisionDeadline: "Decide By",
   coachName: "Coach",
   isOfficial: "Official",
-  documentType: "Document type",
-  academicYear: "Academic year",
-  netCost: "Net cost",
+  documentType: "Document Type",
+  academicYear: "Academic Year",
+  netCost: "Net Cost",
   efc: "EFC",
   sai: "SAI",
   tests: "Tests",
   awards: "Awards",
-  source: "Measured by",
+  source: "Measured By",
   eventName: "Event",
-  measuredOn: "Measured on",
+  measuredOn: "Measured On",
   metrics: "Metrics",
   // Athlete Profile, Board Document and Other (Oct 11).
   position: "Position",
   heightIn: "Height (in)",
   weightLb: "Weight (lb)",
-  desiredMajor: "Desired major",
+  desiredMajor: "Desired Major",
   hometown: "Hometown",
-  suggestedType: "Suggested type",
-  documentKind: "Kind of document",
+  suggestedType: "Suggested Type",
+  documentKind: "Kind of Document",
   title: "Title",
   organization: "Organization",
   effectiveDate: "Effective",
   adoptionDate: "Adopted",
-  people: "People named",
+  people: "People Named",
   organizations: "Organizations",
   dates: "Dates",
-  amounts: "Dollar figures",
+  amounts: "Dollar Figures",
   deadlines: "Deadlines",
-  actionItems: "Action items",
-  keyFacts: "Key facts",
+  actionItems: "Action Items",
+  keyFacts: "Key Facts",
 };
 
 // What applying each type does, and what discarding puts back. The
@@ -157,6 +163,19 @@ const APPLY_COPY: Record<string, { applied: string; undo: string }> = {
   financial_aid: { applied: "Discarding this takes the award off the target college and rescores the match.", undo: "The award comes off the college and the match is rescored." },
   recommendation: { applied: "Discarding this removes the contact it added.", undo: "The contact it added comes off." },
   metrics: { applied: "Discarding this removes the metric entries it logged and rescores the matches.", undo: "The metric entries it logged come off the log." },
+  // A profile only fills blanks: a position, a class year, a desired
+  // major and a high school (applyAthleteProfile and the position patch).
+  athlete_profile: {
+    applied: "Discarding this clears the position, class year, desired major and high school it filled in, where they were blank before. Anything corrected by hand since is left alone.",
+    undo: "The position, class year, desired major and high school it filled in come off.",
+  },
+};
+
+// Any other type: what an undo does, said without naming a field it may
+// not have touched.
+const APPLY_COPY_FALLBACK = {
+  applied: "Discarding this puts back what it changed on the athlete. Anything corrected by hand since is left alone.",
+  undo: "What it changed on the athlete goes back.",
 };
 
 // A list read off the document, in one line a person can scan.
@@ -295,22 +314,30 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // Read for a person, never applied to an athlete (Oct 11): Board
   // Document and Other, and a No Type document read as Other.
   const isReference = doc.category === "board_document" || doc.category === "other";
-  const typeLabelOf = (c: string | null) => (c ? (CATEGORY_LABEL[c] ?? c) : "Document");
+  const failedUnread = isFailed && !doc.extracted;
+  const typeLabelOf = (c: string | null) => (c ? (CATEGORY_LABEL[c] ?? c.replace(/_/g, " ")) : "Document");
   // A reading that never finished: the row was written, the function
   // was killed. It can be cleared once it is plainly not going to end.
-  const isStuck = isProcessing && isStaleProcessing(doc.created_at);
+  // Counted from when it went into Processing (the list and moveDocument
+  // do the same), so a Read Again of an old upload is not called stuck.
+  const processingSince = doc.lifecycle_changed_at ?? doc.created_at;
+  const isStuck = isProcessing && isStaleProcessing(processingSince);
 
   // Both wrappers exist to return void: a form action's return value has
   // to be void, and applyDocument/discardDocument return a result object
-  // so they can be called from elsewhere too.
+  // so they can be called from elsewhere too. A refusal comes back to
+  // this page with its reason, never swallowed.
+  const here = `/org/${slug}/documents/${doc.id}`;
   const applyAction = async (formData: FormData) => {
     "use server";
     const athleteId = String(formData.get("athleteId") ?? "");
-    if (athleteId) await applyDocument(slug, doc.id, athleteId);
+    const result = athleteId ? await applyDocument(slug, doc.id, athleteId) : { ok: false, error: "Pick the athlete to apply it to." };
+    if (!result.ok) redirect(`${here}?error=${encodeURIComponent(result.error ?? "That could not be applied.")}`);
   };
   const discardAction = async () => {
     "use server";
-    await discardDocument(slug, doc.id);
+    const result = await discardDocument(slug, doc.id);
+    if (!result.ok) redirect(`${here}?error=${encodeURIComponent(result.error ?? "That could not be discarded.")}`);
   };
   // The vault's moves. Each is one conditional write on the server and
   // comes back to this page, with the reason when it is refused.
@@ -369,8 +396,8 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     : isPending
       ? matched || candidates.length
         ? "Check This Before It Lands"
-        : "Not sure who this is"
-      : `${doc.category ? (CATEGORY_LABEL[doc.category] ?? doc.category) : "Document"} read`;
+        : "Not Sure Who This Is"
+      : `${typeLabelOf(doc.category)} Read`;
 
   // The vault's state first; what the reader did to an athlete after it,
   // when it applied a reading.
@@ -409,8 +436,10 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       </Card>
       {/* The type of a document the reader has not read: the same list
           as the upload form (fileTypes.ts). A read document keeps the
-          type of its reading. */}
-      {(!doc.category || isReference) && !isFiled && !isProcessing && !isApplied && (
+          type of its reading. A reading that failed with nothing read
+          (it did not look like the type it was read as) can be re-typed
+          too, then read again. */}
+      {(!doc.category || isReference || failedUnread) && !isFiled && !isProcessing && !isApplied && (
         <Form action={fileDocumentAs.bind(null, slug, doc.id)}>
           <Stack gap={3}>
             <SelectField name="filedAs" label="File As" defaultValue={doc.requested_category ?? readerTypeOf(doc) ?? ""}>
@@ -572,7 +601,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           {isStuck ? (
             <>
               <Note title="It Was Cut Off">
-                The reading started {ageOf(doc.created_at)} ago and never came back, so it is not going to. Nothing was changed on any athlete. Discard this and upload the file again.
+                The reading started {ageOf(processingSince)} ago and never came back, so it is not going to. Nothing was changed on any athlete. Discard this and upload the file again.
               </Note>
               <Form action={discardAction}>
                 <ConfirmButton title="Discard this document?" body="Nothing was applied, so nothing changes on any athlete. The file is kept, in Archived." confirmLabel="Discard">
@@ -612,14 +641,14 @@ export default async function DocumentPage({ params, searchParams }: { params: P
         <>
           {wasRead && isReference && (
             <Note title="Nothing Goes on an Athlete">
-              A {typeLabelOf(doc.category).toLowerCase()} is read for a person, not put on an athlete. Check what it says below, then Mark Ready.
+              {`Read as ${typeLabelOf(doc.category)}, so it is read for a person, not put on an athlete. Check what it says below, then Mark Ready.`}
               {typeof doc.extracted?.suggestedType === "string" && doc.extracted.suggestedType !== "other" && !doc.requested_category
-                ? ` It looks like a ${(CATEGORY_LABEL[doc.extracted.suggestedType as string] ?? String(doc.extracted.suggestedType)).toLowerCase()}: set File As to that and Read Again to read it as one.`
+                ? ` It looks like ${withArticle(typeLabelOf(doc.extracted.suggestedType))}: set File As to ${typeLabelOf(doc.extracted.suggestedType)} and Read Again to read it as one.`
                 : ""}
             </Note>
           )}
-          {wasRead && !isReference && (
-          <Section label={matched ? "Matched to" : "Pick the athlete"} count={matched ? undefined : candidates.length} role={matched ? "people" : "offer"} kind="athlete">
+          {wasRead && !isReference && !!doc.category && (
+          <Section label={matched ? "Matched To" : "Pick the Athlete"} count={matched ? undefined : candidates.length} role={matched ? "people" : "offer"} kind="athlete">
             {matched ? (
               matchedRemoved ? (
                 <Row title={matched} meta="Taken off the roster. What was read stays here." />
@@ -631,7 +660,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
                   meta={candidates[0]?.reasons.join(" · ") || "Matched on the name"}
                 />
               )
-            ) : candidates.length && refusal ? (
+            ) : candidates.length && (refusal || !doc.extracted) ? (
               // Who it looks like, without an Apply: the reading can not
               // be put on anyone. Each row opens that athlete instead.
               candidates.map((c) => (
@@ -662,7 +691,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
                 ))}
               </>
             ) : (
-              <Note title="No athlete on the roster looks like a match">
+              <Note title="No Athlete on the Roster Looks Like a Match">
                 {doc.extracted?.studentName ? `The document says "${String(doc.extracted.studentName)}".` : "No name was read off it."} Add them to
                 the roster first, then come back.
               </Note>
@@ -696,10 +725,10 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           )}
 
           {pct !== null && (
-            <Section label={isApplied ? "How sure" : "Why it stopped"} role={isApplied ? "committed" : "offer"} kind="info">
+            <Section label={isApplied ? "How Sure" : "Why It Stopped"} role={isApplied ? "committed" : "offer"} kind="info">
               <Stack gap={2}>
                 <Row
-                  title={pct >= 70 ? "High confidence" : pct >= 40 ? "Medium confidence" : "Low confidence"}
+                  title={pct >= 70 ? "High Confidence" : pct >= 40 ? "Medium Confidence" : "Low Confidence"}
                   trailing={
                     <Body weight="bold" numeric tone={confidenceRole(pct)}>
                       {pct}%
@@ -729,7 +758,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
 
           {/* Discarding an APPLIED document is an undo, so the button
               says so. */}
-          {isApplied && <Note title="Applied to the wrong athlete, or read wrong?">{(APPLY_COPY[doc.category ?? ""] ?? APPLY_COPY.transcript!).applied}</Note>}
+          {isApplied && <Note title="Applied to the wrong athlete, or read wrong?">{(APPLY_COPY[doc.category ?? ""] ?? APPLY_COPY_FALLBACK).applied}</Note>}
 
           {originalFile}
 
@@ -745,7 +774,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
               <Form action={discardAction}>
                 <ConfirmButton
                   title={isApplied ? "Undo and discard this document?" : "Discard this document?"}
-                  body={isApplied ? (APPLY_COPY[doc.category ?? ""] ?? APPLY_COPY.transcript!).undo : "Nothing was applied, so nothing changes on any athlete. The file is kept, in Archived."}
+                  body={isApplied ? (APPLY_COPY[doc.category ?? ""] ?? APPLY_COPY_FALLBACK).undo : "Nothing was applied, so nothing changes on any athlete. The file is kept, in Archived."}
                   confirmLabel={isApplied ? "Undo and Discard" : "Discard"}
                 >
                   {isApplied ? "Undo and Discard" : "Discard"}

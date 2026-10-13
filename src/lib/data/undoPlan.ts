@@ -46,6 +46,27 @@ export function sameStoredValue(a: unknown, b: unknown): boolean {
   return String(a) === String(b);
 }
 
+// The same stored value, all the way down: a jsonb column (a target's
+// aid) comes back from Postgres with its keys in Postgres's own order, so
+// comparing JSON.stringify of the two never matched and an undo never
+// put the aid back. Objects compare key by key in any order, arrays item
+// by item in order, and each leaf as sameStoredValue does.
+export function sameJsonValue(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((v, i) => sameJsonValue(v, b[i]));
+  }
+  const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+  if (isObj(a) || isObj(b)) {
+    if (!isObj(a) || !isObj(b)) return false;
+    // A key holding null or nothing is the same as a missing key.
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    for (const k of keys) if (!sameJsonValue(a[k], b[k])) return false;
+    return true;
+  }
+  return sameStoredValue(a, b);
+}
+
 export function planFieldRestore(current: Record<string, unknown> | null, fields: Record<string, FieldChange>): UndoPlan {
   const restore: Record<string, unknown> = {};
   const kept: string[] = [];

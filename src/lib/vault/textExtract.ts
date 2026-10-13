@@ -78,18 +78,32 @@ const decodeEntities = (s: string) =>
 
 const utf8 = (b: Uint8Array) => new TextDecoder("utf-8").decode(b);
 
-// Word: the body's runs of text, paragraphs as lines, table cells split
-// by " | " and rows as lines, so a table reads as a table.
+// Word: the page headers, then the body, then the page footers (a
+// letterhead's name and date often live in a header). Runs of text,
+// paragraphs as lines, table cells split by " | " and rows as lines, so a
+// table reads as a table.
 export function docxToText(bytes: Uint8Array): string {
   const files = unzip(bytes);
   const body = files.get("word/document.xml");
   if (!body) throw new Error("no document body in this Word file");
-  const xml = utf8(body)
+  const numbered = (kind: "header" | "footer") => {
+    const re = kind === "header" ? /^word\/header(\d*)\.xml$/ : /^word\/footer(\d*)\.xml$/;
+    return [...files.keys()]
+      .filter((k) => re.test(k))
+      .sort((a, b) => Number(a.match(re)![1] || 0) - Number(b.match(re)![1] || 0));
+  };
+  const parts = [...numbered("header"), "word/document.xml", ...numbered("footer")].map((k) => wordPartText(utf8(files.get(k)!))).filter((t) => t !== "");
+  return tidy(parts.join("\n\n"));
+}
+
+function wordPartText(source: string): string {
+  const xml = source
     // A paragraph inside a table cell is a space, not a new line, so a
     // row stays on one line.
     .replace(/<w:tc\b[\s\S]*?<\/w:tc>/g, (cell) => cell.replace(/<\/w:p>/g, " "))
     .replace(/<w:tab\/>/g, "\u0001")
-    .replace(/<w:(br|cr)\/>/g, "\u0002")
+    // A line or page break, with or without attributes (<w:br w:type="page"/>).
+    .replace(/<w:(br|cr)\b[^>]*\/>/g, "\u0002")
     .replace(/<\/w:p>/g, "\u0002")
     .replace(/<\/w:tc>/g, "\u0003")
     .replace(/<\/w:tr>/g, "\u0002");
@@ -109,33 +123,125 @@ const colIndex = (ref: string) => {
   return n - 1;
 };
 
+// One attribute out of one XML element's attribute text.
+const attrOf = (attrs: string, name: string): string | undefined => {
+  const m = attrs.match(new RegExp(`(?:^|\\s)${name.replace(":", "\\:")}="([^"]*)"`));
+  return m ? decodeEntities(m[1]!) : undefined;
+};
+
+// Excel's built-in number formats that show a date or a time (stored the
+// same way, as a serial): 14 to 22 and 45 to 47.
+const BUILTIN_DATE_FORMATS = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47]);
+
+// A custom format code that shows a date: a day, a month or a year once
+// the quoted text, escapes, padding, colours and locales are taken out.
+// An elapsed time ([h]:mm, mm:ss) is not a date.
+export function isDateFormatCode(code: string): boolean {
+  const bare = code
+    .replace(/"[^"]*"/g, "")
+    .replace(/\\./g, "")
+    .replace(/[_*]./g, "")
+    .replace(/\[[^\]]*\]/g, "");
+  if (/[dy]/i.test(bare)) return true;
+  // An m beside an hour or a second ([h]:mm, h:mm, mm:ss) is minutes.
+  const elapsed = /\[(h+|m+|s+)\]/i.test(code);
+  return /m/i.test(bare) && !elapsed && !/[hs]/i.test(bare);
+}
+
+// The cell styles (s="n" on a cell, an index into cellXfs) whose number
+// format is a date.
+function dateStyles(stylesXml: string | null): Set<number> {
+  const out = new Set<number>();
+  if (!stylesXml) return out;
+  const custom = new Map<number, string>();
+  for (const m of stylesXml.matchAll(/<numFmt\b([^>]*?)\/?>/g)) {
+    const id = Number(attrOf(m[1]!, "numFmtId"));
+    const code = attrOf(m[1]!, "formatCode");
+    if (Number.isFinite(id) && code !== undefined) custom.set(id, code);
+  }
+  const xfs = stylesXml.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/)?.[1] ?? "";
+  let i = 0;
+  for (const m of xfs.matchAll(/<xf\b([^>]*?)(?:\/>|>[\s\S]*?<\/xf>)/g)) {
+    const id = Number(attrOf(m[1]!, "numFmtId") ?? 0);
+    const code = custom.get(id);
+    if (code !== undefined ? isDateFormatCode(code) : BUILTIN_DATE_FORMATS.has(id)) out.add(i);
+    i++;
+  }
+  return out;
+}
+
+// An Excel date serial as YYYY-MM-DD. The 1900 system counts from
+// 1899-12-30 (with Excel's phantom 29 Feb 1900 at serial 60); the 1904
+// system from 1904-01-01.
+export function excelSerialToDate(serial: number, date1904 = false): string | null {
+  if (!Number.isFinite(serial) || serial < 0) return null;
+  const days = Math.floor(serial);
+  const base = date1904 ? Date.UTC(1904, 0, 1) : Date.UTC(1899, 11, 30);
+  const d = new Date(base + (!date1904 && days < 60 ? days + 1 : days) * 86_400_000);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
+// Each sheet in the workbook's own order, by its own name: workbook.xml
+// names a relationship per sheet and the workbook's relationships say
+// which file that is. The files are not always numbered in tab order.
+function sheetFiles(files: Map<string, Uint8Array>): { name: string; path: string }[] {
+  const wb = files.get("xl/workbook.xml");
+  const rels = files.get("xl/_rels/workbook.xml.rels");
+  if (wb && rels) {
+    const targets = new Map<string, string>();
+    for (const m of utf8(rels).matchAll(/<Relationship\b([^>]*?)\/?>/g)) {
+      const id = attrOf(m[1]!, "Id");
+      const target = attrOf(m[1]!, "Target");
+      if (id && target) targets.set(id, target.startsWith("/") ? target.slice(1) : `xl/${target.replace(/^\.\//, "")}`);
+    }
+    const out: { name: string; path: string }[] = [];
+    for (const m of utf8(wb).matchAll(/<sheet\b([^>]*?)\/?>/g)) {
+      const rid = attrOf(m[1]!, "r:id");
+      const path = rid ? targets.get(rid) : undefined;
+      if (path && files.has(path)) out.push({ name: attrOf(m[1]!, "name") ?? path, path });
+    }
+    if (out.length) return out;
+  }
+  // Nothing to map by: the sheet files in number order.
+  const names = wb ? [...utf8(wb).matchAll(/<sheet\b[^>]*\bname="([^"]*)"/g)].map((m) => decodeEntities(m[1]!)) : [];
+  return [...files.keys()]
+    .filter((k) => /^xl\/worksheets\/sheet\d+\.xml$/.test(k))
+    .sort((a, b) => Number(a.match(/(\d+)\.xml$/)![1]) - Number(b.match(/(\d+)\.xml$/)![1]))
+    .map((path, i) => ({ name: names[i] ?? `Sheet ${i + 1}`, path }));
+}
+
 // Excel: each sheet by name, each row as its cells split by " | ", with
 // empty cells kept so columns line up. Shared strings, inline strings,
-// numbers and booleans as they are stored.
+// numbers and booleans as they are stored, and a number formatted as a
+// date as that date (YYYY-MM-DD), not the serial Excel keeps.
 export function xlsxToText(bytes: Uint8Array): string {
   const files = unzip(bytes);
   const shared: string[] = [];
   const ss = files.get("xl/sharedStrings.xml");
   if (ss) for (const si of utf8(ss).matchAll(/<si>([\s\S]*?)<\/si>/g)) shared.push(decodeEntities([...si[1]!.matchAll(/<t(?:\s[^>]*)?>([^<]*)<\/t>/g)].map((t) => t[1]).join("")));
+  const styles = files.get("xl/styles.xml");
+  const dates = dateStyles(styles ? utf8(styles) : null);
   const wb = files.get("xl/workbook.xml");
-  const names = wb ? [...utf8(wb).matchAll(/<sheet\b[^>]*\bname="([^"]*)"/g)].map((m) => decodeEntities(m[1]!)) : [];
-  const sheets = [...files.keys()].filter((k) => /^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort((a, b) => Number(a.match(/(\d+)\.xml$/)![1]) - Number(b.match(/(\d+)\.xml$/)![1]));
+  const date1904 = wb ? /<workbookPr\b[^>]*\bdate1904="(1|true)"/.test(utf8(wb)) : false;
+  const sheets = sheetFiles(files);
   if (!sheets.length) throw new Error("no sheets in this Excel file");
   const out: string[] = [];
-  sheets.forEach((path, i) => {
-    out.push(`Sheet: ${names[i] ?? `Sheet ${i + 1}`}`);
-    for (const row of utf8(files.get(path)!).matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+  for (const sheet of sheets) {
+    out.push(`Sheet: ${sheet.name}`);
+    for (const row of utf8(files.get(sheet.path)!).matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
       const cells: string[] = [];
       for (const c of row[1]!.matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
         const attrs = c[1]!;
         const inner = c[2] ?? "";
         const ref = attrs.match(/\br="([A-Z]+\d+)"/)?.[1];
         const type = attrs.match(/\bt="([a-zA-Z]+)"/)?.[1];
+        const style = attrs.match(/\bs="(\d+)"/)?.[1];
         const v = inner.match(/<v>([\s\S]*?)<\/v>/)?.[1];
         let value = "";
         if (type === "s" && v !== undefined) value = shared[Number(v)] ?? "";
         else if (type === "inlineStr") value = decodeEntities([...inner.matchAll(/<t(?:\s[^>]*)?>([^<]*)<\/t>/g)].map((t) => t[1]).join(""));
         else if (type === "b" && v !== undefined) value = v === "1" ? "TRUE" : "FALSE";
+        else if (v !== undefined && (type === undefined || type === "n") && style !== undefined && dates.has(Number(style))) value = excelSerialToDate(Number(v), date1904) ?? decodeEntities(v);
         else if (v !== undefined) value = decodeEntities(v);
         const at = ref ? colIndex(ref) : cells.length;
         while (cells.length < at) cells.push("");
@@ -143,7 +249,7 @@ export function xlsxToText(bytes: Uint8Array): string {
       }
       if (cells.some((c) => c !== "")) out.push(cells.join(" | "));
     }
-  });
+  }
   return tidy(out.join("\n"));
 }
 
