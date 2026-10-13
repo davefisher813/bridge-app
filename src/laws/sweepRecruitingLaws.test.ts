@@ -198,7 +198,10 @@ describe("LAW: eligibility is judged against a school the athlete is aiming for"
     expect(divisionForTargets([t("Committed", "D2"), t("Offer", "D1")])).toBe("D2");
   });
   it("the loader reads each target's status, so the rule has something to judge", () => {
-    expect(source("lib/data/loadEligibility.ts")).toMatch(/select\("status, schools\(division\)"\)/);
+    // Read through family_targets (migration 0063), which returns each
+    // target's status and its school's division.
+    expect(source("lib/data/loadEligibility.ts")).toMatch(/loadFamilyTargets\(/);
+    expect(source("lib/data/familyReads.ts")).toMatch(/status: string;[\s\S]*division: string/);
     expect(source("lib/data/loadEligibility.ts")).toMatch(/divisionForTargets\(/);
   });
 });

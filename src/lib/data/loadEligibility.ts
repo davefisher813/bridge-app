@@ -10,6 +10,7 @@
 // So the query lives here once. A page that wants a core GPA calls this
 // and cannot accidentally ask for less than the engine needs.
 
+import { loadFamilyTargets } from "@/lib/data/familyReads";
 import { createClient } from "@/lib/supabase/server";
 import {
   buildEligibilityView,
@@ -113,7 +114,9 @@ export async function loadEligibility(orgId: string, athleteId: string, today: s
       .eq("athlete_id", athleteId)
       .eq("org_id", orgId)
       .order("term", { ascending: true }),
-    supabase.from("recruiting_targets").select("status, schools(division)").eq("athlete_id", athleteId).eq("org_id", orgId),
+    // Through migration 0063's function: an Athlete login opens these
+    // screens and reads no whole target row (notes, the coach).
+    loadFamilyTargets(supabase, orgId, [athleteId]).then((data) => ({ data })),
   ]);
 
   if (!athlete) return null;
