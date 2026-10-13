@@ -486,7 +486,8 @@ Status, 2026-10-13:
   area, confirmed, logged, undoable. Once an area has a name, only that
   person marks its documents Ready and the document shows who approved;
   until then Ready is one Admin tap. Waiting on Dave to name people.
-- **8, personal uploads:** not built and not specified.
+- **8, personal uploads:** covered by piece 5 (Dave, 2026-10-13: personal
+  uploads are the athlete's own uploads).
 - **9, legacy migration:** not built. Needs the old Bridge app's documents
   as a source; none has been handed over.
 

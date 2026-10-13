@@ -13,6 +13,7 @@ import { canAdvise as roleCanAdvise, loadAdvisorChoices } from "@/lib/org/adviso
 import { AdvisorSheet } from "@/components/AdvisorSheet";
 import { loadDocApprovers } from "@/lib/data/docApprovers";
 import { APPROVER_AREAS, AREA_LABEL } from "@/lib/documents/approvers";
+import { managesAccess, masterName } from "@/lib/org/master";
 import { Avatar, Body, Button, Card, CheckField, Chevron, ConfirmButton, EmptyState, Field, Form, Hidden, Label, Notice, Prose, Row, Screen, Section, SelectField, Stack } from "@/components/kit";
 
 interface MemberRow {
@@ -102,6 +103,12 @@ export default async function MemberPage({
   const level = role === "staff" ? "owner" : role;
   const here = `/org/${slug}/members/${member.user_id}`;
   const photo = photoUrl(slug, member.user_id, member.photo_path);
+  // The master account (migration 0070): while one is named, only they
+  // change a role or remove someone, and they themselves are never
+  // offered a demotion or removal until they hand it on.
+  const isMaster = member.user_id === org.masterUserId;
+  const canManage = managesAccess(org.masterUserId, me.id);
+  const master = canManage ? null : await masterName(supabase, org.masterUserId);
 
   const joined = person?.last_sign_in_at ? `joined ${new Date(member.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "invited, not signed in yet";
 
@@ -131,7 +138,7 @@ export default async function MemberPage({
 
   return (
     <Screen back={{ href: `/org/${slug}/members`, label: "Members" }}>
-      <Row leading={<Avatar name={name} size="lg" photo={photo} />} title={`${name}${isMe ? " (you)" : ""}`} meta={[title, labelForRole(role), person?.email, joined].filter(Boolean).join(" · ")} emphasis="bold" wrap />
+      <Row leading={<Avatar name={name} size="lg" photo={photo} />} title={`${name}${isMe ? " (you)" : ""}`} meta={[isMaster ? "Master Account" : null, title, labelForRole(role), person?.email, joined].filter(Boolean).join(" · ")} emphasis="bold" wrap />
 
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
 
@@ -212,7 +219,15 @@ export default async function MemberPage({
       )}
 
       <Section label="Role" role="people" kind="people">
-        {role === "family" ? (
+        {!canManage ? (
+          <Notice tone="info" title={`Access Levels Are Set by ${master}`}>
+            {`${labelForRole(role)} now. Only ${master}, the master account, changes a role or removes someone.`}
+          </Notice>
+        ) : isMaster && !onlyOwner ? (
+          <Notice tone="info" title="Master Account">
+            {`${labelForRole(role)} now. The master account stays an Admin and cannot be removed; hand it to another Admin under Organization Settings first.`}
+          </Notice>
+        ) : role === "family" ? (
           <Form action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
             <Stack gap={3}>
               <Hidden name="confirmed" value="yes" />
@@ -350,6 +365,7 @@ export default async function MemberPage({
         </Section>
       )}
 
+      {(canManage || isMe) && (!isMaster || onlyOwner) && (
       <Section label="Access" role="danger" kind="blocked">
         {onlyOwner ? (
           <Card>
@@ -364,6 +380,7 @@ export default async function MemberPage({
         )}
         <Prose>They lose access to {org.name} only. Their account stays.</Prose>
       </Section>
+      )}
     </Screen>
   );
 }

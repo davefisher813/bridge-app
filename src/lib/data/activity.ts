@@ -76,6 +76,8 @@ export const ACTIVITY_ACTIONS = [
   // Who signs documents off in each area (migration 0067, Doc AI piece 7).
   "doc_approver_set",
   "doc_approver_cleared",
+  // Who alone changes access (migration 0070, Dave 2026-10-13).
+  "master_transferred",
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -129,6 +131,7 @@ export const SUBJECT_TYPE_OF: Record<ActivityAction, ActivitySubjectType> = {
   settings_changed: "org",
   doc_approver_set: "org",
   doc_approver_cleared: "org",
+  master_transferred: "org",
 };
 
 // ── The summary: a branded sentence ──────────────────────────────────
@@ -210,6 +213,8 @@ export interface ActivitySubjects {
   // `person` the Admin named for it.
   doc_approver_set: { kind: string; person: string };
   doc_approver_cleared: { kind: string };
+  // `person` is the Admin who holds the master account now.
+  master_transferred: { person: string };
 }
 
 // Names are clipped so two of them and two statuses still fit the
@@ -293,6 +298,7 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   settings_changed: (s) => `Changed ${clip(s.setting, 80, "the settings")}`,
   doc_approver_set: (s) => `Set ${person(s.person)} as the ${word(s.kind, "document")} approver for documents`,
   doc_approver_cleared: (s) => `Cleared the ${word(s.kind, "document")} approver for documents`,
+  master_transferred: (s) => `Made ${person(s.person)} the master account`,
 };
 
 // The only way to make an ActivitySummary. Takes an action and the small
