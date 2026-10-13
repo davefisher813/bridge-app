@@ -125,9 +125,14 @@ export function safeStorageFileName(name: string): string {
 }
 
 // The path a family upload goes to, or null when the pieces would not
-// make a path the rules accept.
-export function familyStoragePath(orgId: string, requestId: string, fileName: string): string | null {
-  const path = `${orgId}/family/${requestId}/${safeStorageFileName(fileName)}`;
+// make a path the rules accept. The folder is an id the storage policy
+// can tie to the login (migration 0068): an assignment of their own
+// athlete, or their own athlete's id. A stamp, when given, goes in front
+// of the file name so a second file of the same name in the same folder
+// is a new object, not a collision.
+export function familyStoragePath(orgId: string, folderId: string, fileName: string, stamp?: string): string | null {
+  if (stamp !== undefined && !/^[A-Za-z0-9_-]{1,40}$/.test(stamp)) return null;
+  const path = `${orgId}/family/${folderId}/${stamp ? `${stamp}-` : ""}${safeStorageFileName(fileName)}`;
   return isFamilyStoragePathFor(path, orgId) ? path : null;
 }
 

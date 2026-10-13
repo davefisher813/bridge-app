@@ -1,15 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getCurrentUser } from "@/lib/auth/guard";
+import { getCurrentUser, STAFF_ROLES, type OrgRole } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PHOTO_PATH_SHAPE } from "@/lib/people/photo";
 
 // A person's photo in an org (migration 0049): /org/<slug>/members/<user>/photo
 //
-// Anyone signed in who belongs to this org may see the photos of the
-// people in it, the way they see their names. Nobody else, and the same
-// 404 whether the person, the photo or the access is missing, so the
-// route does not say who is in an org. The bucket has no policies; the
+// An Admin of this org may see the photo of anyone in it, the way they
+// see the whole member list. A Viewer or an Athlete login sees only its
+// own photo and the photos of the org's Admins, the people listed for
+// them in Who to Ask; another Viewer's or a family's photo is not theirs
+// to fetch. Nobody else, and the same 404 whether the person, the photo
+// or the access is missing, so the route does not say who is in an org. The bucket has no policies; the
 // service role reads it here, after those checks.
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ slug: string; userId: string }> }) {
   const { slug, userId } = await params;
@@ -21,8 +23,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (!viewer) return notFound();
 
   const admin = createAdminClient();
-  const { data } = await admin.from("org_members").select("photo_path").eq("org_id", org.id).eq("user_id", userId).maybeSingle();
-  const path = (data as { photo_path?: string | null } | null)?.photo_path ?? null;
+  const { data } = await admin.from("org_members").select("role, photo_path").eq("org_id", org.id).eq("user_id", userId).maybeSingle();
+  const row = data as { role?: OrgRole; photo_path?: string | null } | null;
+  const allowed = STAFF_ROLES.includes(viewer.role) || viewer.id === userId || (!!row?.role && STAFF_ROLES.includes(row.role));
+  if (!allowed) return notFound();
+  const path = row?.photo_path ?? null;
   if (!path || !PHOTO_PATH_SHAPE.test(path) || !path.startsWith(`${org.id}/${userId}/`)) return notFound();
 
   const { data: blob, error } = await admin.storage.from("member-photos").download(path);
