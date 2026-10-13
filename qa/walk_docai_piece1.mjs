@@ -128,7 +128,7 @@ async function walk(browser, theme) {
   await page.locator("select").first().selectOption({ label: "A parent sent it" });
   await page.setInputFiles("input[name=files]", { name: "fall-transcript.pdf", mimeType: "application/pdf", buffer: readable });
   await page.getByRole("button", { name: "Upload and Read" }).click();
-  await page.getByRole("heading", { name: /Check This Before It Lands|Kept for Review|Not sure who this is/ }).waitFor();
+  await page.getByRole("heading", { name: /Check This Before It Lands|Kept for Review|Not Sure Who This Is/ }).waitFor();
   await shot("old-type-transcript-read", ["Needs Review", "Original File"]);
 
   // 7. The whole list, every state.
