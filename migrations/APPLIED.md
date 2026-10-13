@@ -87,3 +87,4 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0065_family_reads_policies.sql | applied | 20261013140655 0065_family_reads_policies |
 | 0067_doc_approvers.sql | pending | not on production yet |
 | 0068_access_tightening.sql | pending | not on production yet |
+| 0069_document_title.sql | pending | not on production yet |

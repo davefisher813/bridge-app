@@ -62,8 +62,8 @@ export async function loadMonthCalls(client: Client, orgId: string, now = new Da
     .limit(100);
   const rows = (data ?? []) as { id: string; created_at: string; model: string; cost_cents: number | string; input_tokens: number; output_tokens: number; document_id: string | null }[];
   const ids = [...new Set(rows.map((r) => r.document_id).filter((v): v is string => !!v))];
-  const { data: docs } = ids.length ? await client.from("documents").select("id, file_name").eq("org_id", orgId).in("id", ids) : { data: [] as { id: string; file_name: string }[] };
-  const names = new Map(((docs ?? []) as { id: string; file_name: string }[]).map((d) => [d.id, d.file_name]));
+  const { data: docs } = ids.length ? await client.from("documents").select("id, file_name, title").eq("org_id", orgId).in("id", ids) : { data: [] as { id: string; file_name: string; title: string | null }[] };
+  const names = new Map(((docs ?? []) as { id: string; file_name: string; title: string | null }[]).map((d) => [d.id, d.title ?? d.file_name]));
   return rows.map((r) => ({
     id: r.id,
     createdAt: r.created_at,

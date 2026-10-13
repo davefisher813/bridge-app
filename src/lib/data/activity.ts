@@ -56,6 +56,7 @@ export const ACTIVITY_ACTIONS = [
   "document_unarchived",
   "document_linked",
   "document_deleted",
+  "document_renamed",
   "board_seat_donor_linked",
   "checkin_logged",
   "message_sent",
@@ -111,6 +112,7 @@ export const SUBJECT_TYPE_OF: Record<ActivityAction, ActivitySubjectType> = {
   document_unarchived: "document",
   document_linked: "document",
   document_deleted: "document",
+  document_renamed: "document",
   board_seat_donor_linked: "seat",
   checkin_logged: "checkin",
   message_sent: "message",
@@ -176,6 +178,7 @@ export interface ActivitySubjects {
   document_linked: { kind: string; to?: string | null; from?: string | null };
   // A document deleted for good (Oct 11). The kind only, never the name.
   document_deleted: { kind: string };
+  document_renamed: { kind: string };
   // A board seat linked to its donor record by name (Oct 13).
   board_seat_donor_linked: { person: string };
   // `kind` is call, meeting, text or other; `date` is the day it
@@ -269,6 +272,7 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   document_linked: (s) => (s.to ? `Linked ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to ${who(s.to)}${s.from ? ` instead of ${who(s.from)}` : ""}` : `Unlinked ${article(word(s.kind, "document"))} ${word(s.kind, "document")} from ${who(s.from)}`),
   board_seat_donor_linked: (s) => `Linked ${person(s.person)}'s board seat to their donor record`,
   document_deleted: (s) => `Deleted ${article(word(s.kind, "document"))} ${word(s.kind, "document")} for good`,
+  document_renamed: (s) => `Retitled ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`,
   document_unarchived: (s) => `Unarchived ${article(word(s.kind, "document"))} ${word(s.kind, "document")}${s.name ? ` for ${who(s.name)}` : ""}`,
   checkin_logged: (s) => `Logged ${article(word(s.kind, "check-in"))} ${word(s.kind, "check-in")} check-in for ${who(s.name)}${onDate(s.date)}`,
   message_sent: (s) => (s.name ? `Sent a message to the family of ${who(s.name)}` : "Sent a message"),

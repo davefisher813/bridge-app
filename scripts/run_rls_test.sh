@@ -107,6 +107,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0064_member_giving_
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0065_family_reads_policies.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0067_doc_approvers.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0068_access_tightening.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0069_document_title.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
@@ -175,6 +176,11 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0068_access_tightening.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_policy where polname = 'documents_bucket_family_insert' and pg_get_expr(polwithcheck, polrelid) ~ '_family_upload_folders'\"" | grep -qx 1
 echo "==> 0068 is reversible"
+echo "==> 0069: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0069_document_title_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0069_document_title.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from information_schema.columns where table_name = 'documents' and column_name = 'title'\"" | grep -qx 1
+echo "==> 0069 is reversible"
 
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"

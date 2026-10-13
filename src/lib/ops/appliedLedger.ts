@@ -79,4 +79,5 @@ export const APPLIED_LEDGER: LedgerRow[] = [
   { file: "0065_family_reads_policies", recorded: "applied", versions: ["20261013140655"] },
   { file: "0067_doc_approvers", recorded: "pending", versions: [] },
   { file: "0068_access_tightening", recorded: "pending", versions: [] },
+  { file: "0069_document_title", recorded: "pending", versions: [] },
 ];

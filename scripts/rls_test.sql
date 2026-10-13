@@ -5193,3 +5193,29 @@ end $$;
 reset role;
 select set_test_user(null);
 \echo 'ALL 0067 ASSERTIONS PASSED'
+
+-- ── Migration 0069: a document's title is its own, the file name never changes ──
+reset role;
+do $$
+declare d uuid;
+begin
+  insert into documents (org_id, file_name, file_size, media_type, source_role, status)
+  values ('00000000-0000-0000-0000-000000000010', 'updated-cert-of-inc.pdf', 10, 'application/pdf', 'coordinator', 'pending')
+  returning id into d;
+  update documents set title = 'NY DOS Rejection Letter' where id = d;
+  if (select title from documents where id = d) <> 'NY DOS Rejection Letter' then raise exception 'FAIL: a title did not save'; end if;
+  begin
+    update documents set file_name = 'renamed.pdf' where id = d;
+    raise exception 'FAIL: the file name changed';
+  exception when check_violation then null;
+  end;
+  begin
+    update documents set title = '   ' where id = d;
+    raise exception 'FAIL: a blank title saved';
+  exception when check_violation then null;
+  end;
+  update documents set title = null where id = d;
+  delete from documents where id = d;
+  raise notice 'PASS: a document takes a title of its own, never blank, and its file name stays as uploaded';
+end $$;
+\echo 'ALL 0069 ASSERTIONS PASSED'

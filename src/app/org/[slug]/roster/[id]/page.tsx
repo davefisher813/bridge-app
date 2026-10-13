@@ -165,12 +165,12 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   // this screen; a link widens nobody's access.
   const { data: docRows } = await supabase
     .from("documents")
-    .select("id, file_name, category, requested_category, filed_as, lifecycle, created_at, athlete_id, linked_athlete_id")
+    .select("id, file_name, title, category, requested_category, filed_as, lifecycle, created_at, athlete_id, linked_athlete_id")
     .eq("org_id", org.id)
     .or(`linked_athlete_id.eq.${id},athlete_id.eq.${id}`)
     .order("created_at", { ascending: false });
   const readerLabels = Object.fromEntries(READER_TYPES.map((t) => [t.id, t.label]));
-  const athleteDocs = ((docRows ?? []) as { id: string; file_name: string; category: string | null; requested_category: string | null; filed_as: string | null; lifecycle: string; created_at: string }[]).map((d) => ({
+  const athleteDocs = ((docRows ?? []) as { id: string; file_name: string; title: string | null; category: string | null; requested_category: string | null; filed_as: string | null; lifecycle: string; created_at: string }[]).map((d) => ({
     ...d,
     label: documentTypeLabel(d, readerLabels),
     state: isLifecycle(d.lifecycle) ? LIFECYCLE_LABEL[d.lifecycle] : d.lifecycle,
@@ -583,8 +583,8 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
               key={d.id}
               href={`/org/${slug}/documents/${d.id}`}
               kind="document"
-              title={d.label ?? d.file_name}
-              meta={[d.label ? d.file_name : null, d.state, longDate(d.created_at)].filter(Boolean).join(" · ")}
+              title={d.title ?? d.label ?? d.file_name}
+              meta={[d.title ? d.label : null, d.title || d.label ? d.file_name : null, d.state, longDate(d.created_at)].filter(Boolean).join(" · ")}
               trailing={<Chevron />}
               wrap
             />
