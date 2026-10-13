@@ -3793,7 +3793,8 @@ begin
   perform set_test_user('00000000-0000-0000-0000-000000000005'); -- Athlete login, Elite
   insert into storage.objects (bucket_id, name, owner) values
     -- The request folder starts with the linked athlete's id (0066).
-    ('documents', '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-000000000120_x/f.pdf', '00000000-0000-0000-0000-000000000005');
+    ('documents', '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-000000000120_x/f.pdf', '00000000-0000-0000-0000-000000000005'),
+    -- Or the id of one of its athlete's assignments (0068).
     ('documents', '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-0000000a0002/f.pdf', '00000000-0000-0000-0000-000000000005');
   foreach target in array array[
     '00000000-0000-0000-0000-000000000020/req9/f.pdf',
@@ -3813,12 +3814,16 @@ begin
   -- Onto a name someone else already holds, in its own family folder: a
   -- second object cannot take the name (no overwrite, no lookalike that
   -- would carry the login's ownership into a submission).
-  begin
-    insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-000000000120_req3/theirs.pdf', '00000000-0000-0000-0000-000000000005');
-    insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-0000000a0002/theirs.pdf', '00000000-0000-0000-0000-000000000005');
-    raise exception 'FAIL: an Athlete login wrote a second object onto another person''s file name';
-  exception when unique_violation then null;
-  end;
+  foreach target in array array[
+    '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-000000000120_req3/theirs.pdf',
+    '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-0000000a0002/theirs.pdf'
+  ] loop
+    begin
+      insert into storage.objects (bucket_id, name, owner) values ('documents', target, '00000000-0000-0000-0000-000000000005');
+      raise exception 'FAIL: an Athlete login wrote a second object onto another person''s file name at %', target;
+    exception when unique_violation then null;
+    end;
+  end loop;
   -- Its own upload is not readable, and it cannot remove one.
   select count(*) into n from storage.objects where bucket_id = 'documents';
   if n <> 0 then raise exception 'FAIL: an Athlete login read % objects from the documents bucket', n; end if;
@@ -4366,12 +4371,6 @@ begin
   foreach bad in array array['bad.docx', 'sheet.xlsx', 'list.csv', 'note.txt', 'run.exe', 'pdf', 'x.pdf.exe'] loop
     begin
       insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000048010/family/00000000-0000-0000-0000-000000048110_x/' || bad, '00000000-0000-0000-0000-0000000480a4');
-    ('documents', '00000000-0000-0000-0000-000000048010/family/00000000-0000-0000-0000-000000048110/ok.pdf', '00000000-0000-0000-0000-0000000480a4'),
-    ('documents', '00000000-0000-0000-0000-000000048010/family/00000000-0000-0000-0000-000000048110/PHOTO.JPEG', '00000000-0000-0000-0000-0000000480a4'),
-    ('documents', '00000000-0000-0000-0000-000000048010/family/00000000-0000-0000-0000-000000048110/scan.png', '00000000-0000-0000-0000-0000000480a4');
-  foreach bad in array array['bad.docx', 'sheet.xlsx', 'list.csv', 'note.txt', 'run.exe', 'pdf', 'x.pdf.exe'] loop
-    begin
-      insert into storage.objects (bucket_id, name, owner) values ('documents', '00000000-0000-0000-0000-000000048010/family/00000000-0000-0000-0000-000000048110/' || bad, '00000000-0000-0000-0000-0000000480a4');
       raise exception 'FAIL: the family folder took %', bad;
     exception when insufficient_privilege then null;
     end;
@@ -5083,44 +5082,6 @@ begin
       perform family_send_document('00000000-0000-0000-0000-000000066110', 'later.pdf', 100, 'application/pdf',
         '00000000-0000-0000-0000-000000066010/family/00000000-0000-0000-0000-000000066110_r5/later.pdf');
       raise exception 'FAIL: % sent a document through family_send_document', who;
--- ── Migration 0068: access tightening ───────────────────────────────
--- 1. An Athlete login uploads only into a folder it can account for: an
---    assignment of its own athlete, or its own athlete's id. A made-up
---    folder, another athlete's id or assignment, and another org's
---    folder are refused.
--- 2. applied_migrations answers Admins only (0057's own check, proved
---    here against a stand-in history table, which the plain database
---    does not otherwise have).
--- 3. log_family_message writes nothing for a login with no message.
--- Family 63 (Bridge, linked to athlete A only) from the 0063 block.
-reset role;
-insert into assignments (id, org_id, athlete_id, title, kind, status, created_by) values
-  ('00000000-0000-0000-0000-0000000a6801', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', 'Bridge Other Athlete Upload', 'upload', 'assigned', '00000000-0000-0000-0000-000000000001');
-set role app_user;
-do $$
-declare target text;
-begin
-  perform set_test_user('00000000-0000-0000-0000-000000006301');
-  -- An assignment of its own athlete, and its own athlete's id: allowed.
-  insert into storage.objects (bucket_id, name, owner) values
-    ('documents', '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-0000000a0001/68-a.pdf', '00000000-0000-0000-0000-000000006301'),
-    ('documents', '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000110/68-b.jpg', '00000000-0000-0000-0000-000000006301');
-  foreach target in array array[
-    -- A folder named by nobody.
-    '00000000-0000-0000-0000-000000000010/family/req_made_up/68-c.pdf',
-    -- Another athlete of the same org, by id and by assignment.
-    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000111/68-d.pdf',
-    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-0000000a6801/68-e.pdf',
-    -- Another org's athlete under this org's folder.
-    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000120/68-f.pdf',
-    -- Its own assignment under another org's folder.
-    '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-0000000a0001/68-g.pdf',
-    -- Its own folder, a format the family path does not take.
-    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000110/68-h.html'
-  ] loop
-    begin
-      insert into storage.objects (bucket_id, name, owner) values ('documents', target, '00000000-0000-0000-0000-000000006301');
-      raise exception 'FAIL 0068: an Athlete login wrote to %', target;
     exception when insufficient_privilege then null;
     end;
   end loop;
@@ -5132,7 +5093,6 @@ begin
   exception when insufficient_privilege then null;
   end;
   raise notice 'PASS: an Admin, a Viewer, another org''s Athlete login and a signed-out caller cannot send through family_send_document';
-  raise notice 'PASS: an Athlete login uploads only under an assignment of its own athlete or its own athlete''s id';
 end $$;
 reset role;
 do $$
@@ -5183,6 +5143,55 @@ end $$;
 reset role;
 
 \echo 'ALL 0066 ASSERTIONS PASSED'
+
+-- ── Migration 0068: access tightening ───────────────────────────────
+-- 1. An Athlete login uploads only into a folder it can account for: an
+--    assignment of its own athlete, or its own athlete's id. A made-up
+--    folder, another athlete's id or assignment, and another org's
+--    folder are refused.
+-- 2. applied_migrations answers Admins only (0057's own check, proved
+--    here against a stand-in history table, which the plain database
+--    does not otherwise have).
+-- 3. log_family_message writes nothing for a login with no message.
+-- Family 63 (Bridge, linked to athlete A only) from the 0063 block.
+reset role;
+insert into assignments (id, org_id, athlete_id, title, kind, status, created_by) values
+  ('00000000-0000-0000-0000-0000000a6801', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', 'Bridge Other Athlete Upload', 'upload', 'assigned', '00000000-0000-0000-0000-000000000001');
+set role app_user;
+do $$
+declare target text;
+begin
+  perform set_test_user('00000000-0000-0000-0000-000000006301');
+  -- An assignment of its own athlete, and its own athlete's id: allowed.
+  insert into storage.objects (bucket_id, name, owner) values
+    ('documents', '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-0000000a0001/68-a.pdf', '00000000-0000-0000-0000-000000006301'),
+    ('documents', '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000110/68-b.jpg', '00000000-0000-0000-0000-000000006301');
+  foreach target in array array[
+    -- A folder named by nobody.
+    '00000000-0000-0000-0000-000000000010/family/req_made_up/68-c.pdf',
+    -- Another athlete of the same org, by id and by assignment.
+    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000111/68-d.pdf',
+    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-0000000a6801/68-e.pdf',
+    -- Another org's athlete under this org's folder.
+    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000120/68-f.pdf',
+    -- Its own assignment under another org's folder.
+    '00000000-0000-0000-0000-000000000020/family/00000000-0000-0000-0000-0000000a0001/68-g.pdf',
+    -- Its own folder, a format the family path does not take.
+    '00000000-0000-0000-0000-000000000010/family/00000000-0000-0000-0000-000000000110/68-h.html'
+  ] loop
+    begin
+      insert into storage.objects (bucket_id, name, owner) values ('documents', target, '00000000-0000-0000-0000-000000006301');
+      raise exception 'FAIL 0068: an Athlete login wrote to %', target;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+  perform set_test_user(null);
+  raise notice 'PASS: an Athlete login uploads only under an assignment of its own athlete or its own athlete''s id';
+end $$;
+reset role;
+do $$
+declare n int;
+begin
   select count(*) into n from storage.objects where name like '%/family/%/68-%';
   if n <> 2 then raise exception 'FAIL 0068: % family objects stored, expected the 2 allowed', n; end if;
   delete from storage.objects where name like '%/family/%/68-%';
@@ -5260,6 +5269,7 @@ begin
 end $$;
 drop table log_rows_0068;
 \echo 'ALL 0068 ASSERTIONS PASSED'
+
 -- ── Migration 0067: document approvers ──────────────────────────────
 -- Per org and area, at most one Admin signs a document off. Admins read
 -- and write the row; a Viewer, an Athlete login and another org see and

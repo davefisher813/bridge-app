@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
+import { renameDocument } from "@/lib/actions/documentTitle";
 import { applyDocument, deleteDocument, discardDocument, fileDocumentAs, isStubbedModel, linkDocumentToAthlete, moveDocumentAndStay, readDocumentAgain } from "@/lib/actions/documents";
 import { CONTRADICTION_PREFIX } from "@/lib/docai/identity";
 import { documentTypeLabel, isReaderType, READER_TYPES, readerTypeOf } from "@/lib/documents/fileTypes";
@@ -11,7 +12,7 @@ import { editableFields } from "@/lib/data/extractedEdit";
 import type { DocCategoryId } from "@/lib/docai/types";
 import { loadReadyControl } from "@/lib/data/docApprovers";
 import { AREA_COVERS, AREA_LABEL, waitingTitle } from "@/lib/documents/approvers";
-import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Form, Hidden, Label, LinkButton, Meter, Notice, OpenFileLink, Photo, Row, Screen, Section, SelectField, Stack, TextLink, TextPreview } from "@/components/kit";
+import { Avatar, Body, Button, Card, Chip, ConfirmButton, DownloadLink, Field, Form, Hidden, Label, LinkButton, Meter, Notice, OpenFileLink, Photo, Row, Screen, Section, SelectField, Stack, TextLink, TextPreview } from "@/components/kit";
 import { LifecycleChip } from "@/components/LifecycleChip";
 import { longDate } from "@/lib/copy/dates";
 import { formatBytes, formatLabelOf, readerCanRead, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
@@ -35,6 +36,7 @@ interface DocDetail {
   id: string;
   linked_athlete_id: string | null;
   file_name: string;
+  title: string | null;
   file_size: number;
   page_count: number | null;
   category: string | null;
@@ -247,7 +249,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const { data } = await supabase
     .from("documents")
     .select(
-      "id, file_name, file_size, page_count, category, requested_category, filed_as, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, linked_athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths, family_note"
+      "id, file_name, title, file_size, page_count, category, requested_category, filed_as, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, linked_athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths, family_note"
     )
     .eq("id", id)
     .eq("org_id", org.id)
@@ -443,6 +445,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const hash = doc.content_hash ? (doc.content_hash.match(/.{1,8}/g) ?? []).join(" ") : null;
   const typeLabel = documentTypeLabel(doc, CATEGORY_LABEL);
   const facts: [string, string][] = [
+    ...(doc.title ? ([["Title", doc.title]] as [string, string][]) : []),
     ["Type", typeLabel ?? "No Type"],
     ["File Name", doc.file_name],
     ["Format", formatLabelOf(doc.format, doc.media_type)],
@@ -479,6 +482,16 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           <Label key={i}>{p.reason}</Label>
         ) : null,
       )}
+      {/* What it is, when its file name does not say (migration 0069).
+          The file name itself never changes. */}
+      <Form action={renameDocument.bind(null, slug, doc.id)}>
+        <Stack gap={3}>
+          <Field name="title" label="Title" defaultValue={doc.title ?? ""} maxLength={200} hint="What this document is. Left blank, the file name shows. The file name itself never changes." />
+          <Button type="submit" variant="secondary">
+            Save Title
+          </Button>
+        </Stack>
+      </Form>
       {/* The type of a document the reader has not read: the same list
           as the upload form (fileTypes.ts). A read document keeps the
           type of its reading. A reading that failed with nothing read
@@ -614,9 +627,9 @@ export default async function DocumentPage({ params, searchParams }: { params: P
 
   return (
     <Screen
-      title={headline}
+      title={doc.title ?? headline}
       back={{ href: `/org/${slug}/documents`, label: "Documents" }}
-      lede={`${doc.file_name}${doc.page_count ? ` · ${doc.page_count} page${doc.page_count === 1 ? "" : "s"}` : ""} · from ${SOURCE_LABEL[doc.source_role] ?? doc.source_role}`}
+      lede={`${doc.title ? `${headline} · ` : ""}${doc.file_name}${doc.page_count ? ` · ${doc.page_count} page${doc.page_count === 1 ? "" : "s"}` : ""} · from ${SOURCE_LABEL[doc.source_role] ?? doc.source_role}`}
       action={chip}
     >
       {notice && <Notice tone="success" title={notice} />}
