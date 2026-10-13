@@ -85,7 +85,10 @@ export default async function BoardPage({
     <Screen
       title={board.name}
       back={{ href: `/org/${slug}/board-governance${yq}`, label: "Boards" }} lede={`${fiscalYear}, ${formatMoneyShort(board.giveGetCents)} give/get per seat`}
-      action={canEdit && !summary.atCapacity ? <AddButton href={`/org/${slug}/board-governance/${board.id}/seats/new`} label="Add" /> : undefined}
+      // Add stays when the board is full: the cap counts active seats
+      // only, so a Prospect can always be added (readSeatForm refuses
+      // only an active one), and the notice below says so.
+      action={canEdit ? <AddButton href={`/org/${slug}/board-governance/${board.id}/seats/new`} label="Add" /> : undefined}
     >
       <YearSwitch year={fiscalYear} current={currentYear} hrefFor={(y) => `/org/${slug}/board-governance/${board.id}${y === currentYear ? "" : `?year=${y}`}`} />
       <Card href={`/org/${slug}/board-governance/members${yq}`}>
@@ -165,7 +168,7 @@ export default async function BoardPage({
         })}
       </Section>
 
-      {canEdit && !summary.atCapacity && <LinkButton href={`/org/${slug}/board-governance/${board.id}/seats/new`}>Add a Seat</LinkButton>}
+      {canEdit && <LinkButton href={`/org/${slug}/board-governance/${board.id}/seats/new`}>{summary.atCapacity ? "Add a Prospect" : "Add a Seat"}</LinkButton>}
 
       {canEdit && (
         <LinkButton href={`/org/${slug}/board-governance/${board.id}/edit`} variant="secondary">
@@ -175,7 +178,7 @@ export default async function BoardPage({
 
       {canEdit && summary.atCapacity && (
         <Notice tone="info" title={`This board is full at ${board.maxSeats} active seats`}>
-          Raise the cap to add another.
+          Only a Prospect can be added while it is full. Raise the cap to add another active seat.
         </Notice>
       )}
     </Screen>

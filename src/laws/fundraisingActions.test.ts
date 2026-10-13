@@ -392,7 +392,7 @@ describe("setBudget", () => {
     // Blank means no target, filed as zero rather than skipped.
     expect(byCat.corporate!.amount).toBe("0.00");
     expect(byCat.grant!.amount).toBe("0.00");
-    expect(r.redirect).toBe(`/org/${S}/fundraising`);
+    expect(r.redirect).toBe(`/org/${S}/fundraising?year=2026`);
     // The existing board row for the year was replaced, not duplicated.
     expect(data.fundraising_budget!.filter((b) => b.fiscal_year === 2026 && b.category === "board")).toHaveLength(1);
   });
@@ -414,7 +414,7 @@ describe("setBudget", () => {
   it("an explicit zero is accepted, not mistaken for text", async () => {
     const { setBudget } = await import("@/lib/actions/fundraising");
     const r = await run(() => setBudget(S, 2026, NO_STATE, budgetForm({ budget_individual: "$0.00" })));
-    expect(r.redirect).toBe(`/org/${S}/fundraising`);
+    expect(r.redirect).toBe(`/org/${S}/fundraising?year=2026`);
   });
 
   it("a database error comes back as a form error", async () => {

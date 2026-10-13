@@ -45,8 +45,16 @@ export default async function MeetingPage({ params, searchParams }: { params: Pr
   if (!m) notFound();
   const meeting = m as { id: string; title: string; meets_on: string; location: string | null; notes: string | null; boards: { name: string } | { name: string }[] | null };
   const all = (docs ?? []) as DocRow[];
-  const byId = new Map(all.map((d) => [d.id, d]));
-  const attached = ((links ?? []) as { document_id: string }[]).map((l) => byId.get(l.document_id)).filter((d): d is DocRow => !!d);
+  // The attached documents are read by id, not picked out of the newest
+  // 200 (which only feeds the Add list). Picking them out of that list
+  // dropped every material older than the org's 200th newest document
+  // off the meeting without a word.
+  const linkIds = ((links ?? []) as { document_id: string }[]).map((l) => l.document_id);
+  const { data: attachedRows } = linkIds.length
+    ? await supabase.from("documents").select("id, file_name, format, media_type, lifecycle, original_paths, storage_paths").eq("org_id", org.id).in("id", linkIds)
+    : { data: [] };
+  const byId = new Map(((attachedRows ?? []) as DocRow[]).map((d) => [d.id, d]));
+  const attached = linkIds.map((docId) => byId.get(docId)).filter((d): d is DocRow => !!d);
   const attachedIds = new Set(attached.map((d) => d.id));
   // What can be added: this org's documents not on the meeting yet, not archived.
   const addable = all.filter((d) => !attachedIds.has(d.id) && d.lifecycle !== "archived");

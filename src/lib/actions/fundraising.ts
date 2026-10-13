@@ -201,9 +201,16 @@ export async function updateGift(slug: string, giftId: string, _prevState: Fundr
   const refError = await checkGiftReferences(supabase, org.id, v);
   if (refError) return { errors: { form: refError } };
 
+  // Brought In By is only on the form when the org has seats to pick
+  // (the Board module on, with at least one seat). When the field was not
+  // on the form, nobody changed it, so the stored credit is kept rather
+  // than overwritten with nothing: an edit with the Board module off used
+  // to wipe every seat's Brought In credit for that gift.
+  const { solicited_by, ...rest } = giftRow(v);
+  const row = formData.has("solicitedBy") ? { ...rest, solicited_by } : rest;
   const { error } = await supabase
     .from("gifts")
-    .update({ ...giftRow(v), updated_at: new Date().toISOString() })
+    .update({ ...row, updated_at: new Date().toISOString() })
     .eq("id", giftId)
     .eq("org_id", org.id);
   if (error) {
@@ -466,7 +473,9 @@ export async function setBudget(
   if (error) return { errors: { form: error.message } };
 
   revalidatePath(`/org/${slug}/fundraising`);
-  redirect(`/org/${slug}/fundraising`);
+  // Back to the year that was just budgeted, not whatever year is
+  // current, or setting next year's budget lands on this year's numbers.
+  redirect(`/org/${slug}/fundraising?year=${fiscalYear}`);
 }
 
 function readCampaignForm(formData: FormData): { row: Record<string, string | null> } | { errors: Record<string, string> } {

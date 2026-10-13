@@ -47,18 +47,25 @@ export default async function EditSeatPage({ params }: { params: Promise<{ slug:
       .eq("board_id", id)
       .eq("org_id", org.id)
       .maybeSingle(),
-    supabase.from("donors").select("id, name, email, phone").eq("org_id", org.id).is("deleted_at", null).order("name"),
+    // Every donor, removed ones included, so the seat's own donor is
+    // still in the list even after it was removed from the address book.
+    // Dropping it would save the seat unlinked without anyone choosing
+    // that (the same rule Edit Gift keeps).
+    supabase.from("donors").select("id, name, email, phone, deleted_at").eq("org_id", org.id).order("name"),
   ]);
   if (!boardRow || !seatRow) notFound();
   const board = toBoard(boardRow as BoardRow);
   const seat = seatRow as SeatRow;
   const back = `/org/${slug}/board-governance/${board.id}/seats/${seat.id}`;
+  const donors = ((donorRows ?? []) as (SeatDonor & { deleted_at: string | null })[])
+    .filter((d) => !d.deleted_at || d.id === seat.donor_id)
+    .map((d): SeatDonor => ({ id: d.id, name: d.name, email: d.email, phone: d.phone }));
 
   return (
     <Screen title="Edit Seat" back={{ href: back, label: seat.name }} lede={board.name}>
       <BoardSeatForm
         action={updateBoardSeat.bind(null, slug, board.id, seat.id)}
-        donors={(donorRows ?? []) as SeatDonor[]}
+        donors={donors}
         defaultCommitment={centsToDecimalString(board.giveGetCents)}
         today={orgToday()}
         roleSuggestions={SEAT_ROLE_SUGGESTIONS[board.kind]}

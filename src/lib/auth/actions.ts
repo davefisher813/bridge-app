@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { siteOrigin } from "@/lib/auth/origin";
 import { sendFailureMessage } from "@/lib/auth/errors";
+import { safeLocalPath } from "@/lib/auth/safePath";
 
 // Self-registration is disabled, same as tucci-admin: this is a
 // multi-tenant tool where accounts are created by an org owner (a
@@ -74,7 +75,7 @@ export async function signout() {
 // your password: sign in with the emailed link, then set a new one here.
 // Only ever your own account, through your own session.
 export async function setPasswordForm(returnTo: string, formData: FormData) {
-  const back = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/";
+  const back = safeLocalPath(returnTo);
   const password = String(formData.get("password") ?? "");
   const confirm = String(formData.get("confirm") ?? "");
   const q = (s: string) => encodeURIComponent(s);
