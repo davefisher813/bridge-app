@@ -1,12 +1,15 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
-import { AddButton, Avatar, Body, Card, Chip, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
+import { AddButton, Avatar, Body, Card, Chip, ConfirmButton, EmptyState, Form, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import type { RowKind } from "@/components/RowGlyph";
 import { formatMoney, formatMoneyShort } from "@/lib/fundraising/rollup";
 import { BOARD_KIND_PURPOSE, type SeatStatus } from "@/lib/governance/giveGet";
 import { loadGovernance } from "@/lib/data/governanceView";
+import { createClient } from "@/lib/supabase/server";
+import { matchSeatsToDonors } from "@/lib/governance/seatDonors";
+import { linkSeatsToDonorsByName } from "@/lib/actions/governance";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +64,17 @@ export default async function BoardPage({
 
   const role = roleFor(summary.percent);
 
+  // Seats with no donor record whose name is exactly one donor's (Oct 13:
+  // every seat was unlinked, so the board read $0). Offered as one
+  // confirmed step; anything ambiguous stays for the seat's own page.
+  const supabase = await createClient();
+  const { data: donorRows } = canEdit ? await supabase.from("donors").select("id, name").eq("org_id", org.id).is("deleted_at", null) : { data: [] };
+  const seatMatches = canEdit ? matchSeatsToDonors(members.map((m) => ({ id: m.id, name: m.name, donorId: m.donorId })), (donorRows ?? []) as { id: string; name: string }[]) : [];
+  const linkAction = async () => {
+    "use server";
+    await linkSeatsToDonorsByName(slug, id);
+  };
+
   return (
     <Screen
       title={board.name}
@@ -86,6 +100,19 @@ export default async function BoardPage({
       </Card>
 
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
+
+      {seatMatches.length > 0 && (
+        <Section label="Seats with a Donor Record" count={seatMatches.length} role="offer" kind="donor">
+          <Note title="Not Linked Yet">
+            {`Their gifts only count toward give/get once the seat is linked. ${seatMatches.map((m) => m.seatName).join(", ")} ${seatMatches.length === 1 ? "matches" : "each match"} exactly one donor by name.`}
+          </Note>
+          <Form action={linkAction}>
+            <ConfirmButton tone="change" title="Link These Seats to Their Donor Records?" body={`${seatMatches.map((m) => `${m.seatName} to the donor ${m.donorName}`).join("; ")}. Each seat's gifts then count toward give/get. You can change any of them on the seat.`} confirmLabel="Link Them">
+              Link Them
+            </ConfirmButton>
+          </Form>
+        </Section>
+      )}
 
       {summary.belowMinimum && <Notice tone="warning" title={`Below the Floor of ${board.minSeats} ${board.minSeats === 1 ? "Seat" : "Seats"}`} />}
 

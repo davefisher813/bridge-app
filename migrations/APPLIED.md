@@ -81,3 +81,4 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0059_doc_category_athlete_profile.sql | applied | 20261011231334 0059_doc_category_athlete_profile |
 | 0060_doc_category_board_other.sql | applied | 20261011233921 0060_doc_category_board_other |
 | 0061_activity_document_deleted.sql | applied | 20261012001852 0061_activity_document_deleted |
+| 0062_activity_board_seat_donor_linked.sql | pending | not on production yet |
