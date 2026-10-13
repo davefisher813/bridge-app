@@ -1,9 +1,7 @@
 # Current state
 
 Last updated: 2026-10-13. `main` is deployed to production on Vercel.
-Migrations through 0064 are applied; 0065 (the family clause off the
-documents, targets and visits read policies) is written and tested and
-waits on Dave's approval of a policy drop on production. 0047 (View As)
+Migrations through 0065 are applied. 0047 (View As)
 stays cut. Replaced wholesale when this changes meaningfully, never
 appended to.
 
@@ -17,7 +15,7 @@ grants and pledges, the auth callback redirect, authority side effects,
 Title Case everywhere). An Athlete login reads targets, visits and
 documents through functions that leave out staff columns (0063); Viewer
 and Athlete logins set their own name and password; the Viewer's giving
-summary follows the Fundraising module (0064). Open: 0065 on production,
+summary follows the Fundraising module (0064). Open:
 non-admin test accounts on production (waiting on Dave), Doc AI pieces 5
 to 9 (see ROADMAP), the real bylaws (Alfred is locating them).
 
