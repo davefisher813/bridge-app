@@ -57,7 +57,79 @@ function admitted(data: Dataset, orgId: string, userId: string | null): boolean 
 
 const STAGE_ORDER: Record<string, number> = { Committed: 0, Offer: 1, Visit: 2, "In Contact": 3, Target: 4 };
 
+// Migration 0063's row rule: the org's staff, or a family login for one
+// of its own athletes (a guardian row and a live family membership).
+function staffOf(data: Dataset, orgId: unknown, userId: string | null): boolean {
+  return !!userId && (data.org_members ?? []).some((m) => m.org_id === orgId && m.user_id === userId && ["owner", "staff"].includes(String(m.role)));
+}
+function guardianOf(data: Dataset, orgId: unknown, athleteId: unknown, userId: string | null): boolean {
+  return (
+    !!userId &&
+    (data.athlete_guardians ?? []).some((g) => g.athlete_id === athleteId && g.user_id === userId && g.org_id === orgId) &&
+    (data.org_members ?? []).some((m) => m.org_id === orgId && m.user_id === userId && m.role === "family")
+  );
+}
+const newestFirst = (key: string) => (a: Row, b: Row) => String(b[key] ?? "").localeCompare(String(a[key] ?? ""));
+
 export function fakeRpc(data: Dataset, userId: string | null, name: string, args: Record<string, unknown>): { data: unknown; error: { message: string } | null } {
+  // Migration 0063: what an Athlete login reads of targets, visits and
+  // documents, the staff-only columns left out.
+  if (name === "family_targets") {
+    const orgId = args.p_org;
+    const ids = (args.p_athletes as string[] | undefined) ?? [];
+    const schools = new Map((data.schools ?? []).map((x) => [x.id, x]));
+    const rows = (data.recruiting_targets ?? [])
+      .filter((t) => t.org_id === orgId && ids.includes(String(t.athlete_id)) && (staffOf(data, orgId, userId) || guardianOf(data, orgId, t.athlete_id, userId)))
+      .filter((t) => schools.has(t.school_id))
+      .sort(newestFirst("created_at"))
+      .map((t) => {
+        const sc = schools.get(t.school_id)!;
+        return {
+          id: t.id,
+          athlete_id: t.athlete_id,
+          school_id: t.school_id,
+          status: t.status,
+          offer_type: t.offer_type ?? null,
+          offer_scholarship_percent: t.offer_scholarship_percent ?? null,
+          closed_from: t.closed_from ?? null,
+          created_at: t.created_at ?? null,
+          school_name: sc.name,
+          school_division: sc.division ?? null,
+          school_conference: sc.conference ?? null,
+          school_state: sc.state ?? null,
+        };
+      });
+    return { data: rows, error: null };
+  }
+  if (name === "family_target_visits") {
+    const orgId = args.p_org;
+    const ids = (args.p_targets as string[] | undefined) ?? [];
+    const targets = new Map((data.recruiting_targets ?? []).map((t) => [t.id, t]));
+    const rows = (data.target_visits ?? [])
+      .filter((v) => v.org_id === orgId && ids.includes(String(v.target_id)) && (staffOf(data, orgId, userId) || guardianOf(data, orgId, targets.get(v.target_id)?.athlete_id, userId)))
+      .sort(newestFirst("visit_date"))
+      .map((v) => ({ id: v.id, target_id: v.target_id, visit_type: v.visit_type, visit_date: v.visit_date ?? null, impression: v.impression ?? null, next_step: v.next_step ?? null }));
+    return { data: rows, error: null };
+  }
+  if (name === "family_documents") {
+    const orgId = args.p_org;
+    const athleteId = args.p_athlete;
+    if (!staffOf(data, orgId, userId) && !guardianOf(data, orgId, athleteId, userId)) return { data: [], error: null };
+    const rows = (data.documents ?? [])
+      .filter((d) => d.org_id === orgId && d.athlete_id === athleteId)
+      .sort(newestFirst("created_at"))
+      .map((d) => ({ id: d.id, file_name: d.file_name, category: d.category ?? null, status: d.status, media_type: d.media_type, file_size: d.file_size, created_at: d.created_at }));
+    return { data: rows, error: null };
+  }
+  if (name === "family_document_twin") {
+    const orgId = args.p_org;
+    const rows = (data.documents ?? [])
+      .filter((d) => d.org_id === orgId && d.content_hash === args.p_hash && d.status !== "discarded" && (staffOf(data, orgId, userId) || guardianOf(data, orgId, d.athlete_id, userId)))
+      .sort(newestFirst("created_at"))
+      .slice(0, 1)
+      .map((d) => ({ id: d.id, file_name: d.file_name, created_at: d.created_at }));
+    return { data: rows, error: null };
+  }
   // Migration 0057: the history, to any signed-in Admin. The fixture's
   // database has every migration the ledger calls applied.
   if (name === "applied_migrations") {

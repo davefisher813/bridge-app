@@ -19,6 +19,7 @@ import { METRICS, normalizeSport } from "@/lib/fit/contract";
 import { metricPlausible } from "@/lib/docai/plausibility";
 import { daysAhead, isRealDate } from "@/lib/docai/lenient";
 import { resolveHighSchool } from "@/lib/data/lookups";
+import { sameJsonValue } from "@/lib/data/undoPlan";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = SupabaseClient<any, any, any>;
@@ -421,7 +422,8 @@ export async function undoTarget(client: Client, orgId: string, change: TargetCh
   const kept: string[] = [];
   for (const [k, after] of Object.entries(change.after)) {
     const now = (current as unknown as Record<string, unknown>)[k] ?? null;
-    if (JSON.stringify(now) === JSON.stringify(after)) restore[k] = change.before[k] ?? null;
+    // Order-insensitive: Postgres hands jsonb back with its keys reordered.
+    if (sameJsonValue(now, after)) restore[k] = change.before[k] ?? null;
     else kept.push(k.replace(/_/g, " "));
   }
   if (Object.keys(restore).length) {

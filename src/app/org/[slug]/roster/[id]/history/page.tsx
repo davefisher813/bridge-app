@@ -23,14 +23,14 @@ const KIND: Record<string, { label: string; kind: RowKind; role: Role }> = {
   call: { label: "Call", kind: "people", role: "contact" },
   text: { label: "Text", kind: "message", role: "contact" },
   email: { label: "Email", kind: "message", role: "contact" },
-  visit: { label: "Visit (logged)", kind: "visit", role: "visit" },
+  visit: { label: "Visit (Logged)", kind: "visit", role: "visit" },
   other: { label: "Contact", kind: "message", role: "contact" },
 };
 
 const VISIT_KIND: Record<string, string> = {
-  official: "Official visit",
-  unofficial: "Unofficial visit",
-  junior_day: "Junior day",
+  official: "Official Visit",
+  unofficial: "Unofficial Visit",
+  junior_day: "Junior Day",
   camp: "Camp",
   other: "Visit",
 };

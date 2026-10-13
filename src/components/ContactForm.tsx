@@ -27,11 +27,11 @@ export interface ContactFormInitial {
 const EMPTY_STATE: ContactActionState = { errors: {} };
 
 const ROLE_LABEL: Record<(typeof CONTACT_ROLES)[number], string> = {
-  hs_coach: "HS coach",
-  travel_coach: "Travel coach",
-  parent_guardian: "Parent/guardian",
+  hs_coach: "HS Coach",
+  travel_coach: "Travel Coach",
+  parent_guardian: "Parent/Guardian",
   advisor: "Advisor",
-  college_coach: "College coach",
+  college_coach: "College Coach",
   other: "Other",
 };
 

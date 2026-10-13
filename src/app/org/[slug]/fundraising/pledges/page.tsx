@@ -56,12 +56,12 @@ export default async function PledgesPage({ params, searchParams }: { params: Pr
       href={canEdit ? `/org/${slug}/fundraising/pledges/${r.p.id}/edit` : r.p.donorId ? `/org/${slug}/fundraising/donors/${r.p.donorId}` : undefined}
       kind="pledge"
       role={role}
-      title={r.p.donorId ? (donorName.get(r.p.donorId) ?? "Unknown donor") : "Anonymous"}
+      title={r.p.donorId ? (donorName.get(r.p.donorId) ?? "Unknown Donor") : "Anonymous"}
       meta={`${formatMoney(r.p.amountCents)} promised${r.p.dueOn ? ` · due ${longDate(r.p.dueOn)}` : ""}`}
       wrap
       trailing={
         <Body weight="bold" numeric>
-          {r.outstanding === 0 ? "Paid" : formatMoney(r.outstanding)}
+          {r.p.status === "written_off" ? "Written Off" : r.outstanding === 0 ? "Paid" : formatMoney(r.outstanding)}
         </Body>
       }
     />

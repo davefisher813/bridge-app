@@ -2414,7 +2414,10 @@ describe("LAW: every action writes one activity_log row on success, none on refu
     expect((await changeMemberRole(ORG_WITH_MODULES, MEMBER_ID, "owner")).ok).toBe(true);
     expect(logs()).toEqual([]);
     expect((await removeMember(ORG_WITH_MODULES, MEMBER_ID)).ok).toBe(true);
-    expect(logs()).toHaveLength(1);
+    // One row for the removal, then one per side effect: the member holds
+    // the fixture chair's seat, which loses its sign-in with them (sweep,
+    // Oct 13), and that loss is its own row.
+    expect(logs().map((r) => r.action)).toEqual(["member_removed", "seat_unlinked"]);
     expect(logs()[0]).toMatchObject({ action: "member_removed", subject_id: MEMBER_ID, summary: "Removed Example Member" });
     // The name was read before the membership went, not after.
     expect(String(logs()[0].summary)).toContain("Example Member");

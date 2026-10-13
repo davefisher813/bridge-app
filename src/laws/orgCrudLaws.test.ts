@@ -358,6 +358,10 @@ describe("LAW: a role switch to or from family keeps the links straight", () => 
     const order = writes.map((w) => `${w.table}:${w.op}`);
     expect(order.indexOf("org_members:update")).toBeGreaterThanOrEqual(0);
     expect(order.indexOf("org_members:update")).toBeLessThan(order.indexOf("athlete_guardians:insert"));
+    // Nothing is taken away until the link is in (sweep, Oct 13): a
+    // failed link puts the role back, and clears made before it stayed.
+    expect(order.indexOf("athlete_guardians:insert")).toBeLessThan(order.indexOf("athletes:update"));
+    expect(order.indexOf("athlete_guardians:insert")).toBeLessThan(order.indexOf("board_members:update"));
   });
 
   it("the only owner still cannot be switched to family", async () => {

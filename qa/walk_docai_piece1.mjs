@@ -125,10 +125,10 @@ async function walk(browser, theme) {
   const readable = Buffer.from(`%PDF-1.4\n%${tag}\n1 0 obj << >> endobj\n%%EOF\n`);
   await page.goto(BASE + ORG + "/documents/new");
   await page.getByRole("button", { name: "Transcript", exact: true }).click();
-  await page.locator("select").first().selectOption({ label: "A parent sent it" });
+  await page.locator("select").first().selectOption({ label: "A Parent Sent It" });
   await page.setInputFiles("input[name=files]", { name: "fall-transcript.pdf", mimeType: "application/pdf", buffer: readable });
   await page.getByRole("button", { name: "Upload and Read" }).click();
-  await page.getByRole("heading", { name: /Check This Before It Lands|Kept for Review|Not sure who this is/ }).waitFor();
+  await page.getByRole("heading", { name: /Check This Before It Lands|Kept for Review|Not Sure Who This Is/ }).waitFor();
   await shot("old-type-transcript-read", ["Needs Review", "Original File"]);
 
   // 7. The whole list, every state.

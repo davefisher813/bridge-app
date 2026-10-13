@@ -14,6 +14,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["scripts/preview/build_app_preview.ts"],
+    // One test renders every screen in both themes; past 120 screens it
+    // runs longer than vitest's 5 second default (6.6s on Oct 13).
+    testTimeout: 60_000,
     root: path.resolve(__dirname, "../.."),
   },
 });

@@ -34,7 +34,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       .eq("org_id", org.id)
       .order("received_on", { ascending: false }),
     supabase.from("pledges").select("id, amount, promised_on, due_on, status, donor_id, campaign_id").eq("org_id", org.id),
-    supabase.from("donors").select("id, name").eq("org_id", org.id),
+    supabase.from("donors").select("id, name, deleted_at").eq("org_id", org.id),
   ]);
 
   if (!campaign) notFound();
@@ -44,6 +44,10 @@ export default async function CampaignPage({ params, searchParams }: { params: P
   const p = campaignProgress(id, toCents(c.goal_amount ?? 0), allGifts, toPledges(pledgeRows as PledgeRow[] | null));
   const gifts = allGifts.filter((g) => g.campaignId === id);
   const donorName = new Map((donorRows ?? []).map((d) => [(d as { id: string }).id, (d as { name: string }).name]));
+  // A removed donor's gifts still count and still show, by name, but
+  // their record is out of the address book, so the row does not link
+  // to a screen that would say Not Found.
+  const removed = new Set(((donorRows ?? []) as { id: string; deleted_at: string | null }[]).filter((d) => d.deleted_at).map((d) => d.id));
 
   const pct = p.percentOfGoal;
   const role = pct == null ? "target" : pct >= 75 ? "committed" : "offer";
@@ -55,7 +59,9 @@ export default async function CampaignPage({ params, searchParams }: { params: P
         <Stack gap={2}>
           <div className="flex items-start justify-between gap-3">
             <Body weight="bold" numeric>
-              {formatMoneyShort(p.raisedCents)} of {formatMoneyShort(p.goalCents)}
+              {/* No "of $0" on a campaign with no goal, the same as the
+                  campaign cards. */}
+              {p.goalCents > 0 ? `${formatMoneyShort(p.raisedCents)} of ${formatMoneyShort(p.goalCents)}` : `${formatMoneyShort(p.raisedCents)} raised`}
             </Body>
             <Body weight="bold" numeric tone={pct == null ? "muted" : "ink"}>
               {pct == null ? "no goal" : `${pct}%`}
@@ -76,10 +82,10 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           gifts.map((g) => (
             <Row
               key={g.id}
-              href={g.donorId ? `/org/${slug}/fundraising/donors/${g.donorId}` : undefined}
+              href={g.donorId && !removed.has(g.donorId) ? `/org/${slug}/fundraising/donors/${g.donorId}` : undefined}
               kind={g.method === "in_kind" ? "grant" : "money"}
               role={g.method === "in_kind" ? "place" : "committed"}
-              title={g.donorId ? (donorName.get(g.donorId) ?? "Unknown donor") : "Anonymous"}
+              title={g.donorId ? (donorName.get(g.donorId) ?? "Unknown Donor") : "Anonymous"}
               meta={longDate(g.receivedOn)}
               trailing={
                 <Body weight="bold" numeric>

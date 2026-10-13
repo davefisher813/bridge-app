@@ -100,7 +100,9 @@ export async function updateCommunication(
     .from("target_communications")
     .update({
       kind: parsed.values.kind,
-      occurred_on: parsed.values.occurredOn ?? null,
+      // A date left blank keeps the one on file. Writing null dropped the
+      // entry out of every "last contact" and to the bottom of the log.
+      ...(parsed.values.occurredOn ? { occurred_on: parsed.values.occurredOn } : {}),
       notes: parsed.values.notes ?? null,
     })
     .eq("id", entryId)

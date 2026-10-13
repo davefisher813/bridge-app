@@ -1,17 +1,15 @@
 {
   "repo": "bridge-app",
   "version": "0.1.0",
-  "commit": "33ee94f",
-  "commitFull": "33ee94fa605305811105d477fe902f74b235196e",
+  "commit": "bf23bf3",
+  "commitFull": "bf23bf3c98cadb72b1292fad684324b413ab8f41",
   "branch": "claude/downloads-directory-4mf6gv",
-  "remoteBranches": [
-    "origin/claude/downloads-directory-4mf6gv"
-  ],
-  "shipped": true,
-  "dirty": true,
+  "remoteBranches": [],
+  "shipped": false,
+  "dirty": false,
   "onMain": false,
-  "startedAt": "2026-10-13T06:22:23.260Z",
-  "durationMs": 213877,
+  "startedAt": "2026-10-13T06:28:44.464Z",
+  "durationMs": 39822,
   "result": "pass",
   "stagesNotRun": 0,
   "allowlistFired": [],
@@ -20,7 +18,7 @@
       "name": "tests",
       "result": "pass",
       "counts": {
-        "pass": 2595,
+        "pass": 2600,
         "fail": 0,
         "skipped": 0,
         "todo": 0,
@@ -43,7 +41,7 @@
         "src/laws/auditFixesLaws.test.ts": 17,
         "src/laws/authorityLaws.test.ts": 11,
         "src/laws/autofillLaws.test.ts": 21,
-        "src/laws/boardSeatDonorLaws.test.ts": 7,
+        "src/laws/boardSeatDonorLaws.test.ts": 12,
         "src/laws/copyLaws.test.ts": 4,
         "src/laws/dataLaws.test.ts": 12,
         "src/laws/dateLaws.test.ts": 5,
@@ -163,7 +161,7 @@
             "location": "/login"
           }
         },
-        "ms": 1628
+        "ms": 1638
       },
       "errors": [],
       "warnings": [],
@@ -177,8 +175,8 @@
       "baselined": {},
       "baselineTotal": 0,
       "burndown": [],
-      "touchedFiles": 11,
-      "filesScanned": 727
+      "touchedFiles": 7,
+      "filesScanned": 729
     },
     {
       "name": "types",

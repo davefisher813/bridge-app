@@ -38,7 +38,7 @@ export default async function EnrollAthletePage({ params }: { params: Promise<{ 
   if (!nextOutcomes(athlete.status).includes("enroll")) notFound();
 
   const { data: targetRows } = await supabase.from("recruiting_targets").select("id, status, schools(name)").eq("athlete_id", id).eq("org_id", org.id);
-  const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ id: t.id, status: t.status, schoolName: unwrap(t.schools)?.name ?? "Unknown school" }));
+  const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ id: t.id, status: t.status, schoolName: unwrap(t.schools)?.name ?? "Unknown School" }));
   const committed = targets.find((t) => t.status === "Committed");
   const closing = targets.filter((t) => t.status !== "Committed" && t.status !== "Not Interested");
 

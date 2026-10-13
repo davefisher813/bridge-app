@@ -1,5 +1,6 @@
 "use server";
 
+import { findFamilyTwin } from "@/lib/data/familyReads";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createHash } from "node:crypto";
@@ -336,17 +337,10 @@ export async function submitAssignment(
 
     const hash = createHash("sha256").update(bytes).digest("hex");
     // The same bytes twice is the same document twice. Read through the
-    // caller's own session, so a login sees only its own athlete's
-    // documents here, and a discarded copy does not count.
-    const { data: twin } = await supabase
-      .from("documents")
-      .select("id, file_name, status, created_at")
-      .eq("org_id", org.id)
-      .eq("content_hash", hash)
-      .neq("status", "discarded")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    const earlier = ((twin ?? []) as { id: string; file_name: string; created_at: string }[])[0];
+    // caller's own session (migration 0063's function), so a login sees
+    // only its own athlete's documents here, and a discarded copy does
+    // not count.
+    const earlier = await findFamilyTwin(supabase, org.id, hash);
     if (earlier) {
       const when = new Date(earlier.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
       return { errors: { file: `This exact file was already uploaded on ${when} as ${earlier.file_name}. Send the corrected file instead.` }, note: typedNote };

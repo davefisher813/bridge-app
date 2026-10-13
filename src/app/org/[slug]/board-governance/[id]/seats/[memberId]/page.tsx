@@ -107,7 +107,20 @@ export default async function SeatPage({
   // Who can sign in as this seat. The org's people, minus family
   // logins, with the one already linked (if any) named first.
   const supabase = await createClient();
-  const { data: peopleRows } = await supabase.from("org_members").select("user_id, role, title, users(email, full_name)").eq("org_id", org.id).in("role", ["owner", "staff", "member"]).order("created_at", { ascending: true });
+  const [{ data: peopleRows }, { data: donorRows }] = await Promise.all([
+    supabase.from("org_members").select("user_id, role, title, users(email, full_name)").eq("org_id", org.id).in("role", ["owner", "staff", "member"]).order("created_at", { ascending: true }),
+    supabase.from("donors").select("id, deleted_at").eq("org_id", org.id),
+  ]);
+  // Links into Fundraising only when that module is on (the Board module
+  // can be on without it, and every /fundraising screen is Not Found
+  // then), and never to a donor removed from the address book.
+  const fundraising = org.modules.donor_fundraising;
+  const removedDonors = new Set(((donorRows ?? []) as { id: string; deleted_at: string | null }[]).filter((d) => d.deleted_at).map((d) => d.id));
+  const donorHref = (donorId: string | null) => (fundraising && donorId && !removedDonors.has(donorId) ? `/org/${slug}/fundraising/donors/${donorId}` : undefined);
+  // Given and Brought In open the gifts they were counted from, for this
+  // year, not the whole ledger.
+  const givenHref = fundraising && member.donorId ? `/org/${slug}/fundraising/gifts?donor=${member.donorId}&year=${fiscalYear}` : undefined;
+  const broughtInHref = fundraising ? `/org/${slug}/fundraising/gifts?by=${member.id}&year=${fiscalYear}` : undefined;
   const people = ((peopleRows ?? []) as { user_id: string; role: string; title?: string | null; users: { email: string; full_name: string | null } | { email: string; full_name: string | null }[] | null }[])
     .map((r) => ({ id: r.user_id, role: r.role as OrgRole, title: r.title ?? null, person: Array.isArray(r.users) ? (r.users[0] ?? null) : r.users }))
     .filter((r) => r.person?.email);
@@ -123,8 +136,8 @@ export default async function SeatPage({
     >
       <YearSwitch year={fiscalYear} current={currentYear} hrefFor={(y) => `/org/${slug}/board-governance/${board.id}/seats/${member.id}${y === currentYear ? "" : `?year=${y}`}`} />
       <StatRow>
-        <Stat value={formatMoneyShort(p.givenCents)} label="Given" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts`} />
-        <Stat value={formatMoneyShort(p.raisedCents)} label="Brought In" role="visit" kind="people" href={`/org/${slug}/fundraising/gifts`} />
+        <Stat value={formatMoneyShort(p.givenCents)} label="Given" role="committed" kind="money" href={givenHref} />
+        <Stat value={formatMoneyShort(p.raisedCents)} label="Brought In" role="visit" kind="people" href={broughtInHref} />
       </StatRow>
 
       {/* Only an active seat carries a live commitment, so only an
@@ -194,7 +207,7 @@ export default async function SeatPage({
                 wrap
               />
               <Form action={linkAction}>
-                <ConfirmButton title="Unlink this sign-in?" body="They keep their sign-in and lose the seat on their Home and Giving screens. Nothing else changes." confirmLabel="Unlink">
+                <ConfirmButton title="Unlink This Sign-In?" body="They keep their sign-in and lose the seat on their Home and Giving screens. Nothing else changes." confirmLabel="Unlink">
                   Unlink Sign-In
                 </ConfirmButton>
               </Form>
@@ -231,7 +244,7 @@ export default async function SeatPage({
 
       <Section label="Gifts on This Seat" count={credited.length} role="committed" kind="money">
         {credited.length === 0 ? (
-          <EmptyState kind="money" title="Nothing Credited Yet" action={<LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Record a Gift</LinkButton>}
+          <EmptyState kind="money" title="Nothing Credited Yet" action={fundraising && canEdit ? <LinkButton href={`/org/${slug}/fundraising/gifts/new`}>Record a Gift</LinkButton> : undefined}
           />
         ) : (
           credited.map((c) => {
@@ -247,10 +260,10 @@ export default async function SeatPage({
             return (
               <Row
                 key={c.gift.id}
-                href={c.gift.donorId ? `/org/${slug}/fundraising/donors/${c.gift.donorId}` : undefined}
+                href={donorHref(c.gift.donorId)}
                 kind={c.credit === "given" ? "money" : "people"}
                 role={rowRole}
-                title={c.credit === "given" ? "Given" : "Brought in"}
+                title={c.credit === "given" ? "Given" : "Brought In"}
                 meta={`${detail}.${exclusion}`}
                 wrap
                 trailing={
@@ -267,8 +280,8 @@ export default async function SeatPage({
         )}
       </Section>
 
-      {canEdit && member.donorId && (
-        <LinkButton href={`/org/${slug}/fundraising/donors/${member.donorId}`} variant="secondary">
+      {canEdit && donorHref(member.donorId) && (
+        <LinkButton href={donorHref(member.donorId)!} variant="secondary">
           Their Donor Record
         </LinkButton>
       )}

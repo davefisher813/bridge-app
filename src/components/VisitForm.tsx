@@ -13,7 +13,7 @@ const EMPTY_STATE: VisitActionState = { errors: {} };
 const VISIT_TYPE_LABEL: Record<(typeof VISIT_TYPES)[number], string> = {
   official: "Official",
   unofficial: "Unofficial",
-  junior_day: "Junior day",
+  junior_day: "Junior Day",
   camp: "Camp",
   other: "Other",
 };

@@ -365,7 +365,7 @@ export function Avatar({ name, size = "md", photo }: { name: string; size?: "md"
 // its own shape, one radius, a hairline. The alt says what it is.
 export function Photo({ src, alt }: { src: string; alt: string }) {
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt} className="block h-auto max-h-96 w-full rounded border border-line bg-paper object-contain" />;
+  return <img src={src} alt={alt} className="block h-auto max-h-photo w-full rounded border border-line bg-paper object-contain" />;
 }
 
 // An org's mark: a white shape on a transparent PNG (orgs.branding.logo),

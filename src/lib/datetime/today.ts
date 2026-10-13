@@ -18,3 +18,17 @@ export function todayIso(now: Date = new Date(), timeZone: string = ORG_TIME_ZON
 
 // Today with no arguments, for the screens that only ever want now.
 export const orgToday = (): string => todayIso();
+
+// Whole calendar days from one YYYY-MM-DD to another, negative when `to`
+// is earlier. Calendar days, not elapsed hours: a window opening
+// tomorrow is 1 day away at 11pm the night before, not 0.
+export function calendarDaysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to.slice(0, 10)}T00:00:00Z`) - Date.parse(`${from.slice(0, 10)}T00:00:00Z`)) / 86_400_000);
+}
+
+// "today", "in 1 day", "in 12 days": how far off a date is, as a meta
+// line says it.
+export function inDaysText(days: number): string {
+  if (days <= 0) return "today";
+  return `in ${days} ${days === 1 ? "day" : "days"}`;
+}

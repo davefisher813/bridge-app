@@ -100,6 +100,10 @@ const config: Config = {
     spacing,
     borderRadius,
     extend: {
+      // The kit's Photo: a meeting photo or a scan shown whole, never
+      // taller than this on a phone. Outside the spacing scale on purpose;
+      // it is a frame, not a gap.
+      maxHeight: { photo: "384px" },
       colors: {
         ink: "var(--ink)",
         bg: "var(--bg)",

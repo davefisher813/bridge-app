@@ -6,6 +6,8 @@
 // never read by a family login. This file knows nothing about who reads
 // it; it only does the arithmetic.
 
+import { todayIso } from "@/lib/datetime/today";
+
 // Two weeks without a check-in and the athlete is due. Dave's number.
 export const CHECKIN_DUE_DAYS = 14;
 
@@ -20,15 +22,20 @@ export const CHECKIN_KIND_LABEL: Record<CheckinKind, string> = {
   other: "Other",
 };
 
-// Whole days, floored: the same rule as the communications page. A gap
-// is a rough measure by nature and rounding it up would let 13 and a
-// half days read as due. A date in the future reads as today. Null when
-// there has never been a check-in.
+// Whole calendar days between the check-in's date and the org's today
+// (src/lib/datetime/today.ts). occurred_on is a calendar date, so it is
+// compared to a calendar date: measured against the clock instead, a
+// call logged yesterday read as 0 days all evening in New York, and the
+// two week mark landed a day late. A date in the future reads as today.
+// Null when there has never been a check-in.
 export function daysSinceCheckin(lastOn: string | null | undefined, today: Date): number | null {
   if (!lastOn) return null;
-  const then = new Date(lastOn.length === 10 ? `${lastOn}T00:00:00Z` : lastOn).getTime();
+  const thenDay = /^\d{4}-\d{2}-\d{2}$/.test(lastOn) ? lastOn : Number.isNaN(new Date(lastOn).getTime()) ? null : todayIso(new Date(lastOn));
+  if (!thenDay) return null;
+  const then = Date.parse(`${thenDay}T00:00:00Z`);
+  const now = Date.parse(`${todayIso(today)}T00:00:00Z`);
   if (Number.isNaN(then)) return null;
-  return Math.max(0, Math.floor((today.getTime() - then) / 86_400_000));
+  return Math.max(0, Math.round((now - then) / 86_400_000));
 }
 
 // Never checked in, or not for CHECKIN_DUE_DAYS or more.

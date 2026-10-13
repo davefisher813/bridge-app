@@ -1,3 +1,4 @@
+import { loadFamilyTargets, loadFamilyVisits } from "@/lib/data/familyReads";
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
 // there is one, the stored match score with its reasons, and the
 // visits. No calls, no notes, no coach: those are staff's.
 
-const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior day", camp: "Camp", other: "Other" };
+const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior Day", camp: "Camp", other: "Other" };
 
 const DIM: Array<{ key: "academic" | "athletic" | "financial" | "eligibility"; label: string; kind: RowKind }> = [
   { key: "academic", label: "Academic", kind: "course" },
@@ -49,12 +50,7 @@ export default async function FamilyCollegePage({ params }: { params: Promise<{ 
   const base = `/org/${slug}/family`;
 
   const supabase = await createClient();
-  const { data: targetRow } = await supabase
-    .from("recruiting_targets")
-    .select("id, status, athlete_id, school_id, offer_type, offer_scholarship_percent, schools(id, name, division, conference, state)")
-    .eq("id", id)
-    .eq("org_id", org.id)
-    .maybeSingle();
+  const targetRow = (await loadFamilyTargets(supabase, org.id, athletes.map((a) => a.id))).find((t) => t.id === id) ?? null;
   const target = targetRow as TargetRow | null;
   const athlete = target ? athletes.find((a) => a.id === target.athlete_id) : undefined;
   // A target for an athlete this person is not linked to is not found,
@@ -65,7 +61,7 @@ export default async function FamilyCollegePage({ params }: { params: Promise<{ 
 
   const [fits, { data: visitRows }] = await Promise.all([
     loadFitsForPairs(supabase, org.id, [{ athleteId: target.athlete_id, schoolId: target.school_id }]),
-    supabase.from("target_visits").select("id, visit_type, visit_date, impression, next_step").eq("target_id", id).eq("org_id", org.id).order("visit_date", { ascending: false }),
+    loadFamilyVisits(supabase, org.id, [id]).then((data) => ({ data })),
   ]);
   const fitRow = fits.get(`${target.athlete_id}:${target.school_id}`);
   const fit = fitRow ? rowToFit(fitRow) : null;

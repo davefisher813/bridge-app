@@ -26,8 +26,10 @@ import {
   MAX_RECORDS_PER_UPLOAD,
 } from "@/lib/docai/acceptance";
 import { MAX_INGEST_BYTES } from "@/lib/docai/limits";
+import { sniffKind } from "@/lib/docai/magicBytes";
 import { isRealDate } from "@/lib/docai/lenient";
 import { isStaleProcessing } from "@/lib/data/documentState";
+import { isFamilyStoragePathFor } from "@/lib/data/assignments";
 import { moveLifecycle } from "@/lib/data/vault";
 import { checkVaultFile, isTextReadable, readerCanRead, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
 import { readerText } from "@/lib/vault/textExtract";
@@ -226,6 +228,9 @@ function validateRecords(records: IngestedRecord[]): string | null {
 // that could climb out of the folder.
 const STORAGE_PATH = /^[0-9a-f-]{36}\/[A-Za-z0-9_-]+\/[A-Za-z0-9._-]+$/;
 
+// The reason on a readable file the upload stored without reading.
+const NOT_READ_ON_UPLOAD = "Not read when it came in. Read Again reads it.";
+
 type StorageReader = {
   storage: {
     from(bucket: string): {
@@ -242,8 +247,13 @@ type StorageReader = {
 // signed in can delete from the bucket any more; so it is checked here
 // instead: this org's folder only, the three part path the browser writes,
 // and nothing a row refers to, in storage_paths or original_paths.
-async function removeUnregisteredUploads(orgId: string, paths: string[]): Promise<void> {
-  const own = [...new Set(paths)].filter((p) => STORAGE_PATH.test(p) && p.startsWith(`${orgId}/`));
+//
+// Delete also passes includeFamily: a file an Athlete login sent with an
+// assignment lives at <org>/family/<request>/<file> (assignments.ts), and
+// deleting its document has to take that file too, still only in this
+// org's own family folder. An upload's refusal never touches that folder.
+async function removeUnregisteredUploads(orgId: string, paths: string[], opts: { includeFamily?: boolean } = {}): Promise<void> {
+  const own = [...new Set(paths)].filter((p) => (STORAGE_PATH.test(p) && p.startsWith(`${orgId}/`)) || (opts.includeFamily === true && isFamilyStoragePathFor(p, orgId)));
   if (!own.length) return;
   try {
     const admin = createAdminClient();
@@ -523,7 +533,6 @@ export async function processDocument(
     const earlier = ((twin ?? []) as { id: string; file_name: string; created_at: string }[])[0];
     const duplicateReason = earlier ? `Same file as ${earlier.file_name} uploaded ${new Date(earlier.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : null;
 
-    const typeLabel = category ? getCategory(category).label : null;
     const skipReason = duplicateReason ?? (spec.reads ? readerProblem : null) ?? (!spec.reads ? readerTextBlocker(first.upload.name) ?? (!readerCanRead(first.format) ? "The reader cannot read this format. Stored as is." : null) : null);
     const reads = spec.reads && !skipReason;
 
@@ -581,8 +590,12 @@ export async function processDocument(
 
     const moveArgs = { orgId: org.id, documentId, by: "system" as const, actorId: user.id, kind: documentKind(category), athlete: pinned };
     if (!reads) {
-      // Stored, not read: straight to Needs Review with the reason, if any.
-      await moveLifecycle(supabase, { ...moveArgs, to: "needs_review", reviewReason: skipReason ?? (typeLabel || isFileType(input.fileAs) ? null : "No type chosen.") });
+      // Stored, not read: straight to Needs Review with the reason. Every
+      // type is read now, No Type as Other (Oct 11), so a readable file
+      // that was not read is one whose copy for the reader could not be
+      // made (a photo the browser could not prepare), not one without a
+      // type.
+      await moveLifecycle(supabase, { ...moveArgs, to: "needs_review", reviewReason: skipReason ?? NOT_READ_ON_UPLOAD });
       continue;
     }
 
@@ -603,7 +616,8 @@ export async function processDocument(
           updated_at: new Date().toISOString(),
         })
         .eq("id", documentId)
-        .eq("org_id", org.id);
+        .eq("org_id", org.id)
+        .eq("status", "processing");
     }
     await finishReading(supabase, { ...moveArgs, category });
   }
@@ -675,7 +689,8 @@ async function readAndFile(
           updated_at: new Date().toISOString(),
         })
         .eq("id", documentId)
-        .eq("org_id", org.id);
+        .eq("org_id", org.id)
+        .eq("status", "processing");
       revalidatePath(`/org/${slug}/documents`);
       return { ok: true, documentId };
     }
@@ -696,7 +711,8 @@ async function readAndFile(
           updated_at: new Date().toISOString(),
         })
         .eq("id", documentId)
-        .eq("org_id", org.id);
+        .eq("org_id", org.id)
+        .eq("status", "processing");
       revalidatePath(`/org/${slug}/documents`);
       return { ok: true, documentId };
     }
@@ -717,7 +733,8 @@ async function readAndFile(
         updated_at: new Date().toISOString(),
       })
       .eq("id", documentId)
-      .eq("org_id", org.id);
+      .eq("org_id", org.id)
+      .eq("status", "processing");
     revalidatePath(`/org/${slug}/documents`);
     return { ok: true, documentId };
   }
@@ -788,7 +805,8 @@ async function readAndFile(
         updated_at: new Date().toISOString(),
       })
       .eq("id", documentId)
-      .eq("org_id", org.id);
+      .eq("org_id", org.id)
+      .eq("status", "processing");
     revalidatePath(`/org/${slug}/documents`);
     return { ok: true, documentId };
   }
@@ -802,7 +820,10 @@ async function readAndFile(
   const wantsAutoApply = result.route === "auto_apply" && topCandidate != null;
   const canAutoApply = wantsAutoApply && (await applyGate(org.id, documentId)) === null;
 
-  await supabase
+  // Written only while the row is still being read: a reading that runs
+  // long can be discarded meanwhile (a stuck reading is let go), and a
+  // late result must not bring a discarded document back, or apply it.
+  const { data: settled } = await supabase
     .from("documents")
     .update({
       status: canAutoApply ? "applied" : result.route === "reject" ? "failed" : "pending",
@@ -824,7 +845,13 @@ async function readAndFile(
       updated_at: new Date().toISOString(),
     })
     .eq("id", documentId)
-    .eq("org_id", org.id);
+    .eq("org_id", org.id)
+    .eq("status", "processing")
+    .select("id");
+  if (!settled || (settled as unknown[]).length === 0) {
+    revalidatePath(`/org/${slug}/documents`);
+    return { ok: true, documentId };
+  }
 
   if (canAutoApply) {
     const outcome = await applyGuarded(org.id, topCandidate!.athlete.id, categoryId, result.extracted, documentId, null);
@@ -1250,6 +1277,9 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
   const doc = data as { id: string; category: DocCategoryId | null; extracted: Record<string, unknown> | null; status: string; read_by?: string | null } | null;
   if (!doc) return { ok: false, error: "Document not found." };
   if (!doc.category || !doc.extracted) return { ok: false, error: "There is nothing extracted to apply." };
+  // Board Document and Other are read for a person, never put on an
+  // athlete (Oct 11). The screen offers no Apply; the endpoint agrees.
+  if (doc.category === "board_document" || doc.category === "other") return { ok: false, error: "This kind of document is read for a person, not put on an athlete." };
 
   // A server action is a public endpoint; the Apply button is only a
   // suggestion about when to call it. Without this check a document the
@@ -1382,7 +1412,7 @@ export async function deleteDocument(slug: string, documentId: string): Promise<
   if (error) return no(`Could not delete it: ${error.message}`);
   // The files, now that no row points at them (the helper checks every
   // other row first, and keeps a file one of them still uses).
-  await removeUnregisteredUploads(org.id, [...(doc.storage_paths ?? []), ...(doc.original_paths ?? [])]);
+  await removeUnregisteredUploads(org.id, [...(doc.storage_paths ?? []), ...(doc.original_paths ?? [])], { includeFamily: true });
 
   await logActivity(supabase, {
     orgId: org.id,
@@ -1424,18 +1454,20 @@ export async function discardDocument(
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select("id, status, applied_changes, created_at, category, athlete_id")
+    .select("id, status, applied_changes, created_at, lifecycle_changed_at, category, athlete_id")
     .eq("id", documentId)
     .eq("org_id", org.id)
     .single();
 
-  const doc = data as { id: string; status: string; applied_changes: AppliedChanges | null; created_at: string; category: DocCategoryId | null; athlete_id: string | null } | null;
+  const doc = data as { id: string; status: string; applied_changes: AppliedChanges | null; created_at: string; lifecycle_changed_at: string | null; category: DocCategoryId | null; athlete_id: string | null } | null;
   if (!doc) return { ok: false, error: "Document not found." };
   if (doc.status === "discarded") return { ok: false, error: "That document was already discarded." };
   // A reading takes a couple of minutes at most. One still marked as
   // being read after that was killed mid-way (the hosting function has
-  // a hard limit) and will never finish, so it can be cleared.
-  if (doc.status === "processing" && !isStaleProcessing(doc.created_at)) return { ok: false, error: "That document is still being read." };
+  // a hard limit) and will never finish, so it can be cleared. Counted
+  // from when it went into Processing, not from the upload: a document
+  // uploaded last week and read again a minute ago is not stuck.
+  if (doc.status === "processing" && !isStaleProcessing(doc.lifecycle_changed_at ?? doc.created_at)) return { ok: false, error: "That document is still being read." };
 
   // Claimed first, from the status it was read at, so two discards of
   // the same applied document undo it once: the second finds it already
@@ -1539,10 +1571,13 @@ async function undoApply(orgId: string, documentId: string, changes: AppliedChan
   }
 
   const fields = Object.entries(changes.athleteFields ?? {});
-  if (fields.length > 0 && changes.athleteId) {
+  // Exactly the columns this apply wrote (a profile writes position, not
+  // only a transcript's three), each a plain column name.
+  const columns = fields.map(([column]) => column).filter((c) => /^[a-z_]+$/.test(c));
+  if (columns.length > 0 && changes.athleteId) {
     const { data: current } = await supabase
       .from("athletes")
-      .select("gpa, gpa_verified, date_of_birth")
+      .select(columns.join(", "))
       .eq("id", changes.athleteId)
       .eq("org_id", orgId)
       .single();
@@ -1665,9 +1700,12 @@ export async function fileDocumentAs(slug: string, documentId: string, formData:
   if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is not in this organization.")}`);
   // A reading for a person (Other, Board Document, or No Type read as
   // Other) can be re-typed, then read again as that type; a reading of an
-  // athlete's document keeps its type.
+  // athlete's document keeps its type. A reading that failed with nothing
+  // read (a file that did not look like the type it was read as) has no
+  // reading to keep, so it can be re-typed and read again too.
   const reference = !doc.category || doc.category === "other" || doc.category === "board_document";
-  if (!reference || doc.status === "processing" || doc.status === "applied" || doc.status === "filed") {
+  const failedUnread = doc.status === "failed" && !doc.extracted;
+  if ((!reference && !failedUnread) || doc.status === "processing" || doc.status === "applied" || doc.status === "filed") {
     redirect(`${back}?error=${encodeURIComponent("This document was read, so it keeps the type of its reading.")}`);
   }
 
@@ -1678,8 +1716,11 @@ export async function fileDocumentAs(slug: string, documentId: string, formData:
     .update({
       requested_category: readerType,
       filed_as: fileType,
-      // The settled type goes with it, so Read Again reads the new one.
+      // The settled type goes with it, so Read Again reads the new one,
+      // and so do the athletes the old reading matched: nothing from it
+      // can be applied under the new type.
       category: null,
+      candidates: [],
       ...(raw && doc.review_reason === "No type chosen." ? { review_reason: null } : {}),
       updated_at: new Date().toISOString(),
     })
@@ -1753,13 +1794,13 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select("id, category, requested_category, filed_as, extracted, status, lifecycle, read_by, format, media_type, file_name, file_size, original_paths, source_role, athlete_id")
+    .select("id, category, requested_category, filed_as, extracted, status, lifecycle, read_by, format, media_type, file_name, file_size, original_paths, storage_paths, source_role, athlete_id")
     .eq("id", documentId)
     .eq("org_id", org.id)
     .maybeSingle();
   const doc = data as {
     category: DocCategoryId | null; requested_category: DocCategoryId | null; filed_as: string | null; extracted: Record<string, unknown> | null; status: string; lifecycle: string; read_by: string | null;
-    format: VaultFormat | null; media_type: string; file_name: string; file_size: number; original_paths: string[] | null; source_role: SourceRole;
+    format: VaultFormat | null; media_type: string; file_name: string; file_size: number; original_paths: string[] | null; storage_paths: string[] | null; source_role: SourceRole;
   } | null;
   if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is not in this organization.")}`);
   // A profile filed before Athlete Profile was readable reads as one
@@ -1782,7 +1823,15 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   }
 
   const requestId = `reread_${Date.now()}`;
-  const stored: StoredRecord[] = doc.original_paths.map((storagePath) => ({
+  // A photo is read from the copy made for the reader at upload (scaled
+  // down, a large PNG made a JPEG), the same bytes the first reading saw;
+  // the untouched original of a phone photo can be over the reader's size
+  // limit. A PDF's reader copy is its original, and text is turned out of
+  // the original here.
+  const photo = doc.format === "jpg" || doc.format === "png";
+  const readerCopies = doc.storage_paths ?? [];
+  const sourcePaths = photo && readerCopies.length === doc.original_paths.length ? readerCopies : doc.original_paths;
+  const stored: StoredRecord[] = sourcePaths.map((storagePath) => ({
     originalName: doc.file_name,
     originalSize: doc.file_size,
     originalMime: doc.media_type,
@@ -1797,6 +1846,14 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
   }));
   const fetched = await readStoredRecords(supabase, org.id, stored);
   if (!fetched.ok) return no(fetched.error);
+  // A reader copy can be a JPEG made from a PNG, so a photo's media type
+  // is what its bytes are, not what the original was.
+  for (const r of fetched.records) {
+    if (r.kind !== "image") continue;
+    const sniffed = sniffKind(new Uint8Array(Buffer.from(r.base64.slice(0, 88), "base64")));
+    if (sniffed === "jpeg") r.mediaType = "image/jpeg";
+    else if (sniffed === "png") r.mediaType = "image/png";
+  }
   const problem = validateRecords(fetched.records);
   if (problem) return no(problem);
 
@@ -1822,14 +1879,18 @@ export async function readDocumentAgain(slug: string, documentId: string): Promi
     })
     .eq("id", documentId)
     .eq("org_id", org.id);
+  // The reading this one replaces is compared on identity only when it
+  // was a reading of the same type: an Other's reading against a
+  // transcript's is not a contradiction, it is a different document type.
   try {
-    await readAndFile(slug, org.id, documentId, { records: stored, sourceRole: doc.source_role, requestedCategory: type, priorReading: doc.extracted }, fetched.records);
+    await readAndFile(slug, org.id, documentId, { records: stored, sourceRole: doc.source_role, requestedCategory: type, priorReading: doc.category === type ? doc.extracted : null }, fetched.records);
   } catch (e) {
     await supabase
       .from("documents")
       .update({ status: "failed", failure_stage: "crash", failure_reason: `Reading stopped unexpectedly: ${(e as Error).message || "unknown error"}. Nothing was changed on any athlete.`, updated_at: new Date().toISOString() })
       .eq("id", documentId)
-      .eq("org_id", org.id);
+      .eq("org_id", org.id)
+      .eq("status", "processing");
   }
   await finishReading(supabase, { orgId: org.id, documentId, actorId: user.id, kind, athlete: null, category: type });
   revalidatePath(`/org/${slug}/documents`);

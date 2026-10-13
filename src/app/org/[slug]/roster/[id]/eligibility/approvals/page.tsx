@@ -19,10 +19,10 @@ import type { Role } from "@/components/statusHue";
 export const dynamic = "force-dynamic";
 
 const GROUPS: Array<{ status: string; label: string; role: Role; kind: RowKind }> = [
-  { status: "not_approved", label: "Not on the list", role: "target", kind: "blocked" },
-  { status: "ambiguous", label: "Two matches", role: "offer", kind: "warning" },
+  { status: "not_approved", label: "Not on the List", role: "target", kind: "blocked" },
+  { status: "ambiguous", label: "Two Matches", role: "offer", kind: "warning" },
   { status: "unknown", label: "Unchecked", role: "offer", kind: "note" },
-  { status: "approved", label: "On the list", role: "committed", kind: "check" },
+  { status: "approved", label: "On the List", role: "committed", kind: "check" },
 ];
 
 export default async function ApprovalsPage({ params }: { params: Promise<{ slug: string; id: string }> }) {

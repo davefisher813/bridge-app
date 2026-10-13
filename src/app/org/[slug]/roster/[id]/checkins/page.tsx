@@ -8,6 +8,7 @@ import { CHECKIN_DUE_DAYS, CHECKIN_KIND_LABEL, checkinDue, daysSinceCheckin, typ
 import { logCheckin, removeCheckin } from "@/lib/actions/checkins";
 import { CheckinForm } from "@/components/CheckinForm";
 import { checkinPhotoUrl } from "@/lib/checkinPhoto";
+import { effectiveStatus, isScoredStatus, placementAthlete, type PlacementTarget } from "@/lib/placement";
 import { Card, ConfirmButton, EmptyState, Form, Label, Notice, Photo, Screen, Section, TextLink } from "@/components/kit";
 
 // One athlete's check-in log (migration 0039). Staff only, to read and
@@ -39,10 +40,11 @@ export default async function CheckinsPage({ params }: { params: Promise<{ slug:
   await requireRole(org.id, STAFF_ROLES);
 
   const supabase = await createClient();
-  const [{ data: athlete }, { data: checkinRows }, staff] = await Promise.all([
-    supabase.from("athletes").select("id, name, advisor_id").eq("id", id).eq("org_id", org.id).is("deleted_at", null).single(),
+  const [{ data: athlete }, { data: checkinRows }, staff, { data: committedRows }] = await Promise.all([
+    supabase.from("athletes").select("id, name, advisor_id, status, detail, draft_team, draft_round, draft_year").eq("id", id).eq("org_id", org.id).is("deleted_at", null).single(),
     supabase.from("athlete_checkins").select("id, kind, occurred_on, notes, advisor_id, photo_path, users(full_name, email)").eq("org_id", org.id).eq("athlete_id", id).order("occurred_on", { ascending: false }),
     loadStaff(supabase, org.id),
+    supabase.from("recruiting_targets").select("id, status").eq("org_id", org.id).eq("athlete_id", id).eq("status", "Committed"),
   ]);
   if (!athlete) notFound();
 
@@ -58,12 +60,17 @@ export default async function CheckinsPage({ params }: { params: Promise<{ slug:
   const today = new Date();
   const days = daysSinceCheckin(lastOn, today);
   const due = checkinDue(lastOn, today);
+  // Today's rule for its reminders, asked the same way here, so this
+  // screen never says an athlete is on them when Today would not show
+  // them: an advisor still on the staff, and still being recruited.
+  const committed = ((committedRows ?? []) as { id: string; status: string }[]).map((t): PlacementTarget => ({ id: t.id, status: t.status, schoolName: null }));
+  const onReminders = due && !!advisor && isScoredStatus(effectiveStatus(placementAthlete(athlete), committed));
   const athleteHref = `/org/${slug}/roster/${id}`;
 
   return (
     <Screen title="Check-Ins" back={{ href: athleteHref, label: athlete.name }} lede={advisor ? `${advisor.name} is the advisor` : "No advisor picked yet"}>
       <Notice tone={due ? "warning" : "info"} title={days === null ? "No Check-In Yet" : days === 0 ? "Last Check-In Today" : days === 1 ? "Last Check-In Yesterday" : `${days} Days Since the Last Check-In`}>
-        {entries.length === 0 ? `Log the first one below. One every ${CHECKIN_DUE_DAYS} days keeps an athlete off the reminders on Today.` : `${entries.length} on the log. ${due ? `Past the ${CHECKIN_DUE_DAYS} days, so this athlete is on the reminders on Today.` : `Due again ${CHECKIN_DUE_DAYS} days after the last one.`}`}
+        {entries.length === 0 ? `Log the first one below. One every ${CHECKIN_DUE_DAYS} days keeps an athlete off the reminders on Today.` : `${entries.length} on the log. ${due ? (onReminders ? `Past the ${CHECKIN_DUE_DAYS} days, so this athlete is on the reminders on Today.` : `Past the ${CHECKIN_DUE_DAYS} days.`) : `Due again ${CHECKIN_DUE_DAYS} days after the last one.`}`}
       </Notice>
 
       <Section label="Log" count={entries.length} role="time" kind="clock">

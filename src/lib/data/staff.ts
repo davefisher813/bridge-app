@@ -10,7 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OrgRole } from "@/lib/auth/guard";
 import { cleanTitle } from "@/lib/org/roleLabels";
 import { loadAdvisorChoices } from "@/lib/org/advisors";
-import { isScoredStatus } from "@/lib/placement";
+import { effectiveStatus, isScoredStatus, placementAthlete, type PlacementTarget } from "@/lib/placement";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = SupabaseClient<any, any, any>;
@@ -44,6 +44,12 @@ export async function loadStaff(supabase: Client, orgId: string): Promise<StaffP
 // the reminder on Today. `unassigned` is the same count for athletes
 // with nobody. Removed athletes are excluded by the caller's query
 // (deleted_at null), so a row that reaches here is on the roster.
+//
+// `status` is the athlete's effective status (src/lib/placement.ts): an
+// athlete whose row still says Active but who has a Committed target is
+// placed, not recruiting. The Advisor Hub and the roster's ?advisor=none
+// read it that way, and this count read the raw column, so the three
+// disagreed about the same athlete.
 export interface AdvisorCounts {
   byAdvisor: Map<string, number>;
   unassigned: number;
@@ -60,9 +66,18 @@ export function countByAdvisor(rows: { advisor_id: string | null; status: string
   return { byAdvisor, unassigned };
 }
 
+type CountRow = { id: string; advisor_id: string | null; status: string; detail?: unknown; draft_team?: string | null; draft_round?: number | null; draft_year?: number | null };
+
 export async function loadAdvisorCounts(supabase: Client, orgId: string): Promise<AdvisorCounts> {
-  const { data } = await supabase.from("athletes").select("id, advisor_id, status").eq("org_id", orgId).is("deleted_at", null);
-  return countByAdvisor((data ?? []) as { advisor_id: string | null; status: string }[]);
+  const [{ data }, { data: committedRows }] = await Promise.all([
+    supabase.from("athletes").select("id, advisor_id, status, detail, draft_team, draft_round, draft_year").eq("org_id", orgId).is("deleted_at", null),
+    supabase.from("recruiting_targets").select("id, athlete_id, status").eq("org_id", orgId).eq("status", "Committed"),
+  ]);
+  const committedByAthlete = new Map<string, PlacementTarget[]>();
+  for (const t of (committedRows ?? []) as { id: string; athlete_id: string; status: string }[]) {
+    committedByAthlete.set(t.athlete_id, [...(committedByAthlete.get(t.athlete_id) ?? []), { id: t.id, status: t.status, schoolName: null }]);
+  }
+  return countByAdvisor(((data ?? []) as CountRow[]).map((a) => ({ advisor_id: a.advisor_id, status: effectiveStatus(placementAthlete(a), committedByAthlete.get(a.id) ?? []) })));
 }
 
 // The Advisor picker's option label: "Name, Title" when a Title is set,

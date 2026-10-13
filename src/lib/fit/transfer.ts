@@ -22,15 +22,34 @@
 import type { Athlete, DimensionResult, School, TransferWindow } from "./types";
 import { clampScore } from "./bands";
 
-function findWindow(windows: TransferWindow[], sport: string, division: string, seasonYear: string, labelHint?: string): TransferWindow | undefined {
-  const matches = windows.filter(
-    (w) => w.sport.toLowerCase() === sport.toLowerCase() && w.division.toLowerCase() === division.toLowerCase() && w.seasonYear === seasonYear
-  );
-  if (labelHint) {
-    const hinted = matches.find((w) => w.windowLabel.toLowerCase().includes(labelHint));
-    if (hinted) return hinted;
-  }
-  return matches[0];
+// The dates a window's season covers. A season is typed either as an
+// academic year ("2026-27", which migration 0001 documents and the form
+// suggests: July 1 2026 to June 30 2027) or as a calendar year ("2026").
+// The window's own dates are folded in, so a window that opens a little
+// before its season starts still counts. Comparing the season to the
+// entry date's first four characters missed every "2026-27" row.
+function seasonSpan(w: TransferWindow): { from: string; to: string } | null {
+  const m = /^(\d{4})(?:-(\d{2}))?$/.exec(w.seasonYear.trim());
+  if (!m) return null;
+  const start = Number(m[1]);
+  const from = m[2] ? `${start}-07-01` : `${start}-01-01`;
+  const to = m[2] ? `${start + 1}-06-30` : `${start}-12-31`;
+  return { from: w.opensOn < from ? w.opensOn : from, to: w.closesOn > to ? w.closesOn : to };
+}
+
+// Every window on file for this sport and division whose season covers
+// the entry date. A grad transfer is judged against the grad windows
+// when there are any, everyone else against the others, so a short grad
+// window never stands in for the primary one (or the reverse).
+function windowsForEntry(windows: TransferWindow[], sport: string, division: string, entryDate: string, grad: boolean): TransferWindow[] {
+  const matches = windows.filter((w) => {
+    if (w.sport.toLowerCase() !== sport.toLowerCase() || w.division.toLowerCase() !== division.toLowerCase()) return false;
+    const span = seasonSpan(w);
+    return span !== null && entryDate >= span.from && entryDate <= span.to;
+  });
+  const isGrad = (w: TransferWindow) => w.windowLabel.toLowerCase().includes("grad");
+  const preferred = matches.filter((w) => isGrad(w) === grad);
+  return preferred.length > 0 ? preferred : matches;
 }
 
 export function scoreEligibility(athlete: Athlete, school: School, transferWindows: TransferWindow[] = [], today: Date = new Date()): DimensionResult {
@@ -86,23 +105,24 @@ export function scoreEligibility(athlete: Athlete, school: School, transferWindo
   // Portal window timing. Only checked if the caller supplied real window
   // data; never fabricated.
   if (detail.portalEntryDate) {
-    const seasonYear = detail.portalEntryDate.slice(0, 4);
-    const labelHint = athlete.recruitType === "transfer_grad" ? "grad" : undefined;
-    const window = findWindow(transferWindows, athlete.sport, school.division, seasonYear, labelHint);
-    if (window) {
-      const entry = new Date(detail.portalEntryDate);
-      const opens = new Date(window.opensOn);
-      const closes = new Date(window.closesOn);
-      if (entry < opens || entry > closes) {
+    const entryDate = detail.portalEntryDate.slice(0, 10);
+    const candidates = windowsForEntry(transferWindows, athlete.sport, school.division, entryDate, athlete.recruitType === "transfer_grad");
+    if (candidates.length > 0) {
+      // A sport can have more than one window a season (football's
+      // winter and spring). The entry is on time if any of them holds
+      // it, and vetoed only when none does.
+      const holding = candidates.find((w) => entryDate >= w.opensOn && entryDate <= w.closesOn);
+      if (!holding) {
+        const named = candidates.map((w) => `${w.windowLabel} (${w.opensOn} - ${w.closesOn})`).join(", ");
         return {
           score: 20,
           confidence: "high",
           veto: true,
           reasons,
-          warnings: [`Portal entry date ${detail.portalEntryDate} falls outside the ${window.windowLabel} window (${window.opensOn} - ${window.closesOn})`],
+          warnings: [`Portal entry date ${detail.portalEntryDate} falls outside every window on file for its season: ${named}`],
         };
       }
-      reasons.push(`Portal entry date falls within the ${window.windowLabel} window`);
+      reasons.push(`Portal entry date falls within the ${holding.windowLabel} window`);
       confidence = "high";
     } else {
       warnings.push("Transfer portal window not on file for this sport/division/season: verify entry-date timing with the NCAA or conference before assuming eligibility");

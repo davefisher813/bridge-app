@@ -69,6 +69,9 @@ function athleteLabel(doc: DocRow, linkedNames?: Map<string, string>): string | 
   if (doc.athlete_id && (!a || a.deleted_at)) return REMOVED_ATHLETE;
   // The athlete a person linked it to (migration 0058), when no reading
   // was applied.
+  // A linked athlete since taken off the roster is that plain fact, never
+  // the name read off the page.
+  if (doc.linked_athlete_id && linkedNames && !linkedNames.has(doc.linked_athlete_id)) return a?.name ?? REMOVED_ATHLETE;
   const linked = doc.linked_athlete_id ? linkedNames?.get(doc.linked_athlete_id) : undefined;
   return a?.name ?? linked ?? doc.extracted?.studentName ?? null;
 }
@@ -111,9 +114,11 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
   const typed = !!label;
   const title =
     doc.status === "filed"
-      ? `Family Upload${athlete ? ` · ${athlete}` : ""}`
+      ? `Athlete Upload${athlete ? ` · ${athlete}` : ""}`
       : doc.category
-        ? `${label}${athlete ? ` · ${athlete}` : " · no match"}`
+        ? // A reference reading (Board Document, Other) is never matched to
+          // an athlete, so it never says "no match".
+          `${label}${athlete ? ` · ${athlete}` : doc.category === "board_document" || doc.category === "other" ? "" : " · No Match"}`
         : (label ?? doc.file_name);
   const reason = lifecycle === "processing" && isStaleProcessing(lifecycle, doc.lifecycle_changed_at) ? "Reading did not finish." : doc.review_reason;
   const facts = [typed || doc.status === "filed" ? doc.file_name : null, formatLabelOf(doc.format, doc.media_type), formatBytes(doc.file_size), ago(doc.created_at)].filter(Boolean);

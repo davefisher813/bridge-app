@@ -760,7 +760,7 @@ describe("LAW: the fixture carries an assignment in each status and a family fil
   });
 });
 
-describe("LAW: a filed document is a Family Upload that waits in Needs Review and never has an Apply button", () => {
+describe("LAW: a filed document is an Athlete Upload that waits in Needs Review and never has an Apply button", () => {
   // Since the vault (migration 0048) a file an Athlete login sent in is
   // in the Needs Review state like any stored file: staff look at it and
   // Mark Ready. What it must never have is a reading to Apply, because
@@ -772,7 +772,7 @@ describe("LAW: a filed document is a Family Upload that waits in Needs Review an
     return renderToStaticMarkup((await mod.default(props)) as never);
   }
 
-  it("the documents list shows a family file as a Family Upload, in Needs Review, with no Apply", async () => {
+  it("the documents list shows a family file as an Athlete Upload, in Needs Review, with no Apply", async () => {
     const html = await render("@/app/org/[slug]/documents/page", { params: Promise.resolve({ slug: ORG_WITH_MODULES }), searchParams: Promise.resolve({}) });
     const at = html.indexOf("june-score-report.pdf");
     // The list must show a filed file at all. A list that silently omits
@@ -782,7 +782,7 @@ describe("LAW: a filed document is a Family Upload that waits in Needs Review an
     const heads = [...before.matchAll(/text-muted">(Uploaded|Processing|Needs Review|Ready|Archived)</g)];
     expect(heads.length).toBeGreaterThan(0);
     expect(heads[heads.length - 1][1]).toBe("Needs Review");
-    expect(before.slice(before.lastIndexOf('data-kit="row"'))).toMatch(/Family Upload/);
+    expect(before.slice(before.lastIndexOf('data-kit="row"'))).toMatch(/Athlete Upload/);
     expect(html).not.toMatch(/>Apply</);
   });
 
@@ -802,7 +802,7 @@ describe("LAW: a filed document is a Family Upload that waits in Needs Review an
     expect(filed).toMatch(/june-score-report\.pdf/);
     expect(filed).not.toMatch(/>Apply</);
     expect(filed).toMatch(/Needs Review/);
-    expect(filed).toMatch(/Family Upload/);
+    expect(filed).toMatch(/Athlete Upload/);
     const pending = await render("@/app/org/[slug]/documents/[id]/page", { params: Promise.resolve({ slug: ORG_WITH_MODULES, id: IDS.document }) });
     expect(pending).toMatch(/fixture\.pdf/);
   });
