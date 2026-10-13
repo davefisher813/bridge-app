@@ -57,6 +57,26 @@ export function pickDivision(divisions: string[]): string {
   return best;
 }
 
+export interface EligibilityTargetRow {
+  status?: string | null;
+  schools?: { division?: string | null } | { division?: string | null }[] | null;
+}
+
+// The division the athlete is judged against, from their targets. A
+// school they are Not Interested in (picked by hand, or closed by a
+// commitment or an enrollment) is not a school they are aiming for, so
+// it never sets the bar. A Committed target is where they are going:
+// its division wins outright.
+export function divisionForTargets(rows: EligibilityTargetRow[]): string {
+  const divisionOf = (t: EligibilityTargetRow): string[] => {
+    const one = Array.isArray(t.schools) ? t.schools[0] : t.schools;
+    return one?.division ? [one.division] : [];
+  };
+  const committed = pickDivision(rows.filter((t) => t.status === "Committed").flatMap(divisionOf));
+  if (committed) return committed;
+  return pickDivision(rows.filter((t) => t.status !== "Not Interested").flatMap(divisionOf));
+}
+
 type ScaleQueryRow = {
   school_name: string;
   bands: unknown;
@@ -93,7 +113,7 @@ export async function loadEligibility(orgId: string, athleteId: string, today: s
       .eq("athlete_id", athleteId)
       .eq("org_id", orgId)
       .order("term", { ascending: true }),
-    supabase.from("recruiting_targets").select("schools(division)").eq("athlete_id", athleteId).eq("org_id", orgId),
+    supabase.from("recruiting_targets").select("status, schools(division)").eq("athlete_id", athleteId).eq("org_id", orgId),
   ]);
 
   if (!athlete) return null;
@@ -172,12 +192,7 @@ export async function loadEligibility(orgId: string, athleteId: string, today: s
     ...toList(orgLists as ListQueryRow[] | null, "org"),
   ];
 
-  const divisions = (targetRows ?? []).flatMap((t) => {
-    const s = (t as { schools?: { division?: string } | { division?: string }[] }).schools;
-    const one = Array.isArray(s) ? s[0] : s;
-    return one?.division ? [one.division] : [];
-  });
-  const division = pickDivision(divisions);
+  const division = divisionForTargets((targetRows ?? []) as EligibilityTargetRow[]);
 
   const view = buildEligibilityView({
     courses,

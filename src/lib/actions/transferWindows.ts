@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDirectoryEditor } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { parseTransferWindowForm } from "@/lib/validation/transferWindow";
+import { recomputeFitsForAllOrgs } from "@/lib/data/fits";
 
 // Transfer portal windows are shared reference data, like schools: every
 // org reads them and the table has no write policy, so a directory
@@ -86,6 +87,9 @@ export async function createTransferWindow(slug: string, _prev: TransferWindowAc
     return { errors: { form: error.message }, values: Object.fromEntries(formData.entries()) };
   }
 
+  // Stored matches carry each transfer's eligibility, computed from the
+  // windows on file, so every org's rows are rescored now.
+  await recomputeFitsForAllOrgs(admin);
   revalidatePath(`/org/${slug}/transfer-windows`);
   revalidatePath(`/org/${slug}`);
   redirect(`/org/${slug}/transfer-windows?notice=${encodeURIComponent("Window added. Every transfer's timing reads it from now on.")}`);
@@ -93,8 +97,8 @@ export async function createTransferWindow(slug: string, _prev: TransferWindowAc
 
 // Correcting a window in place. The same parse and the same duplicate
 // sentence as adding one, with the window itself left out of the
-// duplicate check. Stored matches read the window live through the
-// engine's timing, so nothing is recomputed here, the same as adding.
+// duplicate check. Stored matches were scored against the old dates,
+// so every org's rows are rescored after the write, the same as adding.
 export async function updateTransferWindow(slug: string, windowId: string, _prev: TransferWindowActionState, formData: FormData): Promise<TransferWindowActionState> {
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
@@ -141,6 +145,7 @@ export async function updateTransferWindow(slug: string, windowId: string, _prev
   }
   if (!updated || updated.length === 0) return { errors: { form: "That window is no longer on file." }, values: Object.fromEntries(formData.entries()) };
 
+  await recomputeFitsForAllOrgs(admin);
   revalidatePath(`/org/${slug}/transfer-windows`);
   revalidatePath(`/org/${slug}`);
   redirect(`/org/${slug}/transfer-windows?notice=${encodeURIComponent("Window saved.")}`);
@@ -153,6 +158,7 @@ export async function deleteTransferWindow(slug: string, windowId: string): Prom
 
   const admin = createAdminClient();
   const { error } = await admin.from("transfer_windows").delete().eq("id", windowId);
+  if (!error) await recomputeFitsForAllOrgs(admin);
   revalidatePath(`/org/${slug}/transfer-windows`);
   revalidatePath(`/org/${slug}`);
   if (error) redirect(`/org/${slug}/transfer-windows?error=${encodeURIComponent(error.message)}`);

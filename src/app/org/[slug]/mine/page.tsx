@@ -95,7 +95,7 @@ export default async function MyAthletesPage({ params }: { params: Promise<{ slu
       <Section label="Yours" count={rows.length} role="people" kind="athlete" action={rows.length > 0 ? <TextLink href={`/org/${slug}/roster?advisor=me`}>On the Roster</TextLink> : undefined}>
         {rows.length === 0 ? (
           <EmptyState kind="athlete" role="people" title="Nobody Assigned to You Yet" action={<LinkButton href={`/org/${slug}/roster`}>Open Athletes</LinkButton>}>
-            Pick yourself as Advisor on an athlete&apos;s Edit screen.
+            Open an athlete and use Assign under Advisor.
           </EmptyState>
         ) : (
           rows.map((a) => (

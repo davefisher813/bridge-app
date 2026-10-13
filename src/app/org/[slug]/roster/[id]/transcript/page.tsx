@@ -24,9 +24,9 @@ const SUBJECT: Record<string, string> = {
   english: "English",
   math: "Math",
   science: "Science",
-  social_science: "Social science",
-  other_academic: "Other academic",
-  non_academic: "Not academic",
+  social_science: "Social Science",
+  other_academic: "Other Academic",
+  non_academic: "Not Academic",
 };
 
 export default async function TranscriptPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
@@ -52,7 +52,7 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
 
   const byTerm = new Map<string, typeof courses>();
   for (const c of courses) {
-    const term = c.term ?? "No term";
+    const term = c.term ?? "No Term";
     byTerm.set(term, [...(byTerm.get(term) ?? []), c]);
   }
   const terms = [...byTerm.keys()].sort().reverse();
@@ -61,7 +61,7 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
     <Screen
       title="Transcript"
       back={{ href: home, label: athlete.name }}
-      lede={`${courses.length} courses · ${core?.counted.length ?? 0} counted by the NCAA`}
+      lede={`${courses.length} ${courses.length === 1 ? "course" : "courses"} · ${core?.counted.length ?? 0} counted by the NCAA`}
       action={isStaff ? <AddButton href={addHref} label="Add" /> : undefined}
     >
       {courses.length === 0 ? (
@@ -71,7 +71,7 @@ export default async function TranscriptPage({ params }: { params: Promise<{ slu
           action={
             isStaff ? (
               <Stack gap={2}>
-                <LinkButton href={`/org/${slug}/documents/new`}>Upload a Transcript</LinkButton>
+                <LinkButton href={`/org/${slug}/documents/new?athlete=${id}`}>Upload a Transcript</LinkButton>
                 <LinkButton href={addHref} variant="secondary">
                   Type a Course In
                 </LinkButton>

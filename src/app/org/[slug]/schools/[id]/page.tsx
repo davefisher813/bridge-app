@@ -83,7 +83,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
       const a = Array.isArray(t.athletes) ? t.athletes[0] : t.athletes;
       const athleteStatus = a?.status ?? bundle?.athleteStatus ?? "";
       const unscored = !isScoredStatus(athleteStatus);
-      return { id: t.id, status: t.status, name: a?.name ?? "Unknown athlete", position: a?.position ?? null, athleteStatus, unscored, fit: unscored ? null : (bundle?.fit ?? null) };
+      return { id: t.id, status: t.status, name: a?.name ?? "Unknown Athlete", position: a?.position ?? null, athleteStatus, unscored, fit: unscored ? null : (bundle?.fit ?? null) };
     }),
   );
   // The same order every list of fits uses (src/lib/fit/rank.ts): fully

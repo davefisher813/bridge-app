@@ -33,8 +33,8 @@ const SUBJECT_LABEL: Record<SubjectArea, string> = {
   english: "English",
   math: "Math",
   science: "Science",
-  social_science: "Social science",
-  other_academic: "Other academic",
+  social_science: "Social Science",
+  other_academic: "Other Academic",
 };
 
 // Which division this athlete is being judged against. Initial
@@ -72,7 +72,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
   const transcriptGpa = athlete.gpa === null || athlete.gpa === undefined ? null : Number(athlete.gpa);
 
   const uploader = canUpload && (
-    <Section label={courses.length ? "Add another transcript" : "Add a transcript"} role="contact" kind="document">
+    <Section label={courses.length ? "Add Another Transcript" : "Add a Transcript"} role="contact" kind="document">
       {courses.length === 0 && <Prose>A course list is what an NCAA core GPA is calculated from, so nothing above works until one is on file.</Prose>}
       <DocumentUploader slug={slug} orgId={org.id} boundTo={{ athleteId: id, athleteName: athlete.name, category: "transcript", returnTo: here }} />
     </Section>

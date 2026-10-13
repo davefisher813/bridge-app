@@ -194,7 +194,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
           href={`/org/${slug}/board/${id}/communications`}
           kind="people"
           role="people"
-          title={coachName || "No coach on file"}
+          title={coachName || "No Coach on File"}
           meta={`${comms.length} ${comms.length === 1 ? "message" : "messages"} · ${visits.length} ${visits.length === 1 ? "visit" : "visits"}`}
         />
         {comms.slice(0, 5).map((c, i) => (

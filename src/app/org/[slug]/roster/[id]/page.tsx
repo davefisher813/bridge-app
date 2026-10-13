@@ -58,11 +58,11 @@ const RECRUIT_TYPE_LABEL: Record<string, string> = {
 };
 
 const CONTACT_ROLE_LABEL: Record<string, string> = {
-  hs_coach: "HS coach",
-  travel_coach: "Travel coach",
-  parent_guardian: "Parent/guardian",
+  hs_coach: "HS Coach",
+  travel_coach: "Travel Coach",
+  parent_guardian: "Parent/Guardian",
   advisor: "Advisor",
-  college_coach: "College coach",
+  college_coach: "College Coach",
   other: "Other",
 };
 
@@ -260,7 +260,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
     recruitTypeLabel: RECRUIT_TYPE_LABEL[athlete.recruit_type] ?? athlete.recruit_type,
     goalLabel: athlete.goal ? goal : null,
     latestMetrics,
-    date: (iso) => longDate(iso.slice(0, 10)),
+    date: (iso) => longDate(iso),
   });
   const thread = threads.get(id);
   const lastCheckinOn = ((lastCheckinRows ?? []) as { occurred_on: string | null }[])[0]?.occurred_on ?? null;
@@ -376,7 +376,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           kind="clock"
           role="time"
           title="Check-Ins"
-          meta={lastCheckinOn ? `last on ${longDate(lastCheckinOn)}${checkinIsDue ? " · due for one" : ""}` : "None yet"}
+          meta={lastCheckinOn ? `last on ${longDate(lastCheckinOn)}${checkinIsDue && !placement && isScoredStatus(athlete.status) ? " · due for one" : ""}` : "None yet"}
           trailing={<Chevron />}
         />
       </Section>
@@ -562,7 +562,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
                 href={`/org/${slug}/board/${t.id}`}
                 kind="school"
                 role={statusRole(t.status)}
-                title={t.school?.name ?? "Unknown school"}
+                title={t.school?.name ?? "Unknown School"}
                 meta={`${t.school?.division ?? ""}${t.offer_type ? ` · ${t.offer_type} offer${t.offer_scholarship_percent ? ` (${t.offer_scholarship_percent}%)` : ""}` : ""}`}
                 trailing={<StatusPill status={t.status} />}
               />
@@ -584,7 +584,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
               href={`/org/${slug}/documents/${d.id}`}
               kind="document"
               title={d.label ?? d.file_name}
-              meta={[d.label ? d.file_name : null, d.state, longDate(d.created_at.slice(0, 10))].filter(Boolean).join(" · ")}
+              meta={[d.label ? d.file_name : null, d.state, longDate(d.created_at)].filter(Boolean).join(" · ")}
               trailing={<Chevron />}
               wrap
             />
@@ -603,7 +603,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
             <Card key={n.id}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <Label>{[NOTE_CONTEXT_LABEL[n.context] ?? "Note", n.createdAt ? longDate(n.createdAt.slice(0, 10)) : null, n.authorName].filter(Boolean).join(" · ")}</Label>
+                  <Label>{[NOTE_CONTEXT_LABEL[n.context] ?? "Note", n.createdAt ? longDate(n.createdAt) : null, n.authorName].filter(Boolean).join(" · ")}</Label>
                   <Body>{n.body}</Body>
                 </div>
                 {canEdit && (

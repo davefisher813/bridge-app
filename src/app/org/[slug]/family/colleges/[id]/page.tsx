@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 // there is one, the stored match score with its reasons, and the
 // visits. No calls, no notes, no coach: those are staff's.
 
-const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior day", camp: "Camp", other: "Other" };
+const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior Day", camp: "Camp", other: "Other" };
 
 const DIM: Array<{ key: "academic" | "athletic" | "financial" | "eligibility"; label: string; kind: RowKind }> = [
   { key: "academic", label: "Academic", kind: "course" },

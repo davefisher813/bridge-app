@@ -30,7 +30,7 @@ export default async function DraftAthletePage({ params }: { params: Promise<{ s
   const { data: targetRows } = already ? { data: [] } : await supabase.from("recruiting_targets").select("id, status, schools(name)").eq("athlete_id", id).eq("org_id", org.id);
   const closing = ((targetRows ?? []) as TargetRow[])
     .filter((t) => t.status !== "Committed" && t.status !== "Not Interested")
-    .map((t) => ({ id: t.id, status: t.status, schoolName: (Array.isArray(t.schools) ? t.schools[0] : t.schools)?.name ?? "Unknown school" }));
+    .map((t) => ({ id: t.id, status: t.status, schoolName: (Array.isArray(t.schools) ? t.schools[0] : t.schools)?.name ?? "Unknown School" }));
 
   return (
     <Screen title={already ? "Draft Details" : "Mark Drafted"} back={{ href: `/org/${slug}/roster/${id}`, label: athlete.name }}>

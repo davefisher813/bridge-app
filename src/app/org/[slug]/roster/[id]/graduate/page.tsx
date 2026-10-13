@@ -28,7 +28,7 @@ export default async function GraduateAthletePage({ params }: { params: Promise<
 
   const { data: committedRow } = await supabase.from("recruiting_targets").select("id, schools(name)").eq("athlete_id", id).eq("org_id", org.id).eq("status", "Committed").maybeSingle();
   const committed = committedRow as { id: string; schools: { name: string } | { name: string }[] | null } | null;
-  const committedName = committed ? ((Array.isArray(committed.schools) ? committed.schools[0] : committed.schools)?.name ?? "Unknown school") : null;
+  const committedName = committed ? ((Array.isArray(committed.schools) ? committed.schools[0] : committed.schools)?.name ?? "Unknown School") : null;
   const currentSchool = currentSchoolOf(athlete.detail);
 
   let schoolChoice = null;

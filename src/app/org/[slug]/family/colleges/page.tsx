@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 // (2026-09-21): status and score, plus visits; not the calls, notes or
 // the coach's contact, which stay with staff.
 
-const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior day", camp: "Camp", other: "Other" };
+const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior Day", camp: "Camp", other: "Other" };
 
 interface TargetRow {
   id: string;
@@ -83,7 +83,7 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
         href={`${base}/colleges/${t.id}`}
         kind="school"
         role={statusRole(t.status)}
-        title={t.school?.name ?? "Unknown school"}
+        title={t.school?.name ?? "Unknown School"}
         meta={`${t.school?.division ?? ""}${t.offer_type ? ` · ${t.offer_type} offer${t.offer_scholarship_percent ? ` (${t.offer_scholarship_percent}%)` : ""}` : ""}`}
         trailing={
           <>
@@ -125,7 +125,7 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
               <Card key={v.id} href={t ? `${base}/colleges/${t.id}` : undefined}>
                 <div className="flex items-start justify-between gap-3">
                   <Body weight="bold">
-                    {t?.school?.name ?? "Unknown school"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}
+                    {t?.school?.name ?? "Unknown School"} · {VISIT_TYPE_LABEL[v.visit_type] ?? v.visit_type}
                   </Body>
                   <div className="flex-shrink-0">
                     <Label numeric>{longDate(v.visit_date)}</Label>

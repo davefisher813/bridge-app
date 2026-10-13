@@ -1,5 +1,5 @@
 import { noUpdateText } from "@/lib/datetime/since";
-import { orgToday } from "@/lib/datetime/today";
+import { calendarDaysBetween, inDaysText, orgToday } from "@/lib/datetime/today";
 import { notFound, redirect } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { getCurrentUser, requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -73,11 +73,6 @@ function unwrap<T>(v: T | T[] | null): T | null {
 function daysSince(iso: string): number {
   const ms = Date.now() - new Date(iso).getTime();
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
-}
-
-function daysUntil(iso: string): number {
-  const ms = new Date(iso).getTime() - Date.now();
-  return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
 const OPEN_STATUSES = ["Target", "In Contact", "Visit", "Offer"];
@@ -205,26 +200,31 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
     .map((r) => ({
       id: r.id,
       status: r.status,
-      athleteName: unwrap(r.athletes)?.name ?? "Unknown athlete",
-      schoolName: unwrap(r.schools)?.name ?? "Unknown school",
+      athleteName: unwrap(r.athletes)?.name ?? "Unknown Athlete",
+      schoolName: unwrap(r.schools)?.name ?? "Unknown School",
       days: daysSince(r.updated_at),
     }));
 
+  // Dates against the org's calendar day, as ISO strings, never the
+  // server's clock (src/lib/datetime/today.ts). A visit only counts on a
+  // target still being worked: one closed to Not Interested by a
+  // commitment or an enrollment is not coming up for anybody.
+  const day = orgToday();
   const upcomingVisits = rows
-    .filter((r) => r.visit_date && new Date(r.visit_date) >= new Date(new Date().toDateString()))
-    .sort((a, b) => new Date(a.visit_date!).getTime() - new Date(b.visit_date!).getTime())
+    .filter((r) => OPEN_STATUSES.includes(r.status) && r.visit_date && r.visit_date.slice(0, 10) >= day)
+    .sort((a, b) => a.visit_date!.localeCompare(b.visit_date!))
     .slice(0, 3)
     .map((r) => ({
       id: r.id,
-      athleteName: unwrap(r.athletes)?.name ?? "Unknown athlete",
-      schoolName: unwrap(r.schools)?.name ?? "Unknown school",
+      athleteName: unwrap(r.athletes)?.name ?? "Unknown Athlete",
+      schoolName: unwrap(r.schools)?.name ?? "Unknown School",
       visitDate: r.visit_date as string,
     }));
 
-  const in60Days = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
   const upcomingWindows = ((windowRows ?? []) as TransferWindowRow[])
-    .filter((w) => new Date(w.opens_on) >= today && new Date(w.opens_on) <= in60Days)
-    .sort((a, b) => new Date(a.opens_on).getTime() - new Date(b.opens_on).getTime())
+    .map((w) => ({ ...w, days: calendarDaysBetween(day, w.opens_on) }))
+    .filter((w) => w.days >= 0 && w.days <= 60)
+    .sort((a, b) => a.opens_on.localeCompare(b.opens_on))
     .slice(0, 2);
 
   // Strong Matches. docs/MATCHING_CONTRACT.md section 2: a stored fit
@@ -251,7 +251,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   // headline never sits above another athlete's fully scored one.
   const strongMatches = rankFits(headlines, "best")
     .slice(0, 5)
-    .map((best) => ({ athleteId: best.athlete_id, athleteName: unwrap(best.athletes)?.name ?? "Unknown athlete", schoolName: best.school.name || "Unknown school", score: best.score, tag: best.tag, more: best.more }));
+    .map((best) => ({ athleteId: best.athlete_id, athleteName: unwrap(best.athletes)?.name ?? "Unknown Athlete", schoolName: best.school.name || "Unknown School", score: best.score, tag: best.tag, more: best.more }));
 
   const firstName = (user.full_name || user.email).split(" ")[0] || user.email;
 
@@ -353,7 +353,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
                 kind="visit"
                 role="visit"
                 title={`Visit · ${v.schoolName}`}
-                meta={`${new Date(v.visitDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · ${v.athleteName}`}
+                meta={`${new Date(`${v.visitDate.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })} · ${v.athleteName}`}
               />
             ))}
             {upcomingWindows.map((w) => (
@@ -363,7 +363,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
                 kind="clock"
                 role="time"
                 title="Transfer Portal Opens"
-                meta={`${w.sport} ${w.division} · ${w.window_label} · in ${daysUntil(w.opens_on)} days`}
+                meta={`${w.sport} ${w.division} · ${w.window_label} · ${inDaysText(w.days)}`}
               />
             ))}
           </>

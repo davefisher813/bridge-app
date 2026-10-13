@@ -82,7 +82,7 @@ export default async function MemberPage({
   if (!row) notFound();
   // A removed athlete's link stays on file but is not shown: the family
   // sees nothing of them, and their roster page is gone.
-  const linked = ((guardianRows ?? []) as GuardianRow[]).filter((g) => !unwrap(g.athletes)?.deleted_at).map((g) => ({ id: g.athlete_id, relationship: g.relationship, name: unwrap(g.athletes)?.name ?? "Unknown athlete" }));
+  const linked = ((guardianRows ?? []) as GuardianRow[]).filter((g) => !unwrap(g.athletes)?.deleted_at).map((g) => ({ id: g.athlete_id, relationship: g.relationship, name: unwrap(g.athletes)?.name ?? "Unknown Athlete" }));
   const athletes = (athleteRows ?? []) as AthleteRow[];
   const staffName = new Map(advisors.map((a) => [a.id, a.name]));
 
