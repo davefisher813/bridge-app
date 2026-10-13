@@ -3,9 +3,11 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
 import { loadFamilyAthletes, requireFamily } from "@/lib/data/family";
 import { signout } from "@/lib/auth/actions";
+import { YourNameForm } from "@/components/YourNameForm";
+import { SetPasswordForm } from "@/components/SetPasswordForm";
 import { labelForRole, personLabel } from "@/lib/org/roleLabels";
 import type { OrgRole } from "@/lib/auth/guard";
-import { Avatar, Button, Chevron, EmptyState, Form, Prose, Row, Screen, Section, Stack } from "@/components/kit";
+import { Avatar, Button, Chevron, EmptyState, Form, Notice, Prose, Row, Screen, Section, Stack } from "@/components/kit";
 
 // More, for a family: who to ask (the org's owner and staff, with their
 // emails; Dave's pick, 2026-09-21), the athletes this sign-in is linked
@@ -22,8 +24,9 @@ function unwrap<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-export default async function FamilyMorePage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function FamilyMorePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ notice?: string; error?: string }> }) {
   const { slug } = await params;
+  const { notice, error } = await searchParams;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
   const user = await requireFamily(org.id);
@@ -66,6 +69,9 @@ export default async function FamilyMorePage({ params }: { params: Promise<{ slu
 
       <Section label="You" role="people" kind="settings">
         <Row kind="settings" role="people" title={user.full_name || user.email} meta={`${labelForRole("family")} at ${org.name}`} wrap />
+        {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
+        <YourNameForm slug={slug} returnTo={`/org/${slug}/family/more`} fullName={user.full_name} />
+        <SetPasswordForm returnTo={`/org/${slug}/family/more`} />
         <Form action={signout}>
           <Stack gap={2}>
             <Button variant="destructive">Sign Out</Button>

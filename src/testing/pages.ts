@@ -70,7 +70,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "family-match", path: "@/app/org/[slug]/family/[id]/matches/[schoolId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, schoolId: IDS.school }) }, expect: /How the Score Is Built/, as: FAMILY_ID },
   { name: "family-colleges", path: "@/app/org/[slug]/family/colleges/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture State University[\s\S]*Visits/, as: FAMILY_ID },
   { name: "family-college", path: "@/app/org/[slug]/family/colleges/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.target }) }, expect: /Fixture State University[\s\S]*Where Things Stand/, as: FAMILY_ID },
-  { name: "family-more", path: "@/app/org/[slug]/family/more/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Who to Ask[\s\S]*Example Owner[\s\S]*Sign Out/, as: FAMILY_ID },
+  { name: "family-more", path: "@/app/org/[slug]/family/more/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Who to Ask[\s\S]*Example Owner[\s\S]*Sign Out/, as: FAMILY_ID },
   // Stage 2, 2026-09-26: the school directory, as a family sees it.
   // A to Z inside "F", then one filter, then the two schools.
   { name: "family-schools", path: "@/app/org/[slug]/family/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture College[\s\S]*Fixture State University/, as: FAMILY_ID },

@@ -1,3 +1,4 @@
+import { loadFamilyTargets } from "@/lib/data/familyReads";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
@@ -42,7 +43,7 @@ export default async function FamilyMatchPage({ params }: { params: Promise<{ sl
   const supabase = await createClient();
   const [fits, { data: targetRows }] = await Promise.all([
     loadFitsForAthlete(supabase, org.id, id),
-    supabase.from("recruiting_targets").select("id, status").eq("athlete_id", id).eq("school_id", schoolId).eq("org_id", org.id),
+    loadFamilyTargets(supabase, org.id, [id]).then((data) => ({ data: data.filter((t) => t.school_id === schoolId) })),
   ]);
   const row = fits.find((f) => f.school_id === schoolId);
   if (!row) notFound();

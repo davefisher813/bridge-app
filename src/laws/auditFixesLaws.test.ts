@@ -266,6 +266,7 @@ describe("LAW: Organization Settings says which database updates are on", () => 
     const html = text(await render("@/app/org/[slug]/settings/page", { params: P({ slug: ORG_WITH_MODULES }), searchParams: P({}) }));
     expect(html).toMatch(/Database Updates/);
     expect(html).toMatch(/checked against its own history just now/);
-    expect(html).toMatch(/0058 Document Athlete Link/);
+    // The newest applied update is named, whichever it is.
+    expect(html).toMatch(/The latest is 00\d\d [A-Z]/);
   });
 });

@@ -772,13 +772,16 @@ describe("LAW: a member login opens member screens and nothing else, and staff c
   });
 
   for (const page of member) {
-    it(`a member opening ${page.name} sees only member links, and a form only to sign out`, async () => {
+    it(`a member opening ${page.name} sees only member links, and forms only for their own name, password and sign out`, async () => {
       currentUser = MEMBER_ID;
       const html = await render(page.path, page.props);
       const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
       expect(links.filter((l) => l.startsWith("/org/") && !l.includes("/member"))).toEqual([]);
       const forms = (html.match(/<form/g) ?? []).length;
-      expect(forms).toBe(page.name.startsWith("member-more") ? 1 : 0);
+      // Every version of the app sets its own name and password (role
+      // audit, Oct 13: the Viewer and Athlete More had neither).
+      expect(forms).toBe(page.name.startsWith("member-more") ? 3 : 0);
+      if (page.name.startsWith("member-more")) expect(html).toMatch(/Your Name[\s\S]*Sign Out/);
       // Nothing a board member must not see: a GPA, a test score, a
       // metric, a call note, a donor's name. The school pages are the one
       // split (Stage 2, 2026-09-26): a school's own Avg GPA and SAT range

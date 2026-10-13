@@ -74,4 +74,5 @@ export const APPLIED_LEDGER: LedgerRow[] = [
   { file: "0060_doc_category_board_other", recorded: "applied", versions: ["20261011233921"] },
   { file: "0061_activity_document_deleted", recorded: "applied", versions: ["20261012001852"] },
   { file: "0062_activity_board_seat_donor_linked", recorded: "applied", versions: ["20261013062611"] },
+  { file: "0063_family_reads_columns_not_rows", recorded: "pending", versions: [] },
 ];

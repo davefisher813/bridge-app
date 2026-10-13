@@ -1,3 +1,4 @@
+import { loadFamilyTargets } from "@/lib/data/familyReads";
 import { closedSentence, isScoredStatus } from "@/lib/placement";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -65,7 +66,7 @@ export default async function FamilyMatchesPage({ params, searchParams }: { para
   const [fits, { data: schoolRows }, { data: targetRows }] = await Promise.all([
     loadFitsForAthlete(supabase, org.id, id),
     supabase.from("schools").select("id, state, program_tier, sports_sponsored"),
-    supabase.from("recruiting_targets").select("id, school_id, status").eq("athlete_id", id).eq("org_id", org.id),
+    loadFamilyTargets(supabase, org.id, [id]).then((data) => ({ data })),
   ]);
 
   const facts = new Map(((schoolRows ?? []) as SchoolFacts[]).map((s) => [s.id, s]));

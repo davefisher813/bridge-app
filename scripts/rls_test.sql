@@ -1502,9 +1502,10 @@ begin
   if n <> 1 then raise exception 'FAIL: family saw % stored matches, expected 1 (athlete A''s)', n; end if;
   select count(*) into n from athlete_courses;
   if n <> 1 then raise exception 'FAIL: family saw % courses, expected 1 (athlete A''s)', n; end if;
-  select count(*) into n from recruiting_targets;
+  -- Through the 0063 functions: the rows, without the staff-only columns.
+  select count(*) into n from family_targets('00000000-0000-0000-0000-000000000010', array['00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000111']::uuid[]);
   if n <> 1 then raise exception 'FAIL: family saw % targets, expected 1 (athlete A''s)', n; end if;
-  select count(*) into n from target_visits;
+  select count(*) into n from family_target_visits('00000000-0000-0000-0000-000000000010', array['00000000-0000-0000-0000-000000000210', '00000000-0000-0000-0000-000000000211']::uuid[]);
   if n <> 1 then raise exception 'FAIL: family saw % visits, expected 1 (on athlete A''s target)', n; end if;
   raise notice 'PASS: a family member reads their athlete''s metrics, matches, courses, targets and visits and nobody else''s';
 
@@ -1512,9 +1513,9 @@ begin
   if n <> 0 then raise exception 'FAIL: family saw % staff communications, expected 0', n; end if;
   select count(*) into n from contacts;
   if n <> 0 then raise exception 'FAIL: family saw % contacts, expected 0', n; end if;
-  select count(*) into n from documents;
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110');
   if n <> 1 then raise exception 'FAIL: family saw % documents, expected 1 (their own athlete''s)', n; end if;
-  select count(*) into n from documents where athlete_id = '00000000-0000-0000-0000-000000000111';
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111');
   if n <> 0 then raise exception 'FAIL: family could read another athlete''s document'; end if;
   select count(*) into n from org_school_notes;
   if n <> 0 then raise exception 'FAIL: family saw % private school notes, expected 0', n; end if;
@@ -2098,7 +2099,7 @@ begin
   if n <> 0 then raise exception 'FAIL: a removed family member still read % Bridge athlete(s) through a stale guardian row', n; end if;
   select count(*) into n from athlete_metrics where athlete_id = '00000000-0000-0000-0000-000000000110';
   if n <> 0 then raise exception 'FAIL: a removed family member still read the athlete''s metrics'; end if;
-  select count(*) into n from documents where athlete_id = '00000000-0000-0000-0000-000000000110';
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110');
   if n <> 0 then raise exception 'FAIL: a removed family member still read the athlete''s documents'; end if;
   select count(*) into n from athlete_messages where athlete_id = '00000000-0000-0000-0000-000000000110';
   if n <> 0 then raise exception 'FAIL: a removed family member still read the athlete''s thread (migration 0039)'; end if;
@@ -2359,9 +2360,9 @@ select set_test_user('00000000-0000-0000-0000-000000000005'); -- FAMILY, by now 
 do $$
 declare n int; cf text;
 begin
-  select count(*) into n from recruiting_targets where closed_from is not null;
+  select count(*) into n from family_targets('00000000-0000-0000-0000-000000000020', array['00000000-0000-0000-0000-000000000120']::uuid[]) where closed_from is not null;
   if n <> 1 then raise exception 'FAIL: family saw % targets with closed_from, expected 1 (their own athlete''s)', n; end if;
-  select closed_from into cf from recruiting_targets where id = '00000000-0000-0000-0000-000000000220';
+  select f.closed_from into cf from family_targets('00000000-0000-0000-0000-000000000020', array['00000000-0000-0000-0000-000000000120']::uuid[]) f where f.id = '00000000-0000-0000-0000-000000000220';
   if cf is distinct from 'Offer' then raise exception 'FAIL: family read closed_from as %', cf; end if;
   update recruiting_targets set closed_from = 'Visit' where id = '00000000-0000-0000-0000-000000000220';
   get diagnostics n = row_count;
@@ -3984,7 +3985,7 @@ do $$
 declare n int;
 begin
   perform set_test_user('00000000-0000-0000-0000-000000000005');
-  select count(*) into n from documents where status = 'filed';
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120') where status = 'filed';
   if n <> 2 then raise exception 'FAIL: an Athlete login reads % filed documents, expected its 2', n; end if;
   update documents set status = 'applied' where status = 'filed';
   get diagnostics n = row_count;
@@ -4004,7 +4005,7 @@ begin
   if n <> 0 then raise exception 'FAIL: an Athlete login read % bucket objects after submitting', n; end if;
 
   -- The other Elite athlete's filed document is not this login's.
-  select count(*) into n from documents where athlete_id = '00000000-0000-0000-0000-000000000121';
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000121');
   if n <> 0 then raise exception 'FAIL: an Athlete login read another athlete''s filed document'; end if;
 
   -- Elite's Admin reads the filed documents and the log lines; Bridge's Admin neither.
@@ -4323,9 +4324,9 @@ begin
   get diagnostics rows_changed = row_count;
   if rows_changed <> 0 then raise exception 'FAIL: another org''s owner changed this org''s document'; end if;
   perform set_test_user('00000000-0000-0000-0000-0000000480a4');
-  select count(*) into n from documents;
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000048010', '00000000-0000-0000-0000-000000048110');
   if n <> 1 then raise exception 'FAIL: the family read % documents, expected only its own athlete''s 1', n; end if;
-  if not exists (select 1 from documents where id = '00000000-0000-0000-0000-0000000480c1') then raise exception 'FAIL: the family cannot read its own athlete''s document'; end if;
+  if not exists (select 1 from family_documents('00000000-0000-0000-0000-000000048010', '00000000-0000-0000-0000-000000048110') f where f.id = '00000000-0000-0000-0000-0000000480c1') then raise exception 'FAIL: the family cannot read its own athlete''s document'; end if;
   update documents set lifecycle = 'ready' where id = '00000000-0000-0000-0000-0000000480c1';
   get diagnostics rows_changed = row_count;
   if rows_changed <> 0 then raise exception 'FAIL: the family changed a document''s state'; end if;
@@ -4777,3 +4778,95 @@ begin
   raise notice 'PASS: board_document and other are document categories';
 end $$;
 \echo 'ALL 0060 ASSERTIONS PASSED'
+
+-- ── Migration 0063: an Athlete login reads columns, not whole rows ───
+-- The family clause is off documents, recruiting_targets and
+-- target_visits, so the staff-only columns (a reading's candidates,
+-- which name other athletes; target and visit notes; the coach's name)
+-- are out of reach; the functions return the rest. Staff still read the
+-- tables, and the functions return nothing for a stranger.
+-- A fresh family login, linked to Bridge Athlete A only (user5 has moved
+-- orgs by this point in the file).
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000006301', 'fam63@bridge.example');
+insert into users (id, email, full_name) values ('00000000-0000-0000-0000-000000006301', 'fam63@bridge.example', 'Family 63')
+on conflict (id) do update set full_name = excluded.full_name;
+insert into org_members (user_id, org_id, role) values
+  ('00000000-0000-0000-0000-000000006301', '00000000-0000-0000-0000-000000000010', 'family');
+insert into athlete_guardians (org_id, athlete_id, user_id, relationship) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000006301', 'parent');
+insert into recruiting_targets (id, org_id, athlete_id, school_id, status, notes, coach_name) values
+  ('00000000-0000-0000-0000-000000006310', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000130', 'Target', 'staff only', 'Coach X')
+on conflict do nothing;
+update recruiting_targets set notes = 'staff only', coach_name = 'Coach X' where athlete_id = '00000000-0000-0000-0000-000000000110';
+insert into documents (org_id, athlete_id, file_name, file_size, media_type, source_role, status, content_hash) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'a63.pdf', 10, 'application/pdf', 'parent', 'pending', 'hash-63'),
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111', 'b63.pdf', 10, 'application/pdf', 'parent', 'pending', 'hash-63b');
+set role app_user;
+select set_test_user('00000000-0000-0000-0000-000000006301'); -- Bridge FAMILY, athlete A only
+do $$
+declare n int;
+begin
+  select count(*) into n from documents;
+  if n <> 0 then raise exception 'FAIL: family read % whole document rows, expected 0', n; end if;
+  select count(*) into n from recruiting_targets;
+  if n <> 0 then raise exception 'FAIL: family read % whole target rows (notes, coach), expected 0', n; end if;
+  select count(*) into n from target_visits;
+  if n <> 0 then raise exception 'FAIL: family read % whole visit rows (notes), expected 0', n; end if;
+  select count(*) into n from family_targets('00000000-0000-0000-0000-000000000010', array['00000000-0000-0000-0000-000000000110']::uuid[]);
+  if n < 1 then raise exception 'FAIL: family lost its own athlete''s targets'; end if;
+  select count(*) into n from family_targets('00000000-0000-0000-0000-000000000010', array['00000000-0000-0000-0000-000000000111']::uuid[]);
+  if n <> 0 then raise exception 'FAIL: family read another athlete''s targets through the function'; end if;
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110');
+  if n < 1 then raise exception 'FAIL: family lost its own athlete''s documents'; end if;
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000111');
+  if n <> 0 then raise exception 'FAIL: family read another athlete''s documents through the function'; end if;
+  select count(*) into n from family_document_twin('00000000-0000-0000-0000-000000000010', 'hash-63');
+  if n <> 1 then raise exception 'FAIL: family cannot find its own earlier copy (% rows)', n; end if;
+  select count(*) into n from family_document_twin('00000000-0000-0000-0000-000000000010', 'hash-63b');
+  if n <> 0 then raise exception 'FAIL: family learned another athlete''s file name through the twin check'; end if;
+  raise notice 'PASS: a family login reads its athlete''s targets, visits and documents through the functions and no whole row';
+end $$;
+do $$
+begin
+  perform notes from family_targets('00000000-0000-0000-0000-000000000010', array['00000000-0000-0000-0000-000000000110']::uuid[]);
+  raise exception 'FAIL: family_targets returns notes';
+exception when undefined_column then
+  raise notice 'PASS: family_targets has no notes or coach column';
+end $$;
+do $$
+begin
+  perform candidates from family_documents('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110');
+  raise exception 'FAIL: family_documents returns candidates';
+exception when undefined_column then
+  raise notice 'PASS: family_documents has no reading columns';
+end $$;
+select set_test_user('00000000-0000-0000-0000-000000000002'); -- Elite OWNER, a stranger to Bridge
+do $$
+declare n int;
+begin
+  select count(*) into n from family_targets('00000000-0000-0000-0000-000000000010', array['00000000-0000-0000-0000-000000000110']::uuid[]);
+  if n <> 0 then raise exception 'FAIL: another org''s Admin read % Bridge targets through the function', n; end if;
+  select count(*) into n from family_documents('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110');
+  if n <> 0 then raise exception 'FAIL: another org''s Admin read % Bridge documents through the function', n; end if;
+  raise notice 'PASS: the functions return nothing to a stranger';
+end $$;
+select set_test_user('00000000-0000-0000-0000-000000000001'); -- Bridge OWNER
+do $$
+declare n int;
+begin
+  select count(*) into n from recruiting_targets where notes = 'staff only';
+  if n < 1 then raise exception 'FAIL: staff lost their own target notes'; end if;
+  select count(*) into n from documents where org_id = '00000000-0000-0000-0000-000000000010';
+  if n < 2 then raise exception 'FAIL: staff read % Bridge documents, expected at least 2', n; end if;
+  raise notice 'PASS: staff still read whole target and document rows';
+end $$;
+reset role;
+do $$
+begin
+  if has_function_privilege('anon', 'public.family_targets(uuid, uuid[])', 'execute') then raise exception 'FAIL: anon can run family_targets'; end if;
+  if has_function_privilege('anon', 'public.family_documents(uuid, uuid)', 'execute') then raise exception 'FAIL: anon can run family_documents'; end if;
+  if not has_function_privilege('authenticated', 'public.family_targets(uuid, uuid[])', 'execute') then raise exception 'FAIL: signed-in cannot run family_targets'; end if;
+  raise notice 'PASS: the family functions are for the signed in only';
+end $$;
+\echo 'ALL 0063 ASSERTIONS PASSED'

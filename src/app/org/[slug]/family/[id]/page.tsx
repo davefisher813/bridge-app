@@ -1,3 +1,4 @@
+import { loadFamilyDocuments, loadFamilyTargets } from "@/lib/data/familyReads";
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -115,9 +116,9 @@ export default async function FamilyAthletePage({ params }: { params: Promise<{ 
       .eq("org_id", org.id)
       .is("deleted_at", null)
       .single(),
-    supabase.from("recruiting_targets").select("id, status, schools(name)").eq("athlete_id", id).eq("org_id", org.id).order("created_at", { ascending: false }),
+    loadFamilyTargets(supabase, org.id, [id]).then((data) => ({ data })),
     supabase.from("athlete_metrics").select("id, metric, value, measured_on, source").eq("athlete_id", id).eq("org_id", org.id).order("measured_on", { ascending: false }),
-    supabase.from("documents").select("id, file_name, category, status, created_at").eq("athlete_id", id).eq("org_id", org.id).order("created_at", { ascending: false }),
+    loadFamilyDocuments(supabase, org.id, id).then((data) => ({ data })),
     loadFitsForAthlete(supabase, org.id, id),
     loadStaff(supabase, org.id),
     threadSummaryByAthlete(supabase, org.id, user.id, [id]),

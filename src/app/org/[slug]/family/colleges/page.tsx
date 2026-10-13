@@ -1,3 +1,4 @@
+import { loadFamilyTargets, loadFamilyVisits } from "@/lib/data/familyReads";
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -50,14 +51,7 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
   const athleteIds = athletes.map((a) => a.id);
 
   const supabase = await createClient();
-  const { data: targetRows } = athleteIds.length
-    ? await supabase
-        .from("recruiting_targets")
-        .select("id, status, athlete_id, school_id, offer_type, offer_scholarship_percent, schools(id, name, division)")
-        .in("athlete_id", athleteIds)
-        .eq("org_id", org.id)
-        .order("created_at", { ascending: false })
-    : { data: [] };
+  const targetRows = await loadFamilyTargets(supabase, org.id, athleteIds);
   const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ ...t, school: unwrap(t.schools) }));
   const targetIds = targets.map((t) => t.id);
 
@@ -67,9 +61,7 @@ export default async function FamilyCollegesPage({ params }: { params: Promise<{
       org.id,
       targets.map((t) => ({ athleteId: t.athlete_id, schoolId: t.school_id })),
     ),
-    targetIds.length
-      ? supabase.from("target_visits").select("id, target_id, visit_type, visit_date, impression, next_step").in("target_id", targetIds).eq("org_id", org.id).order("visit_date", { ascending: false })
-      : Promise.resolve({ data: [] as VisitRow[] }),
+    loadFamilyVisits(supabase, org.id, targetIds).then((data) => ({ data })),
   ]);
   const visits = (visitRows ?? []) as VisitRow[];
   const targetById = new Map(targets.map((t) => [t.id, t]));
