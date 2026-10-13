@@ -32,14 +32,14 @@ const KIND: Record<string, { label: string; kind: RowKind; role: Role }> = {
   // A communication row with kind='visit' predates the target_visits
   // table and is a bare log line with no type or impression. 0006 kept
   // them rather than migrating, so they are still here and still real.
-  visit: { label: "Visit (logged)", kind: "visit", role: "visit" },
+  visit: { label: "Visit (Logged)", kind: "visit", role: "visit" },
   other: { label: "Contact", kind: "message", role: "contact" },
 };
 
 const VISIT_KIND: Record<string, string> = {
-  official: "Official visit",
-  unofficial: "Unofficial visit",
-  junior_day: "Junior day",
+  official: "Official Visit",
+  unofficial: "Unofficial Visit",
+  junior_day: "Junior Day",
   camp: "Camp",
   other: "Visit",
 };
@@ -113,7 +113,7 @@ export default async function CommunicationsPage({ params }: { params: Promise<{
       {gap !== null && (
         <Notice
           tone={gap > 60 ? "warning" : "info"}
-          title={gap === 0 ? "Last contact today" : gap === 1 ? "Last contact yesterday" : `${gap} days since the last contact`}
+          title={gap === 0 ? "Last Contact Today" : gap === 1 ? "Last Contact Yesterday" : `${gap} Days Since the Last Contact`}
         >
           {entries.length} {entries.length === 1 ? "entry" : "entries"} on file.
           {gap > 60 ? " A gap this long is usually worth a note rather than a wait." : ""}

@@ -262,6 +262,22 @@ export async function recomputeFitsForSchools(admin: Client, schoolIds: string[]
   return { error: null, count };
 }
 
+// Every athlete in every org against every school. After a transfer
+// window is added, corrected or removed: windows are shared reference
+// data and every stored eligibility answer was computed from them.
+// Needs the admin client, for the same reason as the shared-school
+// recompute above.
+export async function recomputeFitsForAllOrgs(admin: Client, now = new Date()): Promise<{ error: string | null; count: number }> {
+  const { data: orgRows } = await admin.from("orgs").select("id");
+  let count = 0;
+  for (const org of (orgRows ?? []) as { id: string }[]) {
+    const { error, count: n } = await recomputeFitsForOrg(admin, org.id, now);
+    if (error) return { error, count };
+    count += n;
+  }
+  return { error: null, count };
+}
+
 export type LoadedFit = FitRow & { school: { id: string; name: string; division: string; conference: string | null; state: string | null } };
 
 // Read side. Stored rows for one athlete, already in Best Fit order:

@@ -51,7 +51,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "member-schools", path: "@/app/org/[slug]/member/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture College[\s\S]*Fixture State University/, as: MEMBER_ID },
   { name: "member-schools-state", path: "@/app/org/[slug]/member/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ state: "NY" }) }, expect: /Fixture College/, as: MEMBER_ID },
   { name: "member-school", path: "@/app/org/[slug]/member/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Fixture State University[\s\S]*Money/, as: MEMBER_ID },
-  { name: "member-schoolD3", path: "@/app/org/[slug]/member/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) }, expect: /No athletic scholarships at D3/, as: MEMBER_ID },
+  { name: "member-schoolD3", path: "@/app/org/[slug]/member/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) }, expect: /No Athletic Scholarships at D3/, as: MEMBER_ID },
   // The same screens for an org with no modules: no Giving tab, no
   // seat, nothing about money. Elite Squad is every org that is not
   // Bridge, so this is the common case, not the edge one.
@@ -76,7 +76,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "family-schools", path: "@/app/org/[slug]/family/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fixture College[\s\S]*Fixture State University/, as: FAMILY_ID },
   { name: "family-schools-major", path: "@/app/org/[slug]/family/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ major: "Biology" }) }, expect: /Fixture State University/, as: FAMILY_ID },
   { name: "family-school", path: "@/app/org/[slug]/family/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Fixture State University[\s\S]*Money/, as: FAMILY_ID },
-  { name: "family-schoolD3", path: "@/app/org/[slug]/family/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) }, expect: /No athletic scholarships at D3/, as: FAMILY_ID },
+  { name: "family-schoolD3", path: "@/app/org/[slug]/family/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) }, expect: /No Athletic Scholarships at D3/, as: FAMILY_ID },
   { name: "member-long-address", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: LONG_INVITE_ID }), searchParams: p({}) }, expect: /example-organization\.test/ },
   { name: "roster", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Athlete/ },
   // The search path on each list that has one: the term narrows the
@@ -190,12 +190,12 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // Stage 5 Phase 4, 2026-09-27 (Dave approved the whole plan): assignments.
   // The athlete's list groups Open, Submitted and Done; the org list opens
   // with what is waiting on a review; the detail screen of a submitted row
-  // carries the Family Upload document and the review controls, and a
+  // carries the Athlete Upload document and the review controls, and a
   // finished one carries no Cancel.
   { name: "assignments", path: "@/app/org/[slug]/roster/[id]/assignments/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /Send Fall Transcript[\s\S]*Upload Test Scores[\s\S]*Confirm Graduation Year/ },
   { name: "assignments-empty", path: "@/app/org/[slug]/roster/[id]/assignments/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athleteTransfer }) }, expect: /No Assignments Yet[\s\S]*New Assignment/ },
   { name: "assignment-new", path: "@/app/org/[slug]/roster/[id]/assignments/new/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) }, expect: /New Assignment[\s\S]*Create Assignment/ },
-  { name: "assignment", path: "@/app/org/[slug]/roster/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentSubmitted }) }, expect: /Upload Test Scores[\s\S]*Family Upload[\s\S]*Complete[\s\S]*Needs Revision[\s\S]*Cancel Assignment/ },
+  { name: "assignment", path: "@/app/org/[slug]/roster/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentSubmitted }) }, expect: /Upload Test Scores[\s\S]*Athlete Upload[\s\S]*Complete[\s\S]*Needs Revision[\s\S]*Cancel Assignment/ },
   { name: "assignment-revision", path: "@/app/org/[slug]/roster/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentRevision }) }, expect: /Complete Family Budget Form[\s\S]*Reviewer Comment[\s\S]*second parent[\s\S]*Cancel Assignment/ },
   { name: "assignment-complete", path: "@/app/org/[slug]/roster/[id]/assignments/[assignmentId]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete, assignmentId: IDS.assignmentComplete }) }, expect: /Confirm Graduation Year[\s\S]*Complete/ },
   { name: "org-assignments", path: "@/app/org/[slug]/assignments/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Submitted for Review[\s\S]*Overdue[\s\S]*Due Soon/ },

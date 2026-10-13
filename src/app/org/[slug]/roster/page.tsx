@@ -81,7 +81,7 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
   // with each other, and with the tile on Today that opened this.
   const searched = q ? all.filter((a) => `${a.name} ${a.sport} ${a.position ?? ""}`.toLowerCase().includes(q)) : all;
   const byStatus = status ? searched.filter((a) => a.effective === status) : searched;
-  const rows = mine ? byStatus.filter((a) => a.advisor_id === user.id) : unadvised ? byStatus.filter((a) => !a.advisor_id && isScoredStatus(a.status)) : byStatus;
+  const rows = mine ? byStatus.filter((a) => a.advisor_id === user.id) : unadvised ? byStatus.filter((a) => !a.advisor_id && isScoredStatus(a.effective)) : byStatus;
   const advisesAnyone = all.some((a) => a.advisor_id === user.id);
   const lede = [status || mine || unadvised ? `${rows.length} of ${all.length}` : null, status || null, mine ? "yours" : null, unadvised ? "still being recruited, no advisor" : null].filter(Boolean).join(", ");
 
@@ -99,7 +99,17 @@ export default async function RosterPage({ params, searchParams }: { params: Pro
       <Section label="Roster" count={rows.length} role="people" kind="athlete">
         {rows.length === 0 ? (
           <EmptyState kind="athlete" title={q ? "Nobody Matches" : status || mine || unadvised ? "Nothing Matches" : "No Athletes Yet"}>
-            {q ? "Try a shorter name, or clear the search." : mine ? "Nobody here is assigned to you. Pick yourself as Advisor on an athlete's Edit screen." : status ? "Nobody is at this status. Show every athlete to see the rest." : canEdit ? "Add the first one below." : "Ask an Admin to add one."}
+            {q
+              ? "Try a shorter name, or clear the search."
+              : mine
+                ? "Nobody here is assigned to you. Open an athlete and use Assign under Advisor."
+                : status
+                  ? "Nobody is at this status. Show every athlete to see the rest."
+                  : unadvised
+                    ? "Every athlete still being recruited has an advisor."
+                    : canEdit
+                      ? "Add the first one below."
+                      : "Ask an Admin to add one."}
           </EmptyState>
         ) : (
           rows.map((a) => (

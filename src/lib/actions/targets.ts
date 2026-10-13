@@ -44,6 +44,18 @@ async function schoolName(supabase: Supabase, schoolId: string): Promise<string>
   return (data as { name?: string | null } | null)?.name ?? "";
 }
 
+// One commitment per athlete. The close-out, Reopen Recruiting and the
+// commitment chain each read "the" Committed target, so a second one
+// breaks all three. Refused with a sentence on the field instead.
+const SECOND_COMMITMENT = "This athlete is already Committed to another school. Move that target off Committed first.";
+
+async function otherCommitment(supabase: Supabase, orgId: string, athleteId: string, exceptTargetId: string | null): Promise<boolean> {
+  let q = supabase.from("recruiting_targets").select("id").eq("org_id", orgId).eq("athlete_id", athleteId).eq("status", "Committed");
+  if (exceptTargetId) q = q.neq("id", exceptTargetId);
+  const { data } = await q;
+  return (data ?? []).length > 0;
+}
+
 // Both names on an existing target, read before it is written or
 // removed, so the log can say whose target at which school it was.
 async function targetNames(supabase: Supabase, orgId: string, targetId: string): Promise<{ name: string; school: string }> {
@@ -67,6 +79,9 @@ export async function createTarget(slug: string, _prevState: TargetActionState, 
   }
 
   const supabase = await createClient();
+  if (parsed.values.status === "Committed" && (await otherCommitment(supabase, org.id, parsed.values.athleteId, null))) {
+    return { errors: { status: SECOND_COMMITMENT } };
+  }
   const { data: created, error } = await supabase
     .from("recruiting_targets")
     .insert({
@@ -130,13 +145,21 @@ export async function updateTarget(slug: string, targetId: string, _prevState: T
   if (live.status === "Committed" && isClosedStatus(live.athleteStatus) && (parsed.values.status !== "Committed" || parsed.values.athleteId !== live.athleteId)) {
     return { errors: { form: "This commitment is where the athlete was placed. Reopen Recruiting first, then change it." } };
   }
-  const before = { status: live.status, athlete_id: live.athleteId };
+  if (parsed.values.status === "Committed" && (await otherCommitment(supabase, org.id, parsed.values.athleteId, targetId))) {
+    return { errors: { status: SECOND_COMMITMENT } };
+  }
+  const before = { status: live.status, athlete_id: live.athleteId, school_id: live.schoolId };
+  const statusChanged = before.status !== parsed.values.status;
   const { error } = await supabase
     .from("recruiting_targets")
     .update({
       athlete_id: parsed.values.athleteId,
       school_id: parsed.values.schoolId,
       status: parsed.values.status,
+      // A status picked by hand is nobody's close-out any more: a stale
+      // closed_from would let Reopen Recruiting put back a stage this
+      // edit already replaced.
+      ...(statusChanged ? { closed_from: null } : {}),
       coach_name: parsed.values.coachName ?? null,
       notes: parsed.values.notes ?? null,
       visit_date: parsed.values.visitDate ?? null,
@@ -160,9 +183,19 @@ export async function updateTarget(slug: string, targetId: string, _prevState: T
     await syncCommitment(supabase, org.id, parsed.values.athleteId, { before: before.status, after: parsed.values.status });
   }
 
+  // Stored fits are keyed athlete:school and read the target's status and
+  // award, so a target moved to another school, another athlete or
+  // another stage rescores whoever it touched. A recompute on an athlete
+  // who is no longer scored clears instead (fits.ts).
+  const moved = before.athlete_id !== parsed.values.athleteId;
+  if (moved || before.school_id !== parsed.values.schoolId || statusChanged) {
+    await recomputeFitsForAthlete(supabase, org.id, parsed.values.athleteId);
+    if (moved) await recomputeFitsForAthlete(supabase, org.id, before.athlete_id);
+  }
+
   // Only a stage change is history worth a line; a coach name or a note
   // edited in place is not.
-  if (before.status !== parsed.values.status) {
+  if (statusChanged) {
     await logActivity(supabase, {
       orgId: org.id,
       actorId: user.id,
@@ -179,6 +212,7 @@ export async function updateTarget(slug: string, targetId: string, _prevState: T
   revalidatePath(`/org/${slug}/board/${targetId}`);
   revalidatePath(`/org/${slug}/roster`);
   revalidatePath(`/org/${slug}/roster/${parsed.values.athleteId}`);
+  if (moved) revalidatePath(`/org/${slug}/roster/${before.athlete_id}`);
   redirect(`/org/${slug}/board/${targetId}`);
 }
 

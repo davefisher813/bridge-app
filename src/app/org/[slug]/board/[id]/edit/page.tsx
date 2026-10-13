@@ -15,7 +15,7 @@ import { VisitForm } from "@/components/VisitForm";
 import { ConfirmButton, Form, Label, Notice, Prose, Row, Screen, Section } from "@/components/kit";
 
 const KIND_LABEL: Record<string, string> = { call: "Call", text: "Text", email: "Email", visit: "Visit", other: "Other" };
-const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior day", camp: "Camp", other: "Other" };
+const VISIT_TYPE_LABEL: Record<string, string> = { official: "Official", unofficial: "Unofficial", junior_day: "Junior Day", camp: "Camp", other: "Other" };
 
 function shortDate(iso: string | null): string {
   if (!iso) return "no date";

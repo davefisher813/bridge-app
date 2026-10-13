@@ -87,7 +87,7 @@ export async function applyReopen(supabase: Client, orgId: string, athleteId: st
 
   const now = new Date();
   const stamp = now.toISOString();
-  const date = longDate(stamp.slice(0, 10));
+  const date = longDate(stamp);
   const next = reopenedStatus(athlete.status);
 
   const restoredCount = await restoreClosedTargets(supabase, orgId, athleteId, `Reopened: ${athlete.name} is recruiting again as of ${date}.`);

@@ -46,7 +46,7 @@ export function whenLabel(iso: string, now: number = Date.now()): string {
   if (hours < 24) return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
   const days = Math.floor(hours / 24);
   if (days < 8) return `${days} ${days === 1 ? "day" : "days"} ago`;
-  return longDate(iso.slice(0, 10));
+  return longDate(iso);
 }
 
 // Where an entry goes, or nothing. Everything about an athlete needs

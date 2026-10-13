@@ -253,7 +253,9 @@ export default async function MatchesPage({
 
           <Section label="Ranked" count={ranked.length} role="place" kind="target">
             {ranked.length === 0 ? (
-              <EmptyState kind="target" title={q ? "No School Matches" : "Nothing Matches These Filters"} />
+              // Nothing narrowed and still nothing ranked means every
+              // scored school is a Conflict, listed below.
+              <EmptyState kind="target" title={q ? "No School Matches" : filtering ? "Nothing Matches These Filters" : "Every School Is a Conflict"} />
             ) : (
               visible.map((f) => matchRow(f, false))
             )}

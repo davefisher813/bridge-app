@@ -279,7 +279,7 @@ describe("LAW: recruiting closes for an Enrolled athlete, on the staff side and 
 
     const active = await render(page, { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
     expect(active).toMatch(/Fixture note/);
-    expect(active).toMatch(/Unofficial visit/);
+    expect(active).toMatch(/Unofficial Visit/);
     expect(active).toMatch(/Fixture impression/);
     // Every row on the screen opens something (a Row with an href is
     // wrapped in the kit's block link): the clickable baseline starts at
@@ -895,8 +895,8 @@ describe("LAW: the school directory shows the shared facts to everyone and the o
     it(`a D3 school never offers athletic money, as ${r.role} sees it`, async () => {
       currentUser = r.as;
       const html = await render(r.one, { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) });
-      expect(html).toMatch(/No athletic scholarships at D3/);
-      expect(html).not.toMatch(/Full scholarships available/);
+      expect(html).toMatch(/No Athletic Scholarships at D3/);
+      expect(html).not.toMatch(/Full scholarships available/i);
       expect(html).toMatch(/Flags on This School[\s\S]*Fixture flag on this school/);
     });
 
@@ -1900,9 +1900,9 @@ describe("LAW: assignments are the Admin's to give and review, the Athlete login
     expect(html).toMatch(/Create Assignment/);
   });
 
-  it("a submitted row shows the file as a Family Upload row and offers Complete, Needs Revision and a confirmed Cancel", async () => {
+  it("a submitted row shows the file as an Athlete Upload row and offers Complete, Needs Revision and a confirmed Cancel", async () => {
     const html = await detail(IDS.assignmentSubmitted);
-    expect(html).toMatch(/Upload Test Scores[\s\S]*Submission[\s\S]*Sent the June score report[\s\S]*june-score-report\.pdf[\s\S]*Family Upload[\s\S]*Review[\s\S]*Complete[\s\S]*Needs Revision[\s\S]*Cancel Assignment/);
+    expect(html).toMatch(/Upload Test Scores[\s\S]*Submission[\s\S]*Sent the June score report[\s\S]*june-score-report\.pdf[\s\S]*Athlete Upload[\s\S]*Review[\s\S]*Complete[\s\S]*Needs Revision[\s\S]*Cancel Assignment/);
     expect(hrefs(html)).toContain(`/org/${slug}/documents/${IDS.documentFiled}`);
     expect(html).toMatch(/<button[^>]*>Complete<\/button>/);
     expect(html).toMatch(/<button[^>]*>Needs Revision<\/button>/);

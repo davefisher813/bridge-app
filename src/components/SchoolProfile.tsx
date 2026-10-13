@@ -19,15 +19,15 @@ import type { School } from "@/lib/fit/types";
 export type SchoolViewer = "owner" | "staff" | "family" | "member";
 
 const AID_LABEL: Record<string, string> = {
-  full: "Full scholarships available",
-  partial: "Partial scholarships available",
-  none: "No athletic aid, academic only",
+  full: "Full Scholarships Available",
+  partial: "Partial Scholarships Available",
+  none: "No Athletic Aid, Academic Only",
 };
 
 const OUTLOOK_LABEL: Record<string, string> = {
-  realistic: "Realistic shot at playing time",
-  competitive: "Competitive for playing time",
-  difficult: "Difficult to break into",
+  realistic: "Realistic Shot at Playing Time",
+  competitive: "Competitive for Playing Time",
+  difficult: "Difficult to Break Into",
 };
 
 function money(dollars: number): string {
@@ -108,7 +108,7 @@ export function SchoolMoneyAndDepth({ school, viewer, editHref }: { school: Scho
             A D3 school cannot offer athletic aid whatever the record
             says, and printing the field would tell a family money exists
             that does not. */}
-        <Note title={d3 ? "No athletic scholarships at D3" : (AID_LABEL[fin.athleticScholarship ?? ""] ?? "Athletic aid not recorded")}>
+        <Note title={d3 ? "No Athletic Scholarships at D3" : (AID_LABEL[fin.athleticScholarship ?? ""] ?? "Athletic Aid Not Recorded")}>
           {d3
             ? "NCAA rules, not this school's choice. Academic and need-based aid still apply and are often substantial."
             : "From this school's profile. Confirm with the coaching staff before a family plans around it."}

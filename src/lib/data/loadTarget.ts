@@ -174,6 +174,7 @@ export interface LiveTarget {
   id: string;
   status: string;
   athleteId: string;
+  schoolId: string;
   athleteStatus: string;
   aid: unknown;
 }
@@ -181,12 +182,12 @@ export interface LiveTarget {
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 export async function loadLiveTarget(supabase: Supabase, orgId: string, targetId: string): Promise<LiveTarget | null> {
-  const { data } = await supabase.from("recruiting_targets").select("id, status, athlete_id, aid, athletes(status, deleted_at)").eq("id", targetId).eq("org_id", orgId).maybeSingle();
-  const row = data as { id: string; status: string; athlete_id: string; aid: unknown; athletes: AthleteLife | AthleteLife[] | null } | null;
+  const { data } = await supabase.from("recruiting_targets").select("id, status, athlete_id, school_id, aid, athletes(status, deleted_at)").eq("id", targetId).eq("org_id", orgId).maybeSingle();
+  const row = data as { id: string; status: string; athlete_id: string; school_id: string; aid: unknown; athletes: AthleteLife | AthleteLife[] | null } | null;
   if (!row) return null;
   const athlete = unwrap(row.athletes);
   if (!athlete || athlete.deleted_at) return null;
-  return { id: row.id, status: row.status, athleteId: row.athlete_id, athleteStatus: athlete.status, aid: row.aid };
+  return { id: row.id, status: row.status, athleteId: row.athlete_id, schoolId: row.school_id, athleteStatus: athlete.status, aid: row.aid };
 }
 
 interface AthleteLife {

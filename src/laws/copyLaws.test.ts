@@ -60,6 +60,59 @@ describe("LAW: a title is written in Title Case", () => {
     expect(offenders).toEqual([]);
   });
 
+  // The regexes above only read a literal sitting alone in a title slot.
+  // A title picked by a condition (title={gap === 0 ? "Last contact
+  // today" : ...}), a fallback (title={coachName || "No coach on file"})
+  // and a `label:` in a list of groups all reached the screen in
+  // sentence case (sweep, 2026-10-13). These read them too.
+  //
+  // Verified this bites: put "Last contact today" back on the
+  // communications page, then separately "On the list" back in the
+  // approvals groups, ran `npx vitest run copyLaws`, watched each fail,
+  // reverted.
+  //
+  // Not yet swept: screens another pass owns (documents, fundraising,
+  // board governance) still carry sentence-case titles this check finds.
+  // Each comes off this list when its screen is fixed; nothing new goes
+  // on it.
+  const NOT_YET_SWEPT = [
+    "src/app/org/[slug]/documents/",
+    "src/app/org/[slug]/fundraising/",
+    "src/app/org/[slug]/board-governance/",
+    "src/app/org/[slug]/member/giving/",
+    "src/components/DocumentUploader.tsx",
+    "src/components/FundraisingForms.tsx",
+  ];
+  it("a title chosen by a condition or a fallback, and every label: in a list, is Title Case", () => {
+    const offenders: string[] = [];
+    for (const f of UI.filter((f) => !NOT_YET_SWEPT.some((p) => rel(f).startsWith(p)))) {
+      const src = readFileSync(f, "utf8");
+      const found: string[] = [];
+      for (const line of src.split("\n")) {
+        if (/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(line)) continue;
+        for (const m of line.matchAll(/\b(?:title|label|submitLabel)=\{/g)) {
+          // The expression up to the next prop or the end of the tag. A
+          // template literal is TEMPLATE_TITLE's, and the words picked
+          // inside one ("a" or "an") are pieces of it, not titles.
+          const rest = line.slice(m.index! + m[0].length);
+          if (rest.startsWith("`")) continue;
+          const end = rest.search(/\}\s+[A-Za-z]+=|\}\s*\/?>|\}\s*$/);
+          const expr = end === -1 ? rest : rest.slice(0, end);
+          // A literal only counts as a title when it is a branch or a
+          // fallback; one being compared against (x === "none") is a key.
+          for (const s of expr.matchAll(/(?:\?\??|:|\|\|)\s*"([^"\n]+)"/g)) found.push(s[1]);
+        }
+        for (const s of line.matchAll(/\blabel:\s*"([^"\n]+)"/g)) found.push(s[1]);
+      }
+      for (const text of found) {
+        if (!isTitleLike(text)) continue;
+        const want = titleCase(text);
+        if (want !== text) offenders.push(`${rel(f)}: "${text}" should be "${want}"`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("titleCase leaves acronyms, small words and sentences alone", () => {
     expect(titleCase("NCAA eligibility")).toBe("NCAA Eligibility");
     expect(titleCase("Add a school's scale")).toBe("Add a School's Scale");
@@ -101,6 +154,33 @@ describe("LAW: the login tied to one athlete is called Athlete, not Family", () 
           // about what reaches the screen.
           if (/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(line)) return;
           if (LOGIN_AS_FAMILY.test(line)) offenders.push(`${rel(f)}:${i + 1}: ${line.trim()}`);
+        });
+    }
+    expect(offenders).toEqual([]);
+  });
+});
+
+// The same rule for a file the athlete login sent in: it is an Athlete
+// Upload. The assignment screen said Family Upload after the login was
+// renamed (sweep, 2026-10-13); the regex above looked for the login's
+// name, not the upload's.
+//
+// Verified this bites: put "Family Upload" back on the assignment
+// screen, ran `npx vitest run copyLaws`, watched it fail, reverted.
+describe("LAW: a file the athlete login sent is an Athlete Upload, not a Family one", () => {
+  // The documents screens belong to another pass and still say Family
+  // Upload; they come off this list when that pass lands. Nothing new
+  // goes on it.
+  const NOT_YET_SWEPT = ["src/app/org/[slug]/documents/"];
+  it("no screen or component outside that list says Family Upload", () => {
+    const files = walk(SRC).filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f) && (f.includes("/app/") || f.includes("/components/")) && !NOT_YET_SWEPT.some((p) => rel(f).startsWith(p)));
+    const offenders: string[] = [];
+    for (const f of files) {
+      readFileSync(f, "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+          if (/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(line)) return;
+          if (/Family Upload/i.test(line)) offenders.push(`${rel(f)}:${i + 1}: ${line.trim()}`);
         });
     }
     expect(offenders).toEqual([]);

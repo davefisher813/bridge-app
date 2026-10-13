@@ -68,7 +68,7 @@ export default async function AssignmentDetailPage({ params }: { params: Promise
         <Section label="Submission" role="place" kind="document">
           <Card isStatic>
             <Stack gap={2}>
-              <Label>{`Sent ${longDate(assignment.submittedAt.slice(0, 10))}`}</Label>
+              <Label>{`Sent ${longDate(assignment.submittedAt)}`}</Label>
               {assignment.familyNote ? <Body>{assignment.familyNote}</Body> : <Label>No note with it.</Label>}
             </Stack>
           </Card>
@@ -78,7 +78,7 @@ export default async function AssignmentDetailPage({ params }: { params: Promise
               kind="document"
               role="place"
               title={document.fileName}
-              meta={`${document.mediaType === "application/pdf" ? "PDF" : "Image"} · ${sizeLabel(document.fileSize)} · Family Upload`}
+              meta={`${document.mediaType === "application/pdf" ? "PDF" : "Image"} · ${sizeLabel(document.fileSize)} · Athlete Upload`}
               trailing={<Chevron />}
               wrap
             />
@@ -90,7 +90,7 @@ export default async function AssignmentDetailPage({ params }: { params: Promise
         <Section label="Reviewer Comment" role="accent" kind="note">
           <Card isStatic>
             <Stack gap={2}>
-              {assignment.reviewedAt && <Label>{`Reviewed ${longDate(assignment.reviewedAt.slice(0, 10))}`}</Label>}
+              {assignment.reviewedAt && <Label>{`Reviewed ${longDate(assignment.reviewedAt)}`}</Label>}
               <Body>{assignment.reviewerComment}</Body>
             </Stack>
           </Card>

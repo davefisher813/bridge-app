@@ -86,7 +86,7 @@ export default async function ApprovedListPage({
           {error}
         </Notice>
       )}
-      <Note title={list.is_complete ? "Complete list" : "Partial list"}>
+      <Note title={list.is_complete ? "Complete List" : "Partial List"}>
         {list.is_complete ? "A course missing from it does not count toward the core GPA." : "It can confirm a course. It never rules one out."}
         {list.source_note ? ` "${list.source_note}."` : ""}
         {list.retrieved_on ? ` Read off the portal on ${list.retrieved_on}.` : ""}

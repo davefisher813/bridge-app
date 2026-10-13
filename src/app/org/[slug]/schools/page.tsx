@@ -43,7 +43,9 @@ export default async function SchoolsPage({ params, searchParams }: { params: Pr
     const a = Array.isArray(t.athletes) ? (t.athletes[0] ?? null) : t.athletes;
     return !a?.deleted_at;
   };
-  const targets = ((targetRows ?? []) as TargetCount[]).filter(onRoster);
+  // A school every athlete is Not Interested in (picked, or closed by a
+  // commitment) is not being recruited, so it is not counted either.
+  const targets = ((targetRows ?? []) as TargetCount[]).filter((t) => onRoster(t) && t.status !== "Not Interested");
 
   const countBySchool = new Map<string, number>();
   for (const t of targets) countBySchool.set(t.school_id, (countBySchool.get(t.school_id) ?? 0) + 1);
