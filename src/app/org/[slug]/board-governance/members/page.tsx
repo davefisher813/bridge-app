@@ -11,6 +11,8 @@
 // board pages stapled together.
 
 import { notFound } from "next/navigation";
+import { YearSwitch } from "@/components/YearSwitch";
+import { orgToday } from "@/lib/datetime/today";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { Avatar, Body, Chip, EmptyState, LinkButton, Row, Screen, Section } from "@/components/kit";
@@ -50,7 +52,11 @@ export default async function AllSeatsPage({
   if (!org.modules.board_governance) notFound();
   await requireRole(org.id, STAFF_ROLES);
 
-  const fiscalYear = Number(year) || new Date().getFullYear();
+  const currentYear = Number(orgToday().slice(0, 4));
+  const fiscalYear = Number(year) || currentYear;
+  // The year rides along on every link inside give/get, so a chair
+  // looking at last year stays in last year.
+  const yq = fiscalYear === currentYear ? "" : `?year=${fiscalYear}`;
   const view = await loadGovernance(org.id, fiscalYear);
 
   const boardName = new Map(view.boards.map((b) => [b.id, b.name]));
@@ -81,8 +87,9 @@ export default async function AllSeatsPage({
   return (
     <Screen
       title="Every Seat"
-      back={{ href: `/org/${slug}/board-governance`, label: "Boards" }} lede={`${fiscalYear}, across all ${view.boards.length} ${view.boards.length === 1 ? "board" : "boards"}`}
+      back={{ href: `/org/${slug}/board-governance${yq}`, label: "Boards" }} lede={`${fiscalYear}, across all ${view.boards.length} ${view.boards.length === 1 ? "board" : "boards"}`}
     >
+      <YearSwitch year={fiscalYear} current={currentYear} hrefFor={(y) => `/org/${slug}/board-governance/members${y === currentYear ? "" : `?year=${y}`}`} />
       {seats.length === 0 ? (
         <EmptyState kind="people" title="No Seats Yet" action={<LinkButton href={`/org/${slug}/board-governance`}>Open Boards</LinkButton>}
         />
@@ -106,7 +113,7 @@ export default async function AllSeatsPage({
                 return (
                   <Row
                     key={m.id}
-                    href={`/org/${slug}/board-governance/${m.boardId}/seats/${m.id}`}
+                    href={`/org/${slug}/board-governance/${m.boardId}/seats/${m.id}${yq}`}
                     leading={<Avatar name={m.name} />}
                     title={m.name}
                     meta={lines.join(" · ")}
@@ -133,7 +140,7 @@ export default async function AllSeatsPage({
               {byStatus.map((m) => (
                 <Row
                   key={m.id}
-                  href={`/org/${slug}/board-governance/${m.boardId}/seats/${m.id}`}
+                  href={`/org/${slug}/board-governance/${m.boardId}/seats/${m.id}${yq}`}
                   leading={<Avatar name={m.name} />}
                   title={m.name}
                   meta={`${boardName.get(m.boardId) ?? "Board"}${m.roleTitle ? ` · ${m.roleTitle}` : ""}`}

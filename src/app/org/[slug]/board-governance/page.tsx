@@ -9,6 +9,7 @@
 // not misleading a board chair.
 
 import { notFound } from "next/navigation";
+import { YearSwitch } from "@/components/YearSwitch";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { AddButton, Body, Card, Chevron, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack, Stat, StatRow } from "@/components/kit";
@@ -45,7 +46,11 @@ export default async function BoardGovernancePage({
   const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
-  const fiscalYear = Number(year) || new Date().getFullYear();
+  const currentYear = Number(orgToday().slice(0, 4));
+  const fiscalYear = Number(year) || currentYear;
+  // The year rides along on every link inside give/get, so a chair
+  // looking at last year stays in last year.
+  const yq = fiscalYear === currentYear ? "" : `?year=${fiscalYear}`;
   const view = await loadGovernance(org.id, fiscalYear);
   // The next meeting, for the way into Meetings (migration 0050).
   const supabase = await createClient();
@@ -76,6 +81,7 @@ export default async function BoardGovernancePage({
       action={canEdit && view.boards.length > 0 ? <AddButton href={`/org/${slug}/board-governance/new`} label="Add" /> : undefined}
     >
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
+      <YearSwitch year={fiscalYear} current={currentYear} hrefFor={(y) => `/org/${slug}/board-governance${y === currentYear ? "" : `?year=${y}`}`} />
       {meetingsRow}
       {view.boards.length === 0 ? (
         <>
@@ -85,8 +91,8 @@ export default async function BoardGovernancePage({
       ) : (
         <>
           <StatRow>
-            <Stat value={formatMoneyShort(totals.committed)} label="Committed" role="contact" kind="money" href={`/org/${slug}/board-governance/members`} />
-            <Stat value={formatMoneyShort(totals.raised)} label="Delivered" role={roleFor(overallPercent)} kind="check" href={`/org/${slug}/board-governance/members`} />
+            <Stat value={formatMoneyShort(totals.committed)} label="Committed" role="contact" kind="money" href={`/org/${slug}/board-governance/members${yq}`} />
+            <Stat value={formatMoneyShort(totals.raised)} label="Delivered" role={roleFor(overallPercent)} kind="check" href={`/org/${slug}/board-governance/members${yq}`} />
           </StatRow>
 
           <Note title={overallPercent === null ? "No commitments set" : `${overallPercent}% delivered`}>
@@ -99,7 +105,7 @@ export default async function BoardGovernancePage({
               const s = view.summaryByBoard.get(b.id)!;
               const role = roleFor(s.percent);
               return (
-                <Card key={b.id} href={`/org/${slug}/board-governance/${b.id}`}>
+                <Card key={b.id} href={`/org/${slug}/board-governance/${b.id}${yq}`}>
                   <Stack gap={2}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -129,7 +135,7 @@ export default async function BoardGovernancePage({
           {/* Organized by board above, and by who is behind here. The
               second is the question a chair asks first, and answering it
               from the board list means opening every board in turn. */}
-          <LinkButton href={`/org/${slug}/board-governance/members`} variant="secondary">
+          <LinkButton href={`/org/${slug}/board-governance/members${yq}`} variant="secondary">
             Every Seat
           </LinkButton>
         </>

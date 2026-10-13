@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { YearSwitch } from "@/components/YearSwitch";
+import { orgToday } from "@/lib/datetime/today";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { AddButton, Avatar, Body, Card, Chip, ConfirmButton, EmptyState, Form, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack } from "@/components/kit";
@@ -48,7 +50,11 @@ export default async function BoardPage({
   const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
 
-  const fiscalYear = Number(year) || new Date().getFullYear();
+  const currentYear = Number(orgToday().slice(0, 4));
+  const fiscalYear = Number(year) || currentYear;
+  // The year rides along on every link inside give/get, so a chair
+  // looking at last year stays in last year.
+  const yq = fiscalYear === currentYear ? "" : `?year=${fiscalYear}`;
   const view = await loadGovernance(org.id, fiscalYear);
 
   const board = view.boards.find((b) => b.id === id);
@@ -78,10 +84,11 @@ export default async function BoardPage({
   return (
     <Screen
       title={board.name}
-      back={{ href: `/org/${slug}/board-governance`, label: "Boards" }} lede={`${formatMoneyShort(board.giveGetCents)} give/get per seat`}
+      back={{ href: `/org/${slug}/board-governance${yq}`, label: "Boards" }} lede={`${fiscalYear}, ${formatMoneyShort(board.giveGetCents)} give/get per seat`}
       action={canEdit && !summary.atCapacity ? <AddButton href={`/org/${slug}/board-governance/${board.id}/seats/new`} label="Add" /> : undefined}
     >
-      <Card href={`/org/${slug}/board-governance/members`}>
+      <YearSwitch year={fiscalYear} current={currentYear} hrefFor={(y) => `/org/${slug}/board-governance/${board.id}${y === currentYear ? "" : `?year=${y}`}`} />
+      <Card href={`/org/${slug}/board-governance/members${yq}`}>
         <Stack gap={2}>
           <div className="flex items-start justify-between gap-3">
             <Body weight="bold">
@@ -139,7 +146,7 @@ export default async function BoardPage({
           return (
             <Row
               key={m.id}
-              href={`/org/${slug}/board-governance/${board.id}/seats/${m.id}`}
+              href={`/org/${slug}/board-governance/${board.id}/seats/${m.id}${yq}`}
               leading={<Avatar name={m.name} />}
               title={m.name}
               meta={lines.join(" · ")}
