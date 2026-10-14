@@ -790,6 +790,17 @@ Format examples stay, because they are the part a person acts on.
 
 ---
 
+### Bulk actions (Dave, 2026-10-13)
+
+One kit pattern (`src/components/kit/BulkSelect.tsx`: BulkSelect, BulkCheck, BulkAction, Row `select`). Tap Select, a bar covers the tab bar with "N selected", Select All, Clear, Done and the actions; each action opens one sheet naming the count and submits repeated `ids` to a server action (`src/lib/bulk/ids.ts`, cap 200). Every action is Admin-only, scoped by org and ids, logs one row per record, and redirects with a notice of applied and skipped counts.
+
+- Assignments: Mark Complete (overdue included), Cancel, Reassign (to another athlete, open rows without a file), Change Due Date, Delete (migration 0071, no undo).
+- Documents: Approve (approver gate honoured), Archive, Restore, Link to Athlete, Set Type (migration 0072, `document_typed` log action).
+- Athletes: Assign Advisor (one Undo restores all), Change Status (Active and Inactive only), Export CSV.
+- Targets: Change Status (Target, In Contact, Visit, Not Interested), Remove Targets (no undo).
+
+Migrations 0071 and 0072 are pending on production. `scripts/live/bulk.mjs` drives the selecting state at 320, 375 and 390 inside `scripts/live/check.sh`.
+
 ## How it is verified
 
 1. **Unit tests** over the pure modules.

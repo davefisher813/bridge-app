@@ -250,7 +250,10 @@ export function Row({
           decision" on a grant) took the whole row on a narrow layout and
           squeezed the title to a one-pixel column: text that was there
           and could not be seen. */}
-      {trailing && <div className="ml-auto flex max-w-half flex-shrink-0 flex-col items-end gap-1 text-right">{trailing}</div>}
+      {/* While selecting, the checkbox has taken 56px of the row, so the
+          half-width cap would break a chip ("Submitte d"); the trailing
+          takes its natural width and wraps under the body instead. */}
+      {trailing && <div className={`ml-auto flex ${select ? "max-w-full" : "max-w-half"} flex-shrink-0 flex-col items-end gap-1 text-right`}>{trailing}</div>}
     </>
   );
   if (trailingAction || select) {
