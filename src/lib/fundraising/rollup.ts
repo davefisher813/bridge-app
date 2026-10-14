@@ -236,6 +236,66 @@ export function summarize(input: SummaryInput): FundraisingSummary {
   };
 }
 
+// Year by year, and all years together (Dave, 2026-10-13: the numbers
+// were "not marked off by year", so a page that opened on the current year
+// read $0 while 2024 and 2025 held $18,418). Every year from the first one
+// with a gift or a pledge up to the current year gets a row, including a
+// year with nothing in it, so a gap is visible rather than missing.
+//
+// The same rules as summarize: cash is never in-kind, a pledge is beside
+// the total and never inside it. A pledge belongs to the year it was
+// promised; what is still owed on it is outstanding in that year's row
+// even when a later year's gift paid some of it down (outstandingOn).
+export interface YearRow {
+  year: number;
+  cashCents: number;
+  inKindCents: number;
+  giftCount: number;
+  donorCount: number;
+  promisedCents: number;
+  outstandingPledgeCents: number;
+}
+
+export interface AllYears {
+  // Newest first, current year always present.
+  years: YearRow[];
+  cashCents: number;
+  inKindCents: number;
+  giftCount: number;
+  donorCount: number;
+  promisedCents: number;
+  outstandingPledgeCents: number;
+}
+
+export function yearlyRollup(gifts: Gift[], pledges: Pledge[], currentYear: number): AllYears {
+  const seen = [currentYear, ...gifts.map((g) => fiscalYearOf(g.receivedOn)), ...pledges.map((p) => fiscalYearOf(p.promisedOn))];
+  const first = Math.min(...seen);
+  const last = Math.max(...seen);
+  const years: YearRow[] = [];
+  for (let year = last; year >= first; year--) {
+    const inYear = gifts.filter((g) => fiscalYearOf(g.receivedOn) === year);
+    const pledgesInYear = pledges.filter((p) => fiscalYearOf(p.promisedOn) === year);
+    years.push({
+      year,
+      cashCents: inYear.filter((g) => g.method !== "in_kind").reduce((s, g) => s + g.amountCents, 0),
+      inKindCents: inYear.filter((g) => g.method === "in_kind").reduce((s, g) => s + g.amountCents, 0),
+      giftCount: inYear.length,
+      donorCount: new Set(inYear.map((g) => g.donorId).filter((id): id is string => !!id)).size,
+      promisedCents: pledgesInYear.reduce((s, p) => s + p.amountCents, 0),
+      outstandingPledgeCents: pledgesInYear.reduce((s, p) => s + outstandingOn(p, gifts), 0),
+    });
+  }
+  return {
+    years,
+    cashCents: gifts.filter((g) => g.method !== "in_kind").reduce((s, g) => s + g.amountCents, 0),
+    inKindCents: gifts.filter((g) => g.method === "in_kind").reduce((s, g) => s + g.amountCents, 0),
+    giftCount: gifts.length,
+    donorCount: new Set(gifts.map((g) => g.donorId).filter((id): id is string => !!id)).size,
+    promisedCents: pledges.reduce((s, p) => s + p.amountCents, 0),
+    outstandingPledgeCents: pledges.reduce((s, p) => s + outstandingOn(p, gifts), 0),
+  };
+}
+
 export interface DonorTotals {
   donorId: string;
   // Lifetime, across every year, cash only.

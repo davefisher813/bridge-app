@@ -12,15 +12,14 @@
 //   - An in-kind gift is support, never cash.
 
 import { orgToday } from "@/lib/datetime/today";
-import { YearSwitch } from "@/components/YearSwitch";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { Body, Card, Chevron, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { Body, Card, Chevron, Chip, EmptyState, Label, LinkButton, Meter, Notice, Row, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { CampaignCards } from "@/components/CampaignCards";
-import { campaignProgress, formatMoney, formatMoneyShort, summarize } from "@/lib/fundraising/rollup";
+import { campaignProgress, formatMoney, formatMoneyShort, summarize, yearlyRollup } from "@/lib/fundraising/rollup";
 import { toBudgetLines, toGifts, toPledges, type BudgetRow, type GiftRow, type PledgeRow } from "@/lib/data/fundraisingAdapters";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +71,9 @@ export default async function FundraisingPage({
   const campaigns = (campaignRows ?? []) as Array<{ id: string; name: string; kind: string; goal_amount: number | string | null }>;
 
   const s = summarize({ gifts, pledges, budget, fiscalYear, today });
+  // Every year at once, and all of them together, so the top of the page
+  // cannot read zero while an earlier year holds real money.
+  const all = yearlyRollup(gifts, pledges, currentYear);
   const budgetPercent = s.totalBudgetCents > 0 ? Math.round((s.totalCashCents / s.totalBudgetCents) * 100) : null;
 
   if (gifts.length === 0 && pledges.length === 0) {
@@ -101,12 +103,65 @@ export default async function FundraisingPage({
   }
 
   return (
-    <Screen title="Fundraising" lede={fiscalYear}>
-      <YearSwitch year={fiscalYear} current={currentYear} hrefFor={(y) => `/org/${slug}/fundraising${y === currentYear ? "" : `?year=${y}`}`} />
+    <Screen title="Fundraising" lede="All years first, then each year">
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
+
+      {/* The headline is every year together (Dave, 2026-10-13: "not
+          marked off by year"). The page used to open on the current year
+          alone and read $0 with $18,418 sitting in 2024 and 2025. */}
       <Stack gap={2}>
         <StatRow>
-          <Stat value={formatMoneyShort(s.totalCashCents)} label="Raised" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts?year=${fiscalYear}`} />
+          <Stat value={formatMoneyShort(all.cashCents)} label="Raised, All Years" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts`} />
+          <Stat value={all.giftCount} label="Gifts, All Years" role="contact" kind="people" href={`/org/${slug}/fundraising/gifts`} />
+        </StatRow>
+        <Label>{`Cash in the door from ${all.donorCount} ${all.donorCount === 1 ? "supporter" : "supporters"}, ${all.years.length} ${all.years.length === 1 ? "year" : "years"} together.${all.inKindCents > 0 ? ` ${formatMoneyShort(all.inKindCents)} more was given in kind.` : ""}`}</Label>
+      </Stack>
+
+      {all.promisedCents > 0 && (
+        <Row
+          href={`/org/${slug}/fundraising/pledges`}
+          kind="pledge"
+          role="offer"
+          emphasis="bold"
+          title={`${formatMoney(all.outstandingPledgeCents)} Promised, Not Received`}
+          meta={`${formatMoney(all.promisedCents)} promised across all years. Not counted in the ${formatMoneyShort(all.cashCents)} raised.`}
+          wrap
+        />
+      )}
+
+      <Section label="By Year" count={all.years.length} role="committed" kind="visit">
+        {all.years.map((y) => {
+          const quiet = y.giftCount === 0 && y.promisedCents === 0;
+          return (
+            <Card key={y.year} href={`/org/${slug}/fundraising?year=${y.year}`}>
+              <Stack gap={2}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <Body weight="bold">{y.year}</Body>
+                    <Label>
+                      {quiet
+                        ? "Nothing recorded"
+                        : `${y.giftCount} ${y.giftCount === 1 ? "gift" : "gifts"} from ${y.donorCount} ${y.donorCount === 1 ? "supporter" : "supporters"}${y.inKindCents > 0 ? ` · ${formatMoneyShort(y.inKindCents)} in kind` : ""}`}
+                    </Label>
+                    <Label>{y.promisedCents > 0 ? `${formatMoneyShort(y.promisedCents)} promised, ${formatMoneyShort(y.outstandingPledgeCents)} still owed` : "No pledges"}</Label>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <Body weight="bold" numeric tone={y.cashCents > 0 ? "ink" : "muted"}>
+                      {formatMoneyShort(y.cashCents)}
+                    </Body>
+                    {y.year === fiscalYear && <Chip label="Open Below" kind="check" role="accent" />}
+                  </div>
+                </div>
+              </Stack>
+            </Card>
+          );
+        })}
+      </Section>
+
+      <Section label={`${fiscalYear} Detail`} role="accent" kind="money" />
+      <Stack gap={2}>
+        <StatRow>
+          <Stat value={formatMoneyShort(s.totalCashCents)} label={`Raised in ${fiscalYear}`} role="committed" kind="money" href={`/org/${slug}/fundraising/gifts?year=${fiscalYear}`} />
           <Stat value={formatMoneyShort(s.totalBudgetCents)} label="Budget" role="contact" kind="scale" href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`} />
         </StatRow>
         <Label>{budgetPercent === null ? "Cash in the door. No budget set for the year." : `Cash in the door, ${budgetPercent}% of the year's budget.`}</Label>
@@ -185,7 +240,7 @@ export default async function FundraisingPage({
         )}
       </Section>
 
-      <Section label="This Year" role="contact" kind="people">
+      <Section label={`${fiscalYear} Supporters`} role="contact" kind="people">
         <Note title={`${s.giftCount} ${s.giftCount === 1 ? "gift" : "gifts"} from ${s.donorCount} ${s.donorCount === 1 ? "supporter" : "supporters"}.`}>
           Anonymous gifts count in the total and not in the supporter number, so the figure means people.
         </Note>
