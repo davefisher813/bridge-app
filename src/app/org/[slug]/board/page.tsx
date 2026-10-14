@@ -16,7 +16,9 @@ import {
 import { loadFitsForPairs, rowToFit } from "@/lib/data/fits";
 import type { FitTag } from "@/lib/fit/types";
 import { isPlacedStatus, isScoredStatus } from "@/lib/placement";
-import { AddButton, EmptyState, Label, LinkButton, Row, Score, Screen, Section, TextLink } from "@/components/kit";
+import { AddButton, BulkAction, BulkCheck, BulkSelect, EmptyState, Label, LinkButton, Row, Score, Screen, Section, SelectField, TextLink } from "@/components/kit";
+import { bulkChangeTargetStatus, bulkRemoveTargets } from "@/lib/actions/targetsBulk";
+import { BULK_STATUSES } from "@/lib/bulk/targets";
 import { SearchField } from "@/components/SearchField";
 import { StatusPill } from "@/components/StatusPill";
 import { stageKind, statusRole } from "@/components/statusHue";
@@ -168,7 +170,41 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
           <EmptyState kind="target" title={q || narrowedBy ? "Nothing Matches" : "No Recruiting Targets Yet"} action={!q && canEdit && <LinkButton href={`/org/${slug}/board/new`}>Add the First Target</LinkButton>} />
         </>
       ) : (
-        grouped.map((group) => (
+        <BulkSelect
+          ids={shown.map((r) => r.id)}
+          noun="target"
+          actions={
+            <>
+              <BulkAction
+                action={bulkChangeTargetStatus.bind(null, slug)}
+                label="Change Status"
+                noun="target"
+                question="Change Status For {n}"
+                confirmLabel="Change Status"
+                hint="Offer and Committed are set one target at a time, and so are targets already on Offer or Committed. Placed athletes are skipped. Anything skipped is counted afterwards."
+                fields={
+                  <SelectField name="status" label="New Status" defaultValue={BULK_STATUSES[0]}>
+                    {BULK_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </SelectField>
+                }
+              />
+              <BulkAction
+                action={bulkRemoveTargets.bind(null, slug)}
+                label="Remove Targets"
+                noun="target"
+                question="Remove {n}"
+                confirmLabel="Remove Targets"
+                destructive
+                hint="Each target's contact log and visits are removed with it. This cannot be undone. Committed targets are skipped; remove those one at a time."
+              />
+            </>
+          }
+        >
+          {grouped.map((group) => (
           <Section key={group.status} label={group.status} count={group.rows.length} role={statusRole(group.status)} kind={stageKind(group.status)}>
             {/* Every row opens the read view, whatever the role. It used
                 to link to the edit form and only for staff, so a member
@@ -177,6 +213,7 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
             {group.rows.map((r) => (
               <Row
                 key={r.id}
+                select={<BulkCheck id={r.id} label={`${r.athleteName} to ${r.schoolName}`} />}
                 href={`/org/${slug}/board/${r.id}`}
                 kind="school"
                 role={statusRole(r.status)}
@@ -197,7 +234,8 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
               />
             ))}
           </Section>
-        ))
+          ))}
+        </BulkSelect>
       )}
     </Screen>
   );
