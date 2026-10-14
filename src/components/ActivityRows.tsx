@@ -31,7 +31,7 @@ const GLYPH: Record<ActivitySubjectType, { kind: RowKind; role: Role }> = {
 };
 
 // These leave nothing to open: the thing they were about is gone.
-const GONE: ReadonlySet<ActivityAction> = new Set(["athlete_removed", "target_removed", "member_removed", "assignment_cancelled", "document_discarded"]);
+const GONE: ReadonlySet<ActivityAction> = new Set(["athlete_removed", "target_removed", "member_removed", "assignment_cancelled", "assignment_deleted", "document_discarded"]);
 
 // A meta line is a sentence, so it reads "5 minutes ago". Past a week
 // the date itself is clearer than "40 days ago".

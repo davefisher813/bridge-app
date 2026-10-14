@@ -110,6 +110,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0067_doc_approvers.
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0068_access_tightening.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0069_document_title.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0070_org_master_account.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0071_assignments_bulk_delete.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0072_documents_bulk.sql"
 
 echo "==> Seeding data and running RLS assertions"
@@ -205,6 +206,13 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0072_documents_bu
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0072_documents_bulk.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_enum where enumlabel = 'document_typed'\"" | grep -qx 1
 echo "==> 0072 is reversible"
+
+echo "==> 0071: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0071_assignments_bulk_delete_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_policies where tablename = 'assignments' and cmd = 'DELETE'\"" | grep -qx 0
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0071_assignments_bulk_delete.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_policies where tablename = 'assignments' and cmd = 'DELETE'\"" | grep -qx 1
+echo "==> 0071 is reversible"
 
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"
