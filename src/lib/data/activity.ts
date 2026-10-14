@@ -46,6 +46,9 @@ export const ACTIVITY_ACTIONS = [
   "assignment_submitted",
   "assignment_reviewed",
   "assignment_cancelled",
+  "assignment_deleted",
+  "assignment_reassigned",
+  "assignment_due_changed",
   "document_uploaded",
   "document_applied",
   "document_discarded",
@@ -104,6 +107,9 @@ export const SUBJECT_TYPE_OF: Record<ActivityAction, ActivitySubjectType> = {
   assignment_submitted: "assignment",
   assignment_reviewed: "assignment",
   assignment_cancelled: "assignment",
+  assignment_deleted: "assignment",
+  assignment_reassigned: "assignment",
+  assignment_due_changed: "assignment",
   document_uploaded: "document",
   document_applied: "document",
   document_discarded: "document",
@@ -164,6 +170,11 @@ export interface ActivitySubjects {
   assignment_submitted: { name?: string | null; kind: string };
   assignment_reviewed: { name: string; kind: string; to: string };
   assignment_cancelled: { name: string; kind: string };
+  // The bulk actions on the Assignments list (migration 0071). Names and
+  // kinds only, as every assignment line; one line per row.
+  assignment_deleted: { name: string; kind: string };
+  assignment_reassigned: { name: string; kind: string; from: string };
+  assignment_due_changed: { name: string; kind: string; to: string };
   // `kind` is the document category (transcript, test score, ...); the
   // athlete may not be known yet on an upload.
   document_uploaded: { name?: string | null; kind: string };
@@ -267,6 +278,9 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   assignment_submitted: (s) => (s.name ? `Submitted the ${word(s.kind, "open")} assignment for ${who(s.name)}` : `Submitted the ${word(s.kind, "open")} assignment`),
   assignment_reviewed: (s) => `Reviewed the ${word(s.kind, "open")} assignment for ${who(s.name)} as ${word(s.to, "reviewed")}`,
   assignment_cancelled: (s) => `Cancelled the ${word(s.kind, "open")} assignment for ${who(s.name)}`,
+  assignment_deleted: (s) => `Deleted the ${word(s.kind, "open")} assignment for ${who(s.name)}`,
+  assignment_reassigned: (s) => `Moved the ${word(s.kind, "open")} assignment from ${who(s.from)} to ${who(s.name)}`,
+  assignment_due_changed: (s) => (s.to === "cleared" ? `Cleared the due date on the ${word(s.kind, "open")} assignment for ${who(s.name)}` : `Changed the due date on the ${word(s.kind, "open")} assignment for ${who(s.name)}`),
   document_uploaded: (s) => (s.name ? `Uploaded ${article(word(s.kind, "document"))} ${word(s.kind, "document")} for ${who(s.name)}` : `Uploaded ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`),
   document_applied: (s) => `Applied ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to ${who(s.name)}`,
   document_discarded: (s) => (s.name ? `Discarded ${article(word(s.kind, "document"))} ${word(s.kind, "document")} for ${who(s.name)}` : `Discarded ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`),

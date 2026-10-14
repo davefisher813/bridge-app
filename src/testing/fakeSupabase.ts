@@ -410,7 +410,9 @@ export class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }>
         if (refusal) return { data: null, error: { message: refusal } };
       }
       if (this.writes.op === "delete") {
-        for (let i = table.length - 1; i >= 0; i--) if (this.matches(table[i])) table.splice(i, 1);
+        // Postgres answers a delete's returning clause with the rows
+        // that went, so `.delete().select("id")` can say how many.
+        for (let i = table.length - 1; i >= 0; i--) if (this.matches(table[i])) inserted.unshift(...table.splice(i, 1));
       }
       // An update changes the rows the filters match, in place, and
       // answers with those rows: an action that claims a row with

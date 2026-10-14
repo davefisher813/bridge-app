@@ -90,3 +90,4 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0068_access_tightening.sql | pending | not on production yet |
 | 0069_document_title.sql | applied | 20261013160125 0069_document_title |
 | 0070_org_master_account.sql | applied | 20261013202812 0070_org_master_account |
+| 0071_assignments_bulk_delete.sql | pending | not on production yet |
