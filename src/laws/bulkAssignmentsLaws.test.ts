@@ -368,7 +368,7 @@ describe("LAW: migration 0071 is structure only", () => {
   });
   it("has a down script, a ledger row, and the RLS suite section at the end of the file", () => {
     expect(read("scripts/down/0071_assignments_bulk_delete_down.sql")).toMatch(/drop policy if exists assignments_delete/);
-    expect(read("migrations/APPLIED.md")).toMatch(/\| 0071_assignments_bulk_delete\.sql \| pending \|/);
+    expect(read("migrations/APPLIED.md")).toMatch(/\| 0071_assignments_bulk_delete\.sql \| applied \|/);
     const suite = read("scripts/rls_test.sql");
     expect(suite.trimEnd().endsWith("ALL 0071 ASSERTIONS PASSED'")).toBe(true);
     expect(suite).toContain("-- ===== 0071: bulk delete and reassign =====");
