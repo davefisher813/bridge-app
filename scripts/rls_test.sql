@@ -5563,3 +5563,29 @@ end $$;
 reset role;
 select set_test_user(null);
 \echo 'ALL 0070 ASSERTIONS PASSED'
+
+-- ── Migration 0072: bulk Documents; the log can say a document was typed ──
+-- The enum gains one value and nothing else changes: who may write the
+-- log, and what a row must satisfy, are the policies and triggers already
+-- asserted above. The server writes this row like any other.
+reset role;
+select set_test_user(null);
+do $$
+declare n int;
+begin
+  if not exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid where t.typname = 'activity_action' and e.enumlabel = 'document_typed') then
+    raise exception 'FAIL: activity_action has no document_typed';
+  end if;
+  insert into activity_log (org_id, actor_id, action, subject_type, summary)
+  values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'document_typed', 'document', 'Set the type of a document to Transcript');
+  select count(*) into n from activity_log where action = 'document_typed';
+  if n <> 1 then raise exception 'FAIL: read % document_typed rows, expected 1', n; end if;
+  begin
+    insert into activity_log (org_id, actor_id, action, subject_type, summary)
+    values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'document_typed', 'note', 'Set the type of a note');
+    raise exception 'FAIL: a document_typed row with an unlisted subject type was accepted';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS: the log accepts a document_typed row and still holds its subject-type rule';
+end $$;
+\echo 'ALL 0072 ASSERTIONS PASSED'

@@ -1,9 +1,10 @@
-import { documentTypeLabel } from "@/lib/documents/fileTypes";
+import { documentTypeLabel, READER_TYPES } from "@/lib/documents/fileTypes";
+import { bulkApproveDocuments, bulkArchiveDocuments, bulkLinkDocumentsToAthlete, bulkRestoreDocuments, bulkSetDocumentType } from "@/lib/actions/documentsBulk";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
-import { AddButton, Body, EmptyState, LinkButton, Notice, Row, Screen, Section, Stat, StatRow } from "@/components/kit";
+import { AddButton, Body, BulkAction, BulkCheck, BulkSelect, EmptyState, Hidden, LinkButton, Notice, Row, Screen, Section, SelectField, Stat, StatRow } from "@/components/kit";
 import { LifecycleChip } from "@/components/LifecycleChip";
 import { formatBytes, formatLabelOf } from "@/lib/vault/format";
 import { isLifecycle, isStaleProcessing, LIFECYCLE_LABEL, type Lifecycle } from "@/lib/vault/lifecycle";
@@ -135,6 +136,7 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
       title={title}
       meta={[facts.join(" · "), ...notes].join(" · ")}
       wrap
+      select={<BulkCheck id={doc.id} label={title} />}
       trailing={
         <>
           <LifecycleChip lifecycle={lifecycle} />
@@ -146,6 +148,16 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
         </>
       }
     />
+  );
+}
+
+// Where a bulk action comes back to: the same view and search.
+function BulkHere({ view, q }: { view: View; q: string }) {
+  return (
+    <>
+      <Hidden name="view" value={view} />
+      <Hidden name="q" value={q} />
+    </>
   );
 }
 
@@ -173,6 +185,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
       .limit(LOAD_CAP),
     supabase.from("athletes").select("id, name").eq("org_id", org.id).is("deleted_at", null),
   ]);
+  const athletes = ((athleteRows ?? []) as { id: string; name: string }[]).slice().sort((a, b) => a.name.localeCompare(b.name));
   const linkedNames = new Map(((athleteRows ?? []) as { id: string; name: string }[]).map((a) => [a.id, a.name]));
 
   const all = (data ?? []) as DocRow[];
@@ -220,17 +233,105 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
       {rows.length === 0 ? (
         <EmptyState kind="document" title={q ? "Nothing Matches" : all.length === 0 ? "No Documents Yet" : `Nothing in ${viewLabel}`} action={q || all.length > 0 ? undefined : <LinkButton href={`/org/${slug}/documents/new`}>Add the First One</LinkButton>} />
       ) : (
-        (["uploaded", "processing", "needs_review", "ready", "archived"] as const).map((state) => {
-          const list = inState(state);
-          if (list.length === 0) return null;
-          return (
-            <Section key={state} label={LIFECYCLE_LABEL[state]} count={list.length} role={state === "needs_review" ? "offer" : state === "ready" ? "committed" : state === "processing" ? "contact" : "neutral"} kind={state === "needs_review" ? "warning" : state === "ready" ? "check" : state === "processing" ? "clock" : state === "archived" ? "note" : "document"}>
-              {list.map((d) => (
-                <DocumentRow key={d.id} slug={slug} doc={d} linkedNames={linkedNames} />
-              ))}
-            </Section>
-          );
-        })
+        <BulkSelect
+          ids={rows.map((r) => r.id)}
+          noun="document"
+          actions={
+            <>
+              {(view === "all" || view === "needs_review") && (
+                <BulkAction
+                  action={bulkApproveDocuments.bind(null, slug)}
+                  label="Approve"
+                  noun="document"
+                  question="Approve {n}"
+                  confirmLabel="Approve"
+                  hint="Moves them to Ready. A document whose type has a named approver, who is someone else, is skipped and counted."
+                  fields={<BulkHere view={view} q={q} />}
+                />
+              )}
+              {(view === "all" || view === "needs_review" || view === "ready") && (
+                <BulkAction
+                  action={bulkArchiveDocuments.bind(null, slug)}
+                  label="Archive"
+                  noun="document"
+                  question="Archive {n}"
+                  confirmLabel="Archive"
+                  hint="Puts them away. Nothing is deleted, and Restore brings them back."
+                  fields={<BulkHere view={view} q={q} />}
+                />
+              )}
+              {(view === "all" || view === "archived") && (
+                <BulkAction
+                  action={bulkRestoreDocuments.bind(null, slug)}
+                  label="Restore"
+                  noun="document"
+                  question="Restore {n}"
+                  confirmLabel="Restore"
+                  hint="Brings them back to Needs Review."
+                  fields={<BulkHere view={view} q={q} />}
+                />
+              )}
+              <BulkAction
+                action={bulkLinkDocumentsToAthlete.bind(null, slug)}
+                label="Link to Athlete"
+                noun="document"
+                question="Link {n} to an Athlete"
+                confirmLabel="Link"
+                hint="They show on that athlete's page. Nothing is read or applied."
+                fields={
+                  <>
+                    <BulkHere view={view} q={q} />
+                    <SelectField name="linkedAthleteId" label="Athlete" defaultValue="">
+                      <option value="" disabled>
+                        Pick an Athlete
+                      </option>
+                      {athletes.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </>
+                }
+              />
+              <BulkAction
+                action={bulkSetDocumentType.bind(null, slug)}
+                label="Set Type"
+                noun="document"
+                question="Set the Type of {n}"
+                confirmLabel="Set Type"
+                hint="A document that was read keeps the type of its reading and is skipped."
+                fields={
+                  <>
+                    <BulkHere view={view} q={q} />
+                    <SelectField name="filedAs" label="Type" defaultValue="">
+                      <option value="" disabled>
+                        Pick a Type
+                      </option>
+                      {READER_TYPES.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </>
+                }
+              />
+            </>
+          }
+        >
+          {(["uploaded", "processing", "needs_review", "ready", "archived"] as const).map((state) => {
+            const list = inState(state);
+            if (list.length === 0) return null;
+            return (
+              <Section key={state} label={LIFECYCLE_LABEL[state]} count={list.length} role={state === "needs_review" ? "offer" : state === "ready" ? "committed" : state === "processing" ? "contact" : "neutral"} kind={state === "needs_review" ? "warning" : state === "ready" ? "check" : state === "processing" ? "clock" : state === "archived" ? "note" : "document"}>
+                {list.map((d) => (
+                  <DocumentRow key={d.id} slug={slug} doc={d} linkedNames={linkedNames} />
+                ))}
+              </Section>
+            );
+          })}
+        </BulkSelect>
       )}
     </Screen>
   );

@@ -57,6 +57,7 @@ export const ACTIVITY_ACTIONS = [
   "document_linked",
   "document_deleted",
   "document_renamed",
+  "document_typed",
   "board_seat_donor_linked",
   "checkin_logged",
   "message_sent",
@@ -115,6 +116,7 @@ export const SUBJECT_TYPE_OF: Record<ActivityAction, ActivitySubjectType> = {
   document_linked: "document",
   document_deleted: "document",
   document_renamed: "document",
+  document_typed: "document",
   board_seat_donor_linked: "seat",
   checkin_logged: "checkin",
   message_sent: "message",
@@ -182,6 +184,8 @@ export interface ActivitySubjects {
   // A document deleted for good (Oct 11). The kind only, never the name.
   document_deleted: { kind: string };
   document_renamed: { kind: string };
+  // Bulk Set Type (migration 0072): the kind it was, the type it is now.
+  document_typed: { kind: string; to: string };
   // A board seat linked to its donor record by name (Oct 13).
   board_seat_donor_linked: { person: string };
   // `kind` is call, meeting, text or other; `date` is the day it
@@ -278,6 +282,7 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   board_seat_donor_linked: (s) => `Linked ${person(s.person)}'s board seat to their donor record`,
   document_deleted: (s) => `Deleted ${article(word(s.kind, "document"))} ${word(s.kind, "document")} for good`,
   document_renamed: (s) => `Retitled ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`,
+  document_typed: (s) => `Set the type of ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to ${word(s.to, "a new type")}`,
   document_unarchived: (s) => `Unarchived ${article(word(s.kind, "document"))} ${word(s.kind, "document")}${s.name ? ` for ${who(s.name)}` : ""}`,
   checkin_logged: (s) => `Logged ${article(word(s.kind, "check-in"))} ${word(s.kind, "check-in")} check-in for ${who(s.name)}${onDate(s.date)}`,
   message_sent: (s) => (s.name ? `Sent a message to the family of ${who(s.name)}` : "Sent a message"),

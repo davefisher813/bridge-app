@@ -31,7 +31,8 @@ import { isStaleProcessing } from "@/lib/data/documentState";
 import { isFamilyStoragePathFor } from "@/lib/data/assignments";
 import { moveLifecycle } from "@/lib/data/vault";
 import { loadDocApprovers } from "@/lib/data/docApprovers";
-import { AREA_COVERS, AREA_LABEL, readyGate } from "@/lib/documents/approvers";
+import { NOBODY_NAMED } from "@/lib/documents/approvers";
+import { documentKind, isSettableType, moveBlock, orgAthleteName, typeBlock, typePatch } from "@/lib/data/documentMoves";
 import { checkVaultFile, isTextReadable, readerCanRead, readerPageOf, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
 import { readerText } from "@/lib/vault/textExtract";
 import { storedFormatOf } from "@/lib/vault/preview";
@@ -333,20 +334,6 @@ async function loadRoster(orgId: string): Promise<{ roster: ResolverAthlete[]; c
     })),
     context: rows.map((a) => ({ id: a.id, name: a.name, sport: a.sport, position: a.position })),
   };
-}
-
-// The two things the activity log may say about a document: what kind
-// it is, as the category's label lower-cased for the middle of a
-// sentence ("document" when nothing has said yet), and which athlete
-// it was for, by name. Never a field that was read off it.
-function documentKind(category: DocCategoryId | null | undefined): string {
-  return category ? getCategory(category).label.toLowerCase() : "document";
-}
-
-async function orgAthleteName(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string, athleteId: string | null | undefined): Promise<{ id: string; name: string } | null> {
-  if (!athleteId) return null;
-  const { data } = await supabase.from("athletes").select("id, name").eq("id", athleteId).eq("org_id", orgId).is("deleted_at", null).maybeSingle();
-  return (data as { id: string; name: string } | null) ?? null;
 }
 
 // Turns a selection the browser has already put in the bucket into
@@ -1651,20 +1638,12 @@ export async function moveDocument(slug: string, documentId: string, to: "ready"
   const doc = data as { id: string; lifecycle: string; lifecycle_changed_at: string | null; category: DocCategoryId | null; requested_category: DocCategoryId | null; filed_as: string | null; athlete_id: string | null } | null;
   if (!doc || !isLifecycle(doc.lifecycle)) return { ok: false, error: "That document is already gone.", gone: true };
 
-  // Doc AI piece 7 (migration 0067): a type with a named approver is
-  // marked Ready by that person only. Nobody named, any Admin, one tap.
-  // The database refuses the same; this says why in a sentence.
-  if (to === "ready") {
-    const gate = readyGate(readerTypeOf(doc), await loadDocApprovers(supabase, org.id), user.id);
-    if (gate.kind === "waiting") {
-      return { ok: false, error: `Waiting on ${gate.approver.name} to approve. Only the ${AREA_LABEL[gate.area]} marks ${AREA_COVERS[gate.area].toLowerCase()} Ready.` };
-    }
-  }
-
-  // Out of Processing only when the reading has plainly died.
-  if (doc.lifecycle === "processing" && !isStaleLifecycle(doc.lifecycle, doc.lifecycle_changed_at)) {
-    return { ok: false, error: "That document is still being read." };
-  }
+  // The approver gate (migration 0067) and the still-being-read check are
+  // shared with the bulk actions (documentMoves.ts). The database refuses
+  // the same; this says why in a sentence.
+  const approvers = to === "ready" ? await loadDocApprovers(supabase, org.id) : NOBODY_NAMED;
+  const block = moveBlock(doc, to, approvers, user.id);
+  if (block) return { ok: false, error: block.message };
 
   const athlete = await orgAthleteName(supabase, org.id, doc.athlete_id);
   const moved = await moveLifecycle(supabase, {
@@ -1709,38 +1688,20 @@ export async function fileDocumentAs(slug: string, documentId: string, formData:
   await requireRole(org.id, STAFF_ROLES);
   const back = `/org/${slug}/documents/${documentId}`;
   const raw = String(formData.get("filedAs") ?? "").trim();
-  if (raw && !isFileType(raw) && !isReaderType(raw)) redirect(`${back}?error=${encodeURIComponent("Pick one of the types listed.")}`);
+  if (!isSettableType(raw)) redirect(`${back}?error=${encodeURIComponent("Pick one of the types listed.")}`);
 
   const supabase = await createClient();
   const { data } = await supabase.from("documents").select("id, category, status, extracted, review_reason").eq("id", documentId).eq("org_id", org.id).maybeSingle();
   const doc = data as { category: string | null; status: string; extracted: unknown; review_reason: string | null } | null;
   if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is not in this organization.")}`);
-  // A reading for a person (Other, Board Document, or No Type read as
-  // Other) can be re-typed, then read again as that type; a reading of an
-  // athlete's document keeps its type. A reading that failed with nothing
-  // read (a file that did not look like the type it was read as) has no
-  // reading to keep, so it can be re-typed and read again too.
-  const reference = !doc.category || doc.category === "other" || doc.category === "board_document";
-  const failedUnread = doc.status === "failed" && !doc.extracted;
-  if ((!reference && !failedUnread) || doc.status === "processing" || doc.status === "applied" || doc.status === "filed") {
-    redirect(`${back}?error=${encodeURIComponent("This document was read, so it keeps the type of its reading.")}`);
-  }
+  const kept = typeBlock(doc);
+  if (kept) redirect(`${back}?error=${encodeURIComponent(kept)}`);
 
   const readerType = isReaderType(raw) ? raw : null;
   const fileType = !readerType && isFileType(raw) ? raw : null;
   const { error } = await supabase
     .from("documents")
-    .update({
-      requested_category: readerType,
-      filed_as: fileType,
-      // The settled type goes with it, so Read Again reads the new one,
-      // and so do the athletes the old reading matched: nothing from it
-      // can be applied under the new type.
-      category: null,
-      candidates: [],
-      ...(raw && doc.review_reason === "No type chosen." ? { review_reason: null } : {}),
-      updated_at: new Date().toISOString(),
-    })
+    .update(typePatch(raw, doc))
     .eq("id", documentId)
     .eq("org_id", org.id);
   if (error) redirect(`${back}?error=${encodeURIComponent(`Could not save the type: ${error.message}`)}`);

@@ -47,6 +47,7 @@ const SAMPLE: { [A in ActivityAction]: ActivitySubjects[A] } = {
   document_linked: { kind: "transcript", to: "Jordan Lee", from: "Sam Diaz" },
   document_deleted: { kind: "transcript" },
   document_renamed: { kind: "board_document" },
+  document_typed: { kind: "document", to: "Transcript" },
   board_seat_donor_linked: { person: "Pat Chair" },
   checkin_logged: { name: "Fixture Athlete", kind: "call", date: "2026-09-21" },
   message_sent: { name: "Fixture Athlete" },
