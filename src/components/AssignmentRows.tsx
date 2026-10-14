@@ -9,7 +9,7 @@ import {
 } from "@/lib/data/assignments";
 import type { RowKind } from "@/components/RowGlyph";
 import type { Role } from "@/components/statusHue";
-import { Chevron, Chip, Row } from "@/components/kit";
+import { BulkCheck, Chevron, Chip, Row } from "@/components/kit";
 
 // An assignment as a list row (migration 0046), shared by the profile's
 // Assignments section, the athlete's full list and the org-wide list.
@@ -54,7 +54,10 @@ export function dueLabel(dueOn: string | null): string {
 
 // The glyph on the left: what the row is about, in the status's hue, so
 // a page of them scans by colour before it is read.
-export function AssignmentRow({ slug, row, today, showAthlete = false }: { slug: string; row: Assignment | OrgAssignment; today: string; showAthlete?: boolean }) {
+//
+// `selectable` puts a BulkCheck at the row's left end (the org list, inside
+// a BulkSelect); it shows only while the person is selecting.
+export function AssignmentRow({ slug, row, today, showAthlete = false, selectable = false }: { slug: string; row: Assignment | OrgAssignment; today: string; showAthlete?: boolean; selectable?: boolean }) {
   const chip = ASSIGNMENT_STATUS_CHIP[row.status];
   const athlete = showAthlete && "athleteName" in row ? row.athleteName : null;
   const meta = [athlete, ASSIGNMENT_CATEGORY_LABEL[row.category], dueLabel(row.dueOn)].filter(Boolean).join(" · ");
@@ -71,16 +74,17 @@ export function AssignmentRow({ slug, row, today, showAthlete = false }: { slug:
           <Chevron />
         </>
       }
+      select={selectable ? <BulkCheck id={row.id} label={row.title} /> : undefined}
       wrap
     />
   );
 }
 
-export function AssignmentRows({ slug, rows, today, showAthlete = false }: { slug: string; rows: readonly (Assignment | OrgAssignment)[]; today: string; showAthlete?: boolean }) {
+export function AssignmentRows({ slug, rows, today, showAthlete = false, selectable = false }: { slug: string; rows: readonly (Assignment | OrgAssignment)[]; today: string; showAthlete?: boolean; selectable?: boolean }) {
   return (
     <>
       {rows.map((r) => (
-        <AssignmentRow key={r.id} slug={slug} row={r} today={today} showAthlete={showAthlete} />
+        <AssignmentRow key={r.id} slug={slug} row={r} today={today} showAthlete={showAthlete} selectable={selectable} />
       ))}
     </>
   );

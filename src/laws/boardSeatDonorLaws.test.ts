@@ -121,11 +121,25 @@ describe("give/get screens can show another year", () => {
     "src/app/org/[slug]/board-governance/[id]/page.tsx",
     "src/app/org/[slug]/board-governance/members/page.tsx",
     "src/app/org/[slug]/board-governance/[id]/seats/[memberId]/page.tsx",
-    "src/app/org/[slug]/fundraising/page.tsx",
   ];
   it.each(pages)("%s renders a YearSwitch and takes the year from the org's day", (p) => {
     const src = readFileSync(p, "utf8");
     expect(src).toContain("<YearSwitch ");
     expect(src).not.toContain("new Date().getFullYear()");
+  });
+
+  // The overview went further (Dave, 2026-10-13: "not marked off by
+  // year"): every year at once under an all-time headline, a card per
+  // year that opens that year's detail, so it needs no switch.
+  it("the Fundraising overview shows every year and an all-time headline, and takes the year from the org's day", () => {
+    const src = readFileSync("src/app/org/[slug]/fundraising/page.tsx", "utf8");
+    expect(src).toContain("yearlyRollup(gifts, pledges, currentYear)");
+    expect(src).toContain('label="Raised, All Years"');
+    expect(src).toContain('<Section label="By Year"');
+    expect(src).toContain("fundraising?year=${y.year}");
+    expect(src).not.toContain("new Date().getFullYear()");
+    // The headline and the year list come before any one year's detail.
+    expect(src.indexOf('label="Raised, All Years"')).toBeLessThan(src.indexOf("Detail`}"));
+    expect(src.indexOf('<Section label="By Year"')).toBeLessThan(src.indexOf("Detail`}"));
   });
 });

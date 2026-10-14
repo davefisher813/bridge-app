@@ -3484,13 +3484,14 @@ end $$;
 reset role;
 
 -- The shape, asked of the catalog: select, insert and update policies
--- only (no delete for anyone), the three triggers, the new enum value,
+-- only (delete arrived with 0071), the three triggers, the new enum value,
 -- the storage policy, and nothing for anon.
 do $$
 declare cmds text[]; n int; pol text;
 begin
   select coalesce(array_agg(distinct p.cmd::text order by p.cmd::text), '{}') into cmds from pg_policies p where p.schemaname = 'public' and p.tablename = 'assignments';
-  if cmds <> array['INSERT', 'SELECT', 'UPDATE'] then raise exception 'FAIL: assignments policies are %, expected INSERT, SELECT and UPDATE only', cmds; end if;
+  -- DELETE arrived with 0071 (bulk delete, Admins only).
+  if cmds <> array['DELETE', 'INSERT', 'SELECT', 'UPDATE'] then raise exception 'FAIL: assignments policies are %, expected DELETE, INSERT, SELECT and UPDATE only', cmds; end if;
   select count(*) into n from pg_trigger t join pg_class c on c.oid = t.tgrelid where c.relname = 'assignments' and not t.tgisinternal and t.tgname in ('assignments_coherent', 'assignments_document_coherent', 'assignments_honest');
   if n <> 3 then raise exception 'FAIL: assignments carries % of its 3 triggers', n; end if;
   if not ('filed' = any (enum_range(null::doc_status)::text[])) then raise exception 'FAIL: doc_status has no filed value'; end if;
@@ -3570,9 +3571,12 @@ begin
     raise exception 'FAIL: an assignment was redated';
   exception when check_violation then null;
   end;
+  -- Since 0071 an open row with no file may move to another athlete of
+  -- its org (Reassign); a submitted one may not. The moves are proved in
+  -- the 0071 section at the end of this file.
   begin
-    update assignments set athlete_id = '00000000-0000-0000-0000-000000000110' where id = '00000000-0000-0000-0000-0000000a00f1';
-    raise exception 'FAIL: an assignment was moved to another athlete';
+    update assignments set athlete_id = '00000000-0000-0000-0000-000000000121' where id = '00000000-0000-0000-0000-0000000a0007';
+    raise exception 'FAIL: a submitted assignment was moved to another athlete';
   exception when check_violation then null;
   end;
   begin
@@ -3720,14 +3724,13 @@ begin
   update assignments set title = 'Rewritten by another org' where org_id = '00000000-0000-0000-0000-000000000010';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: Elite''s Admin updated % of Bridge''s assignments', n; end if;
-  -- No delete for anyone, an Admin included.
-  delete from assignments;
+  -- An Admin deletes nothing outside their own org (0071 gave Admins a
+  -- delete in their own org; the 0071 section at the end of this file
+  -- proves that, and who else cannot).
+  delete from assignments where org_id = '00000000-0000-0000-0000-000000000010';
   get diagnostics n = row_count;
-  if n <> 0 then raise exception 'FAIL: an Admin deleted % assignments', n; end if;
-  delete from assignments where org_id = '00000000-0000-0000-0000-000000000020';
-  get diagnostics n = row_count;
-  if n <> 0 then raise exception 'FAIL: an Admin deleted % assignments in their own org', n; end if;
-  raise notice 'PASS: an Admin creates as themselves, reviews and cancels in their own org, is refused elsewhere, and deletes nothing';
+  if n <> 0 then raise exception 'FAIL: an Admin deleted % assignments in another org', n; end if;
+  raise notice 'PASS: an Admin creates as themselves, reviews and cancels in their own org, is refused elsewhere, and deletes nothing in another org';
 
   -- The leftover staff row in Bridge works as an Admin does.
   perform set_test_user('00000000-0000-0000-0000-000000000009');
@@ -5563,3 +5566,161 @@ end $$;
 reset role;
 select set_test_user(null);
 \echo 'ALL 0070 ASSERTIONS PASSED'
+
+-- ── Migration 0072: bulk Documents; the log can say a document was typed ──
+-- The enum gains one value and nothing else changes: who may write the
+-- log, and what a row must satisfy, are the policies and triggers already
+-- asserted above. The server writes this row like any other.
+reset role;
+select set_test_user(null);
+do $$
+declare n int;
+begin
+  if not exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid where t.typname = 'activity_action' and e.enumlabel = 'document_typed') then
+    raise exception 'FAIL: activity_action has no document_typed';
+  end if;
+  insert into activity_log (org_id, actor_id, action, subject_type, summary)
+  values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'document_typed', 'document', 'Set the type of a document to Transcript');
+  select count(*) into n from activity_log where action = 'document_typed';
+  if n <> 1 then raise exception 'FAIL: read % document_typed rows, expected 1', n; end if;
+  begin
+    insert into activity_log (org_id, actor_id, action, subject_type, summary)
+    values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'document_typed', 'note', 'Set the type of a note');
+    raise exception 'FAIL: a document_typed row with an unlisted subject type was accepted';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS: the log accepts a document_typed row and still holds its subject-type rule';
+end $$;
+\echo 'ALL 0072 ASSERTIONS PASSED'
+-- ===== 0071: bulk delete and reassign =====
+-- Appended at the end of the file on purpose: it seeds its own rows and
+-- leaves every earlier section's counts alone. Proves, as the app's
+-- non-superuser role: an Admin deletes their own org's assignments (any
+-- status) and no one else's; a Viewer, another athlete's login, another
+-- org's Admin, a user in neither org and a signed-out caller delete
+-- nothing; an open row with no file moves to another athlete of its org
+-- and a submitted one, one with a file, and one aimed at another org's
+-- athlete do not; the org and the author still cannot change.
+--
+-- Planted and reverted, each failing where named: the delete policy keyed
+-- off _member_org_ids (a Viewer deleted); the delete policy dropped
+-- (the Admin delete found 0 rows); the status/document clause dropped from
+-- the honesty trigger (a submitted row moved).
+reset role;
+select set_test_user(null);
+insert into athletes (id, org_id, recruit_type, name, sport) values
+  ('00000000-0000-0000-0000-000000071111', '00000000-0000-0000-0000-000000000010', 'hs', 'Bulk Athlete Two', 'baseball');
+insert into documents (id, org_id, athlete_id, file_name, file_size, media_type, source_role, status) values
+  ('00000000-0000-0000-0000-000000071d01', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'bulk-filed.pdf', 1000, 'application/pdf', 'parent', 'filed');
+insert into assignments (id, org_id, athlete_id, title, kind, status, created_by) values
+  ('00000000-0000-0000-0000-000000071a01', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Bulk Delete One', 'other', 'assigned', '00000000-0000-0000-0000-000000000001'),
+  ('00000000-0000-0000-0000-000000071a02', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Bulk Delete Two', 'other', 'complete', '00000000-0000-0000-0000-000000000001'),
+  ('00000000-0000-0000-0000-000000071a03', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Bulk Delete Three', 'other', 'submitted', '00000000-0000-0000-0000-000000000001'),
+  ('00000000-0000-0000-0000-000000071a04', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Bulk Movable', 'other', 'assigned', '00000000-0000-0000-0000-000000000001'),
+  ('00000000-0000-0000-0000-000000071a05', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Bulk Sent Back', 'other', 'needs_revision', '00000000-0000-0000-0000-000000000001'),
+  ('00000000-0000-0000-0000-000000071a06', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Bulk Has A File', 'upload', 'assigned', '00000000-0000-0000-0000-000000000001'),
+  ('00000000-0000-0000-0000-000000071a07', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000110', 'Bulk Submitted', 'other', 'submitted', '00000000-0000-0000-0000-000000000001'),
+  ('00000000-0000-0000-0000-000000071a11', '00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000120', 'Bulk Elite Row', 'other', 'assigned', '00000000-0000-0000-0000-000000000002');
+update assignments set document_id = '00000000-0000-0000-0000-000000071d01' where id = '00000000-0000-0000-0000-000000071a06';
+
+set role app_user;
+do $$
+declare n int; who uuid;
+begin
+  -- Nobody but an Admin of the row's org deletes it.
+  foreach who in array array[
+    '00000000-0000-0000-0000-000000000006',  -- Bridge Viewer
+    '00000000-0000-0000-0000-000000000002',  -- Elite Admin, not Bridge's
+    '00000000-0000-0000-0000-000000000005',  -- Athlete login (Elite)
+    '00000000-0000-0000-0000-000000000007'   -- in neither org
+  ]::uuid[] loop
+    perform set_test_user(who);
+    delete from assignments where id in ('00000000-0000-0000-0000-000000071a01', '00000000-0000-0000-0000-000000071a02', '00000000-0000-0000-0000-000000071a03');
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: % deleted % Bridge assignments', who, n; end if;
+  end loop;
+  -- A Viewer, the Athlete login and Bridge's own Admin do not delete Elite's row.
+  foreach who in array array['00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000001']::uuid[] loop
+    perform set_test_user(who);
+    delete from assignments where id = '00000000-0000-0000-0000-000000071a11';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: % deleted Elite''s assignment', who; end if;
+  end loop;
+  perform set_test_user(null);
+  delete from assignments where id = '00000000-0000-0000-0000-000000071a01';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a signed-out caller deleted an assignment'; end if;
+  raise notice 'PASS: a Viewer, another org''s Admin, an Athlete login, a stranger and a signed-out caller delete no assignment';
+end $$;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from assignments where id in ('00000000-0000-0000-0000-000000071a01', '00000000-0000-0000-0000-000000071a02', '00000000-0000-0000-0000-000000071a03', '00000000-0000-0000-0000-000000071a11');
+  if n <> 4 then raise exception 'FAIL: % of the 4 seeded rows survive the refused deletes', n; end if;
+end $$;
+
+set role app_user;
+do $$
+declare n int;
+begin
+  -- A Bridge Admin deletes Bridge's rows, any status, and only Bridge's.
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  delete from assignments where id in ('00000000-0000-0000-0000-000000071a01', '00000000-0000-0000-0000-000000071a02', '00000000-0000-0000-0000-000000071a03');
+  get diagnostics n = row_count;
+  if n <> 3 then raise exception 'FAIL: a Bridge Admin deleted % of 3 Bridge assignments (open, complete, submitted)', n; end if;
+  delete from assignments where id = '00000000-0000-0000-0000-000000071a11';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a Bridge Admin deleted % of Elite''s assignments', n; end if;
+  raise notice 'PASS: an Admin deletes their own org''s assignments in any status and not another org''s';
+end $$;
+
+do $$
+declare n int; moved uuid;
+begin
+  -- Reassign: an open row, and a sent-back one with no file, move to
+  -- another athlete of the same org.
+  perform set_test_user('00000000-0000-0000-0000-000000000001');
+  update assignments set athlete_id = '00000000-0000-0000-0000-000000071111' where id in ('00000000-0000-0000-0000-000000071a04', '00000000-0000-0000-0000-000000071a05');
+  get diagnostics n = row_count;
+  if n <> 2 then raise exception 'FAIL: an Admin moved % of 2 open assignments to another athlete', n; end if;
+  select athlete_id into moved from assignments where id = '00000000-0000-0000-0000-000000071a04';
+  if moved is distinct from '00000000-0000-0000-0000-000000071111' then raise exception 'FAIL: the moved assignment is on %', moved; end if;
+
+  -- A submitted row does not move.
+  begin
+    update assignments set athlete_id = '00000000-0000-0000-0000-000000071111' where id = '00000000-0000-0000-0000-000000071a07';
+    raise exception 'FAIL: a submitted assignment moved to another athlete';
+  exception when check_violation then null;
+  end;
+  -- A row with a file does not move.
+  begin
+    update assignments set athlete_id = '00000000-0000-0000-0000-000000071111' where id = '00000000-0000-0000-0000-000000071a06';
+    raise exception 'FAIL: an assignment with a linked document moved to another athlete';
+  exception when check_violation then null;
+  end;
+  -- An open row does not move to another org's athlete, or to another org.
+  begin
+    update assignments set athlete_id = '00000000-0000-0000-0000-000000000120' where id = '00000000-0000-0000-0000-000000071a04';
+    raise exception 'FAIL: an assignment moved to another org''s athlete';
+  exception when check_violation then null;
+  end;
+  begin
+    update assignments set org_id = '00000000-0000-0000-0000-000000000020' where id = '00000000-0000-0000-0000-000000071a04';
+    raise exception 'FAIL: an assignment moved to another org';
+  exception when check_violation or insufficient_privilege then null;
+  end;
+  -- A Viewer and another org's Admin move nothing.
+  perform set_test_user('00000000-0000-0000-0000-000000000006');
+  update assignments set athlete_id = '00000000-0000-0000-0000-000000000110' where id = '00000000-0000-0000-0000-000000071a04';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a Viewer moved % assignments', n; end if;
+  perform set_test_user('00000000-0000-0000-0000-000000000002');
+  update assignments set athlete_id = '00000000-0000-0000-0000-000000000110' where id = '00000000-0000-0000-0000-000000071a04';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: another org''s Admin moved % assignments', n; end if;
+  raise notice 'PASS: an open row with no file moves to another athlete of its org; submitted, filed, cross-org and unauthorized moves are refused';
+end $$;
+reset role;
+select set_test_user(null);
+\echo 'ALL 0071 ASSERTIONS PASSED'

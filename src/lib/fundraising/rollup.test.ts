@@ -8,6 +8,7 @@ import {
   outstandingOn,
   summarize,
   toCents,
+  yearlyRollup,
   type Gift,
   type Pledge,
 } from "./rollup";
@@ -304,5 +305,75 @@ describe("campaign progress", () => {
   it("ignores gifts belonging to another campaign", () => {
     const p = campaignProgress("c1", 100000, [gift({ campaignId: "c2", amountCents: 999999 })], []);
     expect(p.raisedCents).toBe(0);
+  });
+});
+
+describe("year by year, and all years together", () => {
+  const gifts = [
+    gift({ amountCents: 20800, receivedOn: "2024-07-22", donorId: "a" }),
+    gift({ amountCents: 1821000, receivedOn: "2025-04-01", donorId: "a" }),
+    gift({ amountCents: 500000, receivedOn: "2025-09-24", donorId: "b", method: "in_kind" }),
+    gift({ amountCents: 250000, receivedOn: "2026-04-07", donorId: "c" }),
+  ];
+
+  it("has one row per year, newest first, from the first year with anything to the current year", () => {
+    const r = yearlyRollup(gifts, [], 2026);
+    expect(r.years.map((y) => y.year)).toEqual([2026, 2025, 2024]);
+  });
+
+  it("a year with nothing in it is still a row, and a gap year is not skipped", () => {
+    const r = yearlyRollup([gift({ receivedOn: "2023-02-01" })], [], 2026);
+    expect(r.years.map((y) => y.year)).toEqual([2026, 2025, 2024, 2023]);
+    expect(r.years[0]).toMatchObject({ cashCents: 0, giftCount: 0 });
+  });
+
+  it("the current year is present even with no records at all", () => {
+    expect(yearlyRollup([], [], 2026).years.map((y) => y.year)).toEqual([2026]);
+  });
+
+  it("each year counts its own cash and gifts, and in-kind is never cash", () => {
+    const r = yearlyRollup(gifts, [], 2026);
+    const by = Object.fromEntries(r.years.map((y) => [y.year, y]));
+    expect(by[2024]).toMatchObject({ cashCents: 20800, giftCount: 1 });
+    expect(by[2025]).toMatchObject({ cashCents: 1821000, inKindCents: 500000, giftCount: 2 });
+    expect(by[2026]).toMatchObject({ cashCents: 250000, giftCount: 1 });
+  });
+
+  it("all-time is the sum of the years, so the top of the page can never read zero while a year holds money", () => {
+    const r = yearlyRollup(gifts, [], 2026);
+    expect(r.cashCents).toBe(r.years.reduce((s, y) => s + y.cashCents, 0));
+    expect(r.giftCount).toBe(r.years.reduce((s, y) => s + y.giftCount, 0));
+    expect(r.cashCents).toBe(20800 + 1821000 + 250000);
+    expect(r.giftCount).toBe(4);
+    expect(r.donorCount).toBe(3);
+  });
+
+  it("a pledge is shown per year and all-time, beside the cash and never inside it", () => {
+    const p = [
+      pledge({ id: "p1", amountCents: 1000000, promisedOn: "2025-10-01" }),
+      pledge({ id: "p2", amountCents: 150000, promisedOn: "2026-10-11" }),
+    ];
+    const r = yearlyRollup(gifts, p, 2026);
+    const by = Object.fromEntries(r.years.map((y) => [y.year, y]));
+    expect(by[2025]).toMatchObject({ promisedCents: 1000000, outstandingPledgeCents: 1000000 });
+    expect(by[2026]).toMatchObject({ promisedCents: 150000, outstandingPledgeCents: 150000 });
+    expect(r.promisedCents).toBe(1150000);
+    expect(r.outstandingPledgeCents).toBe(1150000);
+    expect(r.cashCents).toBe(20800 + 1821000 + 250000);
+  });
+
+  it("what a later gift paid against a pledge reduces what is still owed on it", () => {
+    const p = [pledge({ id: "p1", amountCents: 1000000, promisedOn: "2025-10-01" })];
+    const paid = [gift({ amountCents: 400000, receivedOn: "2026-02-01", pledgeId: "p1" })];
+    const r = yearlyRollup(paid, p, 2026);
+    expect(r.years.find((y) => y.year === 2025)).toMatchObject({ promisedCents: 1000000, outstandingPledgeCents: 600000 });
+    expect(r.outstandingPledgeCents).toBe(600000);
+  });
+
+  it("a written-off or fulfilled pledge owes nothing but was still promised", () => {
+    const p = [pledge({ amountCents: 300000, promisedOn: "2026-03-01", status: "written_off" })];
+    const r = yearlyRollup([], p, 2026);
+    expect(r.promisedCents).toBe(300000);
+    expect(r.outstandingPledgeCents).toBe(0);
   });
 });

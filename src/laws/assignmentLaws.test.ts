@@ -264,7 +264,10 @@ describe("LAW: an Athlete login writes an assignment only through submit_assignm
       const family = /\/app\/org\/\[slug\]\/family\//.test(f) || /\/lib\/data\/family[^/]*\.ts$/.test(f);
       for (const m of src.matchAll(/\.from\(\s*["'`]assignments["'`]\s*\)/g)) {
         const tail = src.slice(m.index! + m[0].length).split(";")[0];
-        if (/\.delete\(/.test(tail)) offenders.push(`${rel(f)}: deletes an assignment`);
+        // The one deleter is the bulk action (migration 0071, Dave
+        // 2026-10-13), Admin only; src/laws/bulkAssignmentsLaws.test.ts
+        // holds it.
+        if (/\.delete\(/.test(tail) && !/lib\/actions\/assignmentsBulk\.ts$/.test(f)) offenders.push(`${rel(f)}: deletes an assignment`);
         if (family && /\.(insert|update|upsert|delete)\(/.test(tail)) offenders.push(`${rel(f)}: a family path writes an assignment`);
       }
     }
@@ -684,7 +687,7 @@ describe("LAW: an Admin's create, review and cancel are scoped by org and athlet
     expect(data.assignments.find((a) => a.id === IDS.assignmentElite)?.status).toBe("assigned");
   });
 
-  it("no assignment is ever deleted by an action", async () => {
+  it("no single-row assignment action ever deletes (only the bulk Delete does)", async () => {
     const { cancelAssignment, reviewAssignment } = await import("@/lib/actions/assignments");
     await run(() => cancelAssignment(ORG_WITH_MODULES, IDS.athlete, IDS.assignmentOverdue));
     await run(() => reviewAssignment(ORG_WITH_MODULES, IDS.athlete, IDS.assignmentSubmitted, "complete", null));

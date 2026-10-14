@@ -46,6 +46,9 @@ export const ACTIVITY_ACTIONS = [
   "assignment_submitted",
   "assignment_reviewed",
   "assignment_cancelled",
+  "assignment_deleted",
+  "assignment_reassigned",
+  "assignment_due_changed",
   "document_uploaded",
   "document_applied",
   "document_discarded",
@@ -57,6 +60,7 @@ export const ACTIVITY_ACTIONS = [
   "document_linked",
   "document_deleted",
   "document_renamed",
+  "document_typed",
   "board_seat_donor_linked",
   "checkin_logged",
   "message_sent",
@@ -104,6 +108,9 @@ export const SUBJECT_TYPE_OF: Record<ActivityAction, ActivitySubjectType> = {
   assignment_submitted: "assignment",
   assignment_reviewed: "assignment",
   assignment_cancelled: "assignment",
+  assignment_deleted: "assignment",
+  assignment_reassigned: "assignment",
+  assignment_due_changed: "assignment",
   document_uploaded: "document",
   document_applied: "document",
   document_discarded: "document",
@@ -115,6 +122,7 @@ export const SUBJECT_TYPE_OF: Record<ActivityAction, ActivitySubjectType> = {
   document_linked: "document",
   document_deleted: "document",
   document_renamed: "document",
+  document_typed: "document",
   board_seat_donor_linked: "seat",
   checkin_logged: "checkin",
   message_sent: "message",
@@ -164,6 +172,11 @@ export interface ActivitySubjects {
   assignment_submitted: { name?: string | null; kind: string };
   assignment_reviewed: { name: string; kind: string; to: string };
   assignment_cancelled: { name: string; kind: string };
+  // The bulk actions on the Assignments list (migration 0071). Names and
+  // kinds only, as every assignment line; one line per row.
+  assignment_deleted: { name: string; kind: string };
+  assignment_reassigned: { name: string; kind: string; from: string };
+  assignment_due_changed: { name: string; kind: string; to: string };
   // `kind` is the document category (transcript, test score, ...); the
   // athlete may not be known yet on an upload.
   document_uploaded: { name?: string | null; kind: string };
@@ -182,6 +195,8 @@ export interface ActivitySubjects {
   // A document deleted for good (Oct 11). The kind only, never the name.
   document_deleted: { kind: string };
   document_renamed: { kind: string };
+  // Bulk Set Type (migration 0072): the kind it was, the type it is now.
+  document_typed: { kind: string; to: string };
   // A board seat linked to its donor record by name (Oct 13).
   board_seat_donor_linked: { person: string };
   // `kind` is call, meeting, text or other; `date` is the day it
@@ -267,6 +282,9 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   assignment_submitted: (s) => (s.name ? `Submitted the ${word(s.kind, "open")} assignment for ${who(s.name)}` : `Submitted the ${word(s.kind, "open")} assignment`),
   assignment_reviewed: (s) => `Reviewed the ${word(s.kind, "open")} assignment for ${who(s.name)} as ${word(s.to, "reviewed")}`,
   assignment_cancelled: (s) => `Cancelled the ${word(s.kind, "open")} assignment for ${who(s.name)}`,
+  assignment_deleted: (s) => `Deleted the ${word(s.kind, "open")} assignment for ${who(s.name)}`,
+  assignment_reassigned: (s) => `Moved the ${word(s.kind, "open")} assignment from ${who(s.from)} to ${who(s.name)}`,
+  assignment_due_changed: (s) => (s.to === "cleared" ? `Cleared the due date on the ${word(s.kind, "open")} assignment for ${who(s.name)}` : `Changed the due date on the ${word(s.kind, "open")} assignment for ${who(s.name)}`),
   document_uploaded: (s) => (s.name ? `Uploaded ${article(word(s.kind, "document"))} ${word(s.kind, "document")} for ${who(s.name)}` : `Uploaded ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`),
   document_applied: (s) => `Applied ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to ${who(s.name)}`,
   document_discarded: (s) => (s.name ? `Discarded ${article(word(s.kind, "document"))} ${word(s.kind, "document")} for ${who(s.name)}` : `Discarded ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`),
@@ -278,6 +296,7 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   board_seat_donor_linked: (s) => `Linked ${person(s.person)}'s board seat to their donor record`,
   document_deleted: (s) => `Deleted ${article(word(s.kind, "document"))} ${word(s.kind, "document")} for good`,
   document_renamed: (s) => `Retitled ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`,
+  document_typed: (s) => `Set the type of ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to ${word(s.to, "a new type")}`,
   document_unarchived: (s) => `Unarchived ${article(word(s.kind, "document"))} ${word(s.kind, "document")}${s.name ? ` for ${who(s.name)}` : ""}`,
   checkin_logged: (s) => `Logged ${article(word(s.kind, "check-in"))} ${word(s.kind, "check-in")} check-in for ${who(s.name)}${onDate(s.date)}`,
   message_sent: (s) => (s.name ? `Sent a message to the family of ${who(s.name)}` : "Sent a message"),

@@ -4370,3 +4370,17 @@ took the address dave@bffsa.org and the bffsa login's password; the old
 bffsa login was renamed "Dave Fisher (Old Login)", locked and moved to a
 dead address. History was not rewritten. Old values are kept in
 private.account_merge_20261013 for reversal.
+
+## 2026-10-14: Bulk actions use one kit pattern and never bypass a single-record rule
+
+Decision: multi-select with a bar (BulkSelect) on Assignments, Documents,
+Athletes and Targets. A bulk action calls the same rules as the single
+action and skips, with a count, any record the single action would refuse
+(approver gate, placed athletes, Committed or Offer targets, submitted
+assignments). Statuses that need facts (Committed, Enrolled, Graduated,
+Drafted, Offer) are not offered in bulk.
+Reason: Dave runs dozens of athletes; one at a time is too slow, but a
+shortcut must not loosen a rule.
+Consequences: migration 0071 adds an Admin delete policy on assignments
+and lets an open assignment without a file move athletes; 0072 adds the
+`document_typed` log action. Delete of assignments and targets has no undo.

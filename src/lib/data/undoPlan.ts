@@ -86,3 +86,75 @@ export function readableColumn(column: string): string {
   if (column === "date_of_birth") return "date of birth";
   return column.replace(/_/g, " ");
 }
+
+// ── Undo for a bulk advisor change ───────────────────────────────────
+// One bulk Assign Advisor changes many athletes at once; one Undo puts
+// every athlete's previous advisor back. As with a document's fields, an
+// athlete is restored only while their advisor is still what the bulk
+// action set: if somebody changed it by hand since, their choice is the
+// current truth and is left alone.
+
+export interface AdvisorUndoEntry {
+  athleteId: string;
+  // Who advised before; null for nobody.
+  before: string | null;
+}
+
+export interface AdvisorUndo {
+  // Who the bulk action assigned; null when it cleared.
+  assigned: string | null;
+  entries: AdvisorUndoEntry[];
+}
+
+export interface AdvisorRestorePlan {
+  // One group per previous advisor, so each restore is one write.
+  groups: { advisorId: string | null; athleteIds: string[] }[];
+  // Left alone: their advisor changed since, or they are gone.
+  kept: string[];
+}
+
+export function planAdvisorRestore(undo: AdvisorUndo, current: ReadonlyMap<string, string | null>): AdvisorRestorePlan {
+  const byAdvisor = new Map<string | null, string[]>();
+  const kept: string[] = [];
+  for (const e of undo.entries) {
+    if (current.has(e.athleteId) && (current.get(e.athleteId) ?? null) === undo.assigned) byAdvisor.set(e.before, [...(byAdvisor.get(e.before) ?? []), e.athleteId]);
+    else kept.push(e.athleteId);
+  }
+  return { groups: [...byAdvisor.entries()].map(([advisorId, athleteIds]) => ({ advisorId, athleteIds })), kept };
+}
+
+// The Undo travels in the page's query string, as the single-athlete one
+// does, so nothing is stored. Ids lose their dashes to stay short: 200
+// athletes is about 7KB. Shape: <assigned|none>~<before|none>:<id>,<id>;<before|none>:<id>
+const HEX32 = /^[0-9a-f]{32}$/;
+const dashless = (id: string) => id.replace(/-/g, "").toLowerCase();
+const dashed = (h: string) => `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+
+export function encodeAdvisorUndo(undo: AdvisorUndo): string {
+  const groups = new Map<string, string[]>();
+  for (const e of undo.entries) {
+    const k = e.before ? dashless(e.before) : "none";
+    groups.set(k, [...(groups.get(k) ?? []), dashless(e.athleteId)]);
+  }
+  const body = [...groups.entries()].map(([k, ids]) => `${k}:${ids.join(",")}`).join(";");
+  return `${undo.assigned ? dashless(undo.assigned) : "none"}~${body}`;
+}
+
+export function decodeAdvisorUndo(token: unknown): AdvisorUndo | null {
+  if (typeof token !== "string" || token.length > 12000) return null;
+  const [head, body, ...extra] = token.split("~");
+  if (extra.length || head === undefined || !body) return null;
+  if (head !== "none" && !HEX32.test(head)) return null;
+  const entries: AdvisorUndoEntry[] = [];
+  for (const group of body.split(";")) {
+    const [who, list, ...more] = group.split(":");
+    if (more.length || who === undefined || !list) return null;
+    if (who !== "none" && !HEX32.test(who)) return null;
+    for (const id of list.split(",")) {
+      if (!HEX32.test(id)) return null;
+      entries.push({ athleteId: dashed(id), before: who === "none" ? null : dashed(who) });
+    }
+  }
+  if (entries.length === 0 || entries.length > 200) return null;
+  return { assigned: head === "none" ? null : dashed(head), entries };
+}

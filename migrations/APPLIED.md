@@ -87,6 +87,8 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0065_family_reads_policies.sql | applied | 20261013140655 0065_family_reads_policies |
 | 0066_family_sends_document.sql | applied | 20261013163709 0066_family_sends_document |
 | 0067_doc_approvers.sql | applied | 20261013160123 0067_doc_approvers |
-| 0068_access_tightening.sql | pending | not on production yet |
+| 0068_access_tightening.sql | applied | 20261013210000 0068_access_tightening |
 | 0069_document_title.sql | applied | 20261013160125 0069_document_title |
 | 0070_org_master_account.sql | applied | 20261013202812 0070_org_master_account |
+| 0071_assignments_bulk_delete.sql | applied | 20261014011513 0071_assignments_bulk_delete |
+| 0072_documents_bulk.sql | applied | 20261014011532 0072_documents_bulk |

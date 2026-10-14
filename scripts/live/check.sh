@@ -34,6 +34,9 @@ done
 echo "==> Every screen at 320, 375 and 390, both themes"
 node scripts/live/drive.mjs
 
+echo "==> Bulk select: the bar and sheets at 320, 375 and 390"
+node scripts/live/bulk.mjs
+
 echo "==> Every row, card and tile: does it go anywhere"
 node scripts/live/clickable.mjs
 
