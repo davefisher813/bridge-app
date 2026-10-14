@@ -153,6 +153,33 @@ describe("LAW: an advisor change offers Undo back to whoever it was", () => {
   });
 });
 
+// ── Bulk advisor change ──────────────────────────────────────────────
+// Verified this law bites: made bulkAssignAdvisor skip setAthleteAdvisor
+// (a plain athletes update with no log), watched the per-athlete log and
+// Undo checks fail, reverted. Covered here, not exempted: a bulk change
+// of authority is the same decision made many times.
+describe("LAW: a bulk advisor change logs every athlete and offers one Undo", () => {
+  it("one advisor_set row per athlete, and the redirect carries an Undo that the page offers", async () => {
+    const { bulkAssignAdvisor } = await import("@/lib/actions/athletesBulk");
+    const fd = new FormData();
+    fd.append("advisorId", OWNER_ID);
+    fd.append("ids", IDS.athleteTransfer);
+    fd.append("ids", IDS.athleteTransferring);
+    const to = await run(() => bulkAssignAdvisor(ORG_WITH_MODULES, fd));
+    expect(to).toMatch(/&undo=[0-9a-f]{32}~none:/);
+    expect(logs("advisor_set")).toHaveLength(2);
+    const token = new URLSearchParams(to!.split("?")[1]).get("undo")!;
+    const html = await render("@/app/org/[slug]/roster/page", { params: P({ slug: ORG_WITH_MODULES }), searchParams: P({ notice: "Done.", undo: token }) });
+    expect(text(html)).toMatch(/Undo/);
+  });
+
+  it("the file that sets advisors in bulk has no direct advisor update of its own", () => {
+    const src = readFileSync(join(SRC, "lib/actions/athletesBulk.ts"), "utf8");
+    expect(src).toMatch(/setAthleteAdvisor\(/);
+    expect(src).not.toMatch(/\.update\(\{[^}]*advisor_id/);
+  });
+});
+
 // ── The steward ──────────────────────────────────────────────────────
 // Verified this law bites: removed the isEligibleAdvisor check from
 // setDonorSteward, watched "refuses a Viewer" fail; removed the
