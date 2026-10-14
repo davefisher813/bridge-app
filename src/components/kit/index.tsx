@@ -209,6 +209,7 @@ export function Row({
   meta,
   trailing,
   trailingAction,
+  select,
   emphasis = "semibold",
   wrap = false,
 }: {
@@ -220,6 +221,9 @@ export function Row({
   meta?: ReactNode;
   trailing?: ReactNode;
   trailingAction?: ReactNode;
+  // A bulk-select checkbox (BulkCheck), a sibling of the row's link at
+  // its left end, for the same reason trailingAction is one.
+  select?: ReactNode;
   emphasis?: "semibold" | "bold";
   // A row is one line each by default. `wrap` lets the meta run on,
   // for the one case where the second line is the point of the row: a
@@ -249,13 +253,14 @@ export function Row({
       {trailing && <div className="ml-auto flex max-w-half flex-shrink-0 flex-col items-end gap-1 text-right">{trailing}</div>}
     </>
   );
-  if (trailingAction) {
+  if (trailingAction || select) {
     // The body keeps the row's own tap rule (56px, the link) and asks
     // for 96px of its own; below that the action wraps under it, the way
     // the trailing does, rather than squeezing the title.
     const bodyClass = "flex min-h-14 min-w-0 grow basis-24 flex-wrap items-center gap-3 px-4 py-3";
     return (
       <div data-kit="row" className="flex flex-wrap items-center gap-3 rounded border border-line bg-paper pr-3">
+        {select}
         {href ? (
           <Link href={href} className={bodyClass}>
             {inner}
@@ -263,7 +268,7 @@ export function Row({
         ) : (
           <div className={bodyClass}>{inner}</div>
         )}
-        <div className="ml-auto flex flex-shrink-0 items-center py-2">{trailingAction}</div>
+        {trailingAction && <div className="ml-auto flex flex-shrink-0 items-center py-2">{trailingAction}</div>}
       </div>
     );
   }
@@ -826,3 +831,4 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
 }
 
 export { ConfirmButton } from "./ConfirmButton";
+export { BulkSelect, BulkCheck, BulkAction } from "./BulkSelect";
