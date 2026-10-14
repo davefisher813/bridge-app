@@ -82,6 +82,6 @@ export const APPLIED_LEDGER: LedgerRow[] = [
   { file: "0068_access_tightening", recorded: "applied", versions: ["20261013210000"] },
   { file: "0069_document_title", recorded: "applied", versions: ["20261013160125"] },
   { file: "0070_org_master_account", recorded: "applied", versions: ["20261013202812"] },
-  { file: "0071_assignments_bulk_delete", recorded: "pending", versions: [] },
-  { file: "0072_documents_bulk", recorded: "pending", versions: [] },
+  { file: "0071_assignments_bulk_delete", recorded: "applied", versions: ["20261014011513"] },
+  { file: "0072_documents_bulk", recorded: "applied", versions: ["20261014011532"] },
 ];

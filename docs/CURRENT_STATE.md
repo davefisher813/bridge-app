@@ -799,7 +799,7 @@ One kit pattern (`src/components/kit/BulkSelect.tsx`: BulkSelect, BulkCheck, Bul
 - Athletes: Assign Advisor (one Undo restores all), Change Status (Active and Inactive only), Export CSV.
 - Targets: Change Status (Target, In Contact, Visit, Not Interested), Remove Targets (no undo).
 
-Migrations 0071 and 0072 are pending on production. `scripts/live/bulk.mjs` drives the selecting state at 320, 375 and 390 inside `scripts/live/check.sh`.
+Migrations 0071 and 0072 are applied on production (2026-10-14); the code is not deployed until the branch is pushed. `scripts/live/bulk.mjs` drives the selecting state at 320, 375 and 390 inside `scripts/live/check.sh`.
 
 ## How it is verified
 
