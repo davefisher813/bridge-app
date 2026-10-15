@@ -14,9 +14,10 @@ const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, de
 const page = await ctx.newPage();
 const report = [];
 
-for (const { name, route, as } of routes) {
+for (const { name, route, as, viewing } of routes) {
   await ctx.clearCookies();
   if (as) await ctx.addCookies([{ name: "fixture_user", value: as, url: BASE }]);
+  if (viewing) await ctx.addCookies([{ name: "fixture_view_as", value: viewing, url: BASE }]);
   const res = await page.goto(BASE + route, { waitUntil: "load", timeout: 60000 });
   if (!res || res.status() >= 400) { report.push({ name, dead: [], status: res?.status() }); continue; }
   const dead = await page.evaluate(() => {

@@ -113,6 +113,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0070_org_master_acc
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0071_assignments_bulk_delete.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0072_documents_bulk.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0073_document_identity_and_type.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0074_view_as.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

@@ -10,6 +10,7 @@ import { canReopen, currentSchoolOf } from "@/lib/placement";
 import { resolveCollege } from "@/lib/data/lookups";
 import { addAthleteNote } from "@/lib/data/athleteNotes";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface ReopenActionState {
   errors: Record<string, string>;
@@ -28,6 +29,7 @@ function unwrap<T>(v: T | T[] | null | undefined): T | null {
 // (a plain form action with no fields). The plain form hands FormData
 // where the state would be, so both shapes are accepted here.
 export async function reopenRecruiting(slug: string, athleteId: string, prevOrForm: ReopenActionState | FormData, maybeForm?: FormData): Promise<ReopenActionState> {
+  await requireNotViewing();
   const formData = maybeForm ?? (prevOrForm instanceof FormData ? prevOrForm : new FormData());
   const values = Object.fromEntries(formData.entries());
 

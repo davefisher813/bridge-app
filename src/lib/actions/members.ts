@@ -17,6 +17,7 @@ import { activitySummary, logActivity } from "@/lib/data/activity";
 import { areasHeldBy } from "@/lib/data/docApprovers";
 import { checkPhoto, PHOTO_PATH_SHAPE } from "@/lib/people/photo";
 import { accessRefusal, managesAccess, masterName, MASTER_PROTECTED } from "@/lib/org/master";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // Who belongs to an org, and what they may do there. Owner only, and
 // every write goes through the service role on purpose: org_members has
@@ -65,6 +66,7 @@ async function masterGate(org: { masterUserId: string | null }, callerId: string
 }
 
 export async function inviteMember(slug: string, _prev: MemberActionState, formData: FormData): Promise<MemberActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   // Staff may invite a FAMILY from an athlete's page (Dave's pick,
@@ -283,6 +285,7 @@ export interface RoleChangeOptions {
 }
 
 export async function changeMemberRole(slug: string, userId: string, role: unknown, opts: RoleChangeOptions = {}): Promise<{ ok: boolean; error?: string }> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
   const caller = await requireOwner(org.id);
@@ -469,6 +472,7 @@ async function logLosses(admin: ReturnType<typeof createAdminClient>, orgId: str
 }
 
 export async function removeMember(slug: string, userId: string): Promise<{ ok: boolean; error?: string; removedSelf?: boolean }> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
   const caller = await requireOwner(org.id);
@@ -545,6 +549,7 @@ export async function removeMember(slug: string, userId: string): Promise<{ ok: 
 // yet. It is the ordinary magic link sent on their behalf, so it needs
 // no service role: an existing account can always be sent a link.
 export async function resendInvite(slug: string, userId: string): Promise<{ ok: boolean; error?: string }> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
   const caller = await requireOwner(org.id);
@@ -571,6 +576,7 @@ export async function resendInvite(slug: string, userId: string): Promise<{ ok: 
 const q = (s: string) => encodeURIComponent(s);
 
 export async function changeMemberRoleForm(slug: string, userId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const r = await changeMemberRole(slug, userId, formData.get("role"), {
     athleteId: String(formData.get("athleteId") ?? "").trim() || null,
     relationship: String(formData.get("relationship") ?? "").trim() || null,
@@ -580,6 +586,7 @@ export async function changeMemberRoleForm(slug: string, userId: string, formDat
 }
 
 export async function removeMemberForm(slug: string, userId: string): Promise<void> {
+  await requireNotViewing();
   const r = await removeMember(slug, userId);
   if (!r.ok) redirect(`/org/${slug}/members/${userId}?error=${q(r.error ?? "Could not remove them.")}`);
   if (r.removedSelf) redirect("/");
@@ -587,6 +594,7 @@ export async function removeMemberForm(slug: string, userId: string): Promise<vo
 }
 
 export async function resendInviteForm(slug: string, userId: string): Promise<void> {
+  await requireNotViewing();
   const r = await resendInvite(slug, userId);
   redirect(`/org/${slug}/members?${r.ok ? `notice=${q("A new sign-in link is on its way.")}` : `error=${q(r.error ?? "Could not send the link.")}`}`);
 }
@@ -650,6 +658,7 @@ async function writeName(userId: string, name: string): Promise<string | null> {
 }
 
 export async function renameMemberForm(slug: string, userId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const me = await requireOwner(org.id);
@@ -690,6 +699,7 @@ export async function renameMemberForm(slug: string, userId: string, formData: F
 // Your own name, from the More screen of whichever version of the app
 // you use (staff, member or family). Any role in the org.
 export async function renameSelfForm(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const me = await requireRole(org.id, ["owner", "staff", "member", "family"]);
@@ -715,6 +725,7 @@ export async function renameSelfForm(slug: string, formData: FormData): Promise<
 // policy, so the write is the service role's, behind the same Admin
 // gate as every other member action, scoped by org and person.
 export async function setMemberTitle(slug: string, userId: string, raw: unknown): Promise<{ ok: boolean; error?: string; title?: string | null }> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
   const caller = await requireOwner(org.id);
@@ -750,6 +761,7 @@ export async function setMemberTitle(slug: string, userId: string, raw: unknown)
 }
 
 export async function setMemberTitleForm(slug: string, userId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const r = await setMemberTitle(slug, userId, formData.get("title"));
   const back = `/org/${slug}/members/${userId}`;
   redirect(`${back}?${r.ok ? `notice=${q(r.title ? "Title saved." : "Title cleared. Their access level shows instead.")}` : `error=${q(r.error ?? "Could not save the title.")}`}`);
@@ -771,6 +783,7 @@ export async function setAthleteAdvisor(
   advisorId: string | null,
   opts: { onlyFrom?: string } = {},
 ): Promise<{ ok: boolean; error?: string; count?: number }> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -817,6 +830,7 @@ export async function setAthleteAdvisor(
 
 // The member page's two forms: tick athletes and assign, or take one off.
 export async function assignAdvisorForm(slug: string, advisorId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const ids = formData.getAll("athleteId").map((v) => String(v));
   const r = await setAthleteAdvisor(slug, ids, advisorId);
   const n = r.count ?? 0;
@@ -824,6 +838,7 @@ export async function assignAdvisorForm(slug: string, advisorId: string, formDat
 }
 
 export async function unassignAdvisorForm(slug: string, advisorId: string, athleteId: string): Promise<void> {
+  await requireNotViewing();
   const r = await setAthleteAdvisor(slug, [athleteId], null, { onlyFrom: advisorId });
   redirect(`/org/${slug}/members/${advisorId}?${r.ok ? `notice=${q(r.count ? "No longer their advisor." : "They were not advising that athlete.")}` : `error=${q(r.error ?? "Could not take them off.")}`}`);
 }

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { setAthleteAdvisor } from "@/lib/actions/members";
 import { createClient } from "@/lib/supabase/server";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // Assign, change or clear an athlete's advisor from the athlete page
 // (Stage 5, Phase 2). The Advisor sheet posts one field, advisorId: an
@@ -16,6 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 const q = (s: string) => encodeURIComponent(s);
 
 export async function setAdvisorFromAthleteForm(slug: string, athleteId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const advisorId = String(formData.get("advisorId") ?? "").trim() || null;
   // Who advised before, read first, so the notice can offer Undo (Dave's
   // standing rule: every authority change can be undone in the app).

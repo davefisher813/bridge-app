@@ -7,6 +7,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { parseContactForm, type ContactFormValues } from "@/lib/validation/contact";
 import { loadCoachOptions, matchCoach } from "@/lib/data/lookups";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface ContactActionState {
   errors: Record<string, string>;
@@ -45,6 +46,7 @@ export async function createContact(
   _prevState: ContactActionState,
   formData: FormData
 ): Promise<ContactActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { errors: { form: "Org not found." } };
   await requireRole(org.id, STAFF_ROLES);
@@ -80,6 +82,7 @@ export async function createContact(
 // or another athlete's contact id changes nothing, and a zero-row update
 // says so rather than pretending it saved.
 export async function updateContact(slug: string, athleteId: string, contactId: string, _prevState: ContactActionState, formData: FormData): Promise<ContactActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);
@@ -116,6 +119,7 @@ export async function updateContact(slug: string, athleteId: string, contactId: 
 }
 
 export async function deleteContact(slug: string, athleteId: string, contactId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return;
   await requireRole(org.id, STAFF_ROLES);
