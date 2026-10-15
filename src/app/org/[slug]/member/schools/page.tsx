@@ -27,7 +27,7 @@ export default async function MemberSchoolsPage({ params, searchParams }: { para
   const d = await loadDirectory(supabase, { q, division, state, conference, major });
 
   return (
-    <Screen title="Schools" back={{ href: home, label: "Home" }}>
+    <Screen title="Schools" back={{ href: home, label: "Today" }}>
       <SchoolDirectory base={base} viewer="member" filters={d.filters} options={d.options} groups={d.groups} total={d.total} />
     </Screen>
   );

@@ -5,6 +5,8 @@ Migrations through 0074 are applied (0074 is View As, applied 2026-10-15
 after a rollback dry-run on the production schema). Replaced wholesale
 when this changes meaningfully, never appended to.
 
+**2026-10-15, cleanup from the production audit.** Screens clear the tab bar by 16px more (`pb-bar` 85px). The first tab is Today for everyone. Extraction text is shown in plain words: a sentence about a null, a field or a column is left out (`src/lib/docai/plainLanguage.ts`), and the prompt says so. Database Updates lists names without numbers. Doc AI Spending and its budget are the Master Account's (any Admin when none is named). "Saving re-scores every match."
+
 **2026-10-15, View As is live.** An Admin can see the app as an Admin, a
 Viewer or an Athlete, read only, for 30 minutes (More, then View As).
 Every server action refuses while viewing (`requireNotViewing`, enforced

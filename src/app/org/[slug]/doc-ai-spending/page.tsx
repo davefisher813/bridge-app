@@ -1,10 +1,11 @@
 // What reading documents has cost this month: the total against the
 // cap, the number of calls, and each call with the document it read.
-// Admins only. The same numbers More summarizes in one line; an owner
+// The Master Account only. The same numbers More summarizes in one line; an owner
 // still sets the cap there.
 
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
+import { managesAccess } from "@/lib/org/master";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
 import { isStubbedModel } from "@/lib/actions/documents";
@@ -21,7 +22,9 @@ export default async function DocAiSpendingPage({ params }: { params: Promise<{ 
   const { slug } = await params;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
-  await requireRole(org.id, STAFF_ROLES);
+  const user = await requireRole(org.id, STAFF_ROLES);
+  // Cost telemetry is the Master Account's (Alfred, 2026-10-15).
+  if (!managesAccess(org.masterUserId, user.id)) notFound();
 
   const supabase = await createClient();
   const [spend, calls, stubbed, recent] = await Promise.all([loadMonthSpend(supabase, org.id), loadMonthCalls(supabase, org.id), isStubbedModel(), loadRecentCalls(supabase, org.id)]);

@@ -119,11 +119,11 @@ describe("Campaigns can be reached, listed and started", () => {
 describe("the fixed tab bar never covers what the page scrolls to", () => {
   const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
 
-  it("the bar is 56px, a 1px border and 12px of air above the home indicator, and the page reserves all 69px of it", () => {
+  it("the bar is 56px, a 1px border and 12px of air above the home indicator, and the page reserves all 69px of it plus 16px of air", () => {
     expect(readFileSync(join(process.cwd(), "src/components/kit/TabBar.tsx"), "utf8")).toMatch(/border-t[\s\S]*h-14/);
     expect(css).toMatch(/\.pb-tabbar\s*\{[^}]*env\(safe-area-inset-bottom[^}]*\+ 12px/);
     expect(readFileSync(join(process.cwd(), "src/components/kit/TabBar.tsx"), "utf8")).toMatch(/pb-tabbar fixed/);
-    expect(css).toMatch(/\.pb-bar\s*\{[^}]*calc\(69px \+ env\(safe-area-inset-bottom/);
+    expect(css).toMatch(/\.pb-bar\s*\{[^}]*calc\(85px \+ env\(safe-area-inset-bottom/);
   });
 
   it("scrolling to a control (focus, an anchor, a test runner) keeps it clear of the bar, in the browser and installed", () => {

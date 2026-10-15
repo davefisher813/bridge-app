@@ -10,6 +10,7 @@
 // anything org-specific), and every category now carries a Zod schema
 // (schemas.ts) that Bridge's version never had.
 
+import { PLAIN_LANGUAGE_RULE } from "./plainLanguage";
 import type { z } from "zod";
 import type { DocCategory, DocCategoryId } from "./types";
 import { athleteProfileSchema, boardDocumentSchema, financialAidSchema, generalDocumentSchema, metricsReportSchema, offerLetterSchema, recommendationSchema, testScoresSchema, transcriptSchema } from "./schemas";
@@ -297,6 +298,7 @@ export function listCategories(): DocCategory[] {
 // The category prompt says what to read; this says how.
 export const EXTRACTION_RULES =
   "Rules for every document:\n" +
+  PLAIN_LANGUAGE_RULE +
   "- Transcribe. Copy every value exactly as printed on the page. Never infer, estimate, round or fill in a value that is not printed. A field that is not on the page is null, and never a typical or likely value.\n" +
   "- Numbers are JSON numbers, never strings. Dates are YYYY-MM-DD, or YYYY-MM when only the month is printed. Booleans are true or false.\n" +
   "- Names are copied as printed, in the order printed, with suffixes kept.\n" +

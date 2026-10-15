@@ -267,6 +267,9 @@ describe("LAW: Organization Settings says which database updates are on", () => 
     expect(html).toMatch(/Database Updates/);
     expect(html).toMatch(/checked against its own history just now/);
     // The newest applied update is named, whichever it is.
-    expect(html).toMatch(/The latest is 00\d\d [A-Z]/);
+    expect(html).toMatch(/The latest is [A-Z][A-Za-z ]+\./);
+    // No migration number anywhere in the list (Alfred, 2026-10-15).
+    const section = html.slice(html.indexOf("Database Updates"));
+    expect(section).not.toMatch(/\b00\d\d\b/);
   });
 });
