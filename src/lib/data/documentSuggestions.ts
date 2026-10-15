@@ -8,7 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DocCategoryId } from "@/lib/docai/types";
 import { suggestIdentity, suggestType, type IdentityCandidate, type RosterEntry } from "@/lib/docai/suggest";
 import { textSample } from "@/lib/vault/textSample";
-import type { VaultFormat } from "@/lib/vault/format";
+import { checkVaultFile, type VaultFormat } from "@/lib/vault/format";
 
 // The form value that means "about nobody": a guide, a blank form.
 export const NOT_AN_ATHLETE = "none";
@@ -101,4 +101,47 @@ export function suggestionFor(input: {
   } catch {
     return { suggested_type: null, suggested_type_confidence: null, suggested_type_reasons: [], identity_status: null, identity_candidates: [], suggested_at: at };
   }
+}
+
+// Make the suggestions again for a document already stored, from its
+// original file and the roster as it is now. A person's decision (a
+// confirmed athlete, or "about nobody") is never overwritten; only the
+// suggestions beside it are refreshed. Shared by the document screen's
+// Suggest Again and the bulk Suggest Who and What, so both follow one
+// rule. "unreadable" means the original could not be opened and the
+// format is not known, so nothing was written.
+export async function refreshSuggestion(
+  supabase: SupabaseClient,
+  orgId: string,
+  actorId: string,
+  roster: RosterEntry[],
+  doc: { id: string; file_name: string; format: string | null; original_paths: string[] | null; requested_category: DocCategoryId | null; identity_status: string | null },
+): Promise<"saved" | "unreadable" | "failed"> {
+  const path = doc.original_paths?.[0];
+  let bytes: Uint8Array | null = null;
+  let format = doc.format;
+  if (path) {
+    const { data: blob } = await supabase.storage.from("documents").download(path);
+    if (blob) {
+      bytes = new Uint8Array(await blob.arrayBuffer());
+      const verdict = checkVaultFile(doc.file_name, bytes);
+      if (verdict.ok) format = verdict.format;
+    }
+  }
+  if (!format) return "unreadable";
+  const s = suggestionFor({ fileName: doc.file_name, format: format as VaultFormat, bytes, pickedType: doc.requested_category, roster, actorId });
+  const decided = doc.identity_status === "confirmed" || doc.identity_status === "not_an_athlete";
+  const { error } = await supabase
+    .from("documents")
+    .update({
+      suggested_type: s.suggested_type,
+      suggested_type_confidence: s.suggested_type_confidence,
+      suggested_type_reasons: s.suggested_type_reasons,
+      identity_candidates: s.identity_candidates,
+      suggested_at: s.suggested_at,
+      ...(decided ? {} : { identity_status: s.identity_status }),
+    })
+    .eq("id", doc.id)
+    .eq("org_id", orgId);
+  return error ? "failed" : "saved";
 }

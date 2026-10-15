@@ -332,10 +332,10 @@ describe("LAW: the Documents page carries the bulk kit; the actions touch nothin
   });
 
   it("each action is bound to its server action and confirms through a sheet that names the count", () => {
-    for (const fn of ["bulkApproveDocuments", "bulkArchiveDocuments", "bulkRestoreDocuments", "bulkLinkDocumentsToAthlete", "bulkSetDocumentType"]) {
+    for (const fn of ["bulkApproveDocuments", "bulkArchiveDocuments", "bulkRestoreDocuments", "bulkLinkDocumentsToAthlete", "bulkSetDocumentType", "bulkSuggestDocuments"]) {
       expect(page).toContain(`${fn}.bind(null, slug)`);
     }
-    expect(page.match(/question="[^"]*\{n\}/g)).toHaveLength(5);
+    expect(page.match(/question="[^"]*\{n\}/g)).toHaveLength(6);
     // Archive is a soft put-away, so no action here is a delete.
     expect(page).not.toMatch(/deleteDocument|discardDocument/);
   });
@@ -347,8 +347,16 @@ describe("LAW: the Documents page carries the bulk kit; the actions touch nothin
     expect(actions.match(/await open\(slug, formData\)/g)!.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("no document is read and no model is called, and nothing is deleted", () => {
+  it("no model is called, no file is touched in this module (Suggest reads through the shared helper), and nothing is deleted", () => {
     expect(actions).not.toMatch(/docai\/pipeline|anthropicCaller|createAdminClient|\.delete\(|\.storage|readStoredRecords/i);
+  });
+
+  it("Suggest Who and What is capped, never overwrites a decision, and writes no decision of its own", () => {
+    expect(actions).toContain("SUGGEST_CAP");
+    expect(actions).toContain("refreshSuggestion(");
+    const helper = read("src/lib/data/documentSuggestions.ts");
+    expect(helper).toMatch(/decided \? \{\} : \{ identity_status/);
+    expect(helper).not.toMatch(/subject_athlete_id: s\./);
   });
 
   it("the shared rules live in one place the single actions also use", () => {

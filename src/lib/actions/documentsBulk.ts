@@ -24,11 +24,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { parseBulkIds } from "@/lib/bulk/ids";
+import { parseBulkIds, SUGGEST_CAP } from "@/lib/bulk/ids";
 import { bulkNotice, SkipTally } from "@/lib/bulk/notice";
 import { activitySummary, logActivity } from "@/lib/data/activity";
 import { moveLifecycle } from "@/lib/data/vault";
 import { loadDocApprovers } from "@/lib/data/docApprovers";
+import { loadSuggestionRoster, refreshSuggestion } from "@/lib/data/documentSuggestions";
 import { documentKind, isSettableType, moveBlock, orgAthleteName, typeBlock, typePatch } from "@/lib/data/documentMoves";
 import { NOBODY_NAMED, type ApproverMap } from "@/lib/documents/approvers";
 import { FILE_TYPE_LABEL, isFileType, READER_TYPES, type FileTypeId } from "@/lib/documents/fileTypes";
@@ -66,9 +67,13 @@ interface DocRow {
   status: string;
   extracted: unknown;
   review_reason: string | null;
+  file_name: string;
+  format: string | null;
+  original_paths: string[] | null;
+  identity_status: string | null;
 }
 
-const COLUMNS = "id, lifecycle, lifecycle_changed_at, category, requested_category, filed_as, athlete_id, linked_athlete_id, status, extracted, review_reason";
+const COLUMNS = "id, lifecycle, lifecycle_changed_at, category, requested_category, filed_as, athlete_id, linked_athlete_id, status, extracted, review_reason, file_name, format, original_paths, identity_status";
 
 // Who the caller is, which documents of this org the ids name, and where
 // to land. Admins only, checked before anything is read or written.
@@ -86,7 +91,7 @@ async function open(slug: string, formData: FormData) {
   // An id that is not this org's (or is gone) comes back as no row.
   const found = new Set(docs.map((d) => d.id));
   for (const id of parsed.ids) if (!found.has(id)) tally.add("no longer here");
-  return { org, user, supabase, back, docs, tally };
+  return { org, user, supabase, back, docs, tally, selected: parsed.ids.length };
 }
 
 // Names of the org's active athletes by id, one read, for the log lines.
@@ -230,4 +235,24 @@ export async function bulkSetDocumentType(slug: string, formData: FormData): Pro
     });
   }
   finish(slug, back, "Typed", applied, tally, `as ${label}`);
+}
+
+// Make Who and What for each document from its original file and the
+// roster as it is now (Piece 2), the same rule as the document screen's
+// Suggest Again: a person's decision is never overwritten. It opens and
+// reads each stored file, so a batch is capped (SUGGEST_CAP) to stay
+// inside one request; a larger selection says so and does none of it.
+// Suggestions are not decisions, so no activity row is written, as with
+// the single action.
+export async function bulkSuggestDocuments(slug: string, formData: FormData): Promise<void> {
+  const { org, user, supabase, back, docs, tally, selected } = await open(slug, formData);
+  if (selected > SUGGEST_CAP) land(back, "error", `Suggest for ${SUGGEST_CAP} or fewer at a time. ${selected} are selected.`);
+  const roster = await loadSuggestionRoster(supabase, org.id);
+  let applied = 0;
+  for (const doc of docs) {
+    const result = await refreshSuggestion(supabase, org.id, user.id, roster, doc as Parameters<typeof refreshSuggestion>[4]);
+    if (result === "saved") applied += 1;
+    else tally.add(result === "unreadable" ? "original file could not be opened" : "could not be saved");
+  }
+  finish(slug, back, "Suggested for", applied, tally, "");
 }

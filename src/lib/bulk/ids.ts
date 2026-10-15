@@ -5,6 +5,10 @@
 
 export const BULK_CAP = 200;
 
+// Actions that open and read each stored file (Suggest Who and What) take
+// fewer at a time, to stay inside one request.
+export const SUGGEST_CAP = 40;
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type BulkIds = { ok: true; ids: string[] } | { ok: false; error: string };

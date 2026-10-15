@@ -7,7 +7,7 @@
 // file disagree, the screen says so plainly and keeps the file.
 
 import { AdvisorSheet, type SheetChoice } from "@/components/AdvisorSheet";
-import { Avatar, Body, Button, Form, Hidden, Inline, Label, Row, Section, Stack } from "@/components/kit";
+import { Avatar, Body, Button, ConfirmButton, Form, Hidden, Inline, Label, Row, Section, Stack } from "@/components/kit";
 import { Note } from "@/components/EligibilityVerdict";
 import { confidenceLabel, PROVISIONAL_TYPE_LABEL, type IdentityCandidate, type ProvisionalType } from "@/lib/docai/suggest";
 import { NOT_AN_ATHLETE } from "@/lib/data/documentSuggestions";
@@ -67,8 +67,26 @@ export function DocumentSuggestions({
   const pickedAs = picked ? OLD_TO_PROVISIONAL[picked] : undefined;
   const disagrees = !!type && type !== "other" && !!pickedAs && pickedAs !== type;
 
+  // The engine words a close second as "Could also be X". It is shown as
+  // its own group under Maybe, beside the Likely type, never only as a
+  // phrase in the reasons.
+  const ALSO = "Could also be ";
+  const typeAlternates = data.suggestedTypeReasons.filter((r) => r.startsWith(ALSO)).map((r) => r.slice(ALSO.length));
+  const plainReasons = data.suggestedTypeReasons.filter((r) => !r.startsWith(ALSO));
+
   const status = data.identityStatus;
   const decided = status === "confirmed" || status === "not_an_athlete";
+  // A visible Undo after a decision: takes the confirmation back to the
+  // suggestion it had, and unlinks the athlete the confirmation linked.
+  // The same action as the sheet's clear, one tap and one confirm away.
+  const undo = (
+    <Form action={setIdentity}>
+      <Hidden name="athleteId" value="" />
+      <ConfirmButton tone="change" title="Undo This Confirmation?" body="The athlete comes off this document, and it goes back to the suggestion it had. Nothing else changes." confirmLabel="Undo">
+        Undo
+      </ConfirmButton>
+    </Form>
+  );
   const pickSomeone = (trigger: string) => (
     <AdvisorSheet
       action={setIdentity}
@@ -104,7 +122,17 @@ export function DocumentSuggestions({
         {type && (
           <Stack gap={2}>
             <Body weight="semibold">{type === "other" ? "Type Not Clear" : `Likely ${PROVISIONAL_TYPE_LABEL[type]}`}</Body>
-            <Label>{[type === "other" ? "Kept as Other" : `${confidenceLabel(data.suggestedTypeConfidence ?? 0)} Confidence`, ...data.suggestedTypeReasons].join(" · ")}</Label>
+            <Label>{[type === "other" ? "Kept as Other" : `${confidenceLabel(data.suggestedTypeConfidence ?? 0)} Confidence`, ...plainReasons].join(" · ")}</Label>
+            {typeAlternates.length > 0 && (
+              <Stack gap={2}>
+                <Label caps>Maybe</Label>
+                {typeAlternates.map((t) => (
+                  <Body key={t} tone="muted">
+                    {t}
+                  </Body>
+                ))}
+              </Stack>
+            )}
           </Stack>
         )}
         {disagrees && (
@@ -114,7 +142,10 @@ export function DocumentSuggestions({
         )}
 
         {status === "confirmed" && data.subject && (
-          <Row href={`${athleteBase}/${data.subject.id}`} leading={<Avatar name={data.subject.name} />} title={data.subject.name} meta="Confirmed" role="people" trailingAction={pickSomeone("Change")} />
+          <>
+            <Row href={`${athleteBase}/${data.subject.id}`} leading={<Avatar name={data.subject.name} />} title={data.subject.name} meta="Confirmed" role="people" trailingAction={pickSomeone("Change")} />
+            {undo}
+          </>
         )}
         {status === "not_an_athlete" && (
           <Inline>
@@ -122,9 +153,11 @@ export function DocumentSuggestions({
             {pickSomeone("Change")}
           </Inline>
         )}
+        {status === "not_an_athlete" && undo}
 
         {(status === "proposed" || status === "ambiguous") && (
           <>
+            <Label caps>Maybe</Label>
             <Label>{status === "ambiguous" ? "More than one possible match. Pick the right one." : "Possible match. Nothing is linked until you confirm."}</Label>
             {data.candidates.map((c) => (
               <Stack key={c.athleteId} gap={2}>

@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { activitySummary, logActivity } from "@/lib/data/activity";
-import { loadSuggestionRoster, NOT_AN_ATHLETE, suggestionFor } from "@/lib/data/documentSuggestions";
+import { loadSuggestionRoster, NOT_AN_ATHLETE, refreshSuggestion } from "@/lib/data/documentSuggestions";
 import { PROVISIONAL_TYPE_LABEL, type IdentityCandidate, type ProvisionalType } from "@/lib/docai/suggest";
 import { checkVaultFile } from "@/lib/vault/format";
 import type { DocCategoryId } from "@/lib/docai/types";
@@ -145,34 +145,9 @@ export async function suggestDocumentAgain(slug: string, documentId: string): Pr
   const { org, user, supabase, doc } = ctx;
   if (!doc) redirect(`/org/${slug}/documents?error=${encodeURIComponent("That document is already gone.")}`);
 
-  const path = doc.original_paths?.[0];
-  let bytes: Uint8Array | null = null;
-  let format = doc.format;
-  if (path) {
-    const { data: blob } = await supabase.storage.from("documents").download(path);
-    if (blob) {
-      bytes = new Uint8Array(await blob.arrayBuffer());
-      const verdict = checkVaultFile(doc.file_name, bytes);
-      if (verdict.ok) format = verdict.format;
-    }
-  }
-  if (!format) back(slug, documentId, "The original file could not be read.");
-
   const roster = await loadSuggestionRoster(supabase, org.id);
-  const s = suggestionFor({ fileName: doc.file_name, format: format as Parameters<typeof suggestionFor>[0]["format"], bytes, pickedType: doc.requested_category, roster, actorId: user.id });
-  const decided = doc.identity_status === "confirmed" || doc.identity_status === "not_an_athlete";
-  const { error } = await supabase
-    .from("documents")
-    .update({
-      suggested_type: s.suggested_type,
-      suggested_type_confidence: s.suggested_type_confidence,
-      suggested_type_reasons: s.suggested_type_reasons,
-      identity_candidates: s.identity_candidates,
-      suggested_at: s.suggested_at,
-      ...(decided ? {} : { identity_status: s.identity_status }),
-    })
-    .eq("id", doc.id)
-    .eq("org_id", org.id);
-  if (error) back(slug, documentId, "The suggestions could not be saved. Try again.");
+  const result = await refreshSuggestion(supabase, org.id, user.id, roster, doc);
+  if (result === "unreadable") back(slug, documentId, "The original file could not be read.");
+  if (result === "failed") back(slug, documentId, "The suggestions could not be saved. Try again.");
   back(slug, documentId);
 }
