@@ -92,4 +92,4 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0070_org_master_account.sql | applied | 20261013202812 0070_org_master_account |
 | 0071_assignments_bulk_delete.sql | applied | 20261014011513 0071_assignments_bulk_delete |
 | 0072_documents_bulk.sql | applied | 20261014011532 0072_documents_bulk |
-| 0073_document_identity_and_type.sql | pending | - |
+| 0073_document_identity_and_type.sql | applied | 20261015013132 0073_document_identity_and_type |
