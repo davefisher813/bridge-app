@@ -386,6 +386,20 @@ describe("LAW: a bulk Suggest can be undone", () => {
     for (const id of [ia, ib, ic]) expect(data.documents!.find((d) => d.id === id)!.suggestion_before ?? null).toBeNull();
   });
 
+  it("Undo works when the database writes the same instant in its own format", async () => {
+    // Production hands "...123+00:00" back where the app wrote "...123Z".
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    const ia = uuid(a.documentId!, 930);
+    const prior = pick(ia);
+    const out = await suggestMany([ia]);
+    const row = data.documents!.find((d) => d.id === ia)!;
+    row.suggested_at = String(row.suggested_at).replace("Z", "+00:00");
+    const before = row.suggestion_before as { replaced_at: string };
+    expect(before.replaced_at.endsWith("Z")).toBe(true);
+    expect(await undo(tokenOf(out))).toContain("Suggestions restored for 1 document.");
+    expect(pick(ia)).toEqual(prior);
+  });
+
   it("a bulk run links and confirms nothing, so Undo unlinks nothing", async () => {
     const a = await upload("Fixture_Athlete_transcript.txt", "x");
     const ia = uuid(a.documentId!, 916);
@@ -523,6 +537,22 @@ describe("LAW: the document screen shows the suggestion and asks", () => {
     expect(out).toContain("Updated in March");
     expect(out).toContain("The scan was dim.");
     expect(out.replace(/<script>[\s\S]*?<\/script>/g, "")).not.toMatch(/studentName|ADVISOR column|\bnull\b/);
+  });
+
+  it("stored reasons and issues from an older reading are cleaned too", async () => {
+    const r = await upload("Fixture_Athlete_transcript.txt", "x");
+    const row = rowOf(r.documentId!);
+    row.status = "failed";
+    row.lifecycle = "needs_review";
+    row.extracted = null;
+    row.failure_reason = "The sheet has no student, so studentName is null.";
+    row.review_reason = "The ADVISOR column is blank for all athletes. Check the sheet.";
+    row.triage = { legibilityScore: 0.9, issues: ["It does not fit the schema.", "The scan is dim."] };
+    const out = (await html(r.documentId!)).replace(/<script>[\s\S]*?<\/script>/g, "");
+    expect(out).not.toMatch(/studentName|ADVISOR column|\bnull\b|schema/);
+    expect(out).toContain("It could not be read.");
+    expect(out).toContain("Check the sheet.");
+    expect(out).toContain("The scan is dim.");
   });
 
   it("a proposal shows the candidate, the reason, and Confirm, and says nothing is linked yet", async () => {

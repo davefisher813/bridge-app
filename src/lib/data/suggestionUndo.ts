@@ -65,6 +65,16 @@ export function snapshotBefore(doc: MaybeSuggestionFields, run: string | null, r
   };
 }
 
+// The database hands a timestamp back as "2026-10-15T17:55:32.123+00:00"
+// where the app wrote "2026-10-15T17:55:32.123Z": the same instant, a
+// different string. Comparing strings called every Undo "changed since".
+export function sameInstant(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return !a && !b;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  return Number.isNaN(ta) || Number.isNaN(tb) ? a === b : ta === tb;
+}
+
 const DECIDED = new Set(["confirmed", "not_an_athlete"]);
 
 export interface UndoRow extends SuggestionFields {
@@ -79,7 +89,7 @@ export function planSuggestUndo(run: string, rows: UndoRow[]): UndoOutcome[] {
   return rows.map((r): UndoOutcome => {
     const b = r.suggestion_before;
     if (!b || b.run !== run) return { id: r.id, kept: "not_this_run" };
-    const refreshedSince = (r.suggested_at ?? null) !== b.replaced_at;
+    const refreshedSince = !sameInstant(r.suggested_at, b.replaced_at);
     const decidedSince = DECIDED.has(r.identity_status ?? "") && !DECIDED.has(b.identity_status ?? "");
     if (refreshedSince || decidedSince) return { id: r.id, kept: "changed_since" };
     return {

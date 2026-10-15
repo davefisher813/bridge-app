@@ -273,6 +273,11 @@ export default async function DocumentPage({ params, searchParams }: { params: P
 
   if (!data) notFound();
   const doc = data as DocDetail;
+  // Stored text from older readings can still carry field talk (Alfred,
+  // 2026-10-15); it is cleaned as it is shown, wherever it appears.
+  doc.failure_reason = doc.failure_reason ? plainText(doc.failure_reason) || null : null;
+  doc.review_reason = doc.review_reason ? plainText(doc.review_reason) || null : null;
+  if (doc.triage?.issues) doc.triage = { ...doc.triage, issues: doc.triage.issues.map(plainText).filter((i) => i.trim() !== "") };
   const lifecycle = (isLifecycle(doc.lifecycle) ? doc.lifecycle : "needs_review") as Lifecycle;
   // The roster for the optional athlete link (migration 0058).
   const { data: rosterRows } = await supabase.from("athletes").select("id, name").eq("org_id", org.id).is("deleted_at", null).order("name");
