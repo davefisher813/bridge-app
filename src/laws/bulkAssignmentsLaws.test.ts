@@ -370,7 +370,9 @@ describe("LAW: migration 0071 is structure only", () => {
     expect(read("scripts/down/0071_assignments_bulk_delete_down.sql")).toMatch(/drop policy if exists assignments_delete/);
     expect(read("migrations/APPLIED.md")).toMatch(/\| 0071_assignments_bulk_delete\.sql \| applied \|/);
     const suite = read("scripts/rls_test.sql");
-    expect(suite.trimEnd().endsWith("ALL 0071 ASSERTIONS PASSED'")).toBe(true);
+    // Appended last when it was written; later sections (0073) follow it, so
+    // it is held by its marker and its closing line, not by being the last.
+    expect(suite).toContain("\\echo 'ALL 0071 ASSERTIONS PASSED'");
     expect(suite).toContain("-- ===== 0071: bulk delete and reassign =====");
     expect(read("scripts/run_rls_test.sh")).toContain("migrations/0071_assignments_bulk_delete.sql");
   });

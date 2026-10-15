@@ -21,6 +21,9 @@ import { capPreviewText, pageFormatOf, previewKindOf, storedFormatOf } from "@/l
 import { readerText } from "@/lib/vault/textExtract";
 import { Note } from "@/components/EligibilityVerdict";
 import type { Role } from "@/components/statusHue";
+import { DocumentSuggestions } from "@/components/DocumentSuggestions";
+import { setDocumentIdentity, suggestDocumentAgain } from "@/lib/actions/documentIdentity";
+import type { IdentityCandidate } from "@/lib/docai/suggest";
 
 // Read Again runs the model from this page's form, and a real model call
 // on a scanned transcript can run past a minute: the same limit as the
@@ -69,6 +72,13 @@ interface DocDetail {
   storage_paths: string[] | null;
   // What an Athlete login wrote with a file it sent (migration 0066).
   family_note: string | null;
+  // Piece 2 (migration 0073).
+  suggested_type: string | null;
+  suggested_type_confidence: number | null;
+  suggested_type_reasons: string[] | null;
+  identity_status: string | null;
+  identity_candidates: IdentityCandidate[] | null;
+  subject_athlete_id: string | null;
 }
 
 // Every type's name, from the one list the upload form and File As use
@@ -249,7 +259,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const { data } = await supabase
     .from("documents")
     .select(
-      "id, file_name, title, file_size, page_count, category, requested_category, filed_as, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, linked_athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths, family_note"
+      "id, file_name, title, file_size, page_count, category, requested_category, filed_as, detected_type, source_role, status, route, failure_stage, failure_reason, extracted, provenance, triage, candidates, athlete_id, linked_athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), undo_note, read_by, created_at, lifecycle, lifecycle_changed_at, format, media_type, review_reason, uploaded_by, content_hash, original_paths, storage_paths, family_note, suggested_type, suggested_type_confidence, suggested_type_reasons, identity_status, identity_candidates, subject_athlete_id"
     )
     .eq("id", id)
     .eq("org_id", org.id)
@@ -289,6 +299,50 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // An Athlete login's file, sent with an assignment or on its own.
   const { count: answersCount } = doc.status === "filed" ? await supabase.from("assignments").select("id", { count: "exact", head: true }).eq("document_id", doc.id).eq("org_id", org.id) : { count: 0 };
   const stuckReading = isStaleLifecycle(lifecycle, doc.lifecycle_changed_at);
+
+  // Who and What (Piece 2). The roster as this Admin sees it, for the
+  // picker and to drop anyone removed since the suggestion was made.
+  const { data: suggestRosterRows } = await supabase.from("athletes").select("id, name, detail").eq("org_id", org.id).is("deleted_at", null).order("name", { ascending: true });
+  const suggestRoster = ((suggestRosterRows ?? []) as { id: string; name: string; detail: { highSchool?: string; currentSchool?: string; gradYear?: number } | null }[]).map((a) => ({
+    id: a.id,
+    title: a.name,
+    meta: [a.detail?.currentSchool || a.detail?.highSchool, a.detail?.gradYear ? `Class of ${a.detail.gradYear}` : null].filter(Boolean).join(" · ") || undefined,
+  }));
+  const onRoster = new Map(suggestRoster.map((r) => [r.id, r.title]));
+  const subjectName = doc.subject_athlete_id ? onRoster.get(doc.subject_athlete_id) : undefined;
+  const liveCandidates = (doc.identity_candidates ?? []).filter((c) => onRoster.has(c.athleteId));
+  const setIdentity = async (formData: FormData) => {
+    "use server";
+    await setDocumentIdentity(slug, doc.id, formData);
+  };
+  const suggestAgain = async () => {
+    "use server";
+    await suggestDocumentAgain(slug, doc.id);
+  };
+  const whoAndWhat = (
+    <DocumentSuggestions
+      data={{
+        suggestedType: doc.suggested_type,
+        suggestedTypeConfidence: doc.suggested_type_confidence,
+        suggestedTypeReasons: doc.suggested_type_reasons ?? [],
+        requestedCategory: doc.requested_category,
+        // A confirmed athlete removed from the roster since reads as no
+        // decision, never as a name that is gone.
+        identityStatus:
+          (doc.identity_status === "confirmed" && !subjectName) || ((doc.identity_status === "proposed" || doc.identity_status === "ambiguous") && !liveCandidates.length)
+            ? "unmatched"
+            : doc.identity_status === "ambiguous" && liveCandidates.length === 1
+              ? "proposed"
+              : doc.identity_status,
+        candidates: liveCandidates,
+        subject: doc.subject_athlete_id && subjectName ? { id: doc.subject_athlete_id, name: subjectName } : null,
+      }}
+      roster={suggestRoster}
+      athleteBase={`/org/${slug}/roster`}
+      setIdentity={setIdentity}
+      suggestAgain={suggestAgain}
+    />
+  );
 
   const stubbed = await isStubbedModel();
   // The same gate the actions use (audit wired F1): a reading the
@@ -653,6 +707,8 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           </Notice>
         )
       )}
+
+      {whoAndWhat}
 
       {doc.requested_category === null && doc.detected_type && !isReference && (
         <Note title="Worked Out the Type Itself">Nobody told it what this was. It decided: {doc.detected_type.replace(/_/g, " ")}.</Note>
