@@ -1648,6 +1648,7 @@ async function undoApply(orgId: string, documentId: string, changes: AppliedChan
 // Staff only, one conditional write (a second tap finds it moved and says
 // so), and every move writes the activity log with who and when.
 export async function moveDocument(slug: string, documentId: string, to: "ready" | "archived" | "needs_review"): Promise<{ ok: boolean; error?: string; gone?: boolean }> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Org not found.", gone: true };
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -1687,6 +1688,7 @@ export async function moveDocument(slug: string, documentId: string, to: "ready"
 // The form wrapper the document screen posts to: moves, then comes back to
 // the document with the reason when it was refused.
 export async function moveDocumentAndStay(slug: string, documentId: string, to: "ready" | "archived" | "needs_review"): Promise<void> {
+  await requireNotViewing();
   const result = await moveDocument(slug, documentId, to);
   if (result.ok) redirect(`/org/${slug}/documents/${documentId}`);
   const reason = encodeURIComponent(result.error ?? "That could not be done.");
@@ -1702,6 +1704,7 @@ export async function moveDocumentAndStay(slug: string, documentId: string, to: 
 // A document the reader read keeps its reading's type, and the stored
 // file is never touched. Staff only.
 export async function fileDocumentAs(slug: string, documentId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);
@@ -1735,6 +1738,7 @@ export async function fileDocumentAs(slug: string, documentId: string, formData:
 // different column, and nothing here reads or applies anything. Logged
 // either way, against the athlete it now names (or no longer names).
 export async function linkDocumentToAthlete(slug: string, documentId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -1826,6 +1830,7 @@ async function readPagesAgain(
 // sent (filed, with an assignment or on its own) is read only this way:
 // an Admin's tap, charged like any reading (Doc AI Piece 5, 2026-10-13).
 export async function readDocumentAgain(slug: string, documentId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);

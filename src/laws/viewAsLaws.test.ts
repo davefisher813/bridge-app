@@ -1,4 +1,4 @@
-// Stage 5, Phase 5: View As (migration 0047), the database half.
+// Stage 5, Phase 5: View As (migration 0074), the database half.
 //
 // Dave approved the plan 2026-09-27 (docs/PLAN_STAGE5.md, "Phase 5: View
 // As"). An Admin sees exactly what an Athlete login, a Viewer or another
@@ -17,7 +17,7 @@
 //       proofs (the equivalence loop and the write-refusal loop) and is
 //       generated from pg_class, not from a list.
 //   (b) Every write policy in the schema is gated: those that exist at
-//       0047 by its catalog loop, every one written after it by its own
+//       0074 by its catalog loop, every one written after it by its own
 //       text. No policy, helper or function that answers for the caller
 //       reads auth.uid() but the ones that define the identity, and every
 //       function that writes as a definer refuses while viewing.
@@ -31,7 +31,7 @@
 //       write the same literal lines.
 //
 // The SQL itself is proved by scripts/rls_test.sql, which run_rls_test.sh
-// applies after 0046 and 0047. Planted and reverted there (2026-09-28),
+// applies after 0046 and 0074. Planted and reverted there (2026-09-28),
 // each failing where named: one write policy left ungated (the catalog
 // check, and the write loop by behaviour); the gate present in the text
 // but defeated ("or true") on an insert, a delete and a storage policy
@@ -173,8 +173,8 @@ function migrationsOnDisk(): Migration[] {
     .map((file) => ({ file, n: Number(file.slice(0, 4)), sql: stripSqlComments(read(join(MIGRATIONS, file))) }));
 }
 
-const VIEW_AS_FILE = "0047_view_as.sql";
-const FIRST = 47;
+const VIEW_AS_FILE = "0074_view_as.sql";
+const FIRST = 74;
 
 // ── (b) The checkers, over any list of migrations ────────────────────
 
@@ -194,7 +194,7 @@ interface Policy {
 // removes it. A policy made inside a DO loop with format() is invisible
 // to this, which is why the RLS suite asks the catalog too; what this
 // sees is every policy a migration writes out in the open, which is
-// every one written after 0047.
+// every one written after 0074.
 function finalPolicies(ms: Migration[]): Map<string, Policy> {
   const out = new Map<string, Policy>();
   for (const m of ms) {
@@ -225,8 +225,8 @@ function finalPolicies(ms: Migration[]): Map<string, Policy> {
 
 const isWrite = (cmd: string) => cmd === "insert" || cmd === "update" || cmd === "delete" || cmd === "all";
 
-// Write policies that no migration gates: written at or after 0047 (the
-// catalog loop in 0047 covers everything before it) and not naming
+// Write policies that no migration gates: written at or after 0074 (the
+// catalog loop in 0074 covers everything before it) and not naming
 // "(select private._viewing())" in their own text. The select matters: a
 // bare _viewing() in a policy is called once per row.
 function ungatedWritePolicies(ms: Migration[]): string[] {
@@ -308,6 +308,8 @@ const PRIVATE_MAY_READ_REAL_UID = new Set([
   "_effective_uid",
   "_owner_org_ids",
   "log_assignment_submitted",
+  "log_family_document_sent",
+  "documents_ready_by_approver",
   "activity_is_honest",
   "assignment_is_honest",
 ]);
@@ -339,7 +341,7 @@ function identityProblems(ms: Migration[]): string[] {
 // all that stands in front of it. Trigger functions run on a write that
 // is already refused; start_view_as, end_view_as and the private writers
 // they and submit_assignment call are the writers View As allows.
-const DEFINER_MAY_WRITE_WHILE_VIEWING = new Set(["start_view_as", "end_view_as", "_close_view_as", "log_assignment_submitted", "handle_auth_user_change", "view_as_is_coherent"]);
+const DEFINER_MAY_WRITE_WHILE_VIEWING = new Set(["start_view_as", "end_view_as", "_close_view_as", "log_assignment_submitted", "log_family_document_sent", "handle_auth_user_change", "view_as_is_coherent"]);
 function definerWritersWithoutTheGate(ms: Migration[]): string[] {
   const out: string[] = [];
   for (const f of finalFunctions(ms).values()) {
@@ -354,18 +356,18 @@ function definerWritersWithoutTheGate(ms: Migration[]): string[] {
 
 // ── (a) The migration and the runner ─────────────────────────────────
 
-describe("LAW: migration 0047 is applied by the runner and proved by the RLS suite", () => {
+describe("LAW: migration 0074 is applied by the runner and proved by the RLS suite", () => {
   const runner = read(join(SCRIPTS, "run_rls_test.sh"));
   const suite = read(join(SCRIPTS, "rls_test.sql"));
 
-  // Verified this law bites: deleted the 0047 line from
+  // Verified this law bites: deleted the 0074 line from
   // scripts/run_rls_test.sh, watched this fail, restored it.
-  it("run_rls_test.sh applies 0047 after 0046, and every migration on disk is in the runner", () => {
+  it("run_rls_test.sh applies 0074 after 0046, and every migration on disk is in the runner", () => {
     const at46 = runner.indexOf("migrations/0046_assignments.sql");
-    const at47 = runner.indexOf("migrations/0047_view_as.sql");
+    const at47 = runner.indexOf("migrations/0074_view_as.sql");
     expect(at47).toBeGreaterThan(at46);
     expect(at46).toBeGreaterThan(-1);
-    const listed = [...runner.matchAll(/migrations\/(\d{4}_[\w]+\.sql)/g)].map((m) => m[1]);
+    const listed = [...new Set([...runner.matchAll(/-f migrations\/(\d{4}_[\w]+\.sql)/g)].map((m) => m[1]))];
     const onDisk = migrationsOnDisk().map((m) => m.file);
     expect(listed).toEqual(onDisk);
   });
@@ -374,7 +376,7 @@ describe("LAW: migration 0047 is applied by the runner and proved by the RLS sui
   // suite, and separately hard-coded a table list in place of the
   // pg_class query, watched each fail here, reverted.
   it("the RLS suite carries both proofs, generated from pg_class, with one named exemption", () => {
-    const block = suite.slice(suite.indexOf("-- View As (migration 0047)"));
+    const block = suite.slice(suite.indexOf("-- View As (migration 0074)"));
     expect(block.length).toBeGreaterThan(1000);
     // The two loops ask the catalog for their tables.
     expect(block).toMatch(/create function public\.zz_view_hash[\s\S]*?from pg_class c join pg_namespace ns on ns\.oid = c\.relnamespace[\s\S]*?c\.relrowsecurity/);
@@ -395,7 +397,7 @@ describe("LAW: migration 0047 is applied by the runner and proved by the RLS sui
     expect(block).toMatch(/not like '%_viewing\(\)%'/);
     expect(block).toMatch(/still reading auth\.uid\(\) instead of the effective identity/);
     expect(block).toMatch(/private function\(s\) still reading auth\.uid\(\) directly/);
-    expect(suite).toContain("ALL 0047 ASSERTIONS PASSED");
+    expect(suite).toContain("ALL 0074 ASSERTIONS PASSED");
     // The table is write-exempt in the coverage check, with its reason.
     expect(suite).toMatch(/write_exempt text\[\] := array\['org_members', 'view_as_sessions'\]/);
   });
@@ -403,7 +405,7 @@ describe("LAW: migration 0047 is applied by the runner and proved by the RLS sui
   // Verified this law bites: took the expires_at clause out of one of the
   // two function bodies below, and separately the owner check out of
   // start_view_as, watched this fail, reverted.
-  it("0047 is shaped as the plan says: the session table, its trigger, the effective identity, both RPCs", () => {
+  it("0074 is shaped as the plan says: the session table, its trigger, the effective identity, both RPCs", () => {
     const m = migrationsOnDisk().find((x) => x.file === VIEW_AS_FILE);
     expect(m).toBeTruthy();
     const sql = m!.sql;
@@ -473,7 +475,7 @@ describe("LAW: migration 0047 is applied by the runner and proved by the RLS sui
   // Verified this law bites: narrowed the loop's command list to
   // ('a', 'w'), and separately its schemas to ('public'), watched each
   // fail, reverted.
-  it("0047 gates every write policy in public and storage from the catalog, and rewrites the five inline read policies", () => {
+  it("0074 gates every write policy in public and storage from the catalog, and rewrites the five inline read policies", () => {
     const sql = migrationsOnDisk().find((x) => x.file === VIEW_AS_FILE)!.sql;
     expect(sql).toMatch(/where n\.nspname in \('public', 'storage'\)\s+and pol\.polcmd in \('a', 'w', 'd', '\*'\)/);
     // The gate is an initplan, "(select private._viewing())": bare, a
@@ -512,7 +514,7 @@ describe("LAW: migration 0047 is applied by the runner and proved by the RLS sui
     const policies = finalPolicies(ms);
     expect(policies.size).toBeGreaterThan(60);
     expect(policies.get("view_as_sessions.view_as_sessions_read")?.cmd).toBe("select");
-    // 0047's own rewrite of a read policy is what the parser ends on.
+    // 0074's own rewrite of a read policy is what the parser ends on.
     expect(policies.get("org_members.org_members_self")?.file).toBe(VIEW_AS_FILE);
     const fns = finalFunctions(ms);
     for (const name of ACCESS_HELPERS) expect([...fns.values()].some((f) => f.schema === "private" && f.name === name && f.file === VIEW_AS_FILE), name).toBe(true);
@@ -530,47 +532,47 @@ describe("LAW: migration 0047 is applied by the runner and proved by the RLS sui
 describe("LAW: the View As checkers catch what they are meant to catch", () => {
   const m = (n: number, sql: string): Migration => ({ file: `${String(n).padStart(4, "0")}_probe.sql`, n, sql: stripSqlComments(sql) });
 
-  it("a write policy after 0046 needs the gate, before it the loop in 0047 covers it", () => {
-    expect(ungatedWritePolicies([m(48, "create policy p on t for insert with check (org_id in (select private._staff_org_ids()));")])).not.toEqual([]);
-    expect(ungatedWritePolicies([m(48, "create policy p on t for update using (true) with check (true);")])).not.toEqual([]);
-    expect(ungatedWritePolicies([m(48, "create policy p on t for delete using (true);")])).not.toEqual([]);
-    expect(ungatedWritePolicies([m(48, "create policy p on t for all using (true);")])).not.toEqual([]);
-    expect(ungatedWritePolicies([m(48, "create policy p on t for insert with check (org_id in (select private._staff_org_ids()) and not (select private._viewing()));")])).toEqual([]);
+  it("a write policy after 0046 needs the gate, before it the loop in 0074 covers it", () => {
+    expect(ungatedWritePolicies([m(75, "create policy p on t for insert with check (org_id in (select private._staff_org_ids()));")])).not.toEqual([]);
+    expect(ungatedWritePolicies([m(75, "create policy p on t for update using (true) with check (true);")])).not.toEqual([]);
+    expect(ungatedWritePolicies([m(75, "create policy p on t for delete using (true);")])).not.toEqual([]);
+    expect(ungatedWritePolicies([m(75, "create policy p on t for all using (true);")])).not.toEqual([]);
+    expect(ungatedWritePolicies([m(75, "create policy p on t for insert with check (org_id in (select private._staff_org_ids()) and not (select private._viewing()));")])).toEqual([]);
     // Gated the bare way is caught too: it runs once per row.
-    expect(ungatedWritePolicies([m(48, "create policy p on t for insert with check (org_id in (select private._staff_org_ids()) and not private._viewing());")])).not.toEqual([]);
-    expect(ungatedWritePolicies([m(48, "create policy p on t for select using (true);")])).toEqual([]);
+    expect(ungatedWritePolicies([m(75, "create policy p on t for insert with check (org_id in (select private._staff_org_ids()) and not private._viewing());")])).not.toEqual([]);
+    expect(ungatedWritePolicies([m(75, "create policy p on t for select using (true);")])).toEqual([]);
     expect(ungatedWritePolicies([m(30, "create policy p on t for insert with check (true);")])).toEqual([]);
     // An alter after 0046 that drops the gate is caught, one that keeps it is not.
     const created = m(30, "create policy p on t for insert with check (true);");
-    expect(ungatedWritePolicies([created, m(48, "alter policy p on t with check (true);")])).not.toEqual([]);
-    expect(ungatedWritePolicies([created, m(48, "alter policy p on t with check (not (select private._viewing()));")])).toEqual([]);
+    expect(ungatedWritePolicies([created, m(75, "alter policy p on t with check (true);")])).not.toEqual([]);
+    expect(ungatedWritePolicies([created, m(75, "alter policy p on t with check (not (select private._viewing()));")])).toEqual([]);
     // A policy dropped is gone.
-    expect(ungatedWritePolicies([m(48, "create policy p on t for insert with check (true);"), m(49, "drop policy p on t;")])).toEqual([]);
+    expect(ungatedWritePolicies([m(75, "create policy p on t for insert with check (true);"), m(76, "drop policy p on t;")])).toEqual([]);
   });
 
   it("a read policy on auth.uid() is caught, the effective identity is not, and the session table's own is allowed", () => {
-    expect(readPoliciesOnRealUid([m(48, "create policy r on t for select using (user_id = (select auth.uid()));")])).not.toEqual([]);
-    expect(readPoliciesOnRealUid([m(48, "create policy r on t for select using (user_id = (select private._effective_uid()));")])).toEqual([]);
-    expect(readPoliciesOnRealUid([m(48, "create policy view_as_sessions_read on view_as_sessions for select using (viewer_id = (select auth.uid()));")])).toEqual([]);
+    expect(readPoliciesOnRealUid([m(75, "create policy r on t for select using (user_id = (select auth.uid()));")])).not.toEqual([]);
+    expect(readPoliciesOnRealUid([m(75, "create policy r on t for select using (user_id = (select private._effective_uid()));")])).toEqual([]);
+    expect(readPoliciesOnRealUid([m(75, "create policy view_as_sessions_read on view_as_sessions for select using (viewer_id = (select auth.uid()));")])).toEqual([]);
     const created = m(30, "create policy r on t for select using (user_id = (select auth.uid()));");
-    expect(readPoliciesOnRealUid([created, m(48, "alter policy r on t using (user_id = (select private._effective_uid()));")])).toEqual([]);
+    expect(readPoliciesOnRealUid([created, m(75, "alter policy r on t using (user_id = (select private._effective_uid()));")])).toEqual([]);
   });
 
   it("a private helper on auth.uid(), a public function that reads the caller freely, and a definer writer without the gate are caught", () => {
     const helpers = ACCESS_HELPERS.map((h) => `create or replace function private.${h}() returns setof uuid language sql stable security definer as $$ select 1 where private._effective_uid() is not null $$;`).join("\n");
-    expect(identityProblems([m(47, helpers)])).toEqual([]);
-    expect(identityProblems([m(47, helpers), m(48, "create or replace function private._staff_org_ids() returns setof uuid language sql as $$ select org_id from org_members where user_id = auth.uid() $$;")])).not.toEqual([]);
-    expect(identityProblems([m(47, helpers), m(48, "create function private._new_helper() returns setof uuid language sql as $$ select 1 where auth.uid() is not null $$;")])).not.toEqual([]);
-    expect(identityProblems([m(47, helpers), m(48, "create function public.who_am_i() returns uuid language sql as $$ select auth.uid() $$;")])).not.toEqual([]);
-    expect(identityProblems([m(47, helpers), m(48, "create function public.who_am_i() returns uuid language sql as $$ select private._effective_uid() $$;")])).toEqual([]);
+    expect(identityProblems([m(74, helpers)])).toEqual([]);
+    expect(identityProblems([m(74, helpers), m(75, "create or replace function private._staff_org_ids() returns setof uuid language sql as $$ select org_id from org_members where user_id = auth.uid() $$;")])).not.toEqual([]);
+    expect(identityProblems([m(74, helpers), m(75, "create function private._new_helper() returns setof uuid language sql as $$ select 1 where auth.uid() is not null $$;")])).not.toEqual([]);
+    expect(identityProblems([m(74, helpers), m(75, "create function public.who_am_i() returns uuid language sql as $$ select auth.uid() $$;")])).not.toEqual([]);
+    expect(identityProblems([m(74, helpers), m(75, "create function public.who_am_i() returns uuid language sql as $$ select private._effective_uid() $$;")])).toEqual([]);
     // A helper the migrations never define is caught too.
-    expect(identityProblems([m(47, "select 1;")])).not.toEqual([]);
+    expect(identityProblems([m(74, "select 1;")])).not.toEqual([]);
 
     const writer = "create function public.writes_a_row() returns void language plpgsql security definer as $$ begin insert into public.t (a) values (1); end $$;";
-    expect(definerWritersWithoutTheGate([m(48, writer)])).not.toEqual([]);
-    expect(definerWritersWithoutTheGate([m(48, writer.replace("begin insert", "begin if private._viewing() then raise exception 'no'; end if; insert"))])).toEqual([]);
-    expect(definerWritersWithoutTheGate([m(48, writer.replace("security definer", "stable"))])).toEqual([]);
-    expect(definerWritersWithoutTheGate([m(48, "create function public.a() returns trigger language plpgsql security definer as $$ begin insert into public.t (a) values (1); return new; end $$;")])).toEqual([]);
+    expect(definerWritersWithoutTheGate([m(75, writer)])).not.toEqual([]);
+    expect(definerWritersWithoutTheGate([m(75, writer.replace("begin insert", "begin if private._viewing() then raise exception 'no'; end if; insert"))])).toEqual([]);
+    expect(definerWritersWithoutTheGate([m(75, writer.replace("security definer", "stable"))])).toEqual([]);
+    expect(definerWritersWithoutTheGate([m(75, "create function public.a() returns trigger language plpgsql security definer as $$ begin insert into public.t (a) values (1); return new; end $$;")])).toEqual([]);
   });
 });
 

@@ -716,7 +716,7 @@ and the suite fails. Both variants share the same tests.
 
 ### Migrations
 
-`0047_view_as.sql`:
+`0074_view_as.sql`:
 
 ```sql
 create table view_as_sessions (
@@ -811,7 +811,7 @@ tab bar or cause sideways scroll at 320.
 | `pageRender.test.ts:63-67, 122-182, 757-797` | | meaning unchanged, extended with `viewing` |
 | `docs/ARCHITECTURE.md:588-596` membership | | new section: effective identity |
 | `docs/DECISIONS.md` | | entry: mechanism D chosen, minting rejected, reasons |
-| `migrationLaws.test.ts` | | 0047 carries no data |
+| `migrationLaws.test.ts` | | 0074 carries no data |
 
 ### Risks
 
@@ -855,7 +855,7 @@ summaries that can never carry note, message or document text.
 
 ### Migrations
 
-`0044_activity_log.sql` (before 0045 to 0047 so Phase 4 and 5 RPCs can write it):
+`0044_activity_log.sql` (before 0045 to 0074 so Phase 4 and 5 RPCs can write it):
 
 ```sql
 create type activity_action as enum (
@@ -1026,7 +1026,7 @@ inside 200 characters.
 | 3 | `claude/stage5-more` | none | 2 (Advisors list) | 3 |
 | 6 | `claude/stage5-activity` | 0044 | 3 (More row) | 4 |
 | 4 | `claude/stage5-assignments` | 0045, 0046 | 3, 6 (log inside the RPC) | 5 |
-| 5 | `claude/stage5-view-as` | 0047 | 3, 6 (start and end write the log); tested against 4 so a viewed Athlete login shows assignments | 6 |
+| 5 | `claude/stage5-view-as` | 0074 | 3, 6 (start and end write the log); tested against 4 so a viewed Athlete login shows assignments | 6 |
 
 Rules for every branch:
 

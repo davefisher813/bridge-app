@@ -1204,7 +1204,7 @@ export function buildFixture(): Dataset {
     // Document approvers (migration 0067). Nobody named, as on
     // production: Ready stays a single Admin tap.
     doc_approvers: [],
-    // View As (migration 0047). Empty: a harness that wants a live session
+    // View As (migration 0074). Empty: a harness that wants a live session
     // passes `viewing` to createFakeClient, or calls start_view_as, and
     // the fake writes one. Written only by those two functions.
     view_as_sessions: [],

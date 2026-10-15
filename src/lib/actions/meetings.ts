@@ -6,6 +6,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
 import { parseMeetingForm } from "@/lib/validation/meeting";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // Board meetings and their materials (migration 0050). Admins only, and
 // only where the governance module is on, the same gate as the rest of
@@ -36,6 +37,7 @@ async function boardIsOurs(supabase: Awaited<ReturnType<typeof createClient>>, o
 }
 
 export async function createMeeting(slug: string, _prev: MeetingActionState, formData: FormData): Promise<MeetingActionState> {
+  await requireNotViewing();
   const { org, user } = await requireGovernance(slug);
   const parsed = parseMeetingForm(formData);
   if ("errors" in parsed) return { errors: parsed.errors };
@@ -50,6 +52,7 @@ export async function createMeeting(slug: string, _prev: MeetingActionState, for
 }
 
 export async function updateMeeting(slug: string, meetingId: string, _prev: MeetingActionState, formData: FormData): Promise<MeetingActionState> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
   const parsed = parseMeetingForm(formData);
   if ("errors" in parsed) return { errors: parsed.errors };
@@ -72,6 +75,7 @@ export async function updateMeeting(slug: string, meetingId: string, _prev: Meet
 // Removes the meeting and its list of materials. The documents stay in
 // Documents, untouched.
 export async function removeMeeting(slug: string, meetingId: string): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
   const supabase = await createClient();
   const { data: found } = await supabase.from("board_meetings").select("id").eq("id", meetingId).eq("org_id", org.id).maybeSingle();
@@ -84,6 +88,7 @@ export async function removeMeeting(slug: string, meetingId: string): Promise<vo
 }
 
 export async function attachMeetingDocument(slug: string, meetingId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const { org, user } = await requireGovernance(slug);
   const back = `${base(slug)}/${meetingId}`;
   const documentId = String(formData.get("documentId") ?? "");
@@ -108,6 +113,7 @@ export async function attachMeetingDocument(slug: string, meetingId: string, for
 
 // Takes a document off a meeting's list. The document itself stays.
 export async function detachMeetingDocument(slug: string, meetingId: string, documentId: string): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
   const back = `${base(slug)}/${meetingId}`;
   const supabase = await createClient();

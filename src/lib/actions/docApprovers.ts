@@ -18,10 +18,12 @@ import { createClient } from "@/lib/supabase/server";
 import { isEligibleAdvisor } from "@/lib/org/advisors";
 import { activitySummary, logActivity } from "@/lib/data/activity";
 import { AREA_LABEL, isApproverArea } from "@/lib/documents/approvers";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 const q = (s: string) => encodeURIComponent(s);
 
 export async function setDocApprover(slug: string, area: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireOwner(org.id);

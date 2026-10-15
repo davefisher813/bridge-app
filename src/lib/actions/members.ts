@@ -605,6 +605,7 @@ export async function resendInviteForm(slug: string, userId: string): Promise<vo
 // asked first in the screen, written by the server (orgs has no client
 // write policy), and logged.
 export async function transferMasterAccount(slug: string, toUserId: string): Promise<{ ok: boolean; error?: string }> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Organization not found." };
   const caller = await requireOwner(org.id);
@@ -636,6 +637,7 @@ export async function transferMasterAccount(slug: string, toUserId: string): Pro
 }
 
 export async function transferMasterAccountForm(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const to = String(formData.get("userId") ?? "").trim();
   const r = await transferMasterAccount(slug, to);
   redirect(`/org/${slug}/settings?${r.ok ? `notice=${q("Master Account Changed.")}` : `error=${q(r.error ?? "Could not change the master account.")}`}`);
@@ -866,6 +868,7 @@ async function memberPhotoTarget(slug: string, userId: string): Promise<{ orgId:
 // <org>/<user>/. Read back and checked here before the row points at it;
 // a file that fails the check is removed, so nothing is left loose.
 export async function setMemberPhoto(slug: string, userId: string, storagePath: unknown): Promise<{ ok: boolean; error?: string }> {
+  await requireNotViewing();
   const target = await memberPhotoTarget(slug, userId);
   if ("error" in target) return { ok: false, error: target.error };
   const path = typeof storagePath === "string" ? storagePath : "";
@@ -894,6 +897,7 @@ export async function setMemberPhoto(slug: string, userId: string, storagePath: 
 }
 
 export async function removeMemberPhotoForm(slug: string, userId: string): Promise<void> {
+  await requireNotViewing();
   const back = `/org/${slug}/members/${userId}`;
   const target = await memberPhotoTarget(slug, userId);
   if ("error" in target) redirect(`${back}?error=${q(target.error)}`);

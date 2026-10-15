@@ -270,6 +270,7 @@ export async function addBoardSeat(
 // Only unambiguous matches; anything else stays for a person to pick on
 // the seat. Behind a confirm on the board page; each link is logged.
 export async function linkSeatsToDonorsByName(slug: string, boardId: string): Promise<void> {
+  await requireNotViewing();
   const { org, user } = await requireGovernance(slug);
   const back = `/org/${slug}/board-governance/${boardId}`;
   const supabase = await createClient();

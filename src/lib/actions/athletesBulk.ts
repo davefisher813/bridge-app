@@ -12,6 +12,7 @@ import { recomputeFitsForAthlete } from "@/lib/data/fits";
 import { decodeAdvisorUndo, encodeAdvisorUndo, planAdvisorRestore } from "@/lib/data/undoPlan";
 import { countOf, parseBulkIds } from "@/lib/bulk/ids";
 import { bulkStatusDecision, isBulkStatus, SKIP_REASON_TEXT, type SkipReason } from "@/lib/bulk/rosterStatus";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // Bulk actions on the roster (Dave, 2026-10-13: "dozens of student
 // athletes; one-at-a-time actions are too slow"). BulkSelect (the kit)
@@ -54,6 +55,7 @@ const plural = (n: number) => countOf(n, "athlete");
 // that advisor is not touched and not logged. The redirect carries one
 // Undo that puts every changed athlete's previous advisor back.
 export async function bulkAssignAdvisor(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const { org } = await admin(slug);
   const back = `/org/${slug}/roster`;
   const parsed = parseBulkIds(formData);
@@ -89,6 +91,7 @@ export async function bulkAssignAdvisor(slug: string, formData: FormData): Promi
 // set (planAdvisorRestore), one activity row per athlete through
 // setAthleteAdvisor. Like the single Undo, it offers no Undo of its own.
 export async function undoBulkAdvisor(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const { org } = await admin(slug);
   const back = `/org/${slug}/roster`;
   const undo = decodeAdvisorUndo(formData.get("undo"));
@@ -122,6 +125,7 @@ export async function undoBulkAdvisor(slug: string, formData: FormData): Promise
 // as they do for a single edit: Inactive clears them, Active scores them.
 // One athlete_status_changed row per athlete changed.
 export async function bulkChangeStatus(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const { org, user } = await admin(slug);
   const back = `/org/${slug}/roster`;
   const parsed = parseBulkIds(formData);
@@ -193,6 +197,7 @@ export async function bulkChangeStatus(slug: string, formData: FormData): Promis
 // the same way). The route is Admin-only and org-scoped on its own; this
 // check only keeps a non-Admin from being sent there.
 export async function bulkExportAthletes(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   await admin(slug);
   const parsed = parseBulkIds(formData);
   if (!parsed.ok) redirect(`/org/${slug}/roster?error=${q(parsed.error)}`);

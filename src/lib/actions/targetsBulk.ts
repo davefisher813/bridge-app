@@ -18,6 +18,7 @@ import { bulkNotice, isBulkStatus, removeSkipReason, statusSkipReason } from "@/
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
 import { syncCommitment } from "@/lib/data/commitment";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 interface BulkTarget {
   id: string;
@@ -63,6 +64,7 @@ function revalidateBoard(slug: string, athleteIds: Iterable<string>) {
 }
 
 export async function bulkChangeTargetStatus(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -112,6 +114,7 @@ export async function bulkChangeTargetStatus(slug: string, formData: FormData): 
 // removal has none (the target's contact log and visits go with it), and
 // the sheet says so.
 export async function bulkRemoveTargets(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);

@@ -1,4 +1,4 @@
-// View As, the app's half (migration 0047, docs/PLAN_STAGE5.md Phase 5).
+// View As, the app's half (migration 0074, docs/PLAN_STAGE5.md Phase 5).
 //
 // An Admin sees exactly what an Athlete login, a Viewer or another Admin
 // sees, read only, for at most 30 minutes. The switch is a row in
@@ -30,7 +30,7 @@ import { labelForRole } from "@/lib/org/roleLabels";
 import type { OrgRole } from "@/lib/auth/guard";
 
 // The longest a session lasts. The database holds the same number
-// (migration 0047, the coherence trigger); this one is for the words on
+// (migration 0074, the coherence trigger); this one is for the words on
 // the banner and the screen that starts one.
 export const VIEW_AS_MINUTES = 30;
 
@@ -58,7 +58,7 @@ export function minutesLeft(expiresAt: string, now: number = Date.now()): number
   return Math.max(1, Math.ceil(ms / 60_000));
 }
 
-// A table that is not there means migration 0047 has not run in this
+// A table that is not there means migration 0074 has not run in this
 // database, which means no View As can exist in it: not viewing. Any
 // other failure is not an answer, and the caller must not guess "not
 // viewing" from it: the service role would then write for a person who is

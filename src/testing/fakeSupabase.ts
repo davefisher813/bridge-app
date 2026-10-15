@@ -512,7 +512,7 @@ export interface FakeClientOptions {
   // Make every email-sending auth call (sign-in link, invitation) answer
   // with this error, the way Supabase does when its mailer refuses.
   authFail?: string;
-  // The id of the person this user is viewing as (migration 0047), or
+  // The id of the person this user is viewing as (migration 0074), or
   // null. This models the CALLER'S client, the one row level security
   // applies to, and does three things the database does:
   //   1. every insert, update, upsert and delete, and every storage

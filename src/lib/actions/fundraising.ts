@@ -403,6 +403,7 @@ export async function updateDonor(slug: string, donorId: string, _prevState: Fun
 // the same rule as an athlete's advisor; an empty value clears. Logged,
 // and the notice offers Undo back to whoever it was before.
 export async function setDonorSteward(slug: string, donorId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const { org, user } = await requireFundraising(slug);
   const back = `/org/${slug}/fundraising/donors/${donorId}`;
   const stewardId = String(formData.get("stewardId") ?? "").trim() || null;

@@ -10,7 +10,7 @@ and how. Three data changes ran later the same day on Dave's word (see
 | Item | State | Evidence |
 |---|---|---|
 | Supabase keys in production | **Done, already in place** | Vercel production env has `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (set 2026-09-19). No handoff from Alfred needed. |
-| Migrations | **Done** | 0001 to 0046 in the migration history. 0048 (document vault) was applied by hand on Oct 8 and is not in the history table, but the live catalog has all of it: the 6 columns, the 3 triggers, the delete policies gone, `authenticated` cannot delete, the 9 file types, the 5 activity values. 0047 (View As) is not applied, as intended. |
+| Migrations | **Done** | 0001 to 0046 in the migration history. 0048 (document vault) was applied by hand on Oct 8 and is not in the history table, but the live catalog has all of it: the 6 columns, the 3 triggers, the delete policies gone, `authenticated` cannot delete, the 9 file types, the 5 activity values. 0074 (View As) is not applied, as intended. |
 | Code pushed | **Done** | `main` = d1da4b8 on GitHub and in production. |
 | 634 schools, 1,461 coaches | **Present: 638 schools, 1,461 coaches** | Row counts on production. 638, not 634: four more schools than the brief expects. |
 | Athletes import | **Done** | The 28-athlete sheet was already in the app. Ricky Perez and Frailyn Capellan (from the MASTER tracker) were added on Dave's word, Active, Baseball. Bridge now has 34 athletes, no duplicates. Some sheet statuses are older than the app's (Angel Valerio, Brandon Jimenez, JJ Batista); the app was left as is. |
@@ -43,7 +43,7 @@ and how. Three data changes ran later the same day on Dave's word (see
 | Karen Alvarez on the Development Board with a photo | **Waits on her account** | Dave will invite her as an Admin and add her photo once 0049 is live. |
 | Dave once on /org/bridge/advisors | **True today** | Bridge has one member: Dave (davefisher813@gmail.com, Admin). |
 | No placeholder or fake names | **Clean** | No lorem ipsum in the code. Production data has no test names. The fixture's invented names exist only in tests. |
-| View As hidden | **Done** | 0047 not applied; no View As screen in `main`. |
+| View As hidden | **Done** | 0074 not applied; no View As screen in `main`. |
 | Spanish toggle | **Done** | No language toggle exists in `main`. |
 | Elite Squad hidden | **Not done: waits on Gate 1 item 7** | Elite Squad has 0 athletes and 1 document. Dave is an Admin there with both accounts, so it shows in his organization picker. |
 

@@ -69,7 +69,7 @@ export async function signout() {
   // left open, signing back in within 30 minutes would land straight back
   // inside someone else's screens. end_view_as answers for the real
   // caller, works while viewing, and does nothing when nothing is open.
-  // Its result is ignored: a database without migration 0047 has no such
+  // Its result is ignored: a database without migration 0074 has no such
   // function, and signing out must still work.
   await supabase.rpc("end_view_as");
   await supabase.auth.signOut();

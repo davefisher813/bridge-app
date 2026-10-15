@@ -477,7 +477,7 @@ Work an Admin gives an athlete, with a due date. Migrations 0045 and 0046,
 
 ## View As (2026-09-30)
 
-An Admin looks at the app through someone else's eyes. Migration 0047,
+An Admin looks at the app through someone else's eyes. Migration 0074,
 `src/lib/data/viewAs.ts`, the two screens under `/org/[slug]/view-as`.
 
 - **Who starts it:** an Admin of the org, and nobody else. A Viewer, an

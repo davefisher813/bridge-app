@@ -373,7 +373,7 @@ asserts each of these.
   (`pageRender.test.ts`, last block). The three loaders drop removed
   athletes and any row outside the org.
 
-### Effective identity: View As (migration 0047)
+### Effective identity: View As (migration 0074)
 
 An Admin looks at the app as an Athlete login, a Viewer or another Admin,
 read only, for 30 minutes. The design keeps one identity for the caller
@@ -405,7 +405,7 @@ for the person being viewed.
 - **Writes are refused.** A loop over the catalog appends `and not
   private._viewing()` to every INSERT, UPDATE and DELETE policy in
   `public` and `storage.objects`, so a table added later must carry it
-  itself (`viewAsLaws.test.ts` reads every policy written after 0047). The
+  itself (`viewAsLaws.test.ts` reads every policy written after 0074). The
   functions that write as a definer, which no policy stands in front of,
   refuse on their own: `create_org`, `log_family_message`,
   `submit_assignment`. The app has one more guard because the service role

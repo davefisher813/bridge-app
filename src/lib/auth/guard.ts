@@ -31,7 +31,7 @@ export const ORG_WIDE_ROLES: OrgRole[] = ["owner", "staff"];
 export const MEMBER_ROLES: OrgRole[] = ["member"];
 export const FAMILY_ROLES: OrgRole[] = ["family"];
 
-// Set while an Admin is viewing as someone else (migration 0047, Phase 5
+// Set while an Admin is viewing as someone else (migration 0074, Phase 5
 // of docs/PLAN_STAGE5.md): the person, and when it ends. The CurrentUser
 // it rides on is THAT person, seat and all, so every screen and every
 // role check answers for them; the Admin behind the glass is only ever

@@ -47,7 +47,7 @@ import { APPLIED_LEDGER } from "@/lib/ops/appliedLedger";
 //     assignment with no file, and none attached earlier, is 23514.
 
 // Two more write functions, start_view_as and end_view_as (migration
-// 0047), live at the bottom with their rules in plain words. The fake
+// 0074), live at the bottom with their rules in plain words. The fake
 // also models what View As does to everything else: see FakeClientOptions
 // .viewing in fakeSupabase.ts.
 //
@@ -356,7 +356,7 @@ export function fakeSubmitAssignment(
 }
 
 
-// ── View As (migration 0047) ─────────────────────────────────────────
+// ── View As (migration 0074) ─────────────────────────────────────────
 
 // A session is live for this long, and no longer.
 export const VIEW_AS_MINUTES = 30;

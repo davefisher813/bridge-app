@@ -399,7 +399,7 @@ begin
     execute cmd;
     gated := gated + 1;
   end loop;
-  raise notice '0047: gated % write policies against viewing', gated;
+  raise notice '0074: gated % write policies against viewing', gated;
 end $$;
 
 -- ── The table's own policy, and its grants ───────────────────────────
@@ -793,6 +793,109 @@ begin
   return a.id;
 end $$;
 
+create or replace function public.family_send_document(p_athlete uuid, p_file_name text, p_file_size int, p_media_type text, p_storage_path text, p_content_hash text default null, p_note text default null, p_type text default null, p_reader_path text default null)
+  returns uuid
+  language plpgsql
+  security definer
+  set search_path to ''
+  as $$
+declare
+  caller uuid := auth.uid();
+  athlete_org uuid;
+  athlete_gone timestamptz;
+  clean_note text := nullif(btrim(coalesce(p_note, '')), '');
+  clean_file text := btrim(coalesce(p_file_name, ''));
+  clean_hash text := nullif(btrim(coalesce(p_content_hash, '')), '');
+  clean_type text := nullif(btrim(coalesce(p_type, '')), '');
+  folder_shape text;
+  doc_format text;
+  size_limit bigint;
+  allowed_types text[];
+  doc_id uuid;
+begin
+  if caller is null then
+    raise exception 'family_send_document: sign in first' using errcode = 'insufficient_privilege';
+  end if;
+  if private._viewing() then
+    raise exception 'family_send_document: read only while viewing as someone else' using errcode = 'insufficient_privilege';
+  end if;
+  if p_athlete is null or p_athlete not in (select private._family_athlete_ids()) then
+    raise exception 'family_send_document: not linked to that athlete' using errcode = 'insufficient_privilege';
+  end if;
+  select a.org_id, a.deleted_at into athlete_org, athlete_gone from public.athletes a where a.id = p_athlete;
+  if athlete_org is null or athlete_gone is not null then
+    raise exception 'family_send_document: not linked to that athlete' using errcode = 'insufficient_privilege';
+  end if;
+  if length(coalesce(p_note, '')) > 4000 then
+    raise exception 'family_send_document: a note is 4,000 characters or fewer' using errcode = 'check_violation';
+  end if;
+  if clean_type is not null and clean_type not in ('transcript', 'test_scores', 'offer_letter', 'recommendation', 'financial_aid', 'metrics', 'athlete_profile', 'other') then
+    raise exception 'family_send_document: that is not a document type' using errcode = 'check_violation';
+  end if;
+  folder_shape := '^' || athlete_org::text || '/family/' || p_athlete::text || '_[A-Za-z0-9_-]+/[A-Za-z0-9._-]+$';
+  if p_storage_path is null or p_storage_path !~ folder_shape or p_storage_path ~ '/\.\.?$' then
+    raise exception 'family_send_document: a file must be under this athlete''s family folder' using errcode = 'check_violation';
+  end if;
+  if not exists (
+    select 1 from storage.objects o
+    where o.bucket_id = 'documents' and o.name = p_storage_path and o.owner = caller
+  ) then
+    raise exception 'family_send_document: that file was not uploaded by you' using errcode = 'check_violation';
+  end if;
+  if exists (select 1 from public.documents d where p_storage_path = any (d.storage_paths) or p_storage_path = any (d.original_paths)) then
+    raise exception 'family_send_document: that file is already filed' using errcode = 'check_violation';
+  end if;
+  if clean_file = '' or length(clean_file) > 200 or coalesce(p_file_size, 0) <= 0 then
+    raise exception 'family_send_document: a file needs a name, a size and a type' using errcode = 'check_violation';
+  end if;
+  doc_format := case p_media_type when 'application/pdf' then 'pdf' when 'image/jpeg' then 'jpg' when 'image/png' then 'png' else null end;
+  if doc_format is null then
+    raise exception 'family_send_document: send a PDF, JPG or PNG' using errcode = 'check_violation';
+  end if;
+  select b.file_size_limit, b.allowed_mime_types into size_limit, allowed_types from storage.buckets b where b.id = 'documents';
+  if size_limit is not null and p_file_size > size_limit then
+    raise exception 'family_send_document: that file is over the size limit' using errcode = 'check_violation';
+  end if;
+  if allowed_types is not null and not (p_media_type = any (allowed_types)) then
+    raise exception 'family_send_document: that file type is not accepted' using errcode = 'check_violation';
+  end if;
+  if p_reader_path is not null then
+    if doc_format = 'pdf'
+       or p_reader_path = p_storage_path
+       or p_reader_path !~ folder_shape or p_reader_path ~ '/\.\.?$'
+       or regexp_replace(p_reader_path, '/[^/]+$', '') <> regexp_replace(p_storage_path, '/[^/]+$', '') then
+      raise exception 'family_send_document: the reader copy must sit beside the photo' using errcode = 'check_violation';
+    end if;
+    if not exists (
+      select 1 from storage.objects o
+      where o.bucket_id = 'documents' and o.name = p_reader_path and o.owner = caller
+    ) then
+      raise exception 'family_send_document: that file was not uploaded by you' using errcode = 'check_violation';
+    end if;
+    if exists (select 1 from public.documents d where p_reader_path = any (d.storage_paths) or p_reader_path = any (d.original_paths)) then
+      raise exception 'family_send_document: that file is already filed' using errcode = 'check_violation';
+    end if;
+  end if;
+  if clean_hash is not null and exists (
+    select 1 from public.documents d
+    where d.org_id = athlete_org
+      and d.content_hash = clean_hash
+      and d.status <> 'discarded'
+      and d.athlete_id in (select private._family_athlete_ids())
+  ) then
+    raise exception 'family_send_document: this exact file was already sent' using errcode = 'check_violation';
+  end if;
+  insert into public.documents (
+    org_id, athlete_id, linked_athlete_id, file_name, file_size, media_type, format, source_role, status, lifecycle,
+    requested_category, uploaded_by, storage_paths, original_paths, content_hash, family_note
+  ) values (
+    athlete_org, p_athlete, p_athlete, clean_file, p_file_size, p_media_type, doc_format, 'parent', 'filed', 'needs_review',
+    clean_type::public.doc_category, caller, array[coalesce(p_reader_path, p_storage_path)], array[p_storage_path], clean_hash, clean_note
+  ) returning id into doc_id;
+  perform private.log_family_document_sent(doc_id);
+  return doc_id;
+end $$;
+
 create or replace function public.member_giving(p_org uuid)
   returns jsonb
   language plpgsql stable security definer
@@ -804,6 +907,11 @@ create or replace function public.member_giving(p_org uuid)
     out jsonb;
   begin
     if not (p_org in (select private._member_org_ids()) or p_org in (select private._observer_org_ids())) then
+      return null;
+    end if;
+    -- The Fundraising module is off: nothing to show, the same as the
+    -- Giving screen, which is not there.
+    if not coalesce((select (o.modules->>'donor_fundraising')::boolean from orgs o where o.id = p_org), false) then
       return null;
     end if;
 

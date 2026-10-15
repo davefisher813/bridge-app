@@ -348,9 +348,9 @@ planted, seen to fail, and reverted; each file's header names the plants.
 
 41. **Every write is refused while viewing, in the database.** Every
     INSERT, UPDATE and DELETE policy in `public` and `storage.objects`
-    carries `and not private._viewing()`, found by a catalog loop in 0047
+    carries `and not private._viewing()`, found by a catalog loop in 0074
     and asked of the catalog again by the suite; every policy written
-    after 0047 must name it in its own text; the definer functions that
+    after 0074 must name it in its own text; the definer functions that
     write as the caller (`create_org`, `log_family_message`,
     `submit_assignment`) refuse. The write loop attempts an insert, an
     update and a delete on every table and demands each is refused, and

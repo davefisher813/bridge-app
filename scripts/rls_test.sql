@@ -1226,11 +1226,11 @@ declare
   -- behind the service role or a SECURITY DEFINER function that cannot be
   -- handed a role, not behind an ordinary policy.
   --
-  -- view_as_sessions (0047) is the other, for a different reason: it
+  -- view_as_sessions (0074) is the other, for a different reason: it
   -- decides whose identity every policy evaluates, so a policy that let
   -- a client write a row would let an Admin name anyone. Its only writers
   -- are start_view_as and end_view_as, SECURITY DEFINER, which check the
-  -- real caller; the RLS block for 0047 asserts nobody inserts, updates
+  -- real caller; the RLS block for 0074 asserts nobody inserts, updates
   -- or deletes a row directly and that the grants are gone as well.
   write_exempt text[] := array['org_members', 'view_as_sessions'];
 begin
@@ -5850,7 +5850,7 @@ delete from auth.users where id::text like '00000000-0000-0000-0000-0000000490a%
 
 \echo 'ALL 0073 ASSERTIONS PASSED'
 -- ═══════════════════════════════════════════════════════════════════
--- View As (migration 0047)
+-- View As (migration 0074)
 -- ═══════════════════════════════════════════════════════════════════
 -- An Admin evaluates the org's policies as a chosen Athlete login,
 -- Viewer or other Admin, read only, for at most 30 minutes, on their own
@@ -6040,7 +6040,7 @@ begin
         -- Writers that sign a line as the real caller, and whose only
         -- callers are guarded: submit_assignment (checked below) and the
         -- honesty triggers on writes a viewing Admin cannot make.
-        'log_assignment_submitted', 'activity_is_honest', 'assignment_is_honest');
+        'log_assignment_submitted', 'log_family_document_sent', 'documents_ready_by_approver', 'activity_is_honest', 'assignment_is_honest');
   if array_length(helpers, 1) > 0 then
     raise exception 'FAIL: private function(s) still reading auth.uid() directly: %', array_to_string(helpers, ', ');
   end if;
@@ -6653,6 +6653,12 @@ end $$;
 -- membership an earlier block removed. This one is whole.
 update zz_samples set row_json = (select to_jsonb(g) from athlete_guardians g where g.user_id = '00000000-0000-0000-0000-0000000e0004')
   where q = 'public.athlete_guardians';
+-- A doc_approvers row is coherence-checked by a trigger that runs before the
+-- policy does (the person must be an Admin of the row's org); the copied row's
+-- person is not one in this seed, so it would be refused for that and prove
+-- nothing about the gate. This one is whole: the Bridge owner.
+update zz_samples set row_json = jsonb_set(jsonb_set(row_json, '{org_id}', to_jsonb('00000000-0000-0000-0000-000000000010'::text)), '{user_id}', to_jsonb('00000000-0000-0000-0000-0000000e0001'::text))
+  where q = 'public.doc_approvers';
 grant select on zz_samples to app_user;
 
 create function public.zz_write_probe(p_uid uuid) returns jsonb
@@ -7123,4 +7129,4 @@ begin
   raise notice 'PASS: no session left open, no scaffolding left behind';
 end $$;
 
-\echo 'ALL 0047 ASSERTIONS PASSED'
+\echo 'ALL 0074 ASSERTIONS PASSED'

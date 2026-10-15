@@ -8,7 +8,7 @@ import { homeFor, requireOwner, type OrgRole } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { getViewAs } from "@/lib/data/viewAs";
 
-// View As (migration 0047, docs/PLAN_STAGE5.md Phase 5). An Admin sees
+// View As (migration 0074, docs/PLAN_STAGE5.md Phase 5). An Admin sees
 // exactly what an Athlete login, a Viewer or another Admin sees, read
 // only, for at most 30 minutes.
 //
