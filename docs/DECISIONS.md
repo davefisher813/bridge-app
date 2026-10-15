@@ -4395,3 +4395,14 @@ Reason: Dave asked for everything on main.
 Consequences: a confirmation sets the athlete link (migration 0058) when
 it would not move a link a person chose; the suggestion columns are
 additive; the migration must be applied before the code that reads them.
+
+## 2026-10-15: Needs Review includes unconfirmed Who, backfill is filename-only
+
+Decision: a Ready document with an unconfirmed Who suggestion appears in the
+Needs Review view without changing its lifecycle. Existing documents were
+backfilled from file names and the live roster, not file contents.
+Reason: Needs Review read 0 because only new uploads enter it; flipping
+stored lifecycle state of reviewed documents would be a silent data change.
+Alternatives: move them to needs_review (rejected: destructive, no undo).
+Consequences: the backfill is a data update with no migration; run the bulk
+Suggest action to refine from file text. There is no bulk Confirm yet.

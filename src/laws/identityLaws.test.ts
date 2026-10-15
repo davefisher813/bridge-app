@@ -249,6 +249,101 @@ describe("LAW: nothing else decides who a document is about", () => {
   });
 });
 
+describe("LAW: Suggest Who and What in bulk", () => {
+  // The fake client numbers rows "fake-documents-3"; the action only takes UUIDs.
+  const uuid = (docId: string, n: number) => {
+    const id = `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
+    rowOf(docId).id = id;
+    return id;
+  };
+  async function suggestMany(ids: string[]) {
+    const { bulkSuggestDocuments } = await import("@/lib/actions/documentsBulk");
+    const form = new FormData();
+    for (const id of ids) form.append("ids", id);
+    return bulkSuggestDocuments(ORG_WITH_MODULES, form).catch((e: Error) => e.message);
+  }
+
+  it("refreshes the suggestions of every selected document and says how many", async () => {
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    const b = await upload("Fixture_Athlete_report.txt", "x");
+    rowOf(a.documentId!).identity_status = null;
+    rowOf(a.documentId!).suggested_type = null;
+    const ia = uuid(a.documentId!, 901);
+    const ib = uuid(b.documentId!, 902);
+    const out = await suggestMany([ia, ib]);
+    expect(decodeURIComponent(out as string)).toContain("Suggested for 2 documents.");
+    expect(data.documents!.find((d) => d.id === ia)).toMatchObject({ identity_status: "proposed", suggested_type: "transcript" });
+  });
+
+  it("never overwrites a confirmed athlete or a decision of none", async () => {
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    await setIdentity(a.documentId!, IDS.athlete);
+    const ia = uuid(a.documentId!, 903);
+    await suggestMany([ia]);
+    expect(data.documents!.find((d) => d.id === ia)).toMatchObject({ identity_status: "confirmed", subject_athlete_id: IDS.athlete });
+  });
+
+  it("another org's id is untouched and counted", async () => {
+    const out = await suggestMany(["00000000-0000-0000-0000-00000000dead"]);
+    expect(decodeURIComponent(out as string)).toMatch(/Nothing was changed\. Skipped 1: 1 no longer here/);
+  });
+
+  it("a Viewer is refused before anything is read or written", async () => {
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    const ia = uuid(a.documentId!, 904);
+    const before = JSON.stringify(data.documents!.find((d) => d.id === ia));
+    currentUser = MEMBER_ID;
+    await suggestMany([ia]);
+    currentUser = OWNER_ID;
+    expect(JSON.stringify(data.documents!.find((d) => d.id === ia))).toBe(before);
+  });
+
+  it("a selection past the cap is refused and does none of it", async () => {
+    const ids = Array.from({ length: 41 }, (_, i) => `00000000-0000-0000-0000-${String(i).padStart(12, "0")}`);
+    const out = await suggestMany(ids);
+    expect(decodeURIComponent(out as string)).toContain("Suggest for 40 or fewer at a time");
+  });
+});
+
+// Needs Review is what waits on a person (Alfred, 2026-10-15): a Ready
+// document whose suggested athlete nobody confirmed appears there, keeping
+// its Ready state, until somebody decides.
+describe("LAW: an unconfirmed suggestion is in Needs Review", () => {
+  async function list(view: string): Promise<string> {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const mod = await import("@/app/org/[slug]/documents/page");
+    return renderToStaticMarkup(await mod.default({ params: Promise.resolve({ slug: ORG_WITH_MODULES }), searchParams: Promise.resolve({ view }) }));
+  }
+
+  it("a Ready document with a proposed athlete shows in Needs Review and keeps its state", async () => {
+    const r = await upload("Fixture_Athlete_transcript.txt", "x");
+    const row = rowOf(r.documentId!);
+    row.lifecycle = "ready";
+    expect(row.identity_status).toBe("proposed");
+    const inReview = await list("needs_review");
+    expect(inReview).toContain("Fixture_Athlete_transcript.txt");
+    expect(inReview).toContain("Maybe Fixture Athlete?");
+    expect(row.lifecycle).toBe("ready");
+    // Not duplicated into the Ready view's own section count when asked for Ready: it is still Ready.
+    expect(await list("ready")).toContain("Fixture_Athlete_transcript.txt");
+  });
+
+  it("confirming takes it out of Needs Review", async () => {
+    const r = await upload("Fixture_Athlete_transcript.txt", "x");
+    rowOf(r.documentId!).lifecycle = "ready";
+    await setIdentity(r.documentId!, IDS.athlete);
+    expect(await list("needs_review")).not.toContain("Fixture_Athlete_transcript.txt");
+  });
+
+  it("a Ready document with no candidate to confirm is not pulled into Needs Review", async () => {
+    const r = await upload("Plain_notes.txt", "x");
+    const row = rowOf(r.documentId!);
+    row.lifecycle = "ready";
+    expect(["unmatched", null]).toContain(row.identity_status ?? null);
+    expect(await list("needs_review")).not.toContain("Plain_notes.txt");
+  });
+});
+
 describe("LAW: the document screen shows the suggestion and asks", () => {
   async function html(id: string): Promise<string> {
     const { renderToStaticMarkup } = await import("react-dom/server");
@@ -260,6 +355,31 @@ describe("LAW: the document screen shows the suggestion and asks", () => {
     const r = await upload("Fixture_Athlete_transcript.txt", "x");
     const out = await html(r.documentId!);
     for (const t of ["Who and What", "Likely Transcript", "Fixture Athlete", "Name in the file name", "Confirm Fixture Athlete", "Nothing is linked until you confirm", "Someone Else"]) expect(out, t).toContain(t);
+  });
+
+  it("possible matches sit under a Maybe heading", async () => {
+    const r = await upload("Fixture_Athlete_transcript.txt", "x");
+    const out = await html(r.documentId!);
+    expect(out).toMatch(/Maybe[\s\S]*Possible match\. Nothing is linked until you confirm/);
+  });
+
+  it("a close second type is its own group under Maybe, not only a phrase in the reasons", async () => {
+    const r = await upload("Fixture_Athlete_transcript.txt", "x");
+    rowOf(r.documentId!).suggested_type_reasons = ["Word in the file name", "Could also be Course Plan"];
+    const out = await html(r.documentId!);
+    expect(out).toMatch(/Likely Transcript[\s\S]*Maybe[\s\S]*Course Plan/);
+    expect(out).not.toContain("Could also be");
+  });
+
+  it("after Confirm there is a visible Undo that says what it takes back", async () => {
+    const r = await upload("Fixture_Athlete_transcript.txt", "x");
+    expect(await html(r.documentId!)).not.toContain("Undo This Confirmation");
+    await setIdentity(r.documentId!, IDS.athlete);
+    const out = await html(r.documentId!);
+    expect(out).toContain("Confirmed");
+    expect(out).toContain("Undo");
+    // The confirm sheet is rendered closed, so the question is checked by the source.
+    expect(readFileSync("src/components/DocumentSuggestions.tsx", "utf8")).toContain('title="Undo This Confirmation?"');
   });
 
   it("a picked type the file disagrees with is said out loud, and the file is kept", async () => {

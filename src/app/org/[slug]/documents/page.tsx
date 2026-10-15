@@ -1,6 +1,7 @@
 import { documentTypeLabel, READER_TYPES } from "@/lib/documents/fileTypes";
-import { bulkApproveDocuments, bulkArchiveDocuments, bulkLinkDocumentsToAthlete, bulkRestoreDocuments, bulkSetDocumentType } from "@/lib/actions/documentsBulk";
+import { bulkApproveDocuments, bulkArchiveDocuments, bulkLinkDocumentsToAthlete, bulkRestoreDocuments, bulkSetDocumentType, bulkSuggestDocuments } from "@/lib/actions/documentsBulk";
 import { notFound } from "next/navigation";
+import { SUGGEST_CAP } from "@/lib/bulk/ids";
 import { PROVISIONAL_TYPE_LABEL, type ProvisionalType } from "@/lib/docai/suggest";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -119,8 +120,13 @@ function suggestionNotes(doc: DocRow, names: Map<string, string>): string[] {
   const type = !doc.category && t && t !== "other" && PROVISIONAL_TYPE_LABEL[t] ? `Likely ${PROVISIONAL_TYPE_LABEL[t]}` : null;
   const live = (doc.identity_candidates ?? []).filter((c) => names.has(c.athleteId));
   const subject = doc.subject_athlete_id ? names.get(doc.subject_athlete_id) : undefined;
+  // A decision a reading already made shows in the title; only a question
+  // still open is worth a line on a document that has a type.
+  const settledByReading = !!doc.category && (doc.identity_status === "confirmed" || doc.identity_status === "not_an_athlete");
   const who =
-    doc.identity_status === "confirmed" && subject
+    settledByReading
+      ? null
+      : doc.identity_status === "confirmed" && subject
       ? `About ${subject}`
       : doc.identity_status === "not_an_athlete"
         ? "Not about an athlete"
@@ -155,7 +161,7 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
         : (label ?? doc.file_name);
   const reason = lifecycle === "processing" && isStaleProcessing(lifecycle, doc.lifecycle_changed_at) ? "Reading did not finish." : doc.review_reason;
   const facts = [doc.title ? label : null, doc.title || typed || doc.status === "filed" ? doc.file_name : null, formatLabelOf(doc.format, doc.media_type), formatBytes(doc.file_size), ago(doc.created_at)].filter(Boolean);
-  const notes = [...(doc.category || doc.status === "filed" ? [] : suggestionNotes(doc, linkedNames)), doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
+  const notes = [...(doc.status === "filed" ? [] : suggestionNotes(doc, linkedNames)), doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
   return (
     <Row
       href={`/org/${slug}/documents/${doc.id}`}
@@ -226,9 +232,15 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
         return `${r.title ?? ""} ${r.file_name} ${documentTypeLabel(r, CATEGORY_LABEL) ?? ""} ${athlete ?? ""} ${suggestionNotes(r, linkedNames).join(" ")}`.toLowerCase().includes(q);
       })
     : all;
-  const inView = (v: View) => (v === "all" ? matched : matched.filter((r) => r.lifecycle === v));
+  // Needs Review is what waits on a person: documents in that state, and a
+  // Ready one whose suggested athlete nobody has confirmed yet (Piece 2).
+  // The second kind keeps its Ready state; it only appears here until the
+  // person confirms, changes or says it is about nobody.
+  const awaitsWho = (r: DocRow) =>
+    r.lifecycle === "ready" && (r.identity_status === "proposed" || r.identity_status === "ambiguous") && (r.identity_candidates ?? []).some((c) => linkedNames.has(c.athleteId));
+  const inView = (v: View) => (v === "all" ? matched : v === "needs_review" ? matched.filter((r) => r.lifecycle === "needs_review" || awaitsWho(r)) : matched.filter((r) => r.lifecycle === v));
   const rows = inView(view);
-  const inState = (state: Lifecycle) => rows.filter((r) => r.lifecycle === state);
+  const inState = (state: Lifecycle) => rows.filter((r) => (view === "needs_review" && awaitsWho(r) ? "needs_review" : r.lifecycle) === state);
   const stubbed = await isStubbedModel();
   const viewHref = (v: View) => {
     const qs = new URLSearchParams();
@@ -299,6 +311,15 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
                   fields={<BulkHere view={view} q={q} />}
                 />
               )}
+              <BulkAction
+                action={bulkSuggestDocuments.bind(null, slug)}
+                label="Suggest Who and What"
+                noun="document"
+                question="Suggest for {n}"
+                confirmLabel="Suggest"
+                hint={`Reads each original file and the roster, and suggests the type and who it is about. A confirmed athlete is never changed. ${SUGGEST_CAP} at a time.`}
+                fields={<BulkHere view={view} q={q} />}
+              />
               <BulkAction
                 action={bulkLinkDocumentsToAthlete.bind(null, slug)}
                 label="Link to Athlete"
