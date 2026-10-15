@@ -514,6 +514,17 @@ describe("LAW: the document screen shows the suggestion and asks", () => {
     return renderToStaticMarkup(await mod.default({ params: Promise.resolve({ slug: ORG_WITH_MODULES, id }), searchParams: Promise.resolve({}) }));
   }
 
+  it("a reading never shows field talk: a sentence about a null or a column is left out", async () => {
+    const r = await upload("Fixture_Athlete_transcript.txt", "x");
+    const row = rowOf(r.documentId!);
+    row.extracted = { summary: "A recruiting tracker with 40 rows. The ADVISOR column is blank, so studentName is null.", keyFacts: ["Updated in March", "studentName is null"], warnings: ["The scan was dim.", "studentName is null."] };
+    const out = await html(r.documentId!);
+    expect(out).toContain("A recruiting tracker with 40 rows.");
+    expect(out).toContain("Updated in March");
+    expect(out).toContain("The scan was dim.");
+    expect(out.replace(/<script>[\s\S]*?<\/script>/g, "")).not.toMatch(/studentName|ADVISOR column|\bnull\b/);
+  });
+
   it("a proposal shows the candidate, the reason, and Confirm, and says nothing is linked yet", async () => {
     const r = await upload("Fixture_Athlete_transcript.txt", "x");
     const out = await html(r.documentId!);

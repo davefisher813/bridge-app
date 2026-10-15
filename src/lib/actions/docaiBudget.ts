@@ -1,5 +1,6 @@
 "use server";
 
+import { managesAccess } from "@/lib/org/master";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,6 +24,7 @@ export async function setDocaiBudget(slug: string, _prev: BudgetActionState, for
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const caller = await requireOwner(org.id);
+  if (!managesAccess(org.masterUserId, caller.id)) return { errors: { form: "Only the master account sets the Doc AI budget." } };
 
   const parsed = parseBudgetDollars(formData.get("budget"));
   if (!parsed.ok) return { errors: { budget: parsed.error } };

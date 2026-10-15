@@ -138,8 +138,9 @@ describe("LAW: the owner-only rows stay the owner's; everything else is every Ad
     const staff = await more();
     expect(hrefs(staff).filter((l) => l.endsWith("/members") || l.endsWith("/settings") || l.endsWith("/view-as"))).toEqual([]);
     expect(staff).not.toMatch(/>Members<|Organization Settings|>View As</);
-    for (const path of ["advisors", "activity", "assignments", "documents", "schools", "grading-scales", "approved-courses", "transfer-windows", "doc-ai-spending"]) expect(hrefs(staff)).toContain(`${org}/${path}`);
-    expect(staff).toMatch(/Doc AI Spending/);
+    for (const path of ["advisors", "activity", "assignments", "documents", "schools", "grading-scales", "approved-courses", "transfer-windows"]) expect(hrefs(staff)).toContain(`${org}/${path}`);
+    // Doc AI cost is the Master Account's, not every Admin's (Alfred, 2026-10-15).
+    expect(hrefs(staff)).not.toContain(`${org}/doc-ai-spending`);
     // Every section still stands, Members or not.
     expect(sectionLabels(staff)).toEqual(["People", "Program", "Reference", "Matching", "Foundation", "Organization"]);
   });
@@ -218,5 +219,46 @@ describe("LAW: Advisors lists every Admin with the athletes they advise, countin
     expect(html).toMatch(/Example Owner[\s\S]*2 athletes/);
     // The leftover staff row is an Admin, so they are on the list too.
     expect(html).toMatch(/Example Member[\s\S]*Admin<\/span> · 0 athletes/);
+  });
+});
+
+describe("LAW: Doc AI cost and its budget belong to the Master Account", () => {
+  const spending = () => render("@/app/org/[slug]/doc-ai-spending/page", { params: p({ slug: ORG_WITH_MODULES }) });
+  function secondAdmin() {
+    // A second Admin who is not the master account.
+    data.org_members.find((m) => m.id === "m2")!.role = "owner";
+    currentUser = MEMBER_ID;
+  }
+
+  it("the master sees the Spending row, the budget form and the page", async () => {
+    const html = await more();
+    expect(html).toMatch(/Doc AI Spending/);
+    expect(html).toMatch(/Save Budget/);
+    expect(await spending()).toMatch(/Doc AI Spending/);
+  });
+
+  it("another Admin sees none of it on More, and the page is not found", async () => {
+    secondAdmin();
+    const html = await more();
+    expect(html).not.toMatch(/Doc AI Spending|Save Budget|Budget \$/);
+    await expect(spending()).rejects.toThrow(NOT_FOUND);
+  });
+});
+
+describe("LAW: small copy fixes (Alfred, 2026-10-15)", () => {
+  it("the scoring preset hint says re-scores", async () => {
+    const html = await more();
+    expect(html).toContain("Saving re-scores every match.");
+    expect(html).not.toContain("rescores every match");
+  });
+});
+
+describe("LAW: the first tab has one name on every surface", () => {
+  it("Today for an Admin and for a Viewer, never Home", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("src/components/kit/TabBar.tsx", "utf8");
+    expect(src).not.toMatch(/label: "Home"/);
+    expect(src).toMatch(/ORG_TABS[\s\S]*?label: "Today"/);
+    expect(src).toMatch(/MEMBER_TABS[\s\S]*?label: "Today"/);
   });
 });

@@ -24,6 +24,7 @@ import type { Role } from "@/components/statusHue";
 import { DocumentSuggestions } from "@/components/DocumentSuggestions";
 import { setDocumentIdentity, suggestDocumentAgain } from "@/lib/actions/documentIdentity";
 import type { IdentityCandidate } from "@/lib/docai/suggest";
+import { plainText } from "@/lib/docai/plainLanguage";
 
 // Read Again runs the model from this page's form, and a real model call
 // on a scanned transcript can run past a minute: the same limit as the
@@ -243,8 +244,13 @@ function displayFields(extracted: Record<string, unknown> | null): { label: stri
       const value = list ?? (typeof v === "boolean" ? (v ? "Yes" : "No") : typeof v === "number" && /cost|efc|sai/i.test(key) ? `$${Math.round(v).toLocaleString("en-US")}` : String(v));
       return { label, value };
     })
+    .map((f) => (PROSE_LABELS.has(f.label) ? { ...f, value: f.value.split(" · ").map(plainText).filter((v) => v.trim() !== "").join(" · ") } : f))
     .filter((f) => f.value !== "");
 }
+
+// The fields a model writes in sentences. Internal field talk is cut from
+// these before a person reads them (src/lib/docai/plainLanguage.ts).
+const PROSE_LABELS = new Set([FIELD_LABEL.summary, FIELD_LABEL.notes, FIELD_LABEL.keyFacts, FIELD_LABEL.actionItems].filter((l): l is string => !!l));
 
 export default async function DocumentPage({ params, searchParams }: { params: Promise<{ slug: string; id: string }>; searchParams?: Promise<{ error?: string; notice?: string }> }) {
   const { slug, id } = await params;
@@ -377,7 +383,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // to) and triage's issues with the scan. These used to be stored and
   // never shown, so a reviewer approving a document could not see what
   // it was unsure of.
-  const modelWarnings = Array.isArray(doc.extracted?.warnings) ? (doc.extracted!.warnings as unknown[]).filter((w): w is string => typeof w === "string" && w.trim() !== "") : [];
+  const modelWarnings = Array.isArray(doc.extracted?.warnings) ? (doc.extracted!.warnings as unknown[]).filter((w): w is string => typeof w === "string" && w.trim() !== "").map((w) => (w.startsWith(CONTRADICTION_PREFIX) ? w : plainText(w))).filter((w) => w.trim() !== "") : [];
   const flagged = [...new Set([...modelWarnings, ...(doc.triage?.issues ?? [])])];
   // A re-read that disagrees with the reading before it on whose
   // document this is (Oct 11): said at the top, never replaced quietly.

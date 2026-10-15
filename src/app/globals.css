@@ -238,7 +238,7 @@ html:not([data-theme="dark"]) .org-mark {
     /* The fixed tab bar's height (56px, plus its 1px top border, plus
        12px of air) and the home indicator, so the last row of a screen
        scrolls clear of it. */
-    padding-bottom: calc(69px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(85px + env(safe-area-inset-bottom, 0px));
   }
   /* The same room, for anything that is scrolled to: a focused field, an
      anchor, a test runner bringing a button into view. Without it a
@@ -262,7 +262,7 @@ html:not([data-theme="dark"]) .org-mark {
       padding-bottom: calc(max(env(safe-area-inset-bottom, 0px), 24px) + 12px);
     }
     .pb-bar {
-      padding-bottom: calc(69px + max(env(safe-area-inset-bottom, 0px), 24px));
+      padding-bottom: calc(85px + max(env(safe-area-inset-bottom, 0px), 24px));
     }
     html {
       scroll-padding-bottom: calc(69px + max(env(safe-area-inset-bottom, 0px), 24px));

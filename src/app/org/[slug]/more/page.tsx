@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getOrgMemberships } from "@/lib/org/membership";
+import { managesAccess } from "@/lib/org/master";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { signout } from "@/lib/auth/actions";
 import { labelForRole } from "@/lib/org/roleLabels";
@@ -25,6 +26,9 @@ export default async function MorePage({ params, searchParams }: { params: Promi
   if (!org) notFound();
   const user = await requireRole(org.id, STAFF_ROLES);
   const canEdit = (STAFF_ROLES as string[]).includes(user.role);
+  // Doc AI cost and its budget are the Master Account's (Alfred, 2026-10-15);
+  // with no master named, any Admin, as for access.
+  const seesSpend = canEdit && managesAccess(org.masterUserId, user.id);
   const preset = (org.scoringPreset ?? DEFAULT_PRESET) as ScoringPreset;
   const presetLabel = PRESETS[preset]?.label ?? PRESETS[DEFAULT_PRESET].label;
 
@@ -110,8 +114,8 @@ export default async function MorePage({ params, searchParams }: { params: Promi
             Phase 5). Admins only, and only an owner can start one. */}
         {user.role === "owner" && <Row href={`/org/${slug}/view-as`} kind="athlete" role="contact" title="View As" meta="See exactly what an Athlete, a Viewer or another Admin sees" wrap />}
         {/* What reading documents has cost this month, against the cap.
-            Every Admin sees the number; an owner sets the cap. */}
-        {canEdit && (
+            The Master Account sees the number and sets the cap. */}
+        {seesSpend && (
           <Row
             href={`/org/${slug}/doc-ai-spending`}
             kind="money"
@@ -125,7 +129,7 @@ export default async function MorePage({ params, searchParams }: { params: Promi
             wrap
           />
         )}
-        {canEdit && (user.role === "owner" ? <DocaiBudgetForm action={setDocaiBudget.bind(null, slug)} currentCents={org.docaiBudgetCents} /> : <Label>{`Budget ${dollars(org.docaiBudgetCents)} a month · set by an Admin`}</Label>)}
+        {seesSpend && (user.role === "owner" ? <DocaiBudgetForm action={setDocaiBudget.bind(null, slug)} currentCents={org.docaiBudgetCents} /> : <Label>{`Budget ${dollars(org.docaiBudgetCents)} a month · set by an Admin`}</Label>)}
         {canStartOrg && <Row href="/orgs/new" kind="org" role="place" title="Start Another Organization" wrap />}
         <Row kind="settings" role="people" title={user.full_name || user.email} meta={`${labelForRole(user.role)} at ${org.name}`} wrap />
         <YourNameForm slug={slug} returnTo={`/org/${slug}/more`} fullName={user.full_name} />

@@ -13,7 +13,7 @@ import { RowGlyph, type RowKind } from "@/components/RowGlyph";
 // A family login gets three tabs instead (Dave's pick in the Family
 // Access catalog, 2026-09-21): their athlete is home, Colleges is their
 // list, More has who to ask and the way out. Same bar, different tabs.
-// A member (Bridge: Board) gets Home, Program, Giving, More (Dave's pick
+// A member (Bridge: Board) gets Today, Program, Giving, More (Dave's pick
 // in the Board Access catalog, 2026-09-21); an org without the
 // fundraising module drops Giving.
 export type TabBarVariant = "org" | "family" | "member" | "member-lite";
@@ -34,7 +34,7 @@ const FAMILY_TABS: { href: string; label: string; kind: RowKind }[] = [
 ];
 
 const MEMBER_TABS: { href: string; label: string; kind: RowKind }[] = [
-  { href: "member", label: "Home", kind: "org" },
+  { href: "member", label: "Today", kind: "org" },
   { href: "member/program", label: "Program", kind: "athlete" },
   { href: "member/giving", label: "Giving", kind: "money" },
   { href: "member/more", label: "More", kind: "settings" },

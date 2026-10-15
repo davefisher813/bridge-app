@@ -33,8 +33,10 @@ export const STATE_LABEL: Record<MigrationState, string> = {
 };
 
 export function migrationTitle(file: string): string {
-  const [num, ...rest] = file.split("_");
-  return `${num} ${titleCase(rest.join(" "))}`;
+  // The name a person reads, without the file's number (Alfred,
+  // 2026-10-15: "0074 View As" read as developer language).
+  const [, ...rest] = file.split("_");
+  return titleCase(rest.join(" "));
 }
 
 export function migrationStatus(ledger: LedgerRow[], history: { version: string }[] | null): MigrationStatus {
