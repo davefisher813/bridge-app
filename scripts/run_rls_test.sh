@@ -112,6 +112,7 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0069_document_title
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0070_org_master_account.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0071_assignments_bulk_delete.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0072_documents_bulk.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0073_document_identity_and_type.sql"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
@@ -213,6 +214,13 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0071_assignments_bulk_delete.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_policies where tablename = 'assignments' and cmd = 'DELETE'\"" | grep -qx 1
 echo "==> 0071 is reversible"
+
+echo "==> 0073: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0073_document_identity_and_type_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from information_schema.columns where table_name = 'documents' and column_name in ('suggested_type', 'identity_status', 'subject_athlete_id')\"" | grep -qx 0
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0073_document_identity_and_type.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_trigger where tgname = 'documents_subject_is_coherent'\"" | grep -qx 1
+echo "==> 0073 is reversible"
 
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"

@@ -1,6 +1,7 @@
 import { documentTypeLabel, READER_TYPES } from "@/lib/documents/fileTypes";
 import { bulkApproveDocuments, bulkArchiveDocuments, bulkLinkDocumentsToAthlete, bulkRestoreDocuments, bulkSetDocumentType } from "@/lib/actions/documentsBulk";
 import { notFound } from "next/navigation";
+import { PROVISIONAL_TYPE_LABEL, type ProvisionalType } from "@/lib/docai/suggest";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -44,6 +45,11 @@ interface DocRow {
   lifecycle: string;
   lifecycle_changed_at: string | null;
   review_reason: string | null;
+  // Piece 2 (migration 0073).
+  suggested_type?: string | null;
+  identity_status?: string | null;
+  identity_candidates?: { athleteId: string; name: string }[] | null;
+  subject_athlete_id?: string | null;
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -104,6 +110,28 @@ function confidenceRole(pct: number): Role {
   return "low";
 }
 
+// Who and What, in a few words on the row (Piece 2): what the file
+// probably is, and who it is about or might be. A suggestion reads as a
+// question; only a confirmation reads as a name. Names come from the
+// roster the Admin sees, so a removed athlete is never named.
+function suggestionNotes(doc: DocRow, names: Map<string, string>): string[] {
+  const t = doc.suggested_type as ProvisionalType | null | undefined;
+  const type = !doc.category && t && t !== "other" && PROVISIONAL_TYPE_LABEL[t] ? `Likely ${PROVISIONAL_TYPE_LABEL[t]}` : null;
+  const live = (doc.identity_candidates ?? []).filter((c) => names.has(c.athleteId));
+  const subject = doc.subject_athlete_id ? names.get(doc.subject_athlete_id) : undefined;
+  const who =
+    doc.identity_status === "confirmed" && subject
+      ? `About ${subject}`
+      : doc.identity_status === "not_an_athlete"
+        ? "Not about an athlete"
+        : doc.identity_status === "proposed" && live.length
+          ? `Maybe ${live[0]!.name}?`
+          : doc.identity_status === "ambiguous" && live.length > 1
+            ? `${live.length} possible matches`
+            : null;
+  return [type, who].filter((x): x is string => !!x);
+}
+
 function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; linkedNames: Map<string, string> }) {
   const athlete = athleteLabel(doc, linkedNames);
   const pct = doc.provenance?.confidence != null ? Math.round(doc.provenance.confidence * 100) : null;
@@ -127,7 +155,7 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
         : (label ?? doc.file_name);
   const reason = lifecycle === "processing" && isStaleProcessing(lifecycle, doc.lifecycle_changed_at) ? "Reading did not finish." : doc.review_reason;
   const facts = [doc.title ? label : null, doc.title || typed || doc.status === "filed" ? doc.file_name : null, formatLabelOf(doc.format, doc.media_type), formatBytes(doc.file_size), ago(doc.created_at)].filter(Boolean);
-  const notes = [doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
+  const notes = [...(doc.category || doc.status === "filed" ? [] : suggestionNotes(doc, linkedNames)), doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
   return (
     <Row
       href={`/org/${slug}/documents/${doc.id}`}
@@ -179,7 +207,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const [{ data }, { data: athleteRows }] = await Promise.all([
     supabase
       .from("documents")
-      .select("id, file_name, title, category, requested_category, filed_as, status, route, provenance, extracted, athlete_id, linked_athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), failure_reason, read_by, created_at, file_size, media_type, format, lifecycle, lifecycle_changed_at, review_reason")
+      .select("id, file_name, title, category, requested_category, filed_as, status, route, provenance, extracted, athlete_id, linked_athlete_id, athletes!documents_athlete_id_fkey(name, deleted_at), failure_reason, read_by, created_at, file_size, media_type, format, lifecycle, lifecycle_changed_at, review_reason, suggested_type, identity_status, identity_candidates, subject_athlete_id")
       .eq("org_id", org.id)
       .order("created_at", { ascending: false })
       .limit(LOAD_CAP),
@@ -195,7 +223,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const matched = q
     ? all.filter((r) => {
         const athlete = athleteLabel(r, linkedNames);
-        return `${r.title ?? ""} ${r.file_name} ${documentTypeLabel(r, CATEGORY_LABEL) ?? ""} ${athlete ?? ""}`.toLowerCase().includes(q);
+        return `${r.title ?? ""} ${r.file_name} ${documentTypeLabel(r, CATEGORY_LABEL) ?? ""} ${athlete ?? ""} ${suggestionNotes(r, linkedNames).join(" ")}`.toLowerCase().includes(q);
       })
     : all;
   const inView = (v: View) => (v === "all" ? matched : matched.filter((r) => r.lifecycle === v));

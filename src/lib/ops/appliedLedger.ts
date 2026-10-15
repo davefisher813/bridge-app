@@ -84,4 +84,5 @@ export const APPLIED_LEDGER: LedgerRow[] = [
   { file: "0070_org_master_account", recorded: "applied", versions: ["20261013202812"] },
   { file: "0071_assignments_bulk_delete", recorded: "applied", versions: ["20261014011513"] },
   { file: "0072_documents_bulk", recorded: "applied", versions: ["20261014011532"] },
+  { file: "0073_document_identity_and_type", recorded: "applied", versions: ["20261015013132"] },
 ];

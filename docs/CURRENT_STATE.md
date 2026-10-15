@@ -790,6 +790,10 @@ Format examples stay, because they are the part a person acts on.
 
 ---
 
+### Doc AI Piece 2: suggested type and who it is about (merged 2026-10-15)
+
+An upload now carries a suggestion, never a decision (`src/lib/docai/suggest.ts`, `src/lib/vault/textSample.ts`, `src/lib/data/documentSuggestions.ts`): the type the file probably is, and up to three roster athletes it may be about, each with its reasons. The document screen shows a Who and What block; Confirm, Someone Else, Not About an Athlete and Undo are Admin actions (`src/lib/actions/documentIdentity.ts`, migration 0073, `subject_athlete_id` held to the document's own org by a trigger). Confirming also sets the athlete link from migration 0058 when nobody linked the document or the link was only the earlier confirmation, so the athlete's page and the confirmation never disagree; a link a person set to someone else is never moved. The list says "Likely Transcript" and "Maybe Name?" as questions; only a confirmation reads as a name. Migration 0073 is applied on production (2026-10-15).
+
 ### Fundraising by year (Dave, 2026-10-13)
 
 The overview opens on "Raised, All Years" and "Gifts, All Years" (`yearlyRollup` in `src/lib/fundraising/rollup.ts`), then a By Year card per year (first year with anything through the current year, newest first, an empty year still shown) with cash, gifts, supporters, in kind, promised and still owed. Tapping a year opens its detail below (`?year=`), the same view as before. A pledge counts in the year it was promised; it is beside the cash, never inside it. Presentation only: no gift, pledge or donor was added, moved or re-dated.

@@ -1,6 +1,7 @@
 "use server";
 
 import { FILE_TYPE_LABEL, isFileType, isReaderType, READER_TYPES, readerTypeOf, type FileTypeId } from "@/lib/documents/fileTypes";
+import { loadSuggestionRoster, suggestionFor } from "@/lib/data/documentSuggestions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createHash } from "node:crypto";
@@ -437,7 +438,7 @@ export async function processDocument(
   // so Storage's policies decide whether they may see the file at all.
   // Read back, checked and hashed from the bytes that are really there;
   // the browser's word for what a file is counts for nothing.
-  const checked: { upload: OriginalUpload; format: VaultFormat; mediaType: string; size: number; sha: Buffer; hex: string }[] = [];
+  const checked: { upload: OriginalUpload; format: VaultFormat; mediaType: string; size: number; sha: Buffer; hex: string; bytes: Uint8Array }[] = [];
   for (const o of originals) {
     if (!STORAGE_PATH.test(o.storagePath) || !o.storagePath.startsWith(`${org.id}/`)) {
       return refuse(`${o.name || "That file"} was not uploaded to this organization's folder.`);
@@ -449,7 +450,7 @@ export async function processDocument(
     const verdict = checkVaultFile(o.name, bytes);
     if (!verdict.ok) return refuse(verdict.reason);
     const digest = createHash("sha256").update(bytes).digest();
-    checked.push({ upload: o, format: verdict.format, mediaType: verdict.mediaType, size: verdict.size, sha: digest, hex: digest.toString("hex") });
+    checked.push({ upload: o, format: verdict.format, mediaType: verdict.mediaType, size: verdict.size, sha: digest, hex: digest.toString("hex"), bytes });
   }
 
   // Which of them the reader gets: a type was chosen, the format is one
@@ -499,6 +500,10 @@ export async function processDocument(
   // An upload from an athlete's own page is about that athlete as well.
   const linked = input.linkAthleteId ? await orgAthleteName(supabase, org.id, input.linkAthleteId) : pinned;
   if (input.linkAthleteId && !linked) return refuse("That athlete is not on this organization's roster.");
+  // Piece 2: who each file is probably about and what it probably is.
+  // The roster is read with the uploader's own client, so a candidate is
+  // only ever somebody they may already see.
+  const suggestionRoster = await loadSuggestionRoster(supabase, org.id);
   const documentIds: string[] = [];
   let readerDocumentId: string | null = null;
 
@@ -557,6 +562,15 @@ export async function processDocument(
         // 'stub' is permanent (a trigger in migration 0040), so a reading
         // the stand-in invented can never be relabelled and applied.
         read_by: reads ? readerFor(stubbed, EXTRACTION_MODEL) : null,
+        ...suggestionFor({
+          fileName: first.upload.name,
+          format: first.format,
+          bytes: first.bytes,
+          pickedType: category,
+          roster: suggestionRoster,
+          pinned,
+          actorId: user.id,
+        }),
       })
       .select("id")
       .single();

@@ -62,6 +62,8 @@ export const ACTIVITY_ACTIONS = [
   "document_renamed",
   "document_typed",
   "board_seat_donor_linked",
+  "document_identity_confirmed",
+  "document_identity_cleared",
   "checkin_logged",
   "message_sent",
   "member_invited",
@@ -124,6 +126,8 @@ export const SUBJECT_TYPE_OF: Record<ActivityAction, ActivitySubjectType> = {
   document_renamed: "document",
   document_typed: "document",
   board_seat_donor_linked: "seat",
+  document_identity_confirmed: "document",
+  document_identity_cleared: "document",
   checkin_logged: "checkin",
   message_sent: "message",
   member_invited: "member",
@@ -199,6 +203,10 @@ export interface ActivitySubjects {
   document_typed: { kind: string; to: string };
   // A board seat linked to its donor record by name (Oct 13).
   board_seat_donor_linked: { person: string };
+  // Piece 2 (migration 0073): a person said who a document is about, or
+  // that it is about nobody (name null), or took that back.
+  document_identity_confirmed: { name?: string | null; kind: string };
+  document_identity_cleared: { kind: string };
   // `kind` is call, meeting, text or other; `date` is the day it
   // happened (ISO date). The note stays in athlete_checkins.
   checkin_logged: { name: string; kind: string; date?: string | null };
@@ -298,6 +306,8 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   document_renamed: (s) => `Retitled ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`,
   document_typed: (s) => `Set the type of ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to ${word(s.to, "a new type")}`,
   document_unarchived: (s) => `Unarchived ${article(word(s.kind, "document"))} ${word(s.kind, "document")}${s.name ? ` for ${who(s.name)}` : ""}`,
+  document_identity_confirmed: (s) => (s.name ? `Confirmed ${article(word(s.kind, "document"))} ${word(s.kind, "document")} is about ${who(s.name)}` : `Marked ${article(word(s.kind, "document"))} ${word(s.kind, "document")} as not about an athlete`),
+  document_identity_cleared: (s) => `Cleared who ${article(word(s.kind, "document"))} ${word(s.kind, "document")} is about`,
   checkin_logged: (s) => `Logged ${article(word(s.kind, "check-in"))} ${word(s.kind, "check-in")} check-in for ${who(s.name)}${onDate(s.date)}`,
   message_sent: (s) => (s.name ? `Sent a message to the family of ${who(s.name)}` : "Sent a message"),
   member_invited: (s) => {

@@ -4384,3 +4384,14 @@ shortcut must not loosen a rule.
 Consequences: migration 0071 adds an Admin delete policy on assignments
 and lets an open assignment without a file move athletes; 0072 adds the
 `document_typed` log action. Delete of assignments and targets has no undo.
+
+## 2026-10-15: Doc AI Piece 2 merged; View As stays a separate decision
+
+Decision: Piece 2 (branch `claude/docai-piece2`, 2026-10-08) is merged onto
+main with its migration renumbered 0049 to 0073 (0049 on main is member
+photos). Main's behaviour was kept wherever the two overlapped (bulk
+actions, titles, the athlete picker's confirm step, the athlete link).
+Reason: Dave asked for everything on main.
+Consequences: a confirmation sets the athlete link (migration 0058) when
+it would not move a link a person chose; the suggestion columns are
+additive; the migration must be applied before the code that reads them.
