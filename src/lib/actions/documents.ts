@@ -47,6 +47,7 @@ import { applyExtractedEdits } from "@/lib/data/extractedEdit";
 import { clampCredit, COURSE_SUBJECTS, MAX_COURSE_GRADE, MAX_COURSE_SCHOOL, MAX_COURSE_TERM, MAX_COURSE_TITLE } from "@/lib/validation/course";
 import { CATEGORY_SCHEMAS } from "@/lib/docai/categories";
 import type { DocCategoryId, IngestedRecord, ResolverAthlete, SourceRole, StoredRecord, TriageResult } from "@/lib/docai/types";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // The caller side of src/lib/docai. The pipeline deliberately returns a
 // result and never writes anything, because org_id, RLS and the athlete
@@ -380,6 +381,7 @@ export async function processDocument(
     linkAthleteId?: string | null;
   }
 ): Promise<ProcessResult> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Org not found." };
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -1270,6 +1272,7 @@ async function recordGradingScale(
 }
 
 export async function applyDocument(slug: string, documentId: string, athleteId: string): Promise<{ ok: boolean; error?: string }> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Org not found." };
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -1393,6 +1396,7 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
 // undo for good. A stored file is removed only when no other document
 // points at it (a duplicate upload can share one).
 export async function deleteDocument(slug: string, documentId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -1455,6 +1459,7 @@ export async function discardDocument(
   slug: string,
   documentId: string
 ): Promise<{ ok: boolean; error?: string; undone?: string[] }> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { ok: false, error: "Org not found." };
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -1934,6 +1939,7 @@ export interface ExtractedEditState {
 // category's schema again before it is stored, the same check every
 // model reading passes (CLAUDE.md: never trust unvalidated extraction).
 export async function updateExtracted(slug: string, documentId: string, _prevState: ExtractedEditState, formData: FormData): Promise<ExtractedEditState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { errors: { form: "Org not found." } };
   await requireRole(org.id, STAFF_ROLES);

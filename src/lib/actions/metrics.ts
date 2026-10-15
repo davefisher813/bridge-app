@@ -7,6 +7,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { parseMetricForm } from "@/lib/validation/metric";
 import { recomputeFitsForAthlete } from "@/lib/data/fits";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // The metrics log. docs/MATCHING_CONTRACT.md section 1: staff and
 // owners log a value, a date and where it was measured; every save
@@ -24,6 +25,7 @@ async function assertAthleteInOrg(orgId: string, athleteId: string): Promise<boo
 }
 
 export async function createMetric(slug: string, athleteId: string, _prevState: MetricActionState, formData: FormData): Promise<MetricActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -67,6 +69,7 @@ function revalidateMetrics(slug: string, athleteId: string) {
 // id changes nothing; a zero-row update says so. The stored matches
 // recompute, since the number that scores may have changed.
 export async function updateMetric(slug: string, athleteId: string, metricId: string, _prevState: MetricActionState, formData: FormData): Promise<MetricActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);
@@ -99,6 +102,7 @@ export async function updateMetric(slug: string, athleteId: string, metricId: st
 }
 
 export async function deleteMetric(slug: string, athleteId: string, metricId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);

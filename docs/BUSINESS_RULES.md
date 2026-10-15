@@ -475,6 +475,44 @@ Work an Admin gives an athlete, with a due date. Migrations 0045 and 0046,
 - **No email.** A new assignment, a submission and a review are signalled
   only by what the screens show.
 
+## View As (2026-09-30)
+
+An Admin looks at the app through someone else's eyes. Migration 0047,
+`src/lib/data/viewAs.ts`, the two screens under `/org/[slug]/view-as`.
+
+- **Who starts it:** an Admin of the org, and nobody else. A Viewer, an
+  Athlete login, a leftover staff row, someone in another org and someone
+  signed out are refused by the screen, the action and the database.
+- **Who can be viewed:** an Athlete login, a Viewer or another Admin of
+  the same org. Never yourself, never a person who is not in the org
+  (the function and a trigger each refuse, so either alone holds).
+- **What it shows:** exactly what that person sees. An Athlete login's
+  screens with their athletes, a Viewer's screens with their seat, an
+  Admin's screens with their My Athletes and reminders. The Admin's own
+  view is replaced, not added to: the tab bar is the person's, and a page
+  they cannot open lands on Not Authorized with the banner.
+- **Read only, everywhere:** while it lasts nothing is saved, by anyone,
+  by any path. Every write policy, the three functions that write as the
+  caller (`create_org`, `log_family_message`, `submit_assignment`) and
+  every server action refuse, and the refusal says so and returns to the
+  page. Unread counts do not clear.
+- **30 minutes at most, one at a time.** The switch belongs to the Admin,
+  not the browser: every tab and device of theirs is viewing until Return
+  or the clock runs out. It ends at once if the Admin stops being an Admin
+  or the person leaves the org. Starting a second one needs a Return first.
+- **The banner** ("Viewing as <name>", the level, Read only, minutes left,
+  Return to Admin) is in flow at the top of every org screen, and on Not
+  Authorized and the organization picker, so Return is reachable wherever
+  the Admin lands. Return works while viewing an Athlete or a Viewer; it
+  asks who the real caller is and nothing else.
+- **What is recorded:** one Activity line at the start and one at the end,
+  signed by the real Admin, by role and never by name ("Started viewing as
+  a Viewer", "Stopped viewing as someone else", or "Viewing as someone else
+  ended after 30 minutes" when it ran out). It changes nothing about the
+  person viewed: no sign-in is recorded for them and nothing they own moves.
+- **In another org** the Admin sees nothing of the person's other
+  memberships while viewing; the switch is scoped to the org it started in.
+
 ## Fit-scoring model
 
 The scoring rules Dave picked on 2026-09-20 (which number scores, the

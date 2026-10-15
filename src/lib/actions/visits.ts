@@ -8,6 +8,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { loadLiveTarget } from "@/lib/data/loadTarget";
 import { parseVisitForm } from "@/lib/validation/visit";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface VisitActionState {
   errors: Record<string, string>;
@@ -30,6 +31,7 @@ export async function logVisit(
   _prevState: VisitActionState,
   formData: FormData
 ): Promise<VisitActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { errors: { form: "Org not found." } };
   await requireRole(org.id, STAFF_ROLES);
@@ -87,6 +89,7 @@ async function revalidateVisit(slug: string, targetId: string, orgId: string) {
 // Correcting a logged visit. Scoped by the visit, its target and this
 // org together, so an id from anywhere else matches nothing.
 export async function updateVisit(slug: string, targetId: string, visitId: string, _prevState: VisitActionState, formData: FormData): Promise<VisitActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { errors: { form: "Org not found." } };
   await requireRole(org.id, STAFF_ROLES);
@@ -120,6 +123,7 @@ export async function updateVisit(slug: string, targetId: string, visitId: strin
 }
 
 export async function removeVisit(slug: string, targetId: string, visitId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);

@@ -338,3 +338,75 @@ the plants.
     screen names an assignment, links to one or has a Submit button; a
     signed-out visitor is sent to sign in. `pageRender.test.ts`, the
     last describe block.
+
+## Added 2026-09-30: Stage 5 Phase 5, View As
+
+Dave approved the Stage 5 plan whole (docs/PLAN_STAGE5.md), so the
+plan's option D2 is the design: the caller's own token, an effective
+identity in the database, no token for anyone else. Every law below was
+planted, seen to fail, and reverted; each file's header names the plants.
+
+41. **Every write is refused while viewing, in the database.** Every
+    INSERT, UPDATE and DELETE policy in `public` and `storage.objects`
+    carries `and not private._viewing()`, found by a catalog loop in 0047
+    and asked of the catalog again by the suite; every policy written
+    after 0047 must name it in its own text; the definer functions that
+    write as the caller (`create_org`, `log_family_message`,
+    `submit_assignment`) refuse. The write loop attempts an insert, an
+    update and a delete on every table and demands each is refused, and
+    shows the same attempt lands as the target Admin not viewing. Plants:
+    one policy left ungated; the gate present in text but defeated with
+    `or true` on an insert, a delete and a storage policy (the write loop
+    alone catches it). `scripts/rls_test.sql`, `viewAsLaws.test.ts`.
+42. **What the Admin reads while viewing is what the target reads.** A
+    loop generated from `pg_class` hashes every table and
+    `storage.objects`, and the three member functions, both ways for an
+    Admin, a Viewer and an Athlete target; `view_as_sessions` is the one
+    named exemption. Plants: a helper left on `auth.uid()`, one spelled
+    `auth . uid ()` to slip past the text check, the org scope dropped
+    from two helpers, the read policy widened. `scripts/rls_test.sql`.
+43. **Only an Admin starts it, only inside the org, never as someone
+    outside it, never as a higher grant.** A Viewer, an Athlete login, a
+    leftover staff row, an outsider, someone signed out, self and a person
+    outside the org are refused, and a second live session is refused;
+    the function and the table's trigger each hold alone and both dropped
+    fails. Plants: the owner check dropped, both owner locks dropped, the
+    target check dropped from each and from both, the clock clause
+    dropped. `scripts/rls_test.sql`, `viewAsLaws.test.ts`.
+44. **Every server action refuses while viewing, and nothing mints.**
+    `requireNotViewing()` is the first statement of every exported action
+    (checked with the TypeScript parser; the exceptions are named), every
+    action run while viewing writes nothing and returns the refusal, the
+    service-role fake has no `viewing` so only the guard stands in its
+    way, and no file mints or forges a credential or reads with the
+    service role for another person. Plants: the guard removed from two
+    actions, moved below a lookup, a new action file without it,
+    `createAdminClient` in `viewAs.ts`, `generateLink` in a scratch file.
+    `viewAsLaws.test.ts`.
+45. **The screens that start it are the Admin's alone, and the banner is
+    on every screen while viewing and on none otherwise.** Both View As
+    screens refuse a Viewer, an Athlete login, someone signed out, a
+    person outside the org, a leftover staff row and an Admin who is
+    viewing as a Viewer or an Athlete; an Admin viewing as another Admin
+    is told to Return first. Every org screen, rendered through the org
+    layout, carries "Viewing as <name>", Read only and Return to Admin
+    while viewing, and none does otherwise; the markup under the banner
+    equals what the target's own render produces, screen for screen (an
+    Athlete login's, a Viewer's, and the Admin's for every screen an
+    Admin can open); while viewing an Athlete login or a Viewer no link
+    leaves their screens and no View As door is on them. Plants: the
+    banner removed from Chrome, shown always, the guard reading the real
+    id, a staff-wide check on the start screen, a link out of the family
+    home. `pageRender.test.ts`, `viewAsLaws.test.ts`.
+46. **The live driver's route list is the page list.** `routes.mjs`
+    reads `src/testing/pages.ts` with one pattern, so the count, the
+    login and the person viewed of every entry are compared with
+    `PAGES`; a key written out of order drops a screen from the live
+    checks and fails here. Plant: two keys swapped in one entry.
+    `pageRender.test.ts`.
+
+What these cannot catch: the fake client and the fixture are second
+implementations of the database, so the render laws prove the page code
+and the RLS suite proves the scope; the suite runs against a stubbed
+`auth` schema, so the real Supabase JWT path is unexercised; and
+`signout()` does not end an open session (bounded by the 30 minutes).

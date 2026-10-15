@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { courseColumns, parseCourseForm } from "@/lib/validation/course";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // One transcript row at a time (audit crud F5). Until this, a misread
 // grade could only be fixed by discarding the whole document, which
@@ -41,6 +42,7 @@ function revalidateCourses(slug: string, athleteId: string) {
 }
 
 export async function addCourse(slug: string, athleteId: string, _prevState: CourseActionState, formData: FormData): Promise<CourseActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { errors: { form: "Org not found." } };
   await requireRole(org.id, STAFF_ROLES);
@@ -65,6 +67,7 @@ export async function addCourse(slug: string, athleteId: string, _prevState: Cou
 }
 
 export async function updateCourse(slug: string, athleteId: string, courseId: string, _prevState: CourseActionState, formData: FormData): Promise<CourseActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return { errors: { form: "Org not found." } };
   await requireRole(org.id, STAFF_ROLES);
@@ -91,6 +94,7 @@ export async function updateCourse(slug: string, athleteId: string, courseId: st
 
 // Posted by the Remove button, inside a ConfirmButton.
 export async function deleteCourse(slug: string, athleteId: string, courseId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) return;
   await requireRole(org.id, STAFF_ROLES);
