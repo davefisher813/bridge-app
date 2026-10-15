@@ -8,6 +8,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { RELATIONSHIPS } from "@/lib/copy/relationships";
 import { labelForRole } from "@/lib/org/roleLabels";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // A family login's links to athletes (migration 0023, athlete_guardians),
 // one at a time (audit crud F7). Before this the only fix for a parent
@@ -65,6 +66,7 @@ async function athleteName(supabase: Awaited<ReturnType<typeof createClient>>, o
 // Unlink one family login from one athlete. Their other links, their
 // sign-in and their membership stay; only this athlete stops showing.
 export async function unlinkGuardian(slug: string, athleteId: string, userId: string, formData?: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -105,6 +107,7 @@ export async function unlinkGuardian(slug: string, athleteId: string, userId: st
 
 // Who this login is to this athlete: parent, guardian, the athlete, other.
 export async function updateGuardianRelationship(slug: string, athleteId: string, userId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);
@@ -132,6 +135,7 @@ export async function updateGuardianRelationship(slug: string, athleteId: string
 // parent with a second child, without a second invite. Only a family
 // login: staff and members see athletes through their role, not links.
 export async function linkGuardian(slug: string, userId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);

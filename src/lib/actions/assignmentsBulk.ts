@@ -29,6 +29,7 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { activitySummary, logActivity, type ActivityAction, type ActivitySummary } from "@/lib/data/activity";
 import { ASSIGNMENT_KIND_LOG_WORD, REVIEW_DECISION_LOG_WORD, type AssignmentKind } from "@/lib/data/assignments";
 import { parseBulkIds } from "@/lib/bulk/ids";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 interface Row {
   id: string;
@@ -121,6 +122,7 @@ function changedOf(eligible: readonly Row[], data: unknown): Row[] {
 // back (overdue ones included: overdue is a date, not a status), stamping
 // the reviewer and the time the way the single review does.
 export async function bulkCompleteAssignments(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const s = await begin(slug, formData);
   const eligible = s.rows.filter((r) => ACTIVE.includes(r.status));
   let done: Row[] = [];
@@ -143,6 +145,7 @@ export async function bulkCompleteAssignments(slug: string, formData: FormData):
 
 // The soft alternative to Delete: status cancelled, history stays.
 export async function bulkCancelAssignments(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const s = await begin(slug, formData);
   const eligible = s.rows.filter((r) => ACTIVE.includes(r.status));
   let done: Row[] = [];
@@ -170,6 +173,7 @@ export async function bulkCancelAssignments(slug: string, formData: FormData): P
 // linked file, and not already this athlete's. A submitted row, one with
 // a document, and one already theirs are skipped and counted.
 export async function bulkReassignAssignments(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const s = await begin(slug, formData);
   const target = String(formData.get("athlete_id") ?? "").trim();
   if (!target) back(slug, "error", "Pick the athlete to move them to.");
@@ -214,6 +218,7 @@ function parseDue(raw: FormDataEntryValue | null): { ok: true; due: string | nul
 }
 
 export async function bulkChangeDueDate(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const s = await begin(slug, formData);
   const parsed = parseDue(formData.get("due_on"));
   if (!parsed.ok) back(slug, "error", "Pick a real date, or leave it blank to clear it.");
@@ -241,6 +246,7 @@ export async function bulkChangeDueDate(slug: string, formData: FormData): Promi
 // rule). Any status. There is no undo; Cancel is the soft alternative.
 // The log line is written after the delete, from what was read before it.
 export async function bulkDeleteAssignments(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const s = await begin(slug, formData);
   let done: Row[] = [];
   if (s.rows.length > 0) {

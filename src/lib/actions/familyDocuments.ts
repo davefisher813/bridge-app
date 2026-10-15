@@ -11,6 +11,7 @@ import { findFamilyTwin } from "@/lib/data/familyReads";
 import { FAMILY_SEND_FIELDS, folderOf, isFamilySendPathFor, isFamilySendType } from "@/lib/data/familySend";
 import { parseSubmissionNote } from "@/lib/validation/assignment";
 import { checkIngestedRecord } from "@/lib/docai/acceptance";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 // An Athlete login sends a document for its own athlete, outside any
 // assignment (Doc AI Piece 5, migration 0066). The same rules as an
@@ -67,6 +68,7 @@ function verdictOf(name: string, claimedType: string, bytes: Uint8Array) {
 }
 
 export async function sendFamilyDocument(slug: string, athleteId: string, _prevState: FamilySendState, formData: FormData): Promise<FamilySendState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireFamily(org.id);

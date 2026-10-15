@@ -2,7 +2,7 @@
 
 Plan for Tony's sign-off. No code is written yet. Built on `main` at
 `891a5ea`, branch `claude/docai-piece1`, migration `0048`. The View As
-branch (`claude/stage5-phase5-viewas`, migration `0047`) is not merged and
+branch (`claude/stage5-phase5-viewas`, migration `0074`) is not merged and
 stays that way until the end; the overlap with it is listed under Risks.
 
 Piece 1 only. No AI classification, no extraction, no identity matching,
@@ -417,7 +417,7 @@ audit, and the live driver at 320/375/390.
 
 ## 11. Risks and the View As branch
 
-- **View As (`0047`)** adds `requireNotViewing()` to the eight document
+- **View As (`0074`)** adds `requireNotViewing()` to the eight document
   actions and rewrites every delete policy and every `storage.objects`
   policy. When it merges later it will conflict in `documents.ts` (small,
   mechanical) and must re-run its policy rewrite over a table whose delete

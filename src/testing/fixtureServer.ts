@@ -11,15 +11,21 @@
 //
 // Who is signed in is the fixture owner unless a `fixture_user` cookie
 // names another fixture id: that is how the live driver opens the family
-// screens as the family login (scripts/live/drive.mjs).
+// screens as the family login (scripts/live/drive.mjs). A
+// `fixture_view_as` cookie naming the Athlete login, the Viewer or the
+// second Admin makes the signed-in user an Admin who is viewing as that
+// person (Stage 5 Phase 5): the fake refuses every write and follows the
+// person for every read, as the database does. Only the user's client
+// gets it; nothing here builds a service-role client.
 
 import { makeFile } from "@/testing/vaultFiles";
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { buildFixture, OWNER_ID, FAMILY_ID, MEMBER_ID } from "@/testing/fixture";
+import { ADMIN_TWO_ID, buildFixture, OWNER_ID, FAMILY_ID, MEMBER_ID, withSecondAdmin } from "@/testing/fixture";
 import { createFakeClient } from "@/testing/fakeSupabase";
 
 const KNOWN = new Set([OWNER_ID, FAMILY_ID, MEMBER_ID]);
+const VIEWABLE = new Set([FAMILY_ID, MEMBER_ID, ADMIN_TWO_ID]);
 
 // Normally every request gets a fresh fixture, so a write is gone by the
 // next page: right for the live driver, which only looks. The browser
@@ -73,12 +79,20 @@ function withUploadReadback(client: FakeClient): FakeClient {
 export const createClient = cache(async () => {
   if (process.env.VERCEL === "1" || process.env.VERCEL_ENV) throw new Error("The fixture client must never run on Vercel");
   let userId = OWNER_ID;
+  let viewing: string | null = null;
   try {
-    const picked = (await cookies()).get("fixture_user")?.value;
+    const jar = await cookies();
+    const picked = jar.get("fixture_user")?.value;
     if (picked && KNOWN.has(picked)) userId = picked;
+    const looking = jar.get("fixture_view_as")?.value;
+    if (looking && VIEWABLE.has(looking) && userId === OWNER_ID) viewing = looking;
   } catch {
     // Outside a request (a build-time render) there are no cookies.
   }
-  const client = createFakeClient(fixtureDataset(), { userId });
+  // The second Admin exists only for the request that views them, so no
+  // other screen's counts move.
+  const data = fixtureDataset();
+  if (viewing === ADMIN_TWO_ID) withSecondAdmin(data);
+  const client = createFakeClient(data, { userId, viewing });
   return persist ? withUploadReadback(client) : client;
 });

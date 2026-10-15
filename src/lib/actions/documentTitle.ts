@@ -15,8 +15,10 @@ import { getCategory } from "@/lib/docai/categories";
 import type { DocCategoryId } from "@/lib/docai/types";
 import { activitySummary, logActivity } from "@/lib/data/activity";
 import { parseDocumentTitle } from "@/lib/documents/title";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export async function renameDocument(slug: string, documentId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);

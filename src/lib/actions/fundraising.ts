@@ -10,6 +10,7 @@ import { toCents } from "@/lib/fundraising/rollup";
 import { nameKey } from "@/lib/lookup/nameKey";
 import { isEligibleAdvisor } from "@/lib/org/advisors";
 import { activitySummary, logActivity } from "@/lib/data/activity";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface FundraisingActionState {
   errors: Record<string, string>;
@@ -86,6 +87,7 @@ export async function recordGift(
   _prevState: FundraisingActionState,
   formData: FormData
 ): Promise<FundraisingActionState> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const parsed = parseGiftForm(formData);
@@ -124,6 +126,7 @@ export async function recordPledge(
   _prevState: FundraisingActionState,
   formData: FormData
 ): Promise<FundraisingActionState> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const parsed = parsePledgeForm(formData);
@@ -200,6 +203,7 @@ async function resettlePledge(orgId: string, pledgeId: string): Promise<void> {
 // settle again. A mistyped amount no longer skews a donor's total
 // forever.
 export async function updateGift(slug: string, giftId: string, _prevState: FundraisingActionState, formData: FormData): Promise<FundraisingActionState> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const parsed = parseGiftForm(formData);
@@ -240,6 +244,7 @@ export async function updateGift(slug: string, giftId: string, _prevState: Fundr
 // Remove a gift entered by mistake. A refund is a negative gift, which
 // keeps the history; this is for a row that should never have existed.
 export async function removeGift(slug: string, giftId: string): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const supabase = await createClient();
@@ -260,6 +265,7 @@ export async function removeGift(slug: string, giftId: string): Promise<void> {
 // still being chased or written off. Fulfilled is not a choice: it
 // follows from the payments.
 export async function updatePledge(slug: string, pledgeId: string, _prevState: FundraisingActionState, formData: FormData): Promise<FundraisingActionState> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const parsed = parsePledgeForm(formData);
@@ -308,6 +314,7 @@ export async function updatePledge(slug: string, pledgeId: string, _prevState: F
 }
 
 export async function removePledge(slug: string, pledgeId: string): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const supabase = await createClient();
@@ -347,6 +354,7 @@ export async function createDonor(
   _prevState: FundraisingActionState,
   formData: FormData
 ): Promise<FundraisingActionState> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const parsed = readDonorForm(formData);
@@ -367,6 +375,7 @@ export async function createDonor(
 // Edit a donor's details (audit crud F10). Their gifts and pledges are
 // untouched; totals are derived from those, never stored here.
 export async function updateDonor(slug: string, donorId: string, _prevState: FundraisingActionState, formData: FormData): Promise<FundraisingActionState> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const parsed = readDonorForm(formData);
@@ -394,6 +403,7 @@ export async function updateDonor(slug: string, donorId: string, _prevState: Fun
 // the same rule as an athlete's advisor; an empty value clears. Logged,
 // and the notice offers Undo back to whoever it was before.
 export async function setDonorSteward(slug: string, donorId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const { org, user } = await requireFundraising(slug);
   const back = `/org/${slug}/fundraising/donors/${donorId}`;
   const stewardId = String(formData.get("stewardId") ?? "").trim() || null;
@@ -432,6 +442,7 @@ export async function setDonorSteward(slug: string, donorId: string, formData: F
 // because the money was real, and a pledge or a board seat that names
 // them keeps its history.
 export async function removeDonor(slug: string, donorId: string): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const supabase = await createClient();
@@ -455,6 +466,7 @@ export async function setBudget(
   _prevState: FundraisingActionState,
   formData: FormData
 ): Promise<FundraisingActionState> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
   const supabase = await createClient();
 
@@ -533,6 +545,7 @@ export async function createCampaign(
   _prevState: FundraisingActionState,
   formData: FormData
 ): Promise<FundraisingActionState> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const parsed = readCampaignForm(formData);
@@ -551,6 +564,7 @@ export async function createCampaign(
 }
 
 export async function updateCampaign(slug: string, campaignId: string, _prevState: FundraisingActionState, formData: FormData): Promise<FundraisingActionState> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const parsed = readCampaignForm(formData);
@@ -573,6 +587,7 @@ export async function updateCampaign(slug: string, campaignId: string, _prevStat
 // Remove a campaign. Gifts, pledges and grants that named it stay, with
 // no campaign: the database unlinks them, and the money still counts.
 export async function removeCampaign(slug: string, campaignId: string): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const supabase = await createClient();
@@ -638,6 +653,7 @@ export async function trackGrant(
   _prevState: FundraisingActionState,
   formData: FormData
 ): Promise<FundraisingActionState> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const supabase = await createClient();
@@ -654,6 +670,7 @@ export async function trackGrant(
 // Edit a grant, status included (audit crud F10): researching, applied,
 // awaiting decision, awarded and so on, moved forward as it happens.
 export async function updateGrant(slug: string, grantId: string, _prevState: FundraisingActionState, formData: FormData): Promise<FundraisingActionState> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const supabase = await createClient();
@@ -675,6 +692,7 @@ export async function updateGrant(slug: string, grantId: string, _prevState: Fun
 }
 
 export async function removeGrant(slug: string, grantId: string): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireFundraising(slug);
 
   const supabase = await createClient();

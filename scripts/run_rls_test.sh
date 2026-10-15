@@ -113,6 +113,17 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0070_org_master_acc
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0071_assignments_bulk_delete.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0072_documents_bulk.sql"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0073_document_identity_and_type.sql"
+SNAP="select 'p', n.nspname||'.'||cl.relname||'.'||pol.polname, pol.polcmd, coalesce(pg_get_expr(pol.polqual,pol.polrelid),''), coalesce(pg_get_expr(pol.polwithcheck,pol.polrelid),'') from pg_policy pol join pg_class cl on cl.oid=pol.polrelid join pg_namespace n on n.oid=cl.relnamespace where n.nspname in ('public','storage') union all select 'f', n.nspname||'.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')', '', md5(regexp_replace(regexp_replace(pg_get_functiondef(p.oid),'--[^\n]*','','g'),'\s+',' ','g')), '' from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and p.prokind='f' and p.proname not in ('start_view_as','end_view_as','_close_view_as','view_as_is_coherent','_viewing','_effective_uid','_view_org','_view_target','_owner_org_ids') order by 1,2,3"
+echo "==> 0074: snapshot before"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"$SNAP\"" > /tmp/zz_view_as_before.txt
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0074_view_as.sql"
+echo "==> 0074: down, compare with the snapshot, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0074_view_as_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"$SNAP\"" > /tmp/zz_view_as_after.txt
+diff /tmp/zz_view_as_before.txt /tmp/zz_view_as_after.txt
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_class where relname = 'view_as_sessions'\"" | grep -qx 0
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0074_view_as.sql"
+echo "==> 0074 is reversible"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

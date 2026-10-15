@@ -6,6 +6,7 @@ import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
 import { parseGradingScaleForm } from "@/lib/validation/gradingScale";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface GradingScaleActionState {
   errors: Record<string, string>;
@@ -26,6 +27,7 @@ export async function saveGradingScale(
   _prevState: GradingScaleActionState,
   formData: FormData,
 ): Promise<GradingScaleActionState> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   const user = await requireRole(org.id, STAFF_ROLES);
@@ -84,6 +86,7 @@ export async function saveGradingScale(
 // live, so an athlete at that school falls back to the shared scale, or
 // to the assumed ten-point one, straight away.
 export async function deleteGradingScale(slug: string, scaleId: string): Promise<void> {
+  await requireNotViewing();
   const org = await getOrgBySlug(slug);
   if (!org) redirect("/unauthorized");
   await requireRole(org.id, STAFF_ROLES);

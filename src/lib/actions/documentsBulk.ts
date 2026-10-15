@@ -35,6 +35,7 @@ import { NOBODY_NAMED, type ApproverMap } from "@/lib/documents/approvers";
 import { FILE_TYPE_LABEL, isFileType, READER_TYPES, type FileTypeId } from "@/lib/documents/fileTypes";
 import { canMove, isLifecycle, type Lifecycle } from "@/lib/vault/lifecycle";
 import type { DocCategoryId } from "@/lib/docai/types";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 const VIEWS = ["all", "needs_review", "ready", "archived"] as const;
 
@@ -151,23 +152,27 @@ async function moveMany(slug: string, formData: FormData, to: "ready" | "archive
 
 // Needs Review to Ready, the approver gate honoured per document.
 export async function bulkApproveDocuments(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   await moveMany(slug, formData, "ready", "Approved");
 }
 
 // Put away. Nothing is deleted; Restore brings it back.
 export async function bulkArchiveDocuments(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   await moveMany(slug, formData, "archived", "Archived");
 }
 
 // Archived back to Needs Review, the same move the document screen's
 // Restore makes.
 export async function bulkRestoreDocuments(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   await moveMany(slug, formData, "needs_review", "Restored");
 }
 
 // Link each to one athlete of this org's roster (migration 0058): the
 // document is listed on their page; nothing is read or applied.
 export async function bulkLinkDocumentsToAthlete(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const { org, user, supabase, back, docs, tally } = await open(slug, formData);
   const raw = String(formData.get("linkedAthleteId") ?? "").trim();
   if (!raw) land(back, "error", "Pick an athlete to link to.");
@@ -207,6 +212,7 @@ export async function bulkLinkDocumentsToAthlete(slug: string, formData: FormDat
 // Set the type of documents the reader has not read (fileDocumentAs's
 // rule): a read document keeps the type of its reading and is skipped.
 export async function bulkSetDocumentType(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const { org, user, supabase, back, docs, tally } = await open(slug, formData);
   const raw = String(formData.get("filedAs") ?? "").trim();
   if (!raw || !isSettableType(raw)) land(back, "error", "Pick one of the types listed.");
@@ -245,6 +251,7 @@ export async function bulkSetDocumentType(slug: string, formData: FormData): Pro
 // Suggestions are not decisions, so no activity row is written, as with
 // the single action.
 export async function bulkSuggestDocuments(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const { org, user, supabase, back, docs, tally, selected } = await open(slug, formData);
   if (selected > SUGGEST_CAP) land(back, "error", `Suggest for ${SUGGEST_CAP} or fewer at a time. ${selected} are selected.`);
   const roster = await loadSuggestionRoster(supabase, org.id);

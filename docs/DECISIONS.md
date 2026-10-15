@@ -3724,7 +3724,7 @@ stored object.
 ## 2026-09-30: View As (Phase 5) built and held until the end
 
 **Decision.** View As is built, adversarially reviewed and pushed on
-branch `claude/stage5-phase5-viewas` (migration 0047), and is not merged.
+branch `claude/stage5-phase5-viewas` (migration 0074), and is not merged.
 Dave, 2026-09-30: "We will do that at the very end we don't need it right
 now." Production stays on migrations through 0046.
 
@@ -3733,14 +3733,14 @@ helper functions, five read policies, 89 write policies including
 `storage.objects`), and nothing else depends on it. Holding it removes the
 riskiest step from this release.
 
-**Checked before holding.** 0047 was dry-run against the real production
+**Checked before holding.** 0074 was dry-run against the real production
 schema inside a statement that always rolls back: row counts for Admin,
 Athlete and Viewer across 20 tables were identical before and after; an
 Admin viewing as an Athlete saw the same rows the Athlete sees (0
 mismatches); an insert while viewing was refused and an update changed 0
 rows; nothing was left in production afterward.
 
-**Consequences.** When it is picked up: merge the branch, apply 0047, then
+**Consequences.** When it is picked up: merge the branch, apply 0074, then
 check a file upload (the storage write rules change). No rollback
 migration is written yet; it would restore the old helper bodies and drop
 the extra "not viewing" condition. Open items from its reviews: activity
@@ -3926,7 +3926,7 @@ unchanged at 10 MB; its allowed types went from 5 to 9. A browser tab closed
 between the upload and the check can leave an unregistered file;
 `scripts/list_unregistered_uploads.mjs` lists them and deletes nothing.
 Production migration only after a backup or point in time recovery for
-emllcefqxyxyhqolrllo is confirmed. View As (0047) is not merged; its
+emllcefqxyxyhqolrllo is confirmed. View As (0074) is not merged; its
 rebase conflicts are fixed when it is.
 
 ## 2026-10-10: go-live data moves, admin photos, board meetings
@@ -4073,7 +4073,7 @@ access level sees, in place of View As.
 
 **Reason.** Dave, 2026-10-10: fix every item in the audit.
 
-**Alternatives.** View As (0047): still cut by Dave, so the access guide
+**Alternatives.** View As (0074): still cut by Dave, so the access guide
 documents it instead. A separate meeting photo field: meetings already
 attach any document, JPG and PNG included.
 
@@ -4406,3 +4406,23 @@ stored lifecycle state of reviewed documents would be a silent data change.
 Alternatives: move them to needs_review (rejected: destructive, no undo).
 Consequences: the backfill is a data update with no migration; run the bulk
 Suggest action to refine from file text. There is no bulk Confirm yet.
+
+## 2026-10-15: View As merged and applied
+
+Decision: View As (built 2026-09-30, held) is merged onto main as
+migration 0074 and applied to production. Dave lifted the hold.
+Reason: Dave asked for everything on main; the hold was his, and he
+removed it.
+Checked first: the full RLS suite on a real Postgres (View As proofs plus
+a down, snapshot comparison and re-apply); on the production schema, inside
+statements that always roll back, the write-policy gate (101 policies) went
+on and came off with 0 policies different, the nine helpers and five read
+policies were restored with 0 differences, and the four definer writers
+(create_org, log_family_message, submit_assignment, family_send_document)
+returned to their exact production text.
+Changes since the branch: the migration was renumbered 0047 to 0074; its
+section 8 now carries current bodies (member_giving keeps the Fundraising
+module check from 0064; family_send_document is guarded); every action
+added since the branch was cut begins with `await requireNotViewing()`.
+Consequences: a new write policy, definer writer or server action that
+skips the gate fails a law. Reversal is `scripts/down/0074_view_as_down.sql`.

@@ -1,9 +1,19 @@
 # Current state
 
-Last updated: 2026-10-13. `main` is deployed to production on Vercel.
-Migrations through 0065 are applied. 0047 (View As)
-stays cut. Replaced wholesale when this changes meaningfully, never
-appended to.
+Last updated: 2026-10-15. `main` is deployed to production on Vercel.
+Migrations through 0074 are applied (0074 is View As, applied 2026-10-15
+after a rollback dry-run on the production schema). Replaced wholesale
+when this changes meaningfully, never appended to.
+
+**2026-10-15, View As is live.** An Admin can see the app as an Admin, a
+Viewer or an Athlete, read only, for 30 minutes (More, then View As).
+Every server action refuses while viewing (`requireNotViewing`, enforced
+by `viewAsLaws`), and the database gates every write policy (101 on
+production), the nine access helpers and the five read policies on the
+effective identity. `scripts/down/0074_view_as_down.sql` reverses all of
+it; `scripts/run_rls_test.sh` runs the down, compares policies and
+function bodies to a snapshot taken before, and applies the migration
+again.
 
 **2026-10-13, finish order.** Board seats link to donor records by exact
 name behind a confirm (five of six linked on production; Dave Fisher has
@@ -942,7 +952,7 @@ Migrations 0071 and 0072 are applied on production (2026-10-14); the code is not
    the Admin; Add Admin for Mike and Kev) and walks the edit and remove
    screens on his phone. Stage 5 Phase 5 (View As) waits until the very
    end by Dave's call; the branch is ready (`claude/stage5-phase5-viewas`,
-   0047 dry-run clean). Before applying 0047: merge, apply, then check a
+   0074 dry-run clean). Before applying 0074: merge, apply, then check a
    file upload, because it edits the storage write rules.
 3. Load the high school directory (above), then set the AI key and
    discard, delete and re-upload the production documents.

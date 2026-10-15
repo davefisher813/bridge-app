@@ -438,7 +438,7 @@ scoring preset and Recalculate All under More, Strong Matches on Today.
    (status doc, Matches, advisor on the athlete, More as control center,
    Assignments, Activity Log; migrations through 0046). **Phase 5, View
    As, is built and pushed on `claude/stage5-phase5-viewas` but held
-   until the very end by Dave's call (2026-09-30); migration 0047 is not
+   until the very end by Dave's call (2026-09-30); migration 0074 is not
    applied.**
 7. **On hold: Spanish mode and translated messages.** The thread has
    no `body_es` column yet; it is added then, not guessed now.

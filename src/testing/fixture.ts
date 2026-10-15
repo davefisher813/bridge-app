@@ -35,6 +35,11 @@ export const MEMBER_ID = MEMBER;
 export const OUTSIDER_ID = OUTSIDER;
 export const LONG_INVITE_ID = LONG_INVITE;
 export const FAMILY_ID = FAMILY;
+// A second Admin of Bridge (owner), the "other Admin" a View As can show.
+// NOT in buildFixture(): a second owner would end every "only owner"
+// screen and law (the last-owner refusals). withSecondAdmin() adds them to
+// a dataset that wants one.
+export const ADMIN_TWO_ID = "00000000-0000-0000-0000-0000000000b6";
 
 export const IDS = {
   athlete: "00000000-0000-0000-0000-0000000000c1",
@@ -83,6 +88,19 @@ export const IDS = {
   meetingUpcoming: "00000000-0000-0000-0000-000000000161",
   meetingPast: "00000000-0000-0000-0000-000000000162",
 } as const;
+
+// The fixture with a second Admin in Bridge, for a View As of one Admin by
+// another (Stage 5 Phase 5): the owner is no longer the only owner, so
+// this is not the default fixture. In place, and returned for chaining.
+export function withSecondAdmin(data: Dataset): Dataset {
+  const bridge = (data.orgs ?? []).find((o) => o.slug === ORG_WITH_MODULES)?.id;
+  if (!bridge) throw new Error("withSecondAdmin: the fixture has no Bridge org");
+  if (!(data.users ?? []).some((u) => u.id === ADMIN_TWO_ID)) {
+    (data.users ?? (data.users = [])).push({ id: ADMIN_TWO_ID, email: "second.admin@example.test", full_name: "Fixture Second Admin", last_sign_in_at: "2026-09-04T12:00:00.000Z" });
+    (data.org_members ?? (data.org_members = [])).push({ id: "m8", user_id: ADMIN_TWO_ID, org_id: bridge, role: "owner" });
+  }
+  return data;
+}
 
 // A day counted from whenever the fixture is built, as YYYY-MM-DD, so a
 // row meant to be due soon never drifts into overdue as the calendar
@@ -1186,6 +1204,10 @@ export function buildFixture(): Dataset {
     // Document approvers (migration 0067). Nobody named, as on
     // production: Ready stays a single Admin tap.
     doc_approvers: [],
+    // View As (migration 0074). Empty: a harness that wants a live session
+    // passes `viewing` to createFakeClient, or calls start_view_as, and
+    // the fake writes one. Written only by those two functions.
+    view_as_sessions: [],
     // The metrics log (migration 0021). Three fastball readings for the
     // pitcher from three source tiers, so "best verified, else most
     // recent" has something to choose between: the self-reported 88 is

@@ -101,7 +101,7 @@ describe("LAW: a Viewer is refused before any read or write", () => {
 
   it("every exported action starts with begin() and takes no other door", () => {
     const src = read("src/lib/actions/assignmentsBulk.ts");
-    const exported = [...src.matchAll(/export async function (\w+)\(slug: string, formData: FormData\): Promise<void> \{\n\s+const s = await begin\(slug, formData\);/g)].map((m) => m[1]);
+    const exported = [...src.matchAll(/export async function (\w+)\(slug: string, formData: FormData\): Promise<void> \{\n\s+await requireNotViewing\(\);\n\s+const s = await begin\(slug, formData\);/g)].map((m) => m[1]);
     expect(exported.sort()).toEqual(actions.map((a) => a[0]).sort());
     expect((src.match(/export async function/g) ?? []).length).toBe(actions.length);
     expect(src).not.toMatch(/createAdminClient/);

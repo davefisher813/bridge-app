@@ -17,7 +17,7 @@ How to keep it true:
    table. Every `applied` row names the history entry that proves it.
 
 Statuses: `applied`, `pending` (written, not on production), `cut` (never
-to be applied). 0047 (View As) is cut and lives only on its branch.
+to be applied).
 
 | File | Status | Evidence on production |
 | --- | --- | --- |
@@ -93,3 +93,4 @@ to be applied). 0047 (View As) is cut and lives only on its branch.
 | 0071_assignments_bulk_delete.sql | applied | 20261014011513 0071_assignments_bulk_delete |
 | 0072_documents_bulk.sql | applied | 20261014011532 0072_documents_bulk |
 | 0073_document_identity_and_type.sql | applied | 20261015013132 0073_document_identity_and_type |
+| 0074_view_as.sql | applied | 20261015041818 0074_view_as |

@@ -10,6 +10,7 @@ import { centsToDecimalString } from "@/lib/validation/gift";
 import { toCents } from "@/lib/fundraising/rollup";
 import { BOARD_KINDS, DEFAULT_GIVE_GET_CENTS, DEFAULT_SEATS, type BoardKind } from "@/lib/governance/giveGet";
 import { matchSeatsToDonors } from "@/lib/governance/seatDonors";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 export interface GovernanceActionState {
   errors: Record<string, string>;
@@ -79,6 +80,7 @@ export async function createBoard(
   _prevState: GovernanceActionState,
   formData: FormData
 ): Promise<GovernanceActionState> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
 
   const parsed = readBoardForm(formData);
@@ -100,6 +102,7 @@ export async function createBoard(
 // seats, the seat range and the description. A sitting member's own
 // commitment is copied onto their seat and does not move with this.
 export async function updateBoard(slug: string, boardId: string, _prevState: GovernanceActionState, formData: FormData): Promise<GovernanceActionState> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
 
   const parsed = readBoardForm(formData);
@@ -124,6 +127,7 @@ export async function updateBoard(slug: string, boardId: string, _prevState: Gov
 // with it, and a seat carries give/get history a chair still reports
 // on. Remove or move the seats first, then the board.
 export async function removeBoard(slug: string, boardId: string): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
   const back = `/org/${slug}/board-governance/${boardId}`;
 
@@ -243,6 +247,7 @@ export async function addBoardSeat(
   _prevState: GovernanceActionState,
   formData: FormData
 ): Promise<GovernanceActionState> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
 
   const supabase = await createClient();
@@ -265,6 +270,7 @@ export async function addBoardSeat(
 // Only unambiguous matches; anything else stays for a person to pick on
 // the seat. Behind a confirm on the board page; each link is logged.
 export async function linkSeatsToDonorsByName(slug: string, boardId: string): Promise<void> {
+  await requireNotViewing();
   const { org, user } = await requireGovernance(slug);
   const back = `/org/${slug}/board-governance/${boardId}`;
   const supabase = await createClient();
@@ -299,6 +305,7 @@ export async function linkSeatsToDonorsByName(slug: string, boardId: string): Pr
 }
 
 export async function updateBoardSeat(slug: string, boardId: string, memberId: string, _prevState: GovernanceActionState, formData: FormData): Promise<GovernanceActionState> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
 
   const supabase = await createClient();
@@ -324,6 +331,7 @@ export async function updateBoardSeat(slug: string, boardId: string, memberId: s
 // Remove a seat. Gifts credited to it as brought in lose that credit
 // (the column is set null), which the confirm says before it happens.
 export async function removeBoardSeat(slug: string, boardId: string, memberId: string): Promise<void> {
+  await requireNotViewing();
   const { org } = await requireGovernance(slug);
 
   const supabase = await createClient();
@@ -344,6 +352,7 @@ export async function removeBoardSeat(slug: string, boardId: string, memberId: s
 // the app could set it. Staff pick the person from the org's members
 // (owner, staff or member; never a family login) or clear the link.
 export async function linkSeatSignIn(slug: string, boardId: string, memberId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const { org, user } = await requireGovernance(slug);
   const back = `/org/${slug}/board-governance/${boardId}/seats/${memberId}`;
   const userId = String(formData.get("userId") ?? "").trim() || null;

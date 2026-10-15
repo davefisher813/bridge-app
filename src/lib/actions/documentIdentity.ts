@@ -15,6 +15,7 @@ import { loadSuggestionRoster, NOT_AN_ATHLETE, refreshSuggestion } from "@/lib/d
 import { PROVISIONAL_TYPE_LABEL, type IdentityCandidate, type ProvisionalType } from "@/lib/docai/suggest";
 import { checkVaultFile } from "@/lib/vault/format";
 import type { DocCategoryId } from "@/lib/docai/types";
+import { requireNotViewing } from "@/lib/data/viewAs";
 
 interface DocRow {
   id: string;
@@ -77,6 +78,7 @@ function back(slug: string, documentId: string, error?: string): never {
 // NOT_AN_ATHLETE says it is about nobody, an empty value takes the
 // confirmation back to the suggestion.
 export async function setDocumentIdentity(slug: string, documentId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
   const ctx = await load(slug, documentId);
   if (!ctx) redirect("/");
   const { org, user, supabase, doc } = ctx;
@@ -140,6 +142,7 @@ export async function setDocumentIdentity(slug: string, documentId: string, form
 // the suggestions again on the original file. A person's confirmation is
 // never overwritten; only the suggestions beside it are refreshed.
 export async function suggestDocumentAgain(slug: string, documentId: string): Promise<void> {
+  await requireNotViewing();
   const ctx = await load(slug, documentId);
   if (!ctx) redirect("/");
   const { org, user, supabase, doc } = ctx;

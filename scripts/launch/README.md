@@ -20,4 +20,4 @@ Done in the app, not in SQL:
 
 - **Henry Tolentino:** an Admin of Elite Squad opens Members, Invite, enters his email, picks Admin or Viewer, then sets his Title to "Asst Coach" on his row. Sending an invitation needs the auth service, which SQL cannot reach.
 - **Backups:** Supabase dashboard, project Bridge-app, Database, Backups. Confirm daily backups. Turn on point in time recovery if the plan allows it.
-- **Migration 0047 (View As):** cut. Not applied, not merged, nothing to run.
+- **Migration 0074 (View As):** cut. Not applied, not merged, nothing to run.
