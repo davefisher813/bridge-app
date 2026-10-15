@@ -19,12 +19,14 @@
 // redirect to the same view with a notice that names how many changed and
 // how many were skipped and why. No document is read and no model is called.
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
-import { parseBulkIds, SUGGEST_CAP } from "@/lib/bulk/ids";
+import { countOf, parseBulkIds, SUGGEST_CAP } from "@/lib/bulk/ids";
+import { decodeSuggestUndo, encodeSuggestUndo, planSuggestUndo, type UndoRow } from "@/lib/data/suggestionUndo";
 import { bulkNotice, SkipTally } from "@/lib/bulk/notice";
 import { activitySummary, logActivity } from "@/lib/data/activity";
 import { moveLifecycle } from "@/lib/data/vault";
@@ -72,9 +74,14 @@ interface DocRow {
   format: string | null;
   original_paths: string[] | null;
   identity_status: string | null;
+  suggested_type: string | null;
+  suggested_type_confidence: number | null;
+  suggested_type_reasons: string[];
+  identity_candidates: unknown[];
+  suggested_at: string | null;
 }
 
-const COLUMNS = "id, lifecycle, lifecycle_changed_at, category, requested_category, filed_as, athlete_id, linked_athlete_id, status, extracted, review_reason, file_name, format, original_paths, identity_status";
+const COLUMNS = "id, lifecycle, lifecycle_changed_at, category, requested_category, filed_as, athlete_id, linked_athlete_id, status, extracted, review_reason, file_name, format, original_paths, identity_status, suggested_type, suggested_type_confidence, suggested_type_reasons, identity_candidates, suggested_at";
 
 // Who the caller is, which documents of this org the ids name, and where
 // to land. Admins only, checked before anything is read or written.
@@ -255,11 +262,56 @@ export async function bulkSuggestDocuments(slug: string, formData: FormData): Pr
   const { org, user, supabase, back, docs, tally, selected } = await open(slug, formData);
   if (selected > SUGGEST_CAP) land(back, "error", `Suggest for ${SUGGEST_CAP} or fewer at a time. ${selected} are selected.`);
   const roster = await loadSuggestionRoster(supabase, org.id);
-  let applied = 0;
+  const run = randomUUID();
+  const saved: string[] = [];
   for (const doc of docs) {
-    const result = await refreshSuggestion(supabase, org.id, user.id, roster, doc as Parameters<typeof refreshSuggestion>[4]);
-    if (result === "saved") applied += 1;
+    const result = await refreshSuggestion(supabase, org.id, user.id, roster, doc, run);
+    if (result === "saved") saved.push(doc.id);
     else tally.add(result === "unreadable" ? "original file could not be opened" : "could not be saved");
   }
-  finish(slug, back, "Suggested for", applied, tally, "");
+  // The Undo rides on the notice's address, like the advisor change, so it
+  // stays reachable until the person leaves the page.
+  if (saved.length > 0) redirectWithUndo(slug, back, "Suggested for", saved, tally, encodeSuggestUndo({ run, ids: saved }));
+  finish(slug, back, "Suggested for", 0, tally, "");
+}
+
+function redirectWithUndo(slug: string, back: string, verb: string, saved: string[], tally: SkipTally, token: string): never {
+  revalidatePath(`/org/${slug}/documents`);
+  const n = bulkNotice({ verb, noun: "document", applied: saved.length, skipped: tally.map, tail: "" });
+  redirect(`${back}${back.includes("?") ? "&" : "?"}notice=${q(n.text)}&undo=${token}`);
+}
+
+// Put a bulk Suggest back: every document that run refreshed returns to the
+// suggestion it had, unless a person or a newer refresh has moved it on.
+export async function undoBulkSuggest(slug: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  await requireRole(org.id, STAFF_ROLES);
+  const back = listUrl(slug, formData);
+  const token = decodeSuggestUndo(formData.get("undo"));
+  if (!token) land(back, "error", "That Undo is not valid any more.");
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("documents")
+    .select("id, identity_status, suggested_type, suggested_type_confidence, suggested_type_reasons, identity_candidates, suggested_at, suggestion_before")
+    .eq("org_id", org.id)
+    .in("id", token.ids);
+  const plan = planSuggestUndo(token.run, (data ?? []) as UndoRow[]);
+  let restored = 0;
+  let failed = 0;
+  let kept = 0;
+  for (const p of plan) {
+    if ("kept" in p) {
+      kept += 1;
+      continue;
+    }
+    const { error } = await supabase.from("documents").update(p.restore).eq("id", p.id).eq("org_id", org.id);
+    if (error) failed += 1;
+    else restored += 1;
+  }
+  revalidatePath(`/org/${slug}/documents`);
+  const left = kept + failed;
+  const tail = left > 0 ? ` ${countOf(left, "document")} left as ${left === 1 ? "it is" : "they are"}, changed since.` : "";
+  land(back, restored > 0 ? "notice" : "error", `${restored > 0 ? `Suggestions restored for ${countOf(restored, "document")}.` : "Nothing was restored."}${tail}`);
 }

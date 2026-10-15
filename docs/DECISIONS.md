@@ -4426,3 +4426,15 @@ module check from 0064; family_send_document is guarded); every action
 added since the branch was cut begins with `await requireNotViewing()`.
 Consequences: a new write policy, definer writer or server action that
 skips the gate fails a law. Reversal is `scripts/down/0074_view_as_down.sql`.
+
+## 2026-10-15: bulk Suggest has an Undo
+
+Decision: a bulk Suggest remembers each document's suggestion from before
+the run (`documents.suggestion_before`, migration 0075) and the notice
+carries an Undo (`undo=<run>.<ids>` in the address, like the advisor change).
+Undo restores exactly that run's documents; a document a person confirmed
+since, or that a later refresh changed, is left as it is.
+Reason: Alfred's live test found a bulk change with no way back, while a
+single Confirm has one.
+Consequences: a bulk Suggest links and confirms nothing, so Undo unlinks
+nothing. A single Suggest Again clears the remembered state.
