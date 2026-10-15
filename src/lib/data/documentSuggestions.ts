@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DocCategoryId } from "@/lib/docai/types";
 import { suggestIdentity, suggestType, type IdentityCandidate, type RosterEntry } from "@/lib/docai/suggest";
+import { snapshotBefore, type MaybeSuggestionFields } from "@/lib/data/suggestionUndo";
 import { textSample } from "@/lib/vault/textSample";
 import { checkVaultFile, type VaultFormat } from "@/lib/vault/format";
 
@@ -115,7 +116,8 @@ export async function refreshSuggestion(
   orgId: string,
   actorId: string,
   roster: RosterEntry[],
-  doc: { id: string; file_name: string; format: string | null; original_paths: string[] | null; requested_category: DocCategoryId | null; identity_status: string | null },
+  doc: { id: string; file_name: string; format: string | null; original_paths: string[] | null; requested_category: DocCategoryId | null } & MaybeSuggestionFields,
+  runId: string | null = null,
 ): Promise<"saved" | "unreadable" | "failed"> {
   const path = doc.original_paths?.[0];
   let bytes: Uint8Array | null = null;
@@ -140,6 +142,8 @@ export async function refreshSuggestion(
       identity_candidates: s.identity_candidates,
       suggested_at: s.suggested_at,
       ...(decided ? {} : { identity_status: s.identity_status }),
+      // What it said before, for Undo (src/lib/data/suggestionUndo.ts).
+      suggestion_before: runId ? snapshotBefore(doc, runId, s.suggested_at) : null,
     })
     .eq("id", doc.id)
     .eq("org_id", orgId);

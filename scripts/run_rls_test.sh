@@ -124,6 +124,12 @@ diff /tmp/zz_view_as_before.txt /tmp/zz_view_as_after.txt
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_class where relname = 'view_as_sessions'\"" | grep -qx 0
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0074_view_as.sql"
 echo "==> 0074 is reversible"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0075_document_suggestion_before.sql"
+echo "==> 0075: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0075_document_suggestion_before_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from information_schema.columns where table_name = 'documents' and column_name = 'suggestion_before'\"" | grep -qx 0
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0075_document_suggestion_before.sql"
+echo "==> 0075 is reversible"
 
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"

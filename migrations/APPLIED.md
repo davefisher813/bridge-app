@@ -94,3 +94,4 @@ to be applied).
 | 0072_documents_bulk.sql | applied | 20261014011532 0072_documents_bulk |
 | 0073_document_identity_and_type.sql | applied | 20261015013132 0073_document_identity_and_type |
 | 0074_view_as.sql | applied | 20261015041818 0074_view_as |
+| 0075_document_suggestion_before.sql | applied | 20261015175532 0075_document_suggestion_before |

@@ -305,6 +305,169 @@ describe("LAW: Suggest Who and What in bulk", () => {
   });
 });
 
+// Undo for a bulk Suggest (Alfred, 2026-10-15): a bulk run that changes state
+// is reversible in one action, as a single Confirm is. Planted: restored
+// only the first document; restored over a confirmation; left the
+// remembered state behind. Each failed a test below, then was reverted.
+describe("LAW: a bulk Suggest can be undone", () => {
+  const uuid = (docId: string, n: number) => {
+    const id = `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
+    rowOf(docId).id = id;
+    return id;
+  };
+  async function suggestMany(ids: string[]): Promise<string> {
+    const { bulkSuggestDocuments } = await import("@/lib/actions/documentsBulk");
+    const form = new FormData();
+    for (const id of ids) form.append("ids", id);
+    return decodeURIComponent((await bulkSuggestDocuments(ORG_WITH_MODULES, form).catch((e: Error) => e.message)) as unknown as string);
+  }
+  const tokenOf = (url: string) => url.match(/undo=([^&]+)/)?.[1] ?? null;
+  async function undo(token: string | null): Promise<string> {
+    const { undoBulkSuggest } = await import("@/lib/actions/documentsBulk");
+    const form = new FormData();
+    if (token) form.append("undo", token);
+    return decodeURIComponent((await undoBulkSuggest(ORG_WITH_MODULES, form).catch((e: Error) => e.message)) as unknown as string);
+  }
+  const FIELDS = ["suggested_type", "suggested_type_confidence", "suggested_type_reasons", "identity_status", "identity_candidates", "suggested_at"] as const;
+  const pick = (id: string) => {
+    const r = data.documents!.find((d) => d.id === id)!;
+    return Object.fromEntries(FIELDS.map((f) => [f, JSON.parse(JSON.stringify(r[f] ?? null))]));
+  };
+
+  it("the notice carries an Undo for exactly the documents that run refreshed", async () => {
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    const b = await upload("Fixture_Athlete_report.txt", "x");
+    const ia = uuid(a.documentId!, 911);
+    const ib = uuid(b.documentId!, 912);
+    const out = await suggestMany([ia, ib]);
+    expect(out).toContain("Suggested for 2 documents.");
+    const token = tokenOf(out);
+    expect(token).toMatch(/^[0-9a-f-]{36}\.[0-9a-f-]{36},[0-9a-f-]{36}$/);
+  });
+
+  it("Undo returns every document to its prior suggestion, a mixed set included", async () => {
+    const a = await upload("Fixture_Athlete_transcript.txt", "x"); // unconfirmed, custom prior
+    const b = await upload("Fixture_Athlete_report.txt", "x"); // confirmed by a person
+    const c = await upload("Plain_notes.txt", "x"); // never suggested before
+    await setIdentity(b.documentId!, IDS.athlete);
+    const ra = rowOf(a.documentId!);
+    ra.suggested_type = "course_plan";
+    ra.suggested_type_confidence = 0.4;
+    ra.suggested_type_reasons = ["Prior reason"];
+    ra.identity_status = "ambiguous";
+    ra.identity_candidates = [{ athleteId: IDS.athlete, name: "Prior", score: 0.5 }];
+    ra.suggested_at = "2026-10-01T00:00:00.000Z";
+    const rc = rowOf(c.documentId!);
+    rc.suggested_type = null;
+    rc.suggested_type_confidence = null;
+    rc.suggested_type_reasons = [];
+    rc.identity_status = null;
+    rc.identity_candidates = [];
+    rc.suggested_at = null;
+    const ia = uuid(a.documentId!, 913);
+    const ib = uuid(b.documentId!, 914);
+    const ic = uuid(c.documentId!, 915);
+    const priorA = pick(ia);
+    const priorB = pick(ib);
+    const priorC = pick(ic);
+    const linkB = data.documents!.find((d) => d.id === ib)!.linked_athlete_id;
+
+    const out = await suggestMany([ia, ib, ic]);
+    expect(pick(ia)).not.toEqual(priorA);
+    expect(pick(ic)).not.toEqual(priorC);
+
+    const done = await undo(tokenOf(out));
+    expect(done).toContain("Suggestions restored for 3 documents.");
+    expect(pick(ia)).toEqual(priorA);
+    expect(pick(ib)).toEqual({ ...priorB, ...pick(ib) });
+    expect(pick(ic)).toEqual(priorC);
+    // The confirmed document keeps its person and its link throughout.
+    expect(data.documents!.find((d) => d.id === ib)).toMatchObject({ identity_status: "confirmed", subject_athlete_id: IDS.athlete, linked_athlete_id: linkB });
+    for (const id of [ia, ib, ic]) expect(data.documents!.find((d) => d.id === id)!.suggestion_before ?? null).toBeNull();
+  });
+
+  it("a bulk run links and confirms nothing, so Undo unlinks nothing", async () => {
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    const ia = uuid(a.documentId!, 916);
+    const row = data.documents!.find((d) => d.id === ia)!;
+    const linkBefore = row.linked_athlete_id ?? null;
+    const out = await suggestMany([ia]);
+    expect(row.linked_athlete_id ?? null).toBe(linkBefore);
+    expect(row.subject_athlete_id ?? null).toBeNull();
+    await undo(tokenOf(out));
+    expect(row.linked_athlete_id ?? null).toBe(linkBefore);
+  });
+
+  it("a document a person confirmed after the run keeps their word", async () => {
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    const b = await upload("Fixture_Athlete_report.txt", "x");
+    const ia = uuid(a.documentId!, 917);
+    const ib = uuid(b.documentId!, 918);
+    const out = await suggestMany([ia, ib]);
+    await setIdentity(ia, IDS.athlete);
+    const done = await undo(tokenOf(out));
+    expect(done).toContain("Suggestions restored for 1 document.");
+    expect(done).toContain("1 document left as it is, changed since.");
+    expect(data.documents!.find((d) => d.id === ia)).toMatchObject({ identity_status: "confirmed", subject_athlete_id: IDS.athlete });
+  });
+
+  it("a document suggested again by a later run is not rolled back by the earlier Undo", async () => {
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    const ia = uuid(a.documentId!, 919);
+    const first = await suggestMany([ia]);
+    await new Promise((r) => setTimeout(r, 5));
+    await suggestMany([ia]);
+    const after = pick(ia);
+    const done = await undo(tokenOf(first));
+    expect(done).toContain("Nothing was restored.");
+    expect(pick(ia)).toEqual(after);
+  });
+
+  it("running Undo twice restores once and then says nothing was restored", async () => {
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    const ia = uuid(a.documentId!, 920);
+    const token = tokenOf(await suggestMany([ia]));
+    expect(await undo(token)).toContain("Suggestions restored for 1 document.");
+    expect(await undo(token)).toContain("Nothing was restored.");
+  });
+
+  it("a token that is not valid, or names another run's documents, changes nothing", async () => {
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    const ia = uuid(a.documentId!, 921);
+    await suggestMany([ia]);
+    const before = JSON.stringify(data.documents!.find((d) => d.id === ia));
+    expect(await undo("drop table documents")).toContain("That Undo is not valid any more.");
+    expect(await undo(`00000000-0000-0000-0000-00000000beef.${ia}`)).toContain("Nothing was restored.");
+    expect(JSON.stringify(data.documents!.find((d) => d.id === ia))).toBe(before);
+  });
+
+  it("a Viewer is refused", async () => {
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    const ia = uuid(a.documentId!, 922);
+    const token = tokenOf(await suggestMany([ia]));
+    const before = JSON.stringify(data.documents!.find((d) => d.id === ia));
+    currentUser = MEMBER_ID;
+    await undo(token);
+    currentUser = OWNER_ID;
+    expect(JSON.stringify(data.documents!.find((d) => d.id === ia))).toBe(before);
+  });
+
+  it("the Documents screen shows the Undo while the address carries it, and not otherwise", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const mod = await import("@/app/org/[slug]/documents/page");
+    const a = await upload("Fixture_Athlete_transcript.txt", "x");
+    const ia = uuid(a.documentId!, 923);
+    const token = tokenOf(await suggestMany([ia]))!;
+    const render = async (undoParam?: string) => renderToStaticMarkup(await mod.default({ params: Promise.resolve({ slug: ORG_WITH_MODULES }), searchParams: Promise.resolve({ notice: "Suggested for 1 document.", undo: undoParam }) }));
+    const withUndo = await render(token);
+    // The confirm sheet opens on tap, so the markup carries the form and its token.
+    expect(withUndo).toContain(`name="undo" value="${token}"`);
+    expect(withUndo).toContain(">Undo</button>");
+    expect(await render()).not.toContain('name="undo"');
+    expect(await render("junk")).not.toContain('name="undo"');
+  });
+});
+
 // Needs Review is what waits on a person (Alfred, 2026-10-15): a Ready
 // document whose suggested athlete nobody confirmed appears there, keeping
 // its Ready state, until somebody decides.
