@@ -93,4 +93,4 @@ to be applied).
 | 0071_assignments_bulk_delete.sql | applied | 20261014011513 0071_assignments_bulk_delete |
 | 0072_documents_bulk.sql | applied | 20261014011532 0072_documents_bulk |
 | 0073_document_identity_and_type.sql | applied | 20261015013132 0073_document_identity_and_type |
-| 0074_view_as.sql | pending | not on production; applies only after the rollback dry-run passes |
+| 0074_view_as.sql | applied | 20261015041818 0074_view_as |
