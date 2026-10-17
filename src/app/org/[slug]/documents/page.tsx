@@ -255,7 +255,10 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const matched = q
     ? all.filter((r) => {
         const athlete = athleteLabel(r, linkedNames);
-        return `${r.title ?? ""} ${r.file_name} ${readableFileName(r.file_name)} ${documentTypeLabel(r, CATEGORY_LABEL) ?? ""} ${athlete ?? ""} ${suggestionNotes(r, linkedNames).join(" ")}`.toLowerCase().includes(q);
+        // Every word typed must appear somewhere in it, in any order, so a
+        // stack's words find each file in the stack.
+        const hay = `${r.title ?? ""} ${r.file_name} ${readableFileName(r.file_name)} ${documentTypeLabel(r, CATEGORY_LABEL) ?? ""} ${athlete ?? ""} ${suggestionNotes(r, linkedNames).join(" ")}`.toLowerCase();
+        return q.split(/\s+/).every((w) => hay.includes(w));
       })
     : all;
   // Needs Review is what waits on a person: documents in that state, and a
