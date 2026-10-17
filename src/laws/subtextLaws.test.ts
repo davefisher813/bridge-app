@@ -13,6 +13,9 @@ const GONE = [
   "athletic scholarships are not allowed by NCAA rules",
   "No cost or aid data for this D3 school",
   "Not enough on file to judge",
+  "enter GPA for an accurate academic fit",
+  "enter stats for an accurate athletic fit",
+  "Each sees the program and the schools",
   "every message, visit and offer",
   "No coaches listed for this school yet",
   "separated by semicolons. For example, SS 2027",
@@ -71,10 +74,20 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 describe("LAW: removed subtext stays removed", () => {
-  const files = walk("src");
+  // fits.ts holds the matchers that clean old stored rows as they are read; it
+  // names the old wording in order to remove it.
+  const files = walk("src").filter((p) => !p.endsWith("src/lib/data/fits.ts"));
   const text = files.map((p) => [p, readFileSync(p, "utf8")] as const);
   it.each(GONE)("%s", (line) => {
     const hit = text.find(([, src]) => src.includes(line));
     expect(hit?.[0]).toBeUndefined();
+  });
+});
+
+describe("LAW: stored fit rows are tidied on every read", () => {
+  it("both loaders pass rows through tidyFitRow", () => {
+    const src = readFileSync("src/lib/data/fits.ts", "utf8");
+    expect(src).toMatch(/\.\.\.tidyFitRow\(rest\)/);
+    expect(src).toMatch(/out\.set\([^)]*tidyFitRow\(r\)\)/);
   });
 });

@@ -90,6 +90,39 @@ export function fitToRow(orgId: string, athlete: Athlete, school: School, fit: F
   };
 }
 
+// Rows stored before the subtext sweep (2026-10-17) still carry the old
+// wording, and the screens print what is stored. The text is cleaned as it
+// is read, so no recompute of every score is needed: the D3 scholarship
+// reason and the "No cost or aid data for this D3 school" line are
+// dropped, "Scored on X only: no Y data yet" becomes "No Y data", and the
+// "enter ... for an accurate ... fit" advice is cut off.
+export function tidyFitText(lines: string[] | null | undefined): string[] {
+  const out: string[] = [];
+  for (const raw of lines ?? []) {
+    if (/^D3 school: athletic scholarships are not allowed/i.test(raw)) continue;
+    if (/^No cost or aid data for this D3 school$/i.test(raw)) continue;
+    const scored = raw.match(/^Scored on .+ only: no (.+) data yet$/i);
+    if (scored) {
+      out.push(`No ${scored[1]} data`.replace(/ or /g, " or "));
+      continue;
+    }
+    out.push(raw.replace(/^(No GPA on file|No measurables on file): enter .+ for an accurate .+ fit$/i, "$1"));
+  }
+  return out;
+}
+
+export function tidyFitRow<T extends FitRow>(row: T): T {
+  const d = (row.dimensions ?? {}) as Record<string, unknown>;
+  const dimensions: Record<string, unknown> = { ...d };
+  for (const [k, v] of Object.entries(d)) {
+    if (v && typeof v === "object" && !Array.isArray(v) && ("reasons" in v || "warnings" in v)) {
+      const dim = v as { reasons?: string[]; warnings?: string[] };
+      dimensions[k] = { ...dim, reasons: tidyFitText(dim.reasons), warnings: tidyFitText(dim.warnings) };
+    }
+  }
+  return { ...row, dimensions, reasons: tidyFitText(row.reasons), warnings: tidyFitText(row.warnings) };
+}
+
 // A stored row back into the shape the screens already render.
 export function rowToFit(row: FitRow): FitResult {
   const d = (row.dimensions ?? {}) as Record<string, FitResult["academic"] | string[] | undefined>;
@@ -297,7 +330,7 @@ export async function loadFitsForAthlete(client: Client, orgId: string, athleteI
       if (!s) return null;
       const { schools: _drop, ...rest } = r;
       void _drop;
-      return { ...rest, net_cost: rest.net_cost ?? null, school: s as LoadedFit["school"] };
+      return { ...tidyFitRow(rest), net_cost: rest.net_cost ?? null, school: s as LoadedFit["school"] };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
   return rankFits(rows, "best");
@@ -313,7 +346,7 @@ export async function loadFitsForPairs(client: Client, orgId: string, pairs: { a
     .select("id, org_id, athlete_id, school_id, score, tag, partial, dimensions, reasons, warnings, net_cost, inputs_hash, computed_at")
     .eq("org_id", orgId)
     .in("athlete_id", athleteIds);
-  for (const r of (data ?? []) as FitRow[]) out.set(`${r.athlete_id}:${r.school_id}`, r);
+  for (const r of (data ?? []) as FitRow[]) out.set(`${r.athlete_id}:${r.school_id}`, tidyFitRow(r));
   return out;
 }
 
