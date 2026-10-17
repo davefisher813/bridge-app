@@ -142,7 +142,35 @@ function suggestionNotes(doc: DocRow, names: Map<string, string>): string[] {
   return [type, who].filter((x): x is string => !!x);
 }
 
-function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; linkedNames: Map<string, string> }) {
+function docTitle(doc: DocRow, linkedNames: Map<string, string>): string {
+  const athlete = athleteLabel(doc, linkedNames);
+  const label = documentTypeLabel(doc, CATEGORY_LABEL);
+  return doc.title
+    ? `${doc.title}${athlete ? ` · ${athlete}` : ""}`
+    : doc.status === "filed"
+      ? `Athlete Upload${athlete ? ` · ${athlete}` : ""}`
+      : doc.category
+        ? // A reference reading (Board Document, Other) is never matched to
+          // an athlete, so it never says "no match".
+          `${label}${athlete ? ` · ${athlete}` : doc.category === "board_document" || doc.category === "other" ? "" : " · No Match"}`
+        : (label ?? readableFileName(doc.file_name));
+}
+
+// Files that read the same (identical title, so the same athlete and the
+// same kind of file) stack into one row: the newest leads and the rest
+// are counted. Their own pages are one tap away from the newest, and a
+// search by the athlete lists every one.
+function groupNearDuplicates(list: DocRow[], names: Map<string, string>, searching: boolean): [DocRow, DocRow[]][] {
+  const groups = new Map<string, DocRow[]>();
+  for (const d of list) {
+    // A search lists every file; a file with no athlete is never stacked.
+    const key = searching || !athleteLabel(d, names) ? d.id : docTitle(d, names);
+    groups.set(key, [...(groups.get(key) ?? []), d]);
+  }
+  return [...groups.values()].map((g) => [g[0]!, g.slice(1)]);
+}
+
+function DocumentRow({ slug, doc, linkedNames, same = [], view = "all" }: { slug: string; doc: DocRow; linkedNames: Map<string, string>; same?: DocRow[]; view?: string }) {
   const athlete = athleteLabel(doc, linkedNames);
   const pct = doc.provenance?.confidence != null ? Math.round(doc.provenance.confidence * 100) : null;
   const lifecycle = (isLifecycle(doc.lifecycle) ? doc.lifecycle : "needs_review") as Lifecycle;
@@ -154,27 +182,19 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
   const typed = !!label;
   // A title an Admin gave it (migration 0069) says what it is, ahead of
   // anything worked out; its type and file name go below.
-  const title = doc.title
-    ? `${doc.title}${athlete ? ` · ${athlete}` : ""}`
-    : doc.status === "filed"
-      ? `Athlete Upload${athlete ? ` · ${athlete}` : ""}`
-      : doc.category
-        ? // A reference reading (Board Document, Other) is never matched to
-          // an athlete, so it never says "no match".
-          `${label}${athlete ? ` · ${athlete}` : doc.category === "board_document" || doc.category === "other" ? "" : " · No Match"}`
-        : (label ?? readableFileName(doc.file_name));
+  const title = docTitle(doc, linkedNames);
   const reason = lifecycle === "processing" && isStaleProcessing(lifecycle, doc.lifecycle_changed_at) ? "Reading did not finish." : doc.review_reason && lifecycle !== "archived" && lifecycle !== "ready" ? plainText(doc.review_reason) || null : null;
-  const facts = [doc.title ? label : null, doc.title || typed || doc.status === "filed" || title !== doc.file_name ? doc.file_name : null, ago(doc.created_at)].filter(Boolean);
+  const facts = [doc.title ? label : null, doc.title || typed || doc.status === "filed" || title !== doc.file_name ? doc.file_name : null, same.length > 0 ? `${same.length + 1} Files` : null, same.length > 0 ? null : ago(doc.created_at)].filter(Boolean);
   const notes = [...(doc.status === "filed" ? [] : suggestionNotes(doc, linkedNames)), doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
   return (
     <Row
-      href={`/org/${slug}/documents/${doc.id}`}
+      href={same.length > 0 ? `/org/${slug}/documents?view=${view}&q=${encodeURIComponent(athlete ?? "")}` : `/org/${slug}/documents/${doc.id}`}
       kind="document"
       role={lifecycle === "needs_review" ? "offer" : lifecycle === "ready" ? "committed" : "neutral"}
       title={title}
       meta={[facts.join(" · "), ...notes].join(" · ")}
       wrap
-      select={<BulkCheck id={doc.id} label={title} />}
+      select={same.length > 0 ? undefined : <BulkCheck id={doc.id} label={title} />}
       trailing={
         <>
           {lifecycle !== "archived" && <LifecycleChip lifecycle={lifecycle} />}
@@ -394,8 +414,8 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
             if (list.length === 0) return null;
             return (
               <Section key={state} label={LIFECYCLE_LABEL[state]} count={list.length} role={state === "needs_review" ? "offer" : state === "ready" ? "committed" : state === "processing" ? "contact" : "neutral"} kind={state === "needs_review" ? "warning" : state === "ready" ? "check" : state === "processing" ? "clock" : state === "archived" ? "note" : "document"}>
-                {list.map((d) => (
-                  <DocumentRow key={d.id} slug={slug} doc={d} linkedNames={linkedNames} />
+                {groupNearDuplicates(list, linkedNames, !!q).map(([d, same]) => (
+                  <DocumentRow key={d.id} slug={slug} doc={d} linkedNames={linkedNames} same={same} view={view} />
                 ))}
               </Section>
             );

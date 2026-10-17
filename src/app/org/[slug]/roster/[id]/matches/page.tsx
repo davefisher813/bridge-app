@@ -201,12 +201,15 @@ export default async function MatchesPage({
   // with the division and says its score and tag; a partial score leads
   // with what it is, in plain words ("Partial · 1 of 3 scored"). The
   // target action sits at the right end of the row, outside its link.
-  const matchRow = (f: LoadedFit, dim: boolean) => {
+  const matchRow = (f: LoadedFit, dim: boolean, prev?: LoadedFit) => {
+    // The score and tag print where they change from the row above, so a
+    // run of identical "50 Reach" rows says it once.
+    const sameAsAbove = !!prev && prev.score === f.score && prev.tag === f.tag && prev.partial === f.partial;
     const target = targetBySchool.get(f.school_id);
     const extra = sortFact(f, sort);
     const meta = dim
       ? [f.school.division, f.warnings[0] ?? f.reasons[0] ?? "Blocked"].filter(Boolean).join(" · ")
-      : [f.school.division, f.partial ? partialLabelFor(f) : undefined, String(f.score), f.tag, extra].filter(Boolean).join(" · ");
+      : [f.school.division, f.partial ? partialLabelFor(f) : undefined, sameAsAbove ? undefined : String(f.score), sameAsAbove ? undefined : f.tag, extra].filter(Boolean).join(" · ");
     return (
       <Row
         key={f.school_id}
@@ -257,7 +260,7 @@ export default async function MatchesPage({
               // scored school is a Conflict, listed below.
               <EmptyState kind="target" title={q ? "No School Matches" : filtering ? "Nothing Matches These Filters" : "Every School Is a Conflict"} />
             ) : (
-              visible.map((f) => matchRow(f, false))
+              visible.map((f, i) => matchRow(f, false, visible[i - 1]))
             )}
             {more > 0 && (
               <Inline>
