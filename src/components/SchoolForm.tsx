@@ -115,7 +115,7 @@ export function SchoolForm({
         </SelectField>
       </Grid2>
       <Field name="location" label="Town" defaultValue={v("location")} error={err("location")} />
-      <Field name="sportsSponsored" label="Sports Sponsored" hint={`Comma separated, in the app's words: ${SPORT_NAMES}.`} defaultValue={v("sportsSponsored")} />
+      <Field name="sportsSponsored" label="Sports Sponsored" defaultValue={v("sportsSponsored")} />
       <Field name="majors" label="Majors Offered" defaultValue={v("majors")} />
 
       <Stack gap={3}>

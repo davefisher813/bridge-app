@@ -37,7 +37,7 @@ export function BoardForm({ action, initial, submitLabel = "Create Board" }: { a
 
   return (
     <Form action={formAction} error={state.errors.form}>
-      <SelectField name="kind" label="Tier" error={err("kind")} hint={BOARD_KIND_PURPOSE[kind]} value={kind} onChange={(e) => setKind(e.target.value as BoardKind)}>
+      <SelectField name="kind" label="Tier" error={err("kind")} value={kind} onChange={(e) => setKind(e.target.value as BoardKind)}>
         {BOARD_KINDS.map((k) => (
           <option key={k} value={k}>
             {BOARD_KIND_LABEL[k]}
@@ -59,7 +59,6 @@ export function BoardForm({ action, initial, submitLabel = "Create Board" }: { a
         inputMode="decimal"
         className="tabular-nums"
         defaultValue={own ? own.giveGet : formatMoney(DEFAULT_GIVE_GET_CENTS[kind]).replace("$", "")}
-        hint={initial ? "For seats added from now on. A sitting member keeps what they agreed to." : undefined}
         key={`gg-${kind}`}
       />
 

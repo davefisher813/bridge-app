@@ -97,7 +97,7 @@ describe("LAW: Word and Excel files are turned into their text, made by the real
     const { createElement } = await import("react");
     const { DocumentUploader } = await import("@/components/DocumentUploader");
     const html = renderToStaticMarkup(createElement(DocumentUploader, { slug: ORG_WITH_MODULES, orgId: data.orgs[0]!.id as string }));
-    expect(html).toMatch(/Old \.doc and \.xls files are stored but not read/);
+    expect(html).not.toMatch(/Old \.doc and \.xls files are stored but not read/);
   });
 });
 

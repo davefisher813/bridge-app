@@ -39,7 +39,7 @@ const CONFIDENCE_NOTE: Record<string, string> = {
   high: "Based on data specific to this school and this athlete.",
   medium: "Based on partial data. Some of it is a division default rather than this school's own numbers.",
   low: "Mostly division defaults. Treat the score as a starting point, not a finding.",
-  unknown: "Not enough on file to judge. The score is a placeholder, not a measurement.",
+  unknown: "",
 };
 
 const CONFIDENCE_LABEL: Record<string, string> = { high: "High", medium: "Medium", low: "Low", unknown: "Unknown" };
@@ -122,7 +122,7 @@ export default async function DimensionPage({ params }: { params: Promise<{ slug
       )}
 
       <Section label="How Sure" role="contact" kind="info">
-        <Note title={CONFIDENCE_LABEL[d.confidence] ?? d.confidence}>{CONFIDENCE_NOTE[d.confidence] ?? "No confidence reported."}</Note>
+        <Note title={CONFIDENCE_LABEL[d.confidence] ?? d.confidence}>{CONFIDENCE_NOTE[d.confidence] || undefined}</Note>
       </Section>
 
       <LinkButton href={`/org/${slug}/board/${id}`} variant="secondary">

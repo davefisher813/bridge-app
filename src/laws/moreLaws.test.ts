@@ -191,7 +191,7 @@ describe("LAW: Advisors lists every Admin with the athletes they advise, countin
 
   it("the fixture owner advises 2, two athletes have nobody, and the Viewer is not listed", async () => {
     const html = await advisors();
-    expect(html).toMatch(/2 athletes still being recruited have no advisor yet\./);
+    expect(html).toMatch(/2 athletes still being recruited have no advisor yet/);
     expect(html).toMatch(/Example Owner[\s\S]*Head of Recruiting<\/span> · 2 athletes/);
     expect(hrefs(html)).toContain(`/org/${ORG_WITH_MODULES}/members/${OWNER_ID}`);
     expect(html).not.toMatch(/Example Member|Fixture Parent/);
@@ -209,7 +209,7 @@ describe("LAW: Advisors lists every Admin with the athletes they advise, countin
 
     athlete(IDS.athleteTransfer).advisor_id = OWNER_ID;
     const html = await advisors();
-    expect(html).toMatch(/1 athlete still being recruited has no advisor yet\./);
+    expect(html).toMatch(/1 athlete still being recruited has no advisor yet/);
     expect(html).toMatch(/Head of Recruiting<\/span> · 1 athlete</);
   });
 
@@ -277,7 +277,7 @@ describe("LAW: copy fixes from the Oct 16 audit (V6, V7)", () => {
     const read = (p: string) => readFileSync(p, "utf8");
     expect(read("src/components/AssignmentReview.tsx")).not.toContain("The Athlete login sees this");
     expect(read("src/app/org/[slug]/board-governance/meetings/[meetingId]/page.tsx")).toContain("Remove From Meeting");
-    expect(read("src/app/org/[slug]/view-as/page.tsx")).toContain("Their own profile and nothing else");
+    expect(read("src/app/org/[slug]/view-as/page.tsx")).not.toContain("Their own profile and nothing else");
     expect(read("src/app/org/[slug]/fundraising/page.tsx")).not.toContain("All years first, then each year");
     expect(read("src/app/org/[slug]/settings/page.tsx")).not.toContain('"You. "');
     // Complete is a finishing action in green, not the brand red that also means danger (V8).

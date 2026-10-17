@@ -131,8 +131,8 @@ export function evaluateInitialEligibility(input: InitialEligibilityInput): Init
       projected: false,
       division: null,
       coreGpa: null,
-      yearOne: "Division III sets its own academic standards on campus.",
-      reasons: ["Division III has no NCAA core-course GPA or core-course requirement. Admission and eligibility are decided by the school."],
+      yearOne: "Not Applicable",
+      reasons: [],
       warnings: [],
     };
   }

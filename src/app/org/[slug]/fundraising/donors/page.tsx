@@ -76,7 +76,7 @@ export default async function DonorsPage({ params, searchParams }: { params: Pro
   return (
     <Screen
       title="Donors"
-      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }} lede={`${donors.length} ${donors.length === 1 ? "supporter" : "supporters"} on file. Fundraising counts only those who have given cash, so its number can be lower.`}
+      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }} lede={`${donors.length} ${donors.length === 1 ? "supporter" : "supporters"} on file`}
       action={canEdit ? <AddButton href={`/org/${slug}/fundraising/donors/new`} label="Add" /> : undefined}
     >
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
@@ -89,7 +89,7 @@ export default async function DonorsPage({ params, searchParams }: { params: Pro
               kind="pledge"
               role="offer"
               title={displayName(donor.name)}
-              meta="Promised and not yet received. Not counted in anything raised."
+              
               wrap
               trailing={
                 <Body weight="bold" numeric>

@@ -51,7 +51,6 @@ export default async function InviteMemberPage({ params, searchParams }: { param
     return (
       <Screen title="Add Admin" back={{ href: returnTo, label: advisee.name }} lede={`They will be assigned as ${advisee.name}'s advisor.`}>
         <InviteForm action={action} preset={{ role: presetRole, assignAthleteId: advisee.id, returnTo }} />
-        <Prose>The link works for 24 hours.</Prose>
       </Screen>
     );
   }
@@ -59,7 +58,6 @@ export default async function InviteMemberPage({ params, searchParams }: { param
   return (
     <Screen title="Invite Someone" back={back}>
       <InviteForm action={action} athletes={athletes} />
-      <Prose>The link works for 24 hours.</Prose>
     </Screen>
   );
 }

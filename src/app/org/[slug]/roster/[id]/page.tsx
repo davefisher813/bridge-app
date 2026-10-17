@@ -474,7 +474,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
             kind="school"
             role="place"
             title="Recruiting History"
-            meta={`${targets.length} ${targets.length === 1 ? "school" : "schools"} · every message, visit and offer`}
+            meta={`${targets.length} ${targets.length === 1 ? "school" : "schools"}`}
             trailing={<Chevron />}
           />
         )}

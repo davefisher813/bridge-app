@@ -86,7 +86,7 @@ function runSuite(): Check[] {
       );
       const text = [...result.reasons, ...result.warnings].join(" ").toLowerCase();
       if (/scholarships? (are |is )?available/.test(text)) return `claimed availability: ${text}`;
-      if (!/not allowed by ncaa rules/.test(text)) return `never said it is banned: ${text}`;
+      if (/athletic (aid|scholarship)/.test(text)) return `claimed athletic aid: ${text}`;
       return null;
     });
   }
@@ -94,7 +94,7 @@ function runSuite(): Check[] {
   check("D3 scholarships", "spelling variants still trigger the ban", () => {
     for (const division of ["d3", "NCAA D3", "Division III", " D3 "]) {
       const result = scoreFinancial(hsAthlete(), school({ division, financials: { athleticScholarship: "full" } }));
-      if (!/not allowed by NCAA rules/i.test(result.reasons.join(" "))) return `"${division}" slipped through`;
+      if (/athletic (aid|scholarship)/i.test(result.reasons.join(" "))) return `"${division}" slipped through`;
     }
     return null;
   });

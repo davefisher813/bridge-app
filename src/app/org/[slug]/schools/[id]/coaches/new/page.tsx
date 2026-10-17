@@ -20,7 +20,7 @@ export default async function NewCoachPage({ params }: { params: Promise<{ slug:
   if (!school) notFound();
 
   return (
-    <Screen title="Add a Coach" back={{ href: `/org/${slug}/schools/${id}/coaches`, label: "Coaches" }} lede={`${school.name}. Shared with every organization.`}>
+    <Screen title="Add a Coach" back={{ href: `/org/${slug}/schools/${id}/coaches`, label: "Coaches" }} lede={school.name}>
       <CoachForm action={createCoach.bind(null, slug, id)} submitLabel="Add Coach" />
     </Screen>
   );

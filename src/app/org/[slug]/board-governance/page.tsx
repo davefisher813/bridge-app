@@ -57,7 +57,7 @@ export default async function BoardGovernancePage({
   const { data: nextRows } = await supabase.from("board_meetings").select("title, meets_on").eq("org_id", org.id).gte("meets_on", orgToday()).order("meets_on", { ascending: true }).limit(1);
   const next = ((nextRows ?? []) as { title: string; meets_on: string }[])[0];
   const meetingsRow = (
-    <Row href={`/org/${slug}/board-governance/meetings`} kind="board" role="place" title="Meetings" meta={next ? `Next: ${next.title}, ${longDate(next.meets_on)}` : "Agendas, minutes and materials"} trailing={<Chevron />} wrap />
+    <Row href={`/org/${slug}/board-governance/meetings`} kind="board" role="place" title="Meetings" meta={next ? `Next: ${next.title}, ${longDate(next.meets_on)}` : undefined} trailing={<Chevron />} wrap />
   );
 
   const totals = view.boards.reduce(
@@ -96,8 +96,7 @@ export default async function BoardGovernancePage({
           </StatRow>
 
           <Note title={overallPercent === null ? "No Commitments Set" : `${overallPercent}% delivered`}>
-            Across {totals.seats} active {totals.seats === 1 ? "seat" : "seats"}, {totals.meeting} of {totals.seats} fully met. Give/get counts both
-            halves: a member meets their number by giving it or by bringing it in, and a gift is never counted twice when they did both.
+            Across {totals.seats} active {totals.seats === 1 ? "seat" : "seats"}, {totals.meeting} of {totals.seats} fully met.
           </Note>
 
           <Section label="Boards" count={view.boards.length} role="committed" kind="governance">

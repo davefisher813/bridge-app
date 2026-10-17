@@ -73,7 +73,7 @@ export function MemberPhotoForm({ slug, orgId, userId, name, photo }: { slug: st
   return (
     <Stack gap={3}>
       <Avatar name={name} size="xl" photo={preview ?? photo} />
-      <FileField name="photo" label={photo ? "Choose a New Photo" : "Choose a Photo"} hint="A JPG or PNG. It is cropped to a square." accept="image/jpeg,image/png" onChange={(e) => onPick(e.target.files?.[0] ?? null)} />
+      <FileField name="photo" label={photo ? "Choose a New Photo" : "Choose a Photo"} accept="image/jpeg,image/png" onChange={(e) => onPick(e.target.files?.[0] ?? null)} />
       {error && <Notice tone="danger" title={error} />}
       <Button type="button" variant="secondary" onClick={onSave} disabled={!file || busy}>
         {busy ? "Saving" : "Save Photo"}

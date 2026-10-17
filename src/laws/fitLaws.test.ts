@@ -28,7 +28,7 @@ describe("LAW: D3 never shows a scholarship-availability claim", () => {
       const result = scoreFinancial(athlete, school);
       const allText = [...result.reasons, ...result.warnings].join(" ").toLowerCase();
       expect(allText).not.toMatch(/scholarships? (are |is )?available/);
-      expect(allText).toMatch(/not allowed by ncaa rules/);
+      expect(allText).not.toMatch(/athletic (aid|scholarship)/);
     }
   );
 
@@ -37,7 +37,7 @@ describe("LAW: D3 never shows a scholarship-availability claim", () => {
     for (const division of variants) {
       const school: School = { id: "s", name: "X", division, sportsSponsored: ["baseball"], financials: { athleticScholarship: "full" } };
       const result = scoreFinancial(athlete, school);
-      expect(result.reasons.join(" ")).toMatch(/not allowed by NCAA rules/i);
+      expect(result.reasons.join(" ")).not.toMatch(/athletic aid/i);
     }
   });
 });

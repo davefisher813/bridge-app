@@ -33,8 +33,8 @@ function unwrap<T>(v: T | T[] | null): T | null {
 // What each access level may do. staff is retired (migration 0041) and
 // is never offered; a leftover row reads as Admin.
 const ROLE_BLURB: Record<OrgRole, string> = {
-  owner: "Everything, including members, schools and settings",
-  staff: "Everything, including members, schools and settings",
+  owner: "",
+  staff: "",
   member: "Read only",
   family: "One athlete, read only",
 };
@@ -179,7 +179,7 @@ export default async function MemberPage({
       <Section label="Title" role="people" kind="people">
         <Form action={setMemberTitleForm.bind(null, slug, member.user_id)}>
           <Stack gap={3}>
-            <Field name="title" label="Title" defaultValue={title ?? ""} autoComplete="off" maxLength={TITLE_MAX} hint="Like Head Coach or Board Chair. Display only." />
+            <Field name="title" label="Title" defaultValue={title ?? ""} autoComplete="off" maxLength={TITLE_MAX} />
             <Button variant="secondary">Save Title</Button>
           </Stack>
         </Form>
@@ -248,7 +248,7 @@ export default async function MemberPage({
               <SelectField name="role" label="Change Their Role" defaultValue="member">
                 {ASSIGNABLE_ROLES.filter((r) => r !== "family").map((r) => (
                   <option key={r} value={r}>
-                    {`${labelForRole(r)}: ${ROLE_BLURB[r]}`}
+                    {ROLE_BLURB[r] ? `${labelForRole(r)}: ${ROLE_BLURB[r]}` : labelForRole(r)}
                   </option>
                 ))}
               </SelectField>
@@ -272,7 +272,7 @@ export default async function MemberPage({
                 r === level ? (
                   <Card key={r} isStatic>
                     <Body weight="semibold">{`${labelForRole(r)} Now`}</Body>
-                    <Label>{ROLE_BLURB[r]}</Label>
+                    {ROLE_BLURB[r] && <Label>{ROLE_BLURB[r]}</Label>}
                   </Card>
                 ) : (
                   <Form key={r} action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
@@ -290,7 +290,6 @@ export default async function MemberPage({
                 ),
               )}
             </Stack>
-            {onlyOwner && <Prose>The organization&apos;s only {ownerLabel}. Make someone else one before changing this.</Prose>}
             {!onlyOwner && athletes.length > 0 && (
               <Form action={changeMemberRoleForm.bind(null, slug, member.user_id)}>
                 <Stack gap={3}>
@@ -379,12 +378,10 @@ export default async function MemberPage({
         </Section>
       )}
 
-      {(canManage || isMe) && (!isMaster || onlyOwner) && (
+      {(canManage || isMe) && !isMaster && !onlyOwner && (
       <Section label="Access" role="danger" kind="blocked">
         {onlyOwner ? (
-          <Card>
-            <Prose>Cannot be removed while they are the only {ownerLabel}.</Prose>
-          </Card>
+          null
         ) : (
           <Form action={removeMemberForm.bind(null, slug, member.user_id)}>
             <ConfirmButton title={`Remove ${name} from ${org.name}?`} body={`Their account stays. They lose access to this organization only.${advises.length > 0 ? ` ${advises.length === 1 ? `${advises[0]!.name} loses their advisor.` : `${advises.length} athletes lose their advisor.`}` : ""}${approverLoss}`} confirmLabel="Remove">
@@ -392,7 +389,6 @@ export default async function MemberPage({
             </ConfirmButton>
           </Form>
         )}
-        <Prose>They lose access to {org.name} only. Their account stays.</Prose>
       </Section>
       )}
     </Screen>

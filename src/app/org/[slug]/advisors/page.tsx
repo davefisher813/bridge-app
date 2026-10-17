@@ -32,7 +32,7 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
   const unassigned =
     counts.unassigned === 0
       ? "Every athlete still being recruited has an advisor."
-      : `${athletes(counts.unassigned)} still being recruited ${counts.unassigned === 1 ? "has" : "have"} no advisor yet. Placed athletes are not counted.`;
+      : `${athletes(counts.unassigned)} still being recruited ${counts.unassigned === 1 ? "has" : "have"} no advisor yet`;
 
   // The same split as Members: someone who has never signed in is
   // invited, not yet one of the Admins, so the two screens count alike.
@@ -49,7 +49,7 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
 
   return (
     <Screen title="Advisors" back={{ href: `/org/${slug}/more`, label: "More" }} lede={unassigned} action={me.role === "owner" && managesAccess(org.masterUserId, me.id) ? <AddButton href={`/org/${slug}/members/new?role=owner`} label="Add" /> : undefined}>
-      <Row href={`/org/${slug}/advisor-hub`} kind="people" role="people" title="Advisor Hub" meta="Who is due for a check-in, who has no advisor, the latest check-ins" trailing={<Chevron />} wrap />
+      <Row href={`/org/${slug}/advisor-hub`} kind="people" role="people" title="Advisor Hub" trailing={<Chevron />} wrap />
       {counts.unassigned > 0 && (
         <Row href={`/org/${slug}/roster?advisor=none`} kind="athlete" role="time" title="No Advisor Yet" meta={`${athletes(counts.unassigned)} still being recruited`} trailing={<Chevron />} wrap />
       )}

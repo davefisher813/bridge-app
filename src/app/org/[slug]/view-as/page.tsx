@@ -38,12 +38,12 @@ export default async function ViewAsPage({ params, searchParams }: { params: Pro
   const people = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
 
   return (
-    <Screen title="View As" back={{ href: `/org/${slug}/more`, label: "More" }} lede={`See exactly what one person sees. Read only, for ${VIEW_AS_MINUTES} minutes at most.`}>
+    <Screen title="View As" back={{ href: `/org/${slug}/more`, label: "More" }}>
       {error && <Notice tone="danger" title={error} />}
       <Section label="Choose a Level" role="people" kind="people">
-        <Row href={`/org/${slug}/view-as/athlete`} kind="athlete" role="contact" title="Athlete" meta={`${people(count(["family"]))} · Their own profile and nothing else`} trailing={<Chevron />} wrap />
-        <Row href={`/org/${slug}/view-as/viewer`} kind="people" role="people" title="Viewer" meta={`${people(count(["member"]))} · The program and the schools, read only`} trailing={<Chevron />} wrap />
-        <Row href={`/org/${slug}/view-as/admin`} kind="settings" role="time" title="Admin" meta={`${people(count(["owner", "staff"]))} · The whole organization, as another Admin sees it`} trailing={<Chevron />} wrap />
+        <Row href={`/org/${slug}/view-as/athlete`} kind="athlete" role="contact" title="Athlete" meta={people(count(["family"]))} trailing={<Chevron />} wrap />
+        <Row href={`/org/${slug}/view-as/viewer`} kind="people" role="people" title="Viewer" meta={`${people(count(["member"]))}`} trailing={<Chevron />} wrap />
+        <Row href={`/org/${slug}/view-as/admin`} kind="settings" role="time" title="Admin" meta={`${people(count(["owner", "staff"]))}`} trailing={<Chevron />} wrap />
       </Section>
     </Screen>
   );

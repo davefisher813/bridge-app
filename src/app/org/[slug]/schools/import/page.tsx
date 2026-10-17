@@ -23,19 +23,15 @@ export default async function ImportSchoolsPage({ params }: { params: Promise<{ 
     <Screen title="Import Schools" back={{ href: `/org/${slug}/schools`, label: "Schools" }}>
       <Section label="The Template" role="place" kind="document">
         <Stack gap={3}>
-          <Label>A school already on file with the same name is updated, not duplicated.</Label>
           <LinkButton href="/templates/schools.csv" variant="secondary">
             Download the Template
           </LinkButton>
-          <Label>{`Required on every row: ${SCHOOL_CSV_REQUIRED_COLUMNS.join(", ")}. Merit and need aid are required for D3.`}</Label>
         </Stack>
       </Section>
 
       <Section label="Import" role="accent" kind="school">
         <SchoolImportForm action={action} />
-        <Notice tone="info" title="Head Coach and Email Stay Private">
-          The coach columns go on your organization&apos;s notes for each school. Every other column is shared with every organization.
-        </Notice>
+        <Notice tone="info" title="Head Coach and Email Stay Private" />
       </Section>
     </Screen>
   );

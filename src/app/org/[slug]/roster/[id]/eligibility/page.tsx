@@ -73,7 +73,6 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
 
   const uploader = canUpload && (
     <Section label={courses.length ? "Add Another Transcript" : "Add a Transcript"} role="contact" kind="document">
-      {courses.length === 0 && <Prose>A course list is what an NCAA core GPA is calculated from, so nothing above works until one is on file.</Prose>}
       <DocumentUploader slug={slug} orgId={org.id} boundTo={{ athleteId: id, athleteName: athlete.name, category: "transcript", returnTo: here }} />
     </Section>
   );
@@ -124,7 +123,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           status={eligibility.status}
           headline={
             eligibility.status === "not_applicable"
-              ? "Division III sets its own academic standards on campus."
+              ? "Not Applicable"
               : eligibility.status === "insufficient_data"
                 ? "Not enough on file to calculate this yet."
                 : eligibility.yearOne
@@ -147,7 +146,7 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
             kind="scale"
             role="contact"
             title="Transcript GPA"
-            meta="The school's own number, unconverted"
+           
             trailing={
               <Body weight="bold" numeric>
                 {transcriptGpa === null ? "None" : transcriptGpa.toFixed(2)}
@@ -318,11 +317,9 @@ export default async function EligibilityPage({ params }: { params: Promise<{ sl
           name printed on the page, and it comes back here. */}
       {uploader}
 
-      <Prose>
-        {eligibility.status === "not_applicable"
-          ? "If a Division I or II target is added later, this page starts calculating against that division."
-          : "A projection until every core credit is final. Confirm with the NCAA Eligibility Center before anyone signs anything."}
-      </Prose>
+      {eligibility.status !== "not_applicable" && (
+        <Prose>A projection until every core credit is final. Confirm with the NCAA Eligibility Center before anyone signs anything.</Prose>
+      )}
     </Screen>
   );
 }

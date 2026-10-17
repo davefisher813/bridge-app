@@ -548,7 +548,6 @@ export default async function DocumentPage({ params, searchParams }: { params: P
         ) : p.kind === "text" && p.text ? (
           <Stack key={i} gap={2}>
             <TextPreview title={`What the Reader Sees${pageLabel(i)}`}>{p.text.shown}</TextPreview>
-            {p.text.cut && <Label>{`The first ${p.text.kept.toLocaleString("en-US")} of ${p.text.total.toLocaleString("en-US")} characters. Download for the rest.`}</Label>}
           </Stack>
         ) : p.kind === "text" && p.reason ? (
           <Label key={i}>{p.reason}</Label>
@@ -558,7 +557,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           The file name itself never changes. */}
       <Form action={renameDocument.bind(null, slug, doc.id)}>
         <Stack gap={3}>
-          <Field name="title" label="Title" defaultValue={doc.title ?? ""} maxLength={200} hint="What this document is. Left blank, the file name shows. The file name itself never changes." />
+          <Field name="title" label="Title" defaultValue={doc.title ?? ""} maxLength={200} />
           <Button type="submit" variant="secondary">
             Save Title
           </Button>
@@ -591,7 +590,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           lists it on the athlete's page; it never reads or applies. */}
       <Form action={linkDocumentToAthlete.bind(null, slug, doc.id)}>
         <Stack gap={3}>
-          <SelectField name="linkedAthleteId" label="Athlete" hint={linkedAthlete ? `Shows on ${linkedAthlete.name}'s page.` : "Optional. Leave it empty for org-wide documents like bylaws."} defaultValue={linkedAthlete?.id ?? ""}>
+          <SelectField name="linkedAthleteId" label="Athlete" hint={linkedAthlete ? `Shows on ${linkedAthlete.name}'s page.` : undefined} defaultValue={linkedAthlete?.id ?? ""}>
             <option value="">No Athlete</option>
             {roster.map((a) => (
               <option key={a.id} value={a.id}>
@@ -787,9 +786,8 @@ export default async function DocumentPage({ params, searchParams }: { params: P
         <>
           {wasRead && isReference && (
             <Note title="Nothing Goes on an Athlete">
-              {`Read as ${typeLabelOf(doc.category)}, so it is read for a person, not put on an athlete. Check what it says below, then Mark Ready.`}
               {typeof doc.extracted?.suggestedType === "string" && doc.extracted.suggestedType !== "other" && !doc.requested_category
-                ? ` It looks like ${withArticle(typeLabelOf(doc.extracted.suggestedType))}: set File As to ${typeLabelOf(doc.extracted.suggestedType)} and Read Again to read it as one.`
+                ? `It looks like ${withArticle(typeLabelOf(doc.extracted.suggestedType))}: set File As to ${typeLabelOf(doc.extracted.suggestedType)} and Read Again to read it as one.`
                 : ""}
             </Note>
           )}
@@ -885,8 +883,8 @@ export default async function DocumentPage({ params, searchParams }: { params: P
                 <Label>
                   {[
                     `${modelPct !== null ? `It was ${modelPct}% sure of what it read` : "Confidence was not reported"}${legibility !== null ? `, the scan was ${legibility}% legible` : ""}, and it came from ${SOURCE_LABEL[doc.source_role] ?? doc.source_role}.`,
-                    isApplied ? "Applied without asking." : "That is not enough to change an athlete without a look.",
-                  ].join(" ")}
+                    isApplied ? "Applied without asking." : null,
+                  ].filter(Boolean).join(" ")}
                 </Label>
               </Stack>
             </Section>

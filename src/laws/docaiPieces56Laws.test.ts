@@ -406,7 +406,7 @@ describe("LAW: the document screen shows what a stored file holds, page by page,
     addDoc("doc-long-law", { file_name: "long.txt", media_type: "text/plain", format: "txt", original_paths: [path], storage_paths: [path] });
     const html = text(await docPage("doc-long-law"));
     expect(html).toMatch(/What the Reader Sees/);
-    expect(html).toMatch(/The first 4,000 of [\d,]+ characters\. Download for the rest\./);
+    expect(html).not.toMatch(/Download for the rest/);
     expect(html).not.toMatch(/Line 599 of the old notes/);
   });
 

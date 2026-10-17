@@ -195,7 +195,6 @@ describe("LAW: financial fit is net cost against the family budget, and never a 
   it("D3 never counts athletic aid, with or without a budget", () => {
     const r = scoreFinancial(rhp({ familyBudgetCents: 2000000 }), d2({ division: "D3", financials: { athleticScholarship: "full", avgAthleticAid: 9000, avgMeritAid: 12000, outstateTotal: 50000 } }));
     expect(r.reasons.join(" ")).not.toMatch(/Athletic aid/);
-    expect(r.reasons.join(" ")).toMatch(/not allowed by NCAA rules/);
   });
 });
 

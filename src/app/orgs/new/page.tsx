@@ -34,7 +34,7 @@ export default async function NewOrgPage() {
           <Heading>Create an Organization</Heading>
           <Prose>
             {canCreate
-              ? "You will be its Admin. Invite everyone else once it exists."
+              ? null
               : viewingAs
                 ? `Read only while viewing as ${viewingAs.name}. Return to Admin to start an organization.`
                 : "Only an Admin, or someone not yet in any organization, can start one. Ask your organization's Admin."}

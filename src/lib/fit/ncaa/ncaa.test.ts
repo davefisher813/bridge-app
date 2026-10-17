@@ -227,7 +227,7 @@ describe("initial-eligibility status by division", () => {
       const r = evaluateInitialEligibility({ division: div, courses: sixteen("A") });
       expect(r.status).toBe("not_applicable");
       expect(r.coreGpa).toBeNull();
-      expect(r.reasons.join(" ")).toMatch(/sets its own|no NCAA core-course GPA/i);
+      expect(r.reasons).toEqual([]);
     }
   });
 

@@ -47,9 +47,7 @@ export default async function EditBoardPage({ params }: { params: Promise<{ slug
       />
 
       <Section label="Remove" role="danger" kind="blocked">
-        {seats > 0 ? (
-          <Prose>{`This board has ${seats} ${seats === 1 ? "seat" : "seats"}. Remove them first, or end each one as Emeritus or Resigned and keep the board.`}</Prose>
-        ) : (
+        {seats > 0 ? null : (
           <Form action={removeBoard.bind(null, slug, board.id)}>
             <ConfirmButton title={`Remove ${board.name}?`} body="The board goes. It has no seats, so no give/get history goes with it." confirmLabel="Remove">
               Remove Board

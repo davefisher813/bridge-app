@@ -112,7 +112,7 @@ export function InviteForm({
         hint={
           role === "family"
             ? "Athlete access covers one athlete's record, read only, and nothing else."
-            : "Admins add and edit everything, including members, schools and settings. Viewers see the program as names and stages, the year's giving and their own seat, and change nothing."
+            : undefined
         }
       >
         {roles.map((r) => (

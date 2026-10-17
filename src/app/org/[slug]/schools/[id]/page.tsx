@@ -138,7 +138,6 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
             initialValues={{ coachName: note?.coach_name ?? undefined, coachEmail: note?.coach_email ?? undefined, positionsOfNeed: needs || undefined, notes: note?.notes ?? undefined }}
           />
         )}
-        {canEdit && <Label>Private to your organization.</Label>}
       </Section>
 
       <SchoolMoneyAndDepth school={school} viewer={viewer} editHref={editHref} />
