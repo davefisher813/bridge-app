@@ -114,7 +114,7 @@ export default async function FundraisingPage({
           <Stat value={formatMoneyShort(all.cashCents)} label="Raised, All Years" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts`} />
           <Stat value={all.giftCount} label="Gifts, All Years" role="contact" kind="people" href={`/org/${slug}/fundraising/gifts`} />
         </StatRow>
-        <Label>{`Cash in the door from ${all.donorCount} ${all.donorCount === 1 ? "supporter" : "supporters"}, ${all.years.length} ${all.years.length === 1 ? "year" : "years"} together.${all.inKindCents > 0 ? ` ${formatMoneyShort(all.inKindCents)} more was given in kind.` : ""}`}</Label>
+        <Label>{`Cash in the door from ${all.donorCount} ${all.donorCount === 1 ? "supporter" : "supporters"} who gave, ${all.years.length} ${all.years.length === 1 ? "year" : "years"} together.${all.inKindCents > 0 ? ` ${formatMoneyShort(all.inKindCents)} more was given in kind.` : ""}`}</Label>
       </Stack>
 
       {all.promisedCents > 0 && (

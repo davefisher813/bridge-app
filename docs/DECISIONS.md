@@ -4438,3 +4438,21 @@ Reason: Alfred's live test found a bulk change with no way back, while a
 single Confirm has one.
 Consequences: a bulk Suggest links and confirms nothing, so Undo unlinks
 nothing. A single Suggest Again clears the remembered state.
+
+## 2026-10-16: add an advisor without an invite
+
+Decision: Adding an Admin has two ways, chosen on the form. "Add Without
+Inviting" (the default) creates the account with `auth.admin.createUser`
+(email unconfirmed, no password) and the org membership, and sends nothing.
+"Send an Invite Email" is the old invite, unchanged.
+Reason: Dave (2026-10-16) wants to assign athletes to someone before that
+person ever hears from the app. An advisor is an Admin member whose id sits
+on `athletes.advisor_id`, so the account has to exist first.
+Claim: when the person signs in with the email Dave typed, Supabase finds
+this same auth user, so every assignment and all history are theirs and no
+second advisor exists.
+Consequences: a Viewer or Athlete is always invited. The law against minting
+credentials now allows `createUser` in `members.ts` only, with
+`email_confirm: false` and no password. The Members and Advisors lists call
+people who have not signed in "Waiting to Sign In". Phone numbers are not
+stored (no column); name, email and title are.

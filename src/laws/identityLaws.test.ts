@@ -548,7 +548,7 @@ describe("LAW: the document screen shows the suggestion and asks", () => {
     const row = rowOf(r.documentId!);
     row.content_hash = "a3f1c2d4e5b6a7980123456789abcdef0123456789abcdef0123456789abcdef";
     row.uploaded_by = null;
-    const out = await html(r.documentId!);
+    const out = (await html(r.documentId!)).replace(/<wbr\/>/g, ""); // break points, not characters
     expect(out).toContain("a3f1c2d4e5b6a7980123456789abcdef0123456789abcdef0123456789abcdef");
     expect(out).toContain("Uploaded By");
     expect(out).toContain("Not recorded");

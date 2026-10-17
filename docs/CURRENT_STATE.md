@@ -5,6 +5,8 @@ Migrations through 0074 are applied (0074 is View As, applied 2026-10-15
 after a rollback dry-run on the production schema). Replaced wholesale
 when this changes meaningfully, never appended to.
 
+**2026-10-16, functional and visual audit fixes.** Undo and Discard of an Apply takes the Matched To link off (the document remembers who it was filed to before, `priorAthleteId` in `applied_changes`). Documents search reads the box's own value. Figures that are not money lose the dollar sign (`src/lib/docai/figures.ts`). A deleted document sends you to the library. Inactive athletes show the Schools Evaluated section with its empty state. Rows with machine file names read as titles (`src/lib/documents/displayName.ts`). An Admin can be added without an invite (More, Advisors, Add: "Add Without Inviting" is the default; the account is made with `auth.admin.createUser`, no password and no email, and the person's own sign-in later finds the same account, so nothing is re-entered). The Today greeting follows the person's clock. Pledges show payments applied and what remains. Complete is green.
+
 **2026-10-15, cleanup from the production audit.** Screens clear the tab bar by 16px more (`pb-bar` 85px). The first tab is Today for everyone. Extraction text is shown in plain words: a sentence about a null, a field or a column is left out (`src/lib/docai/plainLanguage.ts`), and the prompt says so. Database Updates lists names without numbers. Doc AI Spending and its budget are the Master Account's (any Admin when none is named). "Saving re-scores every match."
 
 **2026-10-15, View As is live.** An Admin can see the app as an Admin, a

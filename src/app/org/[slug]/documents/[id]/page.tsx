@@ -92,6 +92,9 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 // "a" or "an" before a type's name.
+// The fingerprint stays one string to copy, and may wrap between groups of
+// eight on a narrow screen (<wbr> is a place to break, not a character).
+const wrappable = (hash: string) => (hash.match(/.{1,8}/g) ?? []).flatMap((g, i) => (i === 0 ? [g] : [<wbr key={i} />, g]));
 const withArticle = (label: string) => `${/^[aeiou]/i.test(label) ? "an" : "a"} ${label}`;
 
 const REMOVED_ATHLETE = "Removed Athlete";
@@ -530,7 +533,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           {facts.map(([label, value]) => (
             <Stack key={label} gap={2}>
               <Label>{label}</Label>
-              <Body weight="semibold">{value}</Body>
+              <Body weight="semibold">{label === "SHA-256" ? wrappable(value) : value}</Body>
             </Stack>
           ))}
         </Stack>
