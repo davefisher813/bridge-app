@@ -25,6 +25,7 @@ import { DocumentSuggestions } from "@/components/DocumentSuggestions";
 import { setDocumentIdentity, suggestDocumentAgain } from "@/lib/actions/documentIdentity";
 import type { IdentityCandidate } from "@/lib/docai/suggest";
 import { plainText } from "@/lib/docai/plainLanguage";
+import { figureText } from "@/lib/docai/figures";
 
 // Read Again runs the model from this page's form, and a real model call
 // on a scanned transcript can run past a minute: the same limit as the
@@ -163,7 +164,7 @@ const FIELD_LABEL: Record<string, string> = {
   people: "People Named",
   organizations: "Organizations",
   dates: "Dates",
-  amounts: "Dollar Figures",
+  amounts: "Figures",
   deadlines: "Deadlines",
   actionItems: "Action Items",
   keyFacts: "Key Facts",
@@ -215,7 +216,7 @@ function summarizeList(key: string, value: unknown): string | null {
     return (value as { name?: string; role?: string | null }[]).map((p) => `${p.name ?? "?"}${p.role ? ` (${p.role})` : ""}`).join(", ");
   }
   if (key === "amounts") {
-    return (value as { amount?: number; what?: string | null }[]).map((a) => `$${Math.round(a.amount ?? 0).toLocaleString("en-US")}${a.what ? ` ${a.what}` : ""}`).join("; ");
+    return (value as { amount?: number; what?: string | null }[]).map((a) => figureText(a.amount, a.what)).join("; ");
   }
   if (key === "deadlines" || key === "dates") {
     return (value as { date?: string; what?: string | null }[]).map((d) => `${d.date ?? "?"}${d.what ? ` ${d.what}` : ""}`).join("; ");
@@ -271,7 +272,9 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     .eq("org_id", org.id)
     .single();
 
-  if (!data) notFound();
+  // Gone (deleted a moment ago, or never here): back to the library, never
+  // an error screen (live test O2, 2026-10-16).
+  if (!data) redirect(`/org/${slug}/documents`);
   const doc = data as DocDetail;
   // Stored text from older readings can still carry field talk (Alfred,
   // 2026-10-15); it is cleaned as it is shown, wherever it appears.
@@ -876,9 +879,10 @@ export default async function DocumentPage({ params, searchParams }: { params: P
                 />
                 <Meter parts={[{ role: confidenceRole(pct), fraction: pct / 100 }]} />
                 <Label>
-                  {modelPct !== null ? `It was ${modelPct}% sure of what it read` : "Confidence was not reported"}
-                  {legibility !== null ? `, the scan was ${legibility}% legible` : ""}, and it came from {SOURCE_LABEL[doc.source_role] ?? doc.source_role}.
-                  {isApplied ? " Applied without asking." : " That is not enough to change an athlete without a look."}
+                  {[
+                    `${modelPct !== null ? `It was ${modelPct}% sure of what it read` : "Confidence was not reported"}${legibility !== null ? `, the scan was ${legibility}% legible` : ""}, and it came from ${SOURCE_LABEL[doc.source_role] ?? doc.source_role}.`,
+                    isApplied ? "Applied without asking." : "That is not enough to change an athlete without a look.",
+                  ].join(" ")}
                 </Label>
               </Stack>
             </Section>

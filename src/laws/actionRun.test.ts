@@ -1023,6 +1023,27 @@ describe("LAW: every document type applies to the record and every apply can be 
     expect(writes.find((w) => w.table === "recruiting_targets" && w.op === "delete")).toBeTruthy();
   });
 
+  it("Undo and Discard takes the Matched To link off and brings the pick back (live test D9)", async () => {
+    data.documents!.push(pendingDoc("doc-rec-d9", "recommendation", { studentName: "Fixture Athlete", recommenderName: "Coach Fixture", recommenderTitle: "Coach", recType: "athletic", tone: "strong", summary: "A strong letter." }));
+    const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
+    const row = () => data.documents!.find((d) => d.id === "doc-rec-d9") as Record<string, unknown>;
+    expect((await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-rec-d9", IDS.athlete))).ok).toBe(true);
+    expect(row().athlete_id).toBe(IDS.athlete);
+    expect((row().applied_changes as { priorAthleteId: unknown }).priorAthleteId).toBeNull();
+    const u = await discardDocument(ORG_WITH_MODULES, "doc-rec-d9");
+    expect(u.ok).toBe(true);
+    expect(row().athlete_id).toBeNull();
+    expect(row().status).toBe("discarded");
+  });
+
+  it("Undo and Discard puts back the athlete a document was already filed to", async () => {
+    data.documents!.push({ ...pendingDoc("doc-rec-d9b", "recommendation", { studentName: "Fixture Athlete" }), athlete_id: IDS.athleteTransfer });
+    const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
+    await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-rec-d9b", IDS.athlete));
+    await discardDocument(ORG_WITH_MODULES, "doc-rec-d9b");
+    expect((data.documents!.find((d) => d.id === "doc-rec-d9b") as Record<string, unknown>).athlete_id).toBe(IDS.athleteTransfer);
+  });
+
   it("an offer letter for a college already on the board moves it to Offer and the undo puts the stage back", async () => {
     const target = data.recruiting_targets!.find((t) => t.id === IDS.target)!;
     const schoolName = data.schools!.find((s) => s.id === target.school_id)!.name;

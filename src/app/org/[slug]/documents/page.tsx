@@ -84,7 +84,8 @@ function athleteLabel(doc: DocRow, linkedNames?: Map<string, string>): string | 
   // the name read off the page.
   if (doc.linked_athlete_id && linkedNames && !linkedNames.has(doc.linked_athlete_id)) return a?.name ?? REMOVED_ATHLETE;
   const linked = doc.linked_athlete_id ? linkedNames?.get(doc.linked_athlete_id) : undefined;
-  return a?.name ?? linked ?? doc.extracted?.studentName ?? null;
+  const read = doc.extracted?.studentName;
+  return a?.name ?? linked ?? (typeof read === "string" ? read : null);
 }
 
 // The four views. Uploaded and Processing are in All only: they are on

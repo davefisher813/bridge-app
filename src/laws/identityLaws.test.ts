@@ -528,6 +528,10 @@ describe("LAW: the document screen shows the suggestion and asks", () => {
     return renderToStaticMarkup(await mod.default({ params: Promise.resolve({ slug: ORG_WITH_MODULES, id }), searchParams: Promise.resolve({}) }));
   }
 
+  it("a document that is gone sends the person to the library, not an error screen (live test O2)", async () => {
+    await expect(html("00000000-0000-0000-0000-00000000dead")).rejects.toThrow("NEXT_REDIRECT:/org/" + ORG_WITH_MODULES + "/documents");
+  });
+
   it("a reading never shows field talk: a sentence about a null or a column is left out", async () => {
     const r = await upload("Fixture_Athlete_transcript.txt", "x");
     const row = rowOf(r.documentId!);

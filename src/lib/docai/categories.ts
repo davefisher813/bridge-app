@@ -239,7 +239,7 @@ const REGISTRY: Record<DocCategoryId, DocCategory> = {
       '  "effectiveDate": "YYYY-MM-DD or null",\n' +
       '  "adoptionDate": "YYYY-MM-DD or null (when it was adopted, approved or held)",\n' +
       '  "people": [{ "name": "as printed", "role": "their role or title as printed, or null" }],\n' +
-      '  "amounts": [{ "amount": number, "what": "what the figure is for" }],\n' +
+      '  "amounts": [{ "amount": number, "what": "what the figure is for (dollar amounts only; put GPAs, years, weights and times in keyFacts)" }],\n' +
       '  "deadlines": [{ "date": "YYYY-MM-DD or YYYY-MM", "what": "what is due" }],\n' +
       '  "actionItems": ["each action item, motion or decision, one short sentence"],\n' +
       '  "summary": "3-5 sentence plain summary of what it says",\n' +
@@ -263,7 +263,7 @@ const REGISTRY: Record<DocCategoryId, DocCategory> = {
       '  "people": [{ "name": "as printed", "role": "role or title as printed, or null" }],\n' +
       '  "organizations": ["each organization named"],\n' +
       '  "dates": [{ "date": "YYYY-MM-DD or YYYY-MM", "what": "what the date is" }],\n' +
-      '  "amounts": [{ "amount": number, "what": "what the figure is for" }],\n' +
+      '  "amounts": [{ "amount": number, "what": "what the figure is for (dollar amounts only; put GPAs, years, weights and times in keyFacts)" }],\n' +
       '  "keyFacts": ["the 3-8 facts a reader most needs, one short sentence each"],\n' +
       '  "summary": "3-5 sentence plain summary",\n' +
       '  "evidence": { "studentName": "verbatim line" },\n' +
