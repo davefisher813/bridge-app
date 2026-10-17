@@ -4456,3 +4456,14 @@ credentials now allows `createUser` in `members.ts` only, with
 `email_confirm: false` and no password. The Members and Advisors lists call
 people who have not signed in "Waiting to Sign In". Phone numbers are not
 stored (no column); name, email and title are.
+
+## 2026-10-17: an advisor can be added with no email
+
+Decision: on "Add Without Inviting" the email is optional; a name is then
+required. The account needs one address, so a placeholder
+(`advisor-<id>@no-email.invalid`, `src/lib/org/noEmail.ts`) stands in and is
+never shown ("No email on file"). "Send an Invite Email" and Viewer and
+Athlete invites still require an email.
+Consequences: such a person is assignable at once. They cannot sign in until
+a real address is on their account; there is no screen to set it yet, so
+that is the next piece if Dave wants the later sign-in to find them.

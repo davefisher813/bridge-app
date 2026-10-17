@@ -573,6 +573,39 @@ describe("LAW: membership is written by the service role, only by an owner, and 
     expect(data.athletes.find((a) => a.id === IDS.athlete)!.advisor_id).toBe(newId);
   });
 
+  it("an Admin can be added with no email: a name is enough, nothing is sent, and they are assignable at once (Alfred, 2026-10-17)", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "", role: "owner", fullName: "No Mail Coach", delivery: "silent", assignAthleteId: IDS.athlete })));
+    expect(r.redirect).toBeTruthy();
+    expect(decodeURIComponent(r.redirect!)).toContain("added with no email");
+    expect(writes.find((w) => w.table === "auth:invite")).toBeUndefined();
+    const made = writes.find((w) => w.table === "auth:create");
+    expect(String(made?.rows[0]?.email)).toMatch(/^advisor-[0-9a-f-]+@no-email\.invalid$/);
+    const user = (data.users as { id: string; email: string; full_name: string }[]).find((u) => u.full_name === "No Mail Coach")!;
+    expect(data.athletes.find((a) => a.id === IDS.athlete)!.advisor_id).toBe(user.id);
+  });
+
+  it("no email and no name is refused, and the invite path still needs an email", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const noName = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "", role: "owner", delivery: "silent" })));
+    expect(noName.redirect).toBeNull();
+    expect((noName.state as MemberState).errors.fullName).toMatch(/name/i);
+    const invite = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "", role: "owner", fullName: "X Y", delivery: "invite" })));
+    expect(invite.redirect).toBeNull();
+    expect((invite.state as MemberState).errors.email).toBeTruthy();
+    const viewer = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "", role: "member", fullName: "X Y", delivery: "silent" })));
+    expect((viewer.state as MemberState).errors.email).toBeTruthy();
+    expect(writes.find((w) => w.table === "auth:create" || w.table === "auth:invite")).toBeUndefined();
+  });
+
+  it("a placeholder address is never shown", async () => {
+    const { visibleEmail, noEmailAddress } = await import("@/lib/org/noEmail");
+    expect(visibleEmail(noEmailAddress())).toBe("");
+    expect(visibleEmail("real@example.com")).toBe("real@example.com");
+  });
+
   it("the invite stays available as its own choice", async () => {
     withKey();
     const { inviteMember } = await import("@/lib/actions/members");
