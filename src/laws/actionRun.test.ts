@@ -551,6 +551,44 @@ describe("LAW: membership is written by the service role, only by an owner, and 
     expect(membership?.rows[0]).toMatchObject({ org_id: data.orgs[0]!.id, role: "owner" });
   });
 
+  it("adding an Admin without inviting makes the account and the membership and sends nothing (Dave, 2026-10-16)", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "Quiet@Example.test", role: "owner", fullName: "Quiet Coach", delivery: "silent" })));
+    expect(r.redirect).toContain("/members");
+    expect(decodeURIComponent(r.redirect!)).toContain("Nothing was sent");
+    expect(writes.find((w) => w.table === "auth:invite")).toBeUndefined();
+    const created = writes.find((w) => w.table === "auth:create");
+    expect(created?.rows[0]).toMatchObject({ email: "quiet@example.test", email_confirm: false });
+    expect(writes.find((w) => w.table === "org_members" && w.op === "insert")?.rows[0]).toMatchObject({ org_id: data.orgs[0]!.id, role: "owner" });
+  });
+
+  it("a silently added advisor can be given an athlete straight away, and the athlete is theirs", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "quiet2@example.test", role: "owner", fullName: "Quiet Two", delivery: "silent", assignAthleteId: IDS.athlete })));
+    expect(r.redirect).toBeTruthy();
+    expect(writes.find((w) => w.table === "auth:invite")).toBeUndefined();
+    const newId = (data.users as { id: string; email: string }[]).find((u) => u.email === "quiet2@example.test")!.id;
+    expect(data.athletes.find((a) => a.id === IDS.athlete)!.advisor_id).toBe(newId);
+  });
+
+  it("the invite stays available as its own choice", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "loud@example.test", role: "owner", delivery: "invite" })));
+    expect(writes.find((w) => w.table === "auth:invite")?.rows[0]?.email).toBe("loud@example.test");
+    expect(writes.find((w) => w.table === "auth:create")).toBeUndefined();
+  });
+
+  it("a Viewer is always invited, whatever the form says", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "viewer-new@example.test", role: "member", delivery: "silent" })));
+    expect(writes.find((w) => w.table === "auth:invite")).toBeTruthy();
+    expect(writes.find((w) => w.table === "auth:create")).toBeUndefined();
+  });
+
   it("an owner adding an existing account writes the membership and sends no invitation", async () => {
     withKey();
     const { inviteMember } = await import("@/lib/actions/members");
