@@ -1,4 +1,5 @@
 import { noUpdateText } from "@/lib/datetime/since";
+import { Greeting } from "@/components/Greeting";
 import { calendarDaysBetween, inDaysText, orgToday } from "@/lib/datetime/today";
 import { notFound, redirect } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -260,7 +261,7 @@ export default async function TodayPage({ params }: { params: Promise<{ slug: st
   const firstName = (user.full_name || user.email).split(" ")[0] || user.email;
 
   return (
-    <Screen title={`Good morning, ${firstName}.`} besideMark>
+    <Screen title={<Greeting name={firstName} />} besideMark>
       {/* One tile per status with anyone in it, each opening the roster
           it counts: Dave's layout, 2026-09-27. */}
       <StatusCounts

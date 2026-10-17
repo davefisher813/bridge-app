@@ -36,7 +36,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // Stage 5 Phase 2, 2026-09-27: the same invite reached from an
   // athlete's Advisor sheet is Add Admin, pinned to that athlete, and
   // the invite comes back to them with the new person assigned.
-  { name: "add-admin", path: "@/app/org/[slug]/members/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ role: "owner", assignAthleteId: IDS.athlete }) }, expect: /Add Admin[\s\S]*Fixture Athlete[\s\S]*Send Invite/ },
+  { name: "add-admin", path: "@/app/org/[slug]/members/new/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ role: "owner", assignAthleteId: IDS.athlete }) }, expect: /Add Admin[\s\S]*Fixture Athlete[\s\S]*Add Without Inviting/ },
   { name: "member", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: MEMBER_ID }), searchParams: p({}) }, expect: /Example Member[\s\S]*Viewer[\s\S]*Title[\s\S]*Admin[\s\S]*Remove From/ },
   // An invited person with no name: the address is the title, and it is
   // wider than the screen. The edge-spill audit watches this one.

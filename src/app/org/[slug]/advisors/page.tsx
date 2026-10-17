@@ -60,7 +60,7 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
         )}
       </Section>
       {invited.length > 0 && (
-        <Section label="Not Signed In Yet" count={invited.length} role="time" kind="clock">
+        <Section label="Waiting to Sign In" count={invited.length} role="time" kind="clock">
           {invited.map(row)}
         </Section>
       )}

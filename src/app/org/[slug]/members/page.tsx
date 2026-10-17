@@ -73,7 +73,7 @@ export default async function MembersPage({
 
       <StatRow>
         <Stat value={people.length} label="People" role="people" kind="people" />
-        <Stat value={invited.length} label="Invited" role="time" kind="clock" />
+        <Stat value={invited.length} label="Waiting to Sign In" role="time" kind="clock" />
       </StatRow>
 
       <Section label="People" count={people.length} role="people" kind="people">
@@ -94,7 +94,7 @@ export default async function MembersPage({
       </Section>
 
       {invited.length > 0 && (
-        <Section label="Invited" count={invited.length} role="time" kind="clock">
+        <Section label="Waiting to Sign In" count={invited.length} role="time" kind="clock">
           {invited.map((r) => (
             <Row
               key={r.user_id}
