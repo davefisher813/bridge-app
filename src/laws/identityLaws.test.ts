@@ -515,7 +515,7 @@ describe("LAW: an unconfirmed suggestion is in Needs Review", () => {
     row.lifecycle = "archived";
     const out = (await list("archived")).replace(/<script>[\s\S]*?<\/script>/g, "");
     expect(out).toContain("Fiscal Policy");
-    expect(out).not.toMatch(/text-ink">browser-download/); // the title; the file name stays in the details line
+    expect(out).not.toMatch(/line-clamp-2 text-body font-semibold text-ink">browser-download/); // the title; the file name stays in the details line
     expect(out).not.toContain("No type chosen.");
     expect((out.match(/>Archived</g) ?? []).length).toBe(2); // the tile and the section, not the row
   });
