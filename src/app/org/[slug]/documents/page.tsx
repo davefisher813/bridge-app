@@ -1,3 +1,4 @@
+import { stackAssignments } from "@/lib/documents/assignmentStack";
 import { documentTypeLabel, READER_TYPES } from "@/lib/documents/fileTypes";
 import { bulkApproveDocuments, bulkArchiveDocuments, bulkLinkDocumentsToAthlete, bulkRestoreDocuments, bulkSetDocumentType, bulkSuggestDocuments, undoBulkSuggest } from "@/lib/actions/documentsBulk";
 import { notFound } from "next/navigation";
@@ -170,7 +171,7 @@ function groupNearDuplicates(list: DocRow[], names: Map<string, string>, searchi
   return [...groups.values()].map((g) => [g[0]!, g.slice(1)]);
 }
 
-function DocumentRow({ slug, doc, linkedNames, same = [], view = "all" }: { slug: string; doc: DocRow; linkedNames: Map<string, string>; same?: DocRow[]; view?: string }) {
+function DocumentRow({ slug, doc, linkedNames, same = [], view = "all", stackQuery }: { slug: string; doc: DocRow; linkedNames: Map<string, string>; same?: DocRow[]; view?: string; stackQuery?: string }) {
   const athlete = athleteLabel(doc, linkedNames);
   const pct = doc.provenance?.confidence != null ? Math.round(doc.provenance.confidence * 100) : null;
   const lifecycle = (isLifecycle(doc.lifecycle) ? doc.lifecycle : "needs_review") as Lifecycle;
@@ -188,7 +189,7 @@ function DocumentRow({ slug, doc, linkedNames, same = [], view = "all" }: { slug
   const notes = [...(doc.status === "filed" ? [] : suggestionNotes(doc, linkedNames)), doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
   return (
     <Row
-      href={same.length > 0 ? `/org/${slug}/documents?view=${view}&q=${encodeURIComponent(athlete ?? "")}` : `/org/${slug}/documents/${doc.id}`}
+      href={same.length > 0 ? `/org/${slug}/documents?view=${view}&q=${encodeURIComponent(stackQuery ?? athlete ?? "")}` : `/org/${slug}/documents/${doc.id}`}
       kind="document"
       role={lifecycle === "needs_review" ? "offer" : lifecycle === "ready" ? "committed" : "neutral"}
       title={title}
@@ -254,7 +255,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const matched = q
     ? all.filter((r) => {
         const athlete = athleteLabel(r, linkedNames);
-        return `${r.title ?? ""} ${r.file_name} ${documentTypeLabel(r, CATEGORY_LABEL) ?? ""} ${athlete ?? ""} ${suggestionNotes(r, linkedNames).join(" ")}`.toLowerCase().includes(q);
+        return `${r.title ?? ""} ${r.file_name} ${readableFileName(r.file_name)} ${documentTypeLabel(r, CATEGORY_LABEL) ?? ""} ${athlete ?? ""} ${suggestionNotes(r, linkedNames).join(" ")}`.toLowerCase().includes(q);
       })
     : all;
   // Needs Review is what waits on a person: documents in that state, and a
@@ -265,7 +266,10 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
     r.lifecycle === "ready" && (r.identity_status === "proposed" || r.identity_status === "ambiguous") && (r.identity_candidates ?? []).some((c) => linkedNames.has(c.athleteId));
   const inView = (v: View) => (v === "all" ? matched : v === "needs_review" ? matched.filter((r) => r.lifecycle === "needs_review" || awaitsWho(r)) : matched.filter((r) => r.lifecycle === v));
   const rows = inView(view);
-  const inState = (state: Lifecycle) => rows.filter((r) => (view === "needs_review" && awaitsWho(r) ? "needs_review" : r.lifecycle) === state);
+  const inState = (state: Lifecycle) => rows.filter((r) => !stacked.hidden.has(r.id)).filter((r) => (view === "needs_review" && awaitsWho(r) ? "needs_review" : r.lifecycle) === state);
+  // An athlete's assignment files stack into one row across states; a
+  // search lists each file on its own.
+  const stacked = q ? { hidden: new Set<string>(), behind: new Map<string, { others: DocRow[]; who: string }>() } : stackAssignments(rows);
   const stubbed = await isStubbedModel();
   const viewHref = (v: View) => {
     const qs = new URLSearchParams();
@@ -415,7 +419,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
             return (
               <Section key={state} label={LIFECYCLE_LABEL[state]} count={list.length} role={state === "needs_review" ? "offer" : state === "ready" ? "committed" : state === "processing" ? "contact" : "neutral"} kind={state === "needs_review" ? "warning" : state === "ready" ? "check" : state === "processing" ? "clock" : state === "archived" ? "note" : "document"}>
                 {groupNearDuplicates(list, linkedNames, !!q).map(([d, same]) => (
-                  <DocumentRow key={d.id} slug={slug} doc={d} linkedNames={linkedNames} same={same} view={view} />
+                  <DocumentRow key={d.id} slug={slug} doc={d} linkedNames={linkedNames} same={[...same, ...(stacked.behind.get(d.id)?.others ?? [])]} view={view} stackQuery={stacked.behind.get(d.id)?.who} />
                 ))}
               </Section>
             );
