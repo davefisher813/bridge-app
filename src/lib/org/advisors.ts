@@ -14,6 +14,7 @@
 // the caller's own client, so RLS answers.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { visibleEmail } from "@/lib/org/noEmail";
 import type { OrgRole } from "@/lib/auth/guard";
 import { cleanTitle } from "@/lib/org/roleLabels";
 
@@ -96,8 +97,8 @@ export async function loadAdvisorChoices(client: Client, orgId: string): Promise
   const choices = ((memberRows ?? []) as MemberRow[])
     .map((r): AdvisorChoice | null => {
       const person = unwrap(r.users);
-      const email = person?.email?.trim() ?? "";
-      const name = person?.full_name?.trim() || email;
+      const email = visibleEmail(person?.email?.trim());
+      const name = person?.full_name?.trim() || email || "Unnamed";
       if (!name) return null;
       return { id: r.user_id, name, email, role: r.role as OrgRole, title: cleanTitle(r.title), lastAssignedAt: latest.get(r.user_id) ?? null, advising: counts.get(r.user_id) ?? 0, signedIn: !!person?.last_sign_in_at, photoPath: r.photo_path ?? null };
     })

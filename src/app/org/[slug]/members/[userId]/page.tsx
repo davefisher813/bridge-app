@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { visibleEmail } from "@/lib/org/noEmail";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireOwner, type OrgRole } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -92,7 +93,7 @@ export default async function MemberPage({
   const member = row as MemberRow;
   const role = member.role as OrgRole;
   const person = unwrap(member.users);
-  const name = person?.full_name || person?.email || "Unknown";
+  const name = person?.full_name || visibleEmail(person?.email) || "Unknown";
   const ownerCount = (ownerRows ?? []).length;
   const onlyOwner = role === "owner" && ownerCount === 1;
   const isMe = member.user_id === me.id;
@@ -138,7 +139,7 @@ export default async function MemberPage({
 
   return (
     <Screen back={{ href: `/org/${slug}/members`, label: "Members" }}>
-      <Row leading={<Avatar name={name} size="lg" photo={photo} />} title={`${name}${isMe ? " (you)" : ""}`} meta={[isMaster ? "Master Account" : null, title, labelForRole(role), person?.email, joined].filter(Boolean).join(" · ")} emphasis="bold" wrap />
+      <Row leading={<Avatar name={name} size="lg" photo={photo} />} title={`${name}${isMe ? " (you)" : ""}`} meta={[isMaster ? "Master Account" : null, title, labelForRole(role), visibleEmail(person?.email) || "No email on file", joined].filter(Boolean).join(" · ")} emphasis="bold" wrap />
 
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
 

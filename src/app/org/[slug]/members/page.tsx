@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { visibleEmail } from "@/lib/org/noEmail";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireOwner } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -81,9 +82,9 @@ export default async function MembersPage({
           <Row
             key={r.user_id}
             href={`/org/${slug}/members/${r.user_id}`}
-            leading={<Avatar name={r.person?.full_name || r.person?.email || "?"} photo={photoUrl(slug, r.user_id, r.photo_path)} />}
-            title={`${r.person?.full_name || r.person?.email || "Unknown"}${r.user_id === me.id ? " (you)" : ""}`}
-            meta={`${label(r)} · ${r.person?.email ?? ""}`}
+            leading={<Avatar name={r.person?.full_name || visibleEmail(r.person?.email) || "?"} photo={photoUrl(slug, r.user_id, r.photo_path)} />}
+            title={`${r.person?.full_name || visibleEmail(r.person?.email) || "Unknown"}${r.user_id === me.id ? " (you)" : ""}`}
+            meta={`${label(r)} · ${visibleEmail(r.person?.email) || "No email on file"}`}
             trailing={<Chevron />}
             wrap
           />
@@ -100,7 +101,7 @@ export default async function MembersPage({
               key={r.user_id}
               kind="clock"
               role="time"
-              title={r.person?.full_name || r.person?.email || "Unknown"}
+              title={r.person?.full_name || visibleEmail(r.person?.email) || "Unknown"}
               meta={`${label(r)} · invited ${shortDate(r.created_at)}`}
               trailing={
                 canManage ? (

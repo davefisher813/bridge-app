@@ -1,5 +1,6 @@
 "use server";
 
+import { noEmailAddress } from "@/lib/org/noEmail";
 import { sendFailureMessage } from "@/lib/auth/errors";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -80,7 +81,10 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   if (!parsed.ok || !parsed.values) {
     return { errors: parsed.errors, values: Object.fromEntries(formData.entries()) };
   }
-  const { email, role, fullName, athleteId, relationship } = parsed.values;
+  const { role, fullName, athleteId, relationship } = parsed.values;
+  // No email on a silent add: a placeholder address stands in (never shown).
+  const noEmail = parsed.values.email === "";
+  const email = noEmail ? noEmailAddress() : parsed.values.email;
   if (role !== "family" && user.role !== "owner") {
     return { errors: { role: "Only an Admin can invite an Admin or a Viewer. You can invite an Athlete login from an athlete's page." }, values: Object.fromEntries(formData.entries()) };
   }
@@ -93,7 +97,7 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   // "invite" sends the invitation email, as before. Asked of an Admin
   // only (they can advise); a Viewer or an Athlete login is always
   // invited, since they have no use for a login they were never told of.
-  const silent = canAdvise(role) && String(formData.get("delivery") ?? "") === "silent";
+  const silent = canAdvise(role) && (noEmail || String(formData.get("delivery") ?? "") === "silent");
   if (assignAthleteId && !canAdvise(role)) {
     return { errors: { role: "Only an Admin can be an athlete's advisor." }, values: Object.fromEntries(formData.entries()) };
   }
@@ -239,7 +243,9 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
       return { errors: { form: `Could not add them: ${error ? error.message : "no account was created."}` }, values: Object.fromEntries(formData.entries()) };
     }
     userId = data.user.id;
-    notice = `${fullName || email} was added. Nothing was sent to them. They can sign in with ${email} whenever they are ready, and everything assigned to them will be there.`;
+    notice = noEmail
+      ? `${fullName} was added with no email. Nothing was sent. You can assign them athletes right away.`
+      : `${fullName || email} was added. Nothing was sent to them. They can sign in with ${email} whenever they are ready, and everything assigned to them will be there.`;
   } else {
     const origin = await siteOrigin();
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {

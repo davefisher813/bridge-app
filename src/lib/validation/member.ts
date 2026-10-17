@@ -39,6 +39,16 @@ export interface InviteFormResult {
 }
 
 export function parseInviteForm(formData: FormData): InviteFormResult {
+  // An Admin added without an invite may have no email yet (Dave,
+  // 2026-10-16); then a name is what identifies them. Any other path
+  // keeps the email required, and one that is typed must still be valid.
+  const silent = String(formData.get("delivery") ?? "") === "silent" && String(formData.get("role") ?? "") === "owner";
+  const typed = String(formData.get("email") ?? "").trim();
+  if (silent && typed === "") {
+    const name = String(formData.get("fullName") ?? "").trim();
+    if (!name) return { ok: false, values: null, errors: { fullName: "Add a name, since there is no email to go by" } };
+    return { ok: true, values: { email: "", role: "owner", fullName: name.slice(0, 120) }, errors: {} };
+  }
   const raw = {
     email: String(formData.get("email") ?? ""),
     role: String(formData.get("role") ?? ""),

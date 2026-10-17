@@ -62,8 +62,8 @@ export function InviteForm({
         <Hidden name="role" value={preset.role} />
         {preset.assignAthleteId && <Hidden name="assignAthleteId" value={preset.assignAthleteId} />}
         <Hidden name="returnTo" value={preset.returnTo} />
-        <Field name="email" label="Email" type="email" autoComplete="off" inputMode="email" required defaultValue={value("email")} error={err("email")} hint={preset.role === "owner" ? `${labelForRole("owner")}s add and edit everything, including members, schools and settings.` : undefined} />
-        <Field name="fullName" label="Name (optional)" autoComplete="off" defaultValue={value("fullName")} />
+        <Field name="email" label={preset.role === "owner" && delivery === "silent" ? "Email (optional)" : "Email"} type="email" autoComplete="off" inputMode="email" required={!(preset.role === "owner" && delivery === "silent")} defaultValue={value("email")} error={err("email")} hint={preset.role === "owner" ? `${labelForRole("owner")}s add and edit everything, including members, schools and settings.` : undefined} />
+        <Field name="fullName" label={preset.role === "owner" && delivery === "silent" ? "Name" : "Name (optional)"} autoComplete="off" required={preset.role === "owner" && delivery === "silent"} defaultValue={value("fullName")} error={err("fullName")} />
         {preset.role === "owner" && <DeliveryField value={delivery} onChange={setDelivery} />}
         <Button disabled={pending}>{pending ? "Working..." : preset.role === "owner" && delivery === "silent" ? "Add Without Inviting" : "Send Invite"}</Button>
       </Form>
@@ -102,7 +102,7 @@ export function InviteForm({
 
   return (
     <Form action={formAction} error={state.errors.form}>
-      <Field name="email" label="Email" type="email" autoComplete="off" inputMode="email" required defaultValue={value("email")} error={err("email")} />
+      <Field name="email" label={role === "owner" && delivery === "silent" ? "Email (optional)" : "Email"} type="email" autoComplete="off" inputMode="email" required={!(role === "owner" && delivery === "silent")} defaultValue={value("email")} error={err("email")} />
       <SelectField
         name="role"
         label="Role"
@@ -140,7 +140,7 @@ export function InviteForm({
           </SelectField>
         </>
       )}
-      <Field name="fullName" label="Name (optional)" autoComplete="off" defaultValue={value("fullName")} />
+      <Field name="fullName" label={role === "owner" && delivery === "silent" ? "Name" : "Name (optional)"} autoComplete="off" required={role === "owner" && delivery === "silent"} defaultValue={value("fullName")} error={err("fullName")} />
       {role === "owner" && <DeliveryField value={delivery} onChange={setDelivery} />}
       <Button disabled={pending}>{pending ? "Working..." : role === "owner" && delivery === "silent" ? "Add Without Inviting" : "Send Invite"}</Button>
     </Form>
