@@ -29,7 +29,7 @@ const CONFIDENCE_NOTE: Record<string, string> = {
   high: "Based on numbers specific to this school and this athlete.",
   medium: "Based on partial numbers. Some are a division default rather than this school's own.",
   low: "Mostly division defaults. A starting point, not a finding.",
-  unknown: "Not enough on file to judge. A placeholder, not a measurement.",
+  unknown: "",
 };
 
 export default async function FamilyMatchPage({ params }: { params: Promise<{ slug: string; id: string; schoolId: string }> }) {
@@ -95,7 +95,7 @@ export default async function FamilyMatchPage({ params }: { params: Promise<{ sl
                   {w}
                 </Note>
               ))}
-              <Label>{CONFIDENCE_NOTE[d.confidence] ?? "No confidence reported."}</Label>
+              {CONFIDENCE_NOTE[d.confidence] && <Label>{CONFIDENCE_NOTE[d.confidence]}</Label>}
             </Stack>
           );
         })}

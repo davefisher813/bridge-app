@@ -44,7 +44,6 @@ function likelyAid(athlete: Athlete, school: School): { aid: number; reasons: st
   let aid = 0;
 
   if (isD3(school.division)) {
-    reasons.push("D3 school: athletic scholarships are not allowed by NCAA rules (unrelated to the House settlement)");
   } else if (f.athleticScholarship && f.athleticScholarship !== "none" && f.avgAthleticAid) {
     aid += f.avgAthleticAid;
     reasons.push(`Athletic aid: about ${money(f.avgAthleticAid)} a year on average here`);
@@ -176,7 +175,6 @@ function scoreSchoolOnly(athlete: Athlete, school: School): DimensionResult {
   const cost = f.outstateTotal || f.instateTotal || 0;
 
   if (isD3(school.division)) {
-    reasons.push("D3 school: athletic scholarships are not allowed by NCAA rules (unrelated to the House settlement)");
     const totalAcademicAid = (f.avgMeritAid || 0) + (f.avgNeedAid || 0);
     let score = 50;
     let confidence: DimensionResult["confidence"] = "low";
@@ -190,7 +188,7 @@ function scoreSchoolOnly(athlete: Athlete, school: School): DimensionResult {
       confidence = "low";
       warnings.push(`Cost of attendance: $${Math.round(cost / 1000)}k/yr, merit aid potential unknown: check the financial aid office`);
     } else {
-      return { score: 50, confidence: "unknown", veto: false, reasons, warnings: ["No cost or aid data for this D3 school"] };
+      return { score: 50, confidence: "unknown", veto: false, reasons, warnings };
     }
     const gpa = athlete.gpa || 0;
     if (gpa >= 3.7) {

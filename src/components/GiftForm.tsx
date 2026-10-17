@@ -83,7 +83,6 @@ export function GiftForm({
         inputMode="decimal"
         defaultValue={initial?.amount ?? ""}
         required
-        hint="A negative amount records a refund or a correction."
       />
 
       <SelectField
@@ -91,7 +90,6 @@ export function GiftForm({
         label="Donor"
         value={donorId}
         onChange={(e) => setDonorId(e.target.value)}
-        hint="Leave anonymous for cash collected at an event."
       >
         <option value="">Anonymous</option>
         {donors.map((d) => (
@@ -177,7 +175,6 @@ export function GiftForm({
         label="Reference"
         error={err("externalRef")}
         defaultValue={initial?.externalRef ?? ""}
-        hint="The same reference can only be recorded once."
       />
 
       <TextAreaField name="notes" label="Notes" rows={2} defaultValue={initial?.notes ?? ""} />

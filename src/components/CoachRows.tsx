@@ -13,7 +13,7 @@ import { Row, Section, TextLink } from "@/components/kit";
 export function CoachRows({ coaches, manageHref }: { coaches: Coach[]; manageHref?: string }) {
   if (coaches.length === 0) {
     if (!manageHref) return null;
-    return <Row href={`${manageHref}/coaches/new`} kind="people" role="people" title="Add a Coach" meta="No coaches listed for this school yet. Every organization sees them." wrap />;
+    return <Row href={`${manageHref}/coaches/new`} kind="people" role="people" title="Add a Coach" wrap />;
   }
   return (
     <Section label="Coaches" count={coaches.length} role="people" kind="people" action={manageHref ? <TextLink href={`${manageHref}/coaches`}>Edit</TextLink> : undefined}>

@@ -185,7 +185,6 @@ export function DocumentSuggestions({
             </Form>
           </>
         )}
-        <Label>Suggested from the file name and the words in the file. A suggestion is not a check that the document is genuine.</Label>
       </Stack>
     </Section>
   );

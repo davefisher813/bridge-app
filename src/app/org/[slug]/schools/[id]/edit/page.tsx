@@ -80,7 +80,7 @@ export default async function EditSchoolPage({ params, searchParams }: { params:
       <Section label="Duplicate or Mistake" role="danger" kind="warning">
         {others.length > 0 && (
           <Form action={mergeSchool.bind(null, slug, id)}>
-            <SelectField name="mergeInto" label="Merge Into" defaultValue="" hint="The school to keep. Every target, note, coach and contact here moves to it, in every organization.">
+            <SelectField name="mergeInto" label="Merge Into" defaultValue="">
               <option value="" disabled>
                 Pick the School to Keep
               </option>

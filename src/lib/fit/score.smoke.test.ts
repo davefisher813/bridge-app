@@ -46,7 +46,7 @@ describe("scoreFit smoke tests", () => {
       financials: { avgMeritAid: 20000, avgNeedAid: 10000, outstateTotal: 55000 },
     };
     const result = scoreFit(athlete, school);
-    expect(result.financial.reasons.join(" ")).toMatch(/not allowed by NCAA rules/);
+    expect(result.financial.reasons.join(" ")).not.toMatch(/not allowed by NCAA rules/);
     expect(result.financial.reasons.join(" ")).not.toMatch(/scholarship.*available/i);
   });
 

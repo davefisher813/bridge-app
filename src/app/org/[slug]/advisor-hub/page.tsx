@@ -86,7 +86,7 @@ export default async function AdvisorHubPage({ params }: { params: Promise<{ slu
   const advisorOf = (id: string | null) => (id && names.get(id)) || null;
 
   return (
-    <Screen title="Advisor Hub" back={{ href: `/org/${slug}/advisors`, label: "Advisors" }} lede={`${recruiting.length} ${recruiting.length === 1 ? "athlete" : "athletes"} still being recruited. A check-in is due every ${CHECKIN_DUE_DAYS} days.`}>
+    <Screen title="Advisor Hub" back={{ href: `/org/${slug}/advisors`, label: "Advisors" }} lede={`${recruiting.length} ${recruiting.length === 1 ? "athlete" : "athletes"} still being recruited`}>
       <Section label="Due for a Check-In" count={due.length} role="time" kind="clock">
         {due.length === 0 ? (
           <EmptyState kind="clock" role="time" title="Nobody Is Due" />
@@ -107,8 +107,8 @@ export default async function AdvisorHubPage({ params }: { params: Promise<{ slu
 
       <Section label="Advising" role="people" kind="people">
         <Row href={`/org/${slug}/roster?advisor=none`} kind="athlete" role="time" title="No Advisor Yet" meta={`${unassigned} ${unassigned === 1 ? "athlete" : "athletes"} still being recruited`} trailing={<Chevron />} wrap />
-        <Row href={`/org/${slug}/mine`} kind="athlete" role="people" title="My Athletes" meta="The athletes you advise" trailing={<Chevron />} wrap />
-        <Row href={`/org/${slug}/advisors`} kind="people" role="people" title="Advisors" meta={`${staff.length} ${staff.length === 1 ? "Admin" : "Admins"} and how many each advises`} trailing={<Chevron />} wrap />
+        <Row href={`/org/${slug}/mine`} kind="athlete" role="people" title="My Athletes" trailing={<Chevron />} wrap />
+        <Row href={`/org/${slug}/advisors`} kind="people" role="people" title="Advisors" meta={`${staff.length} ${staff.length === 1 ? "Admin" : "Admins"}`} trailing={<Chevron />} wrap />
       </Section>
 
       <Section label="Latest Check-Ins" count={checkins.length} role="time" kind="clock">

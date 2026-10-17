@@ -109,9 +109,7 @@ export function SchoolMoneyAndDepth({ school, viewer, editHref }: { school: Scho
             says, and printing the field would tell a family money exists
             that does not. */}
         <Note title={d3 ? "No Athletic Scholarships at D3" : (AID_LABEL[fin.athleticScholarship ?? ""] ?? "Athletic Aid Not Recorded")}>
-          {d3
-            ? "NCAA rules, not this school's choice. Academic and need-based aid still apply and are often substantial."
-            : "From this school's profile. Confirm with the coaching staff before a family plans around it."}
+          {d3 ? undefined : "From this school's profile. Confirm with the coaching staff before a family plans around it."}
         </Note>
         {/* An owner's figures open the form. Everyone else gets the same
             figures as notes, never a row that goes nowhere. */}
@@ -127,9 +125,6 @@ export function SchoolMoneyAndDepth({ school, viewer, editHref }: { school: Scho
             {fin.instateTotal != null && <Note title={`In State: ${money(fin.instateTotal)}`}>Cost of attendance</Note>}
             {fin.outstateTotal != null && <Note title={`Out of State: ${money(fin.outstateTotal)}`}>Cost of attendance</Note>}
           </>
-        )}
-        {fin.instateTotal == null && fin.outstateTotal == null && (
-          <Note>No cost of attendance on file, so the financial dimension of every fit score here is running on defaults.</Note>
         )}
       </Section>
 

@@ -68,7 +68,6 @@ export function OrgSchoolNoteForm({
       <Field
         name="positionsOfNeed"
         label="Positions of Need"
-        hint="Position and grad year, separated by semicolons. For example, SS 2027; RHP 2028."
         defaultValue={initialValues.positionsOfNeed ?? ""}
         error={err("positionsOfNeed")}
       />

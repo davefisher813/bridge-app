@@ -45,10 +45,6 @@ export function GradingScaleForm({
 
       <Stack gap={2}>
         <Label caps>The Table</Label>
-        <Label>
-          Five rows, not twelve. The NCAA does not recognise plus or minus, so A+, A and A- are all worth four points and collapse into one
-          band. Leave a letter blank if the school does not award it.
-        </Label>
         {err("bands") && <Label tone="danger">{err("bands")}</Label>}
         <div className="flex items-center gap-2">
           <div className="w-11 flex-shrink-0" />

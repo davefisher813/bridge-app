@@ -187,11 +187,7 @@ export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialA
               </Choice>
             ))}
           </ChoiceRow>
-          <Label>
-            {category !== null
-              ? "It is read as this type and waits in Needs Review for a person. If it does not look like it, it says so."
-              : "It is read, the reading suggests its type, and it waits in Needs Review."}
-          </Label>
+          {category !== null && <Label>It is read as this type and waits in Needs Review for a person. If it does not look like it, it says so.</Label>}
         </Stack>
       )}
 
@@ -204,7 +200,7 @@ export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialA
       </SelectField>
 
       {!boundTo && athletes.length > 0 && (
-        <SelectField name="linkAthleteId" label="Athlete" hint="Optional. Pick the athlete this is about and it shows on their page. Leave it empty for org-wide documents like bylaws." value={linkAthleteId} onChange={(e) => setLinkAthleteId(e.target.value)}>
+        <SelectField name="linkAthleteId" label="Athlete" value={linkAthleteId} onChange={(e) => setLinkAthleteId(e.target.value)}>
           <option value="">No Athlete</option>
           {athletes.map((a) => (
             <option key={a.id} value={a.id}>
@@ -217,7 +213,7 @@ export function DocumentUploader({ slug, orgId, boundTo, athletes = [], initialA
       <FileField
         name="files"
         label={files.length ? `${files.length} ${files.length === 1 ? "File" : "Files"} Chosen` : "Take a Photo or Choose a File"}
-        hint={files.length ? files.map((f) => f.name).join(", ") : `${VAULT_FORMATS_SENTENCE}. Up to 10 MB each. Read: ${READER_FORMATS_SENTENCE}.`}
+        hint={files.length ? files.map((f) => f.name).join(", ") : undefined}
         // HEIC is deliberately NOT listed. An iPhone converts a HEIC
         // photo to JPEG on the way into a file input only when HEIC is
         // not among the accepted types; listing it handed the app a

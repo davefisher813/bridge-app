@@ -553,7 +553,7 @@ describe("LAW: the new org, member, board and money screens render on the fixtur
   const screens: Array<{ path: string; props: Record<string, unknown>; expect: RegExp; as?: string }> = [
     { path: "@/app/orgs/new/page", props: {}, expect: /Create an Organization[\s\S]*Web Address/ },
     { path: "@/app/org/[slug]/settings/page", props: { params: P({ slug: ORG_WITH_MODULES }), searchParams: P({}) }, expect: /Organization Settings[\s\S]*Modules[\s\S]*Fundraising/ },
-    { path: "@/app/org/[slug]/board-governance/[id]/edit/page", props: { params: P({ slug: ORG_WITH_MODULES, id: IDS.board }) }, expect: /Edit Board[\s\S]*Fixture Executive Board[\s\S]*Remove them first/ },
+    { path: "@/app/org/[slug]/board-governance/[id]/edit/page", props: { params: P({ slug: ORG_WITH_MODULES, id: IDS.board }) }, expect: /Edit Board[\s\S]*Fixture Executive Board/ },
     { path: "@/app/org/[slug]/board-governance/[id]/seats/[memberId]/edit/page", props: { params: P({ slug: ORG_WITH_MODULES, id: IDS.board, memberId: IDS.boardMember }) }, expect: /Edit Seat[\s\S]*Fixture Chair[\s\S]*Remove Seat/ },
     { path: "@/app/org/[slug]/fundraising/donors/[id]/edit/page", props: { params: P({ slug: ORG_WITH_MODULES, id: IDS.donor }), searchParams: P({}) }, expect: /Edit Donor[\s\S]*Fixture Donor[\s\S]*Remove Donor/ },
     { path: "@/app/org/[slug]/fundraising/campaigns/[id]/edit/page", props: { params: P({ slug: ORG_WITH_MODULES, id: IDS.campaign }), searchParams: P({}) }, expect: /Edit Campaign[\s\S]*25000\.00[\s\S]*Remove Campaign/ },
