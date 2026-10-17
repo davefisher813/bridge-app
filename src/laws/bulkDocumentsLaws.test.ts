@@ -328,7 +328,7 @@ describe("LAW: the Documents page carries the bulk kit; the actions touch nothin
   it("one BulkSelect wraps the list, naming document, over every id in the view", () => {
     expect(page.match(/<BulkSelect/g)).toHaveLength(1);
     expect(page).toMatch(/ids=\{rows\.map\(\(r\) => r\.id\)\}\s+noun="document"/);
-    expect(page).toContain("select={<BulkCheck id={doc.id} label={title} />}");
+    expect(page).toMatch(/select=\{[^}]*<BulkCheck id=\{doc\.id\} label=\{title\} \/>/);
   });
 
   it("each action is bound to its server action and confirms through a sheet that names the count", () => {

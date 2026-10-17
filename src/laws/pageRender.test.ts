@@ -432,6 +432,20 @@ describe("LAW: a placed athlete has no score anywhere", () => {
     expect(active).toMatch(/>93</);
   });
 
+  it("documents that read the same stack into one row, and a search lists each", async () => {
+    const html = await render("@/app/org/[slug]/documents/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    expect(html).toMatch(/2 Files/);
+    expect(html).not.toMatch(/fixture\.pdf/);
+    const found = await render("@/app/org/[slug]/documents/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "fixture" }) });
+    expect(found).not.toMatch(/2 Files/);
+    expect(found).toMatch(/fixture\.pdf/);
+  });
+
+  it("the matches list prints a score and tag only where they change", async () => {
+    const { readFileSync } = await import("node:fs");
+    expect(readFileSync("src/app/org/[slug]/roster/[id]/matches/page.tsx", "utf8")).toContain("sameAsAbove ? undefined : String(f.score)");
+  });
+
   it("the target page says recruiting ended instead of building a score", async () => {
     const html = await render("@/app/org/[slug]/board/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.targetEnrolledCommitted }) });
     expect(html).toMatch(/Recruiting ended: Enrolled at Fixture State University\./);

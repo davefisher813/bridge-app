@@ -84,7 +84,7 @@ describe("renameDocument", () => {
 describe("the screens show the title", () => {
   const read = (p: string) => readFileSync(p, "utf8");
   it("the list, the document screen, the athlete page and meeting materials read and show it", () => {
-    expect(read("src/app/org/[slug]/documents/page.tsx")).toMatch(/const title = doc\.title/);
+    expect(read("src/app/org/[slug]/documents/page.tsx")).toMatch(/return doc\.title/);
     const detail = read("src/app/org/[slug]/documents/[id]/page.tsx");
     expect(detail).toContain("title={doc.title ?? headline}");
     expect(detail).toContain("renameDocument.bind(null, slug, doc.id)");
