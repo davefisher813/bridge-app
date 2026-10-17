@@ -13,9 +13,9 @@ import { Avatar, Button, EmptyState, Form, Notice, Row, Screen, Section } from "
 // only, and never yourself, and only people who are in this organization:
 // the list is this org's members and nothing else, and the database
 // refuses the rest.
-const LEVELS: Record<string, { title: string; roles: string[]; empty: string; lede: string }> = {
+const LEVELS: Record<string, { title: string; roles: string[]; empty: string; lede?: string }> = {
   athlete: { title: "Athletes", roles: ["family"], empty: "No Athlete Logins Yet", lede: "Each sees only the athletes linked to them." },
-  viewer: { title: "Viewers", roles: ["member"], empty: "No Viewers Yet", lede: "Each sees the program and the schools, read only." },
+  viewer: { title: "Viewers", roles: ["member"], empty: "No Viewers Yet" },
   admin: { title: "Admins", roles: ["owner", "staff"], empty: "No Other Admins", lede: "Each sees the organization the way that Admin does." },
 };
 
