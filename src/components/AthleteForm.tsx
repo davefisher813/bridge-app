@@ -418,7 +418,6 @@ export function AthleteForm({
       <TextAreaField
         name="notes"
         label={editing ? "Add a Note" : "Notes"}
-        hint="Admins only, never shown on an athlete login."
         maxLength={4000}
         defaultValue={f("notes")}
         error={err("notes")}

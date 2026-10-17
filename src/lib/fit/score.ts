@@ -119,7 +119,7 @@ export function scoreFit(athlete: Athlete, school: School, opts: ScoreFitOptions
 
   if (partial && vetoingDims.length === 0) {
     const left = dims.filter((d) => d.result.confidence === "unknown").map((d) => d.name);
-    warnings.unshift(`Scored on ${counted.map((d) => d.name).join(" and ")} only: no ${left.join(" or ")} data yet`);
+    warnings.unshift(`No ${left.join(" or ")} data`);
   }
 
   // An org's positions of need at this school: a matching athlete gets

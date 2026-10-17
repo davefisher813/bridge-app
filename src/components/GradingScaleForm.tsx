@@ -111,7 +111,6 @@ export function GradingScaleForm({
 
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
 
-      <Prose>Saving recalculates every athlete at this school immediately.</Prose>
     </Form>
   );
 }

@@ -616,7 +616,7 @@ describe("LAW: every row and every document screen shows its status, and Delete 
     expect(ready).not.toContain("old-notes.txt");
     expect(ready).toContain(`text-muted">Ready<`);
     // The old address still opens Archived.
-    expect(await html(LIST, listProps({ archived: "1" }))).toContain("Showing Archived");
+    expect(await html(LIST, listProps({ archived: "1" }))).toContain("Archived: ");
   });
 
   it("a row says why it is in Needs Review", async () => {

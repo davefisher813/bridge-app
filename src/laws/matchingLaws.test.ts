@@ -122,7 +122,7 @@ describe("LAW: an unknown dimension is left out of the blend and the result says
     expect(r.athletic.confidence).toBe("unknown");
     expect(r.partial).toBe(true);
     expect(r.counted).toEqual(["academic", "financial"]);
-    expect(r.warnings[0]).toMatch(/Scored on academic and financial only/);
+    expect(r.warnings[0]).toMatch(/No athletic data/);
     const w = blendWeights("money_first", "balanced", false);
     const expected = (r.academic.score * w.academic + r.financial.score * w.financial) / (w.academic + w.financial);
     expect(r.score).toBe(Math.round(expected));

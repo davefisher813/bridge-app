@@ -59,11 +59,7 @@ export default async function TransferWindowsPage({ params, searchParams }: { pa
         </Notice>
       )}
       {rows.length === 0 ? (
-        <EmptyState kind="clock" title="No Windows on File">
-          {canEditDirectory
-            ? "Add this season's portal windows from the NCAA's page. Until then every transfer's timing reads as unverified."
-            : "The organization that keeps the shared directory adds them from the NCAA's page. Until then every transfer's timing reads as unverified."}
-        </EmptyState>
+        <EmptyState kind="clock" title="No Windows on File" />
       ) : (
         [...bySport.entries()].map(([sport, windows]) => (
           <Section key={sport} label={sportSpec(sport)?.label ?? sport} count={windows.length} role="time" kind="clock">

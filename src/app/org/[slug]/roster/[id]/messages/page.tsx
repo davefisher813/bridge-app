@@ -41,7 +41,7 @@ export default async function AthleteMessagesPage({ params }: { params: Promise<
     <Screen title="Messages" back={{ href: athleteHref, label: athlete.name }} lede={`${athlete.name} · ${logins} athlete ${logins === 1 ? "login" : "logins"}`}>
       {logins === 0 && (
         <Notice tone="info" title="No Athlete Login Yet">
-          Nobody can read this until they have an athlete login. Everything here is waiting for them when they do. <TextLink href={`${athleteHref}/family/new`}>Invite Athlete</TextLink>
+          <TextLink href={`${athleteHref}/family/new`}>Invite Athlete</TextLink>
         </Notice>
       )}
 

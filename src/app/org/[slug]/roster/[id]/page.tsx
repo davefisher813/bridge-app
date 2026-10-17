@@ -549,9 +549,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
                 />
               ))}
               {topFits.some((f) => f.partial) && (
-                <Notice tone="info" title="Some Scores Are Partial">
-                  A dimension with no data on file is left out and the rest are reweighted. Add the missing numbers and the score fills in.
-                </Notice>
+                <Notice tone="info" title="Some Scores Are Partial" />
               )}
               <TextLink href={`/org/${slug}/roster/${id}/matches`}>{`See All ${evaluated.length} Matches`}</TextLink>
             </>
@@ -647,9 +645,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
       <Section label="Contacts" count={contacts.length} role="people" kind="people">
         {contacts.length === 0 ? (
-          <EmptyState kind="people" title="No Contacts Yet">
-            {canEdit ? "Add the first one below." : "Coaches, parents and advisors live here."}
-          </EmptyState>
+          <EmptyState kind="people" title="No Contacts Yet" />
         ) : (
           contacts.map((c) => (
             <Card key={c.id}>

@@ -257,7 +257,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const viewLabel = VIEWS.find((v) => v.id === view)!.label;
 
   return (
-    <Screen title="Documents" lede={`${org.name}. Showing ${viewLabel}${q ? `, matching "${q}"` : ""}: ${rows.length} ${rows.length === 1 ? "document" : "documents"}.`} action={<AddButton href={`/org/${slug}/documents/new`} label="Add" />}>
+    <Screen title="Documents" lede={`${viewLabel}${q ? `, matching "${q}"` : ""}: ${rows.length} ${rows.length === 1 ? "document" : "documents"}`} action={<AddButton href={`/org/${slug}/documents/new`} label="Add" />}>
       {notice && <Notice tone="success" title={notice} />}
       {suggestUndo && (
         <Form action={undoBulkSuggest.bind(null, slug)}>

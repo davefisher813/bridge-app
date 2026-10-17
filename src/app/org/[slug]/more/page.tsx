@@ -72,9 +72,9 @@ export default async function MorePage({ params, searchParams }: { params: Promi
 
       <Section label="Reference" role="place" kind="school">
         <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" wrap />
-        <Row href={`/org/${slug}/grading-scales`} kind="scale" role="contact" title="Grading Scales" meta="How each school's numbers become letters" wrap />
-        <Row href={`/org/${slug}/approved-courses`} kind="checklist" role="visit" title="Approved Lists" meta="Which courses the NCAA counts at each school" wrap />
-        <Row href={`/org/${slug}/transfer-windows`} kind="clock" role="time" title="Transfer Windows" meta="When the portal opens and closes, by sport and division" wrap />
+        <Row href={`/org/${slug}/grading-scales`} kind="scale" role="contact" title="Grading Scales" wrap />
+        <Row href={`/org/${slug}/approved-courses`} kind="checklist" role="visit" title="Approved Lists" wrap />
+        <Row href={`/org/${slug}/transfer-windows`} kind="clock" role="time" title="Transfer Windows" wrap />
       </Section>
 
       {/* docs/MATCHING_CONTRACT.md section 3: the blend is a per-org
@@ -112,7 +112,7 @@ export default async function MorePage({ params, searchParams }: { params: Promi
         {canEdit && <Row href={`/org/${slug}/activity`} kind="clock" role="time" title="Activity" wrap />}
         {/* See what one person sees, read only for 30 minutes (Stage 5
             Phase 5). Admins only, and only an owner can start one. */}
-        {user.role === "owner" && <Row href={`/org/${slug}/view-as`} kind="athlete" role="contact" title="View As" meta="See exactly what an Athlete, a Viewer or another Admin sees" wrap />}
+        {user.role === "owner" && <Row href={`/org/${slug}/view-as`} kind="athlete" role="contact" title="View As" wrap />}
         {/* What reading documents has cost this month, against the cap.
             The Master Account sees the number and sets the cap. */}
         {seesSpend && (

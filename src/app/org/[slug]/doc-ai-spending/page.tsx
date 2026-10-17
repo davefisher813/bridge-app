@@ -58,7 +58,7 @@ export default async function DocAiSpendingPage({ params }: { params: Promise<{ 
         {windows.map((w) => (
           <Card key={w.minutes} isStatic>
             <Body weight="semibold" tone={w.used >= w.max ? "danger" : undefined}>{`${w.used} of ${w.max} ${w.minutes === 60 ? "This Hour" : `in ${w.minutes} Minutes`}`}</Body>
-            <Label>{w.used >= w.max ? "At the limit: new readings wait until older ones age out." : "Readings past this wait until older ones age out."}</Label>
+            {w.used >= w.max && <Label>At the Limit</Label>}
           </Card>
         ))}
       </Section>

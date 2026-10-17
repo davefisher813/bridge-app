@@ -114,9 +114,9 @@ export function SchoolForm({
           ))}
         </SelectField>
       </Grid2>
-      <Field name="location" label="Town" hint="City and state, like Hartford, CT." defaultValue={v("location")} error={err("location")} />
+      <Field name="location" label="Town" defaultValue={v("location")} error={err("location")} />
       <Field name="sportsSponsored" label="Sports Sponsored" hint={`Comma separated, in the app's words: ${SPORT_NAMES}.`} defaultValue={v("sportsSponsored")} />
-      <Field name="majors" label="Majors Offered" hint="Comma separated." defaultValue={v("majors")} />
+      <Field name="majors" label="Majors Offered" defaultValue={v("majors")} />
 
       <Stack gap={3}>
         <Label caps>Academics</Label>
@@ -125,8 +125,8 @@ export function SchoolForm({
           <Field name="gpaAvg" label="GPA Average" type="number" step="0.01" min="0" max="4" inputMode="decimal" defaultValue={v("gpaAvg")} error={err("gpaAvg")} />
         </Grid2>
         <Grid2>
-          <Field name="satRange" label="SAT Range" hint="For example, 1150-1320." defaultValue={v("satRange")} />
-          <Field name="actRange" label="ACT Range" hint="For example, 24-29." defaultValue={v("actRange")} />
+          <Field name="satRange" label="SAT Range" defaultValue={v("satRange")} />
+          <Field name="actRange" label="ACT Range" defaultValue={v("actRange")} />
         </Grid2>
         <TextAreaField name="majorsNote" label="Programs of Interest" rows={2} maxLength={500} defaultValue={v("majorsNote")} error={err("majorsNote")} />
       </Stack>
@@ -142,8 +142,8 @@ export function SchoolForm({
           ))}
         </SelectField>
         <Grid2>
-          <Field name="instateTotal" label="Cost in State" hint="Dollars a year, before aid." type="number" min="0" step="100" inputMode="numeric" defaultValue={v("instateTotal")} error={err("instateTotal")} />
-          <Field name="outstateTotal" label="Cost Out of State" hint="Dollars a year, before aid." type="number" min="0" step="100" inputMode="numeric" defaultValue={v("outstateTotal")} error={err("outstateTotal")} />
+          <Field name="instateTotal" label="Cost in State" type="number" min="0" step="100" inputMode="numeric" defaultValue={v("instateTotal")} error={err("instateTotal")} />
+          <Field name="outstateTotal" label="Cost Out of State" type="number" min="0" step="100" inputMode="numeric" defaultValue={v("outstateTotal")} error={err("outstateTotal")} />
         </Grid2>
         <Grid2>
           <Field name="avgAthleticAid" label="Average Athletic Aid" type="number" min="0" step="100" inputMode="numeric" defaultValue={v("avgAthleticAid")} error={err("avgAthleticAid")} />

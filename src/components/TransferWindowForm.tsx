@@ -48,7 +48,7 @@ export function TransferWindowForm({ action, initialValues = {}, submitLabel = "
         </SelectField>
       </Grid2>
       <Grid2>
-        <Field name="seasonYear" label="Season" hint="Like 2026-27." defaultValue={value("seasonYear")} error={err("seasonYear")} />
+        <Field name="seasonYear" label="Season" defaultValue={value("seasonYear")} error={err("seasonYear")} />
         <Field name="windowLabel" label="Window" defaultValue={value("windowLabel")} error={err("windowLabel")} />
       </Grid2>
       <Grid2>
