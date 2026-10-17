@@ -44,7 +44,7 @@ export function GradingScaleForm({
       <SuggestField id="scale-school" name="schoolName" label="School" suggestions={schools} error={err("schoolName")} defaultValue={defaults.schoolName} required />
 
       <Stack gap={2}>
-        <Label caps>The table</Label>
+        <Label caps>The Table</Label>
         <Label>
           Five rows, not twelve. The NCAA does not recognise plus or minus, so A+, A and A- are all worth four points and collapse into one
           band. Leave a letter blank if the school does not award it.
@@ -75,7 +75,7 @@ export function GradingScaleForm({
       </Stack>
 
       <Stack gap={2}>
-        <Label caps>Weighted courses</Label>
+        <Label caps>Weighted Courses</Label>
         {/* Both conditions come straight from the NCAA's own rule, and
             neither can be read off a transcript. Until this form
             existed nothing ever set them, so every AP athlete got an
@@ -111,7 +111,6 @@ export function GradingScaleForm({
 
       <Button disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
 
-      <Prose>Saving recalculates every athlete at this school immediately.</Prose>
     </Form>
   );
 }

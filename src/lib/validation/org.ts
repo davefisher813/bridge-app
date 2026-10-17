@@ -24,8 +24,8 @@ export const OPTIONAL_MODULES = ["board_governance", "donor_fundraising"] as con
 export type OptionalModule = (typeof OPTIONAL_MODULES)[number];
 
 export const MODULE_LABEL: Record<OptionalModule, { title: string; hint: string }> = {
-  board_governance: { title: "Board", hint: "Boards, seats and give/get." },
-  donor_fundraising: { title: "Fundraising", hint: "Donors, gifts, pledges, campaigns and grants." },
+  board_governance: { title: "Board", hint: "" },
+  donor_fundraising: { title: "Fundraising", hint: "" },
 };
 
 export function isValidSlug(slug: string): boolean {

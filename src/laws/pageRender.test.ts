@@ -423,11 +423,11 @@ describe("LAW: a placed athlete has no score anywhere", () => {
   // (the render law above): planted and reverted.
   it("the board shows the Enrolled athlete's status where the score would sit, and scores the Active one", async () => {
     const html = await render("@/app/org/[slug]/board/page", { params: p({ slug: ORG_WITH_MODULES }) });
-    const placed = rowAfter(html, "Fixture Enrolled to Fixture State University");
+    const placed = rowAfter(html, "Fixture Enrolled");
     expect(placed).toMatch(/>Enrolled</);
     expect(placed).not.toMatch(SCORE);
     expect(placed).not.toMatch(/Not Scored Yet/);
-    const active = rowAfter(html, "Fixture Athlete to Fixture State University");
+    const active = rowAfter(html, "Fixture Athlete");
     expect(active).toMatch(SCORE);
     expect(active).toMatch(/>93</);
   });
@@ -1557,7 +1557,7 @@ describe("LAW: Advisor leads the profile, only an Admin sees its controls, More 
   // the field the sheet posts.
   const ASSIGN_CONTROLS = /Assign Athlete|>Assign<|>Change<|Clear Advisor|Add Admin|assignAthleteId|name="advisorId"/;
   // The kit's Section label span, in page order.
-  const sectionLabels = (html: string) => [...html.matchAll(/<span class="text-label font-bold uppercase tracking-wide text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
+  const sectionLabels = (html: string) => [...html.matchAll(/<span class="text-label font-bold text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
   const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
   const profile = (id: string) => render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id }), searchParams: p({}) });
 
@@ -1829,7 +1829,7 @@ describe("LAW: the activity log is the Admin's, five on the profile, searchable,
 // on the Bridge screens).
 describe("LAW: assignments are the Admin's to give and review, the Athlete login's to answer, and the Viewer reads none", () => {
   const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
-  const sectionLabels = (html: string) => [...html.matchAll(/<span class="text-label font-bold uppercase tracking-wide text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
+  const sectionLabels = (html: string) => [...html.matchAll(/<span class="text-label font-bold text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
   const slug = ORG_WITH_MODULES;
   const staffBase = `/org/${slug}/roster/${IDS.athlete}/assignments`;
   const familyBase = `/org/${slug}/family/${IDS.athlete}`;

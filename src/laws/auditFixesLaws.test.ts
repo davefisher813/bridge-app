@@ -265,7 +265,7 @@ describe("LAW: Organization Settings says which database updates are on", () => 
   it("the Settings screen shows Database Updates, read from the database", async () => {
     const html = text(await render("@/app/org/[slug]/settings/page", { params: P({ slug: ORG_WITH_MODULES }), searchParams: P({}) }));
     expect(html).toMatch(/Database Updates/);
-    expect(html).toMatch(/checked against its own history just now/);
+    expect(html).toMatch(/\d+ of \d+ updates applied/);
     // Internal update names are not user-facing (live test V3): a count and a
     // state, never a list of migration names.
     const section = html.slice(html.indexOf("Database Updates"));

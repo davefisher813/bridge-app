@@ -38,11 +38,10 @@ export function TargetAidForm({ action, aid }: { action: ServerAction; aid: Targ
   return (
     <Form action={formAction} error={state.errors.form}>
       <Grid2>
-        <Field name="academicYear" label="Academic Year" hint="Like 2026-27." defaultValue={aid?.academicYear ?? ""} error={err("academicYear")} />
+        <Field name="academicYear" label="Academic Year" defaultValue={aid?.academicYear ?? ""} error={err("academicYear")} />
         <Field
           name="totalCostOfAttendance"
           label="Cost of Attendance"
-          hint="Dollars a year."
           inputMode="decimal"
           defaultValue={str(aid?.totalCostOfAttendance)}
           error={err("totalCostOfAttendance")}
@@ -52,13 +51,12 @@ export function TargetAidForm({ action, aid }: { action: ServerAction; aid: Targ
         name="netCost"
         label="Net Cost"
         inputMode="decimal"
-        hint="Blank works it out from the cost less grants and scholarships."
         defaultValue={str(aid?.netCost)}
         error={err("netCost")}
       />
       <Grid2>
-        <Field name="efc" label="EFC" inputMode="decimal" hint="Expected family contribution." defaultValue={str(aid?.efc)} error={err("efc")} />
-        <Field name="sai" label="SAI" inputMode="decimal" hint="Student aid index." defaultValue={str(aid?.sai)} error={err("sai")} />
+        <Field name="efc" label="EFC" inputMode="decimal" defaultValue={str(aid?.efc)} error={err("efc")} />
+        <Field name="sai" label="SAI" inputMode="decimal" defaultValue={str(aid?.sai)} error={err("sai")} />
       </Grid2>
 
       <Stack gap={3}>

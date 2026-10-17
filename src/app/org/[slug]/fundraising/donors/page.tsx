@@ -6,6 +6,7 @@
 // and nobody remembers to fix it by hand, and a wrong donor total that
 // nobody can explain is worse than a sum.
 
+import { displayName } from "@/lib/copy/personName";
 import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -87,7 +88,7 @@ export default async function DonorsPage({ params, searchParams }: { params: Pro
               href={`/org/${slug}/fundraising/donors/${donor.id}`}
               kind="pledge"
               role="offer"
-              title={donor.name}
+              title={displayName(donor.name)}
               meta="Promised and not yet received. Not counted in anything raised."
               wrap
               trailing={
@@ -112,7 +113,7 @@ export default async function DonorsPage({ params, searchParams }: { params: Pro
               href={`/org/${slug}/fundraising/donors/${donor.id}`}
               kind="donor"
               role="contact"
-              title={donor.name}
+              title={displayName(donor.name)}
               meta={[
                 TYPE_LABEL[donor.donor_type] ?? donor.donor_type,
                 `${totals.giftCount} ${totals.giftCount === 1 ? "gift" : "gifts"}`,

@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import type { OrgActionState } from "@/lib/actions/org";
-import { Button, CheckField, Field, Form, Prose, Section, Stack } from "@/components/kit";
+import { Button, CheckField, Field, Form, Section, Stack } from "@/components/kit";
 
 type ServerAction = (prev: OrgActionState, formData: FormData) => Promise<OrgActionState>;
 
@@ -32,10 +32,9 @@ export function OrgSettingsForm({ action, name, modules }: { action: ServerActio
       <Section label="Modules" role="place" kind="checklist">
         <Stack gap={3}>
           {modules.map((m) => (
-            <CheckField key={m.key} name={`module_${m.key}`} label={m.title} hint={m.hint} defaultChecked={state.values ? state.values[`module_${m.key}`] === "on" : m.on} />
+            <CheckField key={m.key} name={`module_${m.key}`} label={m.title} hint={m.hint || undefined} defaultChecked={state.values ? state.values[`module_${m.key}`] === "on" : m.on} />
           ))}
         </Stack>
-        <Prose>Turning a module off hides its screens. Nothing in it is deleted, and turning it back on brings it all back.</Prose>
       </Section>
 
       <Button disabled={pending}>{pending ? "Saving..." : "Save Settings"}</Button>

@@ -93,7 +93,7 @@ describe("LAW: Delete removes the document, its readings and its files, and noth
   it("the Documents views lose it and their counts drop by one", async () => {
     const count = async (view?: string) => {
       const html = await render("@/app/org/[slug]/documents/page", { params: P({ slug: ORG_WITH_MODULES }), searchParams: P(view ? { view } : {}) });
-      return Number(text(html).match(/Showing [A-Za-z ]+: (\d+)/)![1]);
+      return Number(text(html).match(/(?:All|Needs Review|Ready|Archived|Maybe)[A-Za-z ]*: (\d+) documents?/)![1]);
     };
     const [all, archived] = [await count(), await count("archived")];
     const { deleteDocument } = await import("@/lib/actions/documents");

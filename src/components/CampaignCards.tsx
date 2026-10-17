@@ -42,7 +42,7 @@ export function CampaignCards({ slug, campaigns, gifts, pledges }: { slug: strin
                   </Label>
                 </div>
                 <Body weight="bold" numeric tone={p.percentOfGoal === null ? "muted" : "ink"}>
-                  {p.percentOfGoal === null ? "no goal" : `${p.percentOfGoal}%`}
+                  {p.percentOfGoal === null ? "No Goal" : `${p.percentOfGoal}%`}
                 </Body>
               </div>
               <Meter parts={[{ role, fraction: (p.percentOfGoal ?? 0) / 100 }]} />

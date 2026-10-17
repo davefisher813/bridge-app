@@ -164,7 +164,7 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
           `${label}${athlete ? ` · ${athlete}` : doc.category === "board_document" || doc.category === "other" ? "" : " · No Match"}`
         : (label ?? readableFileName(doc.file_name));
   const reason = lifecycle === "processing" && isStaleProcessing(lifecycle, doc.lifecycle_changed_at) ? "Reading did not finish." : doc.review_reason && lifecycle !== "archived" && lifecycle !== "ready" ? plainText(doc.review_reason) || null : null;
-  const facts = [doc.title ? label : null, doc.title || typed || doc.status === "filed" || title !== doc.file_name ? doc.file_name : null, formatLabelOf(doc.format, doc.media_type), formatBytes(doc.file_size), ago(doc.created_at)].filter(Boolean);
+  const facts = [doc.title ? label : null, doc.title || typed || doc.status === "filed" || title !== doc.file_name ? doc.file_name : null, ago(doc.created_at)].filter(Boolean);
   const notes = [...(doc.status === "filed" ? [] : suggestionNotes(doc, linkedNames)), doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
   return (
     <Row
@@ -257,7 +257,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const viewLabel = VIEWS.find((v) => v.id === view)!.label;
 
   return (
-    <Screen title="Documents" lede={`${org.name}. Showing ${viewLabel}${q ? `, matching "${q}"` : ""}: ${rows.length} ${rows.length === 1 ? "document" : "documents"}.`} action={<AddButton href={`/org/${slug}/documents/new`} label="Add" />}>
+    <Screen title="Documents" lede={`${viewLabel}${q ? `, matching "${q}"` : ""}: ${rows.length} ${rows.length === 1 ? "document" : "documents"}`} action={<AddButton href={`/org/${slug}/documents/new`} label="Add" />}>
       {notice && <Notice tone="success" title={notice} />}
       {suggestUndo && (
         <Form action={undoBulkSuggest.bind(null, slug)}>

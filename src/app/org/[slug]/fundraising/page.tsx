@@ -103,7 +103,7 @@ export default async function FundraisingPage({
   }
 
   return (
-    <Screen title="Fundraising" lede="What has come in, across every year and then year by year.">
+    <Screen title="Fundraising">
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
 
       {/* The headline is every year together (Dave, 2026-10-13: "not
@@ -114,7 +114,7 @@ export default async function FundraisingPage({
           <Stat value={formatMoneyShort(all.cashCents)} label="Raised, All Years" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts`} />
           <Stat value={all.giftCount} label="Gifts, All Years" role="contact" kind="people" href={`/org/${slug}/fundraising/gifts`} />
         </StatRow>
-        <Label>{`Cash in the door from ${all.donorCount} ${all.donorCount === 1 ? "supporter" : "supporters"} who gave, ${all.years.length} ${all.years.length === 1 ? "year" : "years"} together.${all.inKindCents > 0 ? ` ${formatMoneyShort(all.inKindCents)} more was given in kind.` : ""}`}</Label>
+        <Label>{`${all.donorCount} ${all.donorCount === 1 ? "supporter" : "supporters"} · ${all.years.length} ${all.years.length === 1 ? "year" : "years"}${all.inKindCents > 0 ? ` · ${formatMoneyShort(all.inKindCents)} in kind` : ""}`}</Label>
       </Stack>
 
       {all.promisedCents > 0 && (
@@ -124,7 +124,7 @@ export default async function FundraisingPage({
           role="offer"
           emphasis="bold"
           title={`${formatMoney(all.outstandingPledgeCents)} Promised, Not Received`}
-          meta={`${formatMoney(all.promisedCents)} promised across all years. Not counted in the ${formatMoneyShort(all.cashCents)} raised.`}
+          meta={`${formatMoney(all.promisedCents)} promised`}
           wrap
         />
       )}
@@ -140,16 +140,15 @@ export default async function FundraisingPage({
                     <Body weight="bold">{y.year}</Body>
                     <Label>
                       {quiet
-                        ? "Nothing recorded"
+                        ? ""
                         : `${y.giftCount} ${y.giftCount === 1 ? "gift" : "gifts"} from ${y.donorCount} ${y.donorCount === 1 ? "supporter" : "supporters"}${y.inKindCents > 0 ? ` · ${formatMoneyShort(y.inKindCents)} in kind` : ""}`}
                     </Label>
-                    <Label>{y.promisedCents > 0 ? `${formatMoneyShort(y.promisedCents)} promised, ${formatMoneyShort(y.outstandingPledgeCents)} still owed` : "No pledges"}</Label>
+                    {y.promisedCents > 0 && <Label>{`${formatMoneyShort(y.promisedCents)} promised, ${formatMoneyShort(y.outstandingPledgeCents)} still owed`}</Label>}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <Body weight="bold" numeric tone={y.cashCents > 0 ? "ink" : "muted"}>
                       {formatMoneyShort(y.cashCents)}
                     </Body>
-                    {y.year === fiscalYear && <Chip label="Open Below" kind="check" role="accent" />}
                   </div>
                 </div>
               </Stack>
@@ -161,10 +160,10 @@ export default async function FundraisingPage({
       <Section label={`${fiscalYear} Detail`} role="accent" kind="money" />
       <Stack gap={2}>
         <StatRow>
-          <Stat value={formatMoneyShort(s.totalCashCents)} label={`Raised in ${fiscalYear}`} role="committed" kind="money" href={`/org/${slug}/fundraising/gifts?year=${fiscalYear}`} />
+          <Stat value={formatMoneyShort(s.totalCashCents)} label="Raised" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts?year=${fiscalYear}`} />
           <Stat value={formatMoneyShort(s.totalBudgetCents)} label="Budget" role="contact" kind="scale" href={`/org/${slug}/fundraising/budget?year=${fiscalYear}`} />
         </StatRow>
-        <Label>{budgetPercent === null ? "Cash in the door. No budget set for the year." : `Cash in the door, ${budgetPercent}% of the year's budget.`}</Label>
+        {budgetPercent !== null && <Label>{`${budgetPercent}% of Budget`}</Label>}
       </Stack>
 
       {/* Beside the total, never inside it. Summing a promise into
@@ -177,7 +176,7 @@ export default async function FundraisingPage({
           role="offer"
           emphasis="bold"
           title={`${formatMoney(s.outstandingPledgeCents)} Promised, Not Received`}
-          meta={`Not counted in the ${formatMoneyShort(s.totalCashCents)} above.${s.overduePledgeCents > 0 ? ` ${formatMoney(s.overduePledgeCents)} of it is past its due date.` : ""}`}
+          meta={s.overduePledgeCents > 0 ? `${formatMoney(s.overduePledgeCents)} past due` : undefined}
           wrap
         />
       )}
@@ -199,13 +198,15 @@ export default async function FundraisingPage({
                     </Body>
                     <Label>
                       {formatMoneyShort(c.receivedCents)}
-                      {c.budgetCents > 0 ? ` of ${formatMoneyShort(c.budgetCents)}` : " received"}
+                      {c.budgetCents > 0 ? ` of ${formatMoneyShort(c.budgetCents)}` : ""}
                       {c.inKindCents > 0 ? ` · ${formatMoneyShort(c.inKindCents)} in kind` : ""}
                     </Label>
                   </div>
-                  <Body weight="bold" numeric tone={c.percentOfBudget === null ? "muted" : "ink"}>
-                    {c.percentOfBudget === null ? "no target set" : `${c.percentOfBudget}%`}
-                  </Body>
+                  {c.percentOfBudget !== null && (
+                    <Body weight="bold" numeric>
+                      {`${c.percentOfBudget}%`}
+                    </Body>
+                  )}
                 </div>
                 <Meter parts={[{ role, fraction: (c.percentOfBudget ?? 0) / 100 }]} />
               </Stack>
@@ -226,7 +227,7 @@ export default async function FundraisingPage({
             role="place"
             emphasis="bold"
             title={`${formatMoney(s.totalInKindCents)} Donated in Goods and Services`}
-            meta={`Not cash. Total support for the year is ${formatMoneyShort(s.totalSupportCents)}.`}
+            meta={`${formatMoneyShort(s.totalSupportCents)} total support`}
             wrap
           />
         </Section>
@@ -240,18 +241,14 @@ export default async function FundraisingPage({
         )}
       </Section>
 
-      <Section label={`${fiscalYear} Supporters`} role="contact" kind="people">
-        <Note title={`${s.giftCount} ${s.giftCount === 1 ? "gift" : "gifts"} from ${s.donorCount} ${s.donorCount === 1 ? "supporter" : "supporters"}.`}>
-          Anonymous gifts count in the total and not in the supporter number, so the figure means people.
-        </Note>
+      <Section label="Supporters" role="contact" kind="people">
+        <Note title={`${s.giftCount} ${s.giftCount === 1 ? "gift" : "gifts"} from ${s.donorCount} ${s.donorCount === 1 ? "supporter" : "supporters"}`} />
       </Section>
 
       {/* Reading the ledger is not an editing right. A board member who
           can see the total can see what it is made of, which is the
           point of showing them a total at all. */}
       <Section label="Records" role="committed" kind="money">
-        <Row href={`/org/${slug}/fundraising/gifts`} kind="money" role="committed" title="Gifts" trailing={<Chevron />} />
-        <Row href={`/org/${slug}/fundraising/pledges`} kind="pledge" role="offer" title="Pledges" trailing={<Chevron />} />
         <Row href={`/org/${slug}/fundraising/donors`} kind="donor" role="contact" title="Donors" trailing={<Chevron />} />
         {canEdit && <Row href={`/org/${slug}/fundraising/grants`} kind="grant" role="place" title="Grants" trailing={<Chevron />} />}
         {canEdit && (
@@ -260,7 +257,7 @@ export default async function FundraisingPage({
             kind="settings"
             role="committed"
             title="Budget"
-            meta={s.totalBudgetCents > 0 ? `${fiscalYear}, as the board approved it` : "Not set yet"}
+            meta={s.totalBudgetCents > 0 ? undefined : "Not Set"}
             trailing={<Chevron />}
           />
         )}

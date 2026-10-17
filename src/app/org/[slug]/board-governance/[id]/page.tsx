@@ -98,7 +98,7 @@ export default async function BoardPage({
               {formatMoneyShort(summary.raisedCents)} of {formatMoneyShort(summary.committedCents)}
             </Body>
             <Body weight="bold" numeric>
-              {summary.percent === null ? "no target" : `${summary.percent}%`}
+              {summary.percent === null ? "No Target" : `${summary.percent}%`}
             </Body>
           </div>
           <Label>
@@ -157,7 +157,7 @@ export default async function BoardPage({
               trailing={
                 m.status === "active" ? (
                   <Body weight="bold" numeric>
-                    {p?.percent === null || p === undefined ? "no target" : `${p.percent}%`}
+                    {p?.percent === null || p === undefined ? "No Target" : `${p.percent}%`}
                   </Body>
                 ) : (
                   <Chip label={STATUS_LABEL[m.status]} kind={SEAT_KIND[m.status]} role="neutral" />

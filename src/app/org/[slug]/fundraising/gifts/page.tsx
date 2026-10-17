@@ -9,6 +9,7 @@
 // the rollup applies, because a donated scoreboard is real support and a
 // treasurer cannot spend it.
 
+import { displayName } from "@/lib/copy/personName";
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -68,7 +69,7 @@ export default async function GiftsPage({
   }
 
   const all = toGifts(giftRows as GiftRow[] | null);
-  const donorName = new Map((donorRows ?? []).map((d) => [(d as { id: string }).id, (d as { name: string }).name]));
+  const donorName = new Map((donorRows ?? []).map((d) => [(d as { id: string }).id, displayName((d as { name: string }).name)]));
   // A removed donor's gifts stay in the ledger by name; their record is
   // out of the address book, so nothing links to it.
   const removed = new Set(((donorRows ?? []) as { id: string; deleted_at: string | null }[]).filter((d) => d.deleted_at).map((d) => d.id));

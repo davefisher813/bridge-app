@@ -225,9 +225,7 @@ export default async function RosterPage({
                 ? "Nobody is at this status. Show every athlete to see the rest."
                 : unadvised
                   ? "Every athlete still being recruited has an advisor."
-                  : canEdit
-                    ? "Add the first one below."
-                    : "Ask an Admin to add one."}
+                  : ""}
         </EmptyState>
       ) : (
         rowsList

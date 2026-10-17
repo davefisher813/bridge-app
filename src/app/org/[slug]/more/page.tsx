@@ -4,7 +4,7 @@ import { managesAccess } from "@/lib/org/master";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { signout } from "@/lib/auth/actions";
 import { labelForRole } from "@/lib/org/roleLabels";
-import { Button, ConfirmButton, Form, Label, Notice, Row, Screen, Section, Stack } from "@/components/kit";
+import { Button, ConfirmButton, Form, Label, Notice, Divider, Row, Screen, Section, Stack } from "@/components/kit";
 import { PresetForm } from "@/components/PresetForm";
 import { YourNameForm } from "@/components/YourNameForm";
 import { SetPasswordForm } from "@/components/SetPasswordForm";
@@ -70,11 +70,13 @@ export default async function MorePage({ params, searchParams }: { params: Promi
         {canEdit && <Row href={`/org/${slug}/documents`} kind="document" role="place" title="Documents" wrap />}
       </Section>
 
+      <Divider />
+
       <Section label="Reference" role="place" kind="school">
         <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" wrap />
-        <Row href={`/org/${slug}/grading-scales`} kind="scale" role="contact" title="Grading Scales" meta="How each school's numbers become letters" wrap />
-        <Row href={`/org/${slug}/approved-courses`} kind="checklist" role="visit" title="Approved Lists" meta="Which courses the NCAA counts at each school" wrap />
-        <Row href={`/org/${slug}/transfer-windows`} kind="clock" role="time" title="Transfer Windows" meta="When the portal opens and closes, by sport and division" wrap />
+        <Row href={`/org/${slug}/grading-scales`} kind="scale" role="contact" title="Grading Scales" wrap />
+        <Row href={`/org/${slug}/approved-courses`} kind="checklist" role="visit" title="Approved Lists" wrap />
+        <Row href={`/org/${slug}/transfer-windows`} kind="clock" role="time" title="Transfer Windows" wrap />
       </Section>
 
       {/* docs/MATCHING_CONTRACT.md section 3: the blend is a per-org
@@ -98,6 +100,8 @@ export default async function MorePage({ params, searchParams }: { params: Promi
         )}
       </Section>
 
+      <Divider />
+
       {(org.modules.donor_fundraising || org.modules.board_governance) && (
         <Section label="Foundation" role="committed" kind="money">
           {org.modules.donor_fundraising && <Row href={`/org/${slug}/fundraising`} kind="money" role="committed" title="Fundraising" wrap />}
@@ -112,7 +116,7 @@ export default async function MorePage({ params, searchParams }: { params: Promi
         {canEdit && <Row href={`/org/${slug}/activity`} kind="clock" role="time" title="Activity" wrap />}
         {/* See what one person sees, read only for 30 minutes (Stage 5
             Phase 5). Admins only, and only an owner can start one. */}
-        {user.role === "owner" && <Row href={`/org/${slug}/view-as`} kind="athlete" role="contact" title="View As" meta="See exactly what an Athlete, a Viewer or another Admin sees" wrap />}
+        {user.role === "owner" && <Row href={`/org/${slug}/view-as`} kind="athlete" role="contact" title="View As" wrap />}
         {/* What reading documents has cost this month, against the cap.
             The Master Account sees the number and sets the cap. */}
         {seesSpend && (

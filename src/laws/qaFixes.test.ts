@@ -110,9 +110,9 @@ describe("Campaigns can be reached, listed and started", () => {
     await expect(html(LIST, { params: Promise.resolve({ slug: "elite-fixture" }), searchParams: Promise.resolve({}) })).rejects.toThrow(/NEXT_NOT_FOUND/);
   });
 
-  it("the settings copy only promises what exists", () => {
+  it("the module toggles carry no explainer text (Dave, 2026-10-17)", () => {
     const copy = readFileSync(join(process.cwd(), "src/lib/validation/org.ts"), "utf8");
-    expect(copy).toMatch(/Donors, gifts, pledges, campaigns and grants/);
+    expect(copy).not.toMatch(/Donors, gifts, pledges, campaigns and grants|Boards, seats and give\/get/);
   });
 });
 

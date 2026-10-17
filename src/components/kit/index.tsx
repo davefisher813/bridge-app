@@ -50,7 +50,7 @@ export function Body({ children, tone = "ink", weight = "normal", numeric = fals
 }
 
 export function Label({ children, tone = "muted", caps = false, truncate = false, numeric = false }: { children: ReactNode; tone?: Tone; caps?: boolean; truncate?: boolean; numeric?: boolean }) {
-  return <div className={`text-label ${caps ? "font-bold uppercase tracking-wide" : ""} ${toneClass(tone)} ${truncate ? "truncate" : ""} ${numeric ? "tabular-nums" : ""}`}>{children}</div>;
+  return <div className={`text-label ${caps ? "font-bold" : ""} ${toneClass(tone)} ${truncate ? "truncate" : ""} ${numeric ? "tabular-nums" : ""}`}>{children}</div>;
 }
 
 // A paragraph of running text. Body size, muted by default, because
@@ -153,7 +153,7 @@ export function Section({ label, count, role = "accent", kind, action, children 
     <section className="flex flex-col gap-3">
       <div className="flex min-h-6 items-center gap-2">
         {kind ? <RowGlyph kind={kind} role={role} className="h-4 w-4" /> : <span className={`h-2 w-2 flex-shrink-0 rounded-full ${DOT[role]}`} />}
-        <span className="text-label font-bold uppercase tracking-wide text-muted">{label}</span>
+        <span className="text-label font-bold text-muted">{label}</span>
         <span className="h-px flex-1 border-b-2 border-dotted border-line" />
         {count !== undefined && <span className="text-label font-bold tabular-nums text-ink">{count}</span>}
         {action}
@@ -407,6 +407,17 @@ export function EmptyState({ kind = "info", role = "neutral", title, action, chi
       {action && <div className="w-full pt-2">{action}</div>}
     </div>
   );
+}
+
+// An empty section collapsed to one quiet line, for places where a
+// full empty state would only take room (Notes, Contacts).
+export function EmptyLine({ children }: { children: ReactNode }) {
+  return <p className="text-label text-muted">{children}</p>;
+}
+
+// A rule between groups of sections, so a long page reads in blocks.
+export function Divider() {
+  return <hr className="border-t-2 border-line" />;
 }
 
 // Something the screen has to tell the person: a saved confirmation, a

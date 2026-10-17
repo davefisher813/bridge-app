@@ -16,6 +16,7 @@
 // for. Their status sits where the score would, and the breakdown is
 // not built. Dave, 2026-09-26.
 
+import { lastCommunication } from "@/lib/data/lastCommunication";
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -197,6 +198,7 @@ export default async function TargetPage({ params }: { params: Promise<{ slug: s
           title={coachName || "No Coach on File"}
           meta={`${comms.length} ${comms.length === 1 ? "message" : "messages"} · ${visits.length} ${visits.length === 1 ? "visit" : "visits"}`}
         />
+        {lastCommunication(comms) && <Row href={`/org/${slug}/board/${id}/communications`} kind="message" role="contact" title="Last Communication" meta={longDate(lastCommunication(comms))} wrap />}
         {comms.slice(0, 5).map((c, i) => (
           <Row
             key={i}

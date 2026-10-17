@@ -230,7 +230,7 @@ export function scoreAthletic(athlete: Athlete, school: School): DimensionResult
       reasons.push(grades.note);
       return { score: clampScore(grades.score), confidence: "low", veto: false, reasons, warnings: [`${why}: the athletic score is the staff grades alone`] };
     }
-    return { score: 50, confidence: "unknown", veto: false, reasons, warnings: [`${why}: enter stats for an accurate athletic fit`] };
+    return { score: 50, confidence: "unknown", veto: false, reasons, warnings: [why] };
   }
 
   const metricScore = (rawScore / (checks * 2)) * 100;

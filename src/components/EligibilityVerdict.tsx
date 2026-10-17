@@ -68,7 +68,7 @@ export function GpaPair({ coreGpa, transcriptGpa, needed, transcriptHref }: { co
   return (
     <Grid2>
       <Card href={transcriptHref}>
-        <Label caps>NCAA core</Label>
+        <Label caps>NCAA Core</Label>
         <Figure>{coreGpa === null ? "?" : coreGpa.toFixed(2)}</Figure>
         <Label>{needed === null ? "no NCAA standard" : `needs ${needed} to compete`}</Label>
       </Card>

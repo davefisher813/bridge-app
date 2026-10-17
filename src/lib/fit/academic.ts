@@ -85,7 +85,7 @@ export function scoreAcademic(athlete: Athlete, school: School): DimensionResult
       confidence: "unknown",
       veto: false,
       reasons,
-      warnings: [...warnings, "No GPA on file: enter GPA for an accurate academic fit"],
+      warnings: [...warnings, "No GPA on file"],
     };
   }
 

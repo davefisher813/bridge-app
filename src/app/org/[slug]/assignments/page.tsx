@@ -106,7 +106,7 @@ export default async function OrgAssignmentsPage({ params, searchParams }: { par
   );
 
   return (
-    <Screen title="Assignments" back={{ href: `/org/${slug}/more`, label: "More" }} lede="Open and submitted work, across every athlete">
+    <Screen title="Assignments" back={{ href: `/org/${slug}/more`, label: "More" }}>
       {(all.length > 5 || q) && <SearchField initial={q} placeholder="A title or an athlete" />}
       {searched.length === 0 && (
         <EmptyState kind="checklist" role="contact" title={q ? "Nothing Matches" : "Nothing Open"} />

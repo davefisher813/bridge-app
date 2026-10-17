@@ -71,7 +71,7 @@ const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) =>
 
 // The kit's Section writes its label in one caps span. Every label on
 // the page, in order.
-const sectionLabels = (html: string) => [...html.matchAll(/uppercase tracking-wide text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
+const sectionLabels = (html: string) => [...html.matchAll(/font-bold text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
 // The markup of one section, from its label to the next section.
 function sectionOf(html: string, label: string): string {
   const start = html.indexOf(`>${label}</span>`);
@@ -254,7 +254,7 @@ describe("LAW: Doc AI cost and its budget belong to the Master Account", () => {
 describe("LAW: small copy fixes (Alfred, 2026-10-15)", () => {
   it("the scoring preset hint says re-scores", async () => {
     const html = await more();
-    expect(html).toContain("Saving recalculates every match for every athlete.");
+    expect(html).not.toContain("Saving recalculates");
     expect(html).not.toContain("rescores every match");
   });
 });
@@ -275,7 +275,7 @@ describe("LAW: copy fixes from the Oct 16 audit (V6, V7)", () => {
   it("reads plainly", async () => {
     const { readFileSync } = await import("node:fs");
     const read = (p: string) => readFileSync(p, "utf8");
-    expect(read("src/components/AssignmentReview.tsx")).toContain("The Athlete login sees this when it is sent back.");
+    expect(read("src/components/AssignmentReview.tsx")).not.toContain("The Athlete login sees this");
     expect(read("src/app/org/[slug]/board-governance/meetings/[meetingId]/page.tsx")).toContain("Remove From Meeting");
     expect(read("src/app/org/[slug]/view-as/page.tsx")).toContain("Their own profile and nothing else");
     expect(read("src/app/org/[slug]/fundraising/page.tsx")).not.toContain("All years first, then each year");

@@ -75,7 +75,7 @@ export default async function OrgSettingsPage({ params, searchParams }: { params
           kind="people"
           role={master ? "committed" : "neutral"}
           title={master ?? "Nobody Set"}
-          meta={master ? `${isMaster ? "You hold it. Only you invite people, change access levels or remove someone." : "Only they invite people, change access levels or remove someone."}` : "Any Admin invites people, changes access levels and removes someone."}
+          meta={isMaster ? "You" : undefined}
           trailingAction={
             isMaster ? (
               <AdvisorSheet
@@ -131,12 +131,10 @@ export default async function OrgSettingsPage({ params, searchParams }: { params
             />
           );
         })}
-        <Label>With nobody named, any Admin marks a document Ready with one tap. Once someone is named, only they mark that area&apos;s documents Ready.</Label>
       </Section>
       <Section label="Shared School Directory" role="place" kind="school">
         <Card isStatic>
           <Body weight="semibold">{editsDirectory ? "This Organization Can Edit It" : "Read Only Here"}</Body>
-          <Label>Schools, college coaches and transfer windows are shared by every organization in the app, so this is set for the whole app, not from this screen.</Label>
         </Card>
       </Section>
       <Section label="Database Updates" count={status.applied} role="time" kind="check">
@@ -146,8 +144,8 @@ export default async function OrgSettingsPage({ params, searchParams }: { params
           </Body>
           <Label>
             {status.checked
-              ? `${status.applied} of ${status.lines.filter((l) => l.state !== "cut").length} updates are on the database, checked against its own history just now.`
-              : "The database's history could not be read just now, so this shows the repo's record only."}
+              ? `${status.applied} of ${status.lines.filter((l) => l.state !== "cut").length} updates applied`
+              : "History could not be read just now"}
           </Label>
         </Card>
       </Section>

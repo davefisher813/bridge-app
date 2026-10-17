@@ -213,7 +213,6 @@ export function ApprovedListForm({
 
       <Button disabled={pending || blockedBy !== null}>{pending ? "Saving..." : "Save the List"}</Button>
 
-      <Prose>Saving recalculates every athlete at {schoolName} straight away.</Prose>
     </Form>
   );
 }

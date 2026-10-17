@@ -17,7 +17,7 @@ export function PresetForm({ action, current }: { action: ServerAction; current:
 
   return (
     <Form action={formAction} error={state.errors.form}>
-      <SelectField name="preset" label="Scoring Preset" hint="Saving recalculates every match for every athlete." defaultValue={current} error={state.errors.preset}>
+      <SelectField name="preset" label="Scoring Preset" defaultValue={current} error={state.errors.preset}>
         {keys.map((k) => {
           const w = PRESETS[k].weights;
           return (
