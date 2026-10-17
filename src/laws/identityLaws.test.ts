@@ -505,6 +505,21 @@ describe("LAW: an unconfirmed suggestion is in Needs Review", () => {
     expect(await list("ready")).toContain("Fixture_Athlete_transcript.txt");
   });
 
+  it("a machine file name reads as a title, and an archived row carries no second Archived label (D6, V5)", async () => {
+    const r = await upload("browser-download-20261009T014437.089730450Z-11-fiscal-policy.txt", "x");
+    const row = rowOf(r.documentId!);
+    row.category = null;
+    row.requested_category = null;
+    row.suggested_type = null;
+    row.review_reason = "No type chosen.";
+    row.lifecycle = "archived";
+    const out = (await list("archived")).replace(/<script>[\s\S]*?<\/script>/g, "");
+    expect(out).toContain("Fiscal Policy");
+    expect(out).not.toMatch(/text-ink">browser-download/); // the title; the file name stays in the details line
+    expect(out).not.toContain("No type chosen.");
+    expect((out.match(/>Archived</g) ?? []).length).toBe(2); // the tile and the section, not the row
+  });
+
   it("confirming takes it out of Needs Review", async () => {
     const r = await upload("Fixture_Athlete_transcript.txt", "x");
     rowOf(r.documentId!).lifecycle = "ready";

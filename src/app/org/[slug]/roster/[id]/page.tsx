@@ -508,6 +508,16 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
         />
       </Stack>
 
+      {!placement && athlete.status === "Inactive" && (
+        // Every profile has the section (live test O1, 2026-10-16). An
+        // Inactive athlete is not scored, so it says so instead of ranking.
+        <Section label="Schools Evaluated" role="place" kind="target">
+          <EmptyState kind="target" title="No Matches Yet">
+            {`Matches stopped scoring while ${athlete.name} is inactive.`}
+          </EmptyState>
+        </Section>
+      )}
+
       {!placement && isScoredStatus(athlete.status) && (
         // Once Committed or Enrolled, recruiting is over: ranking more
         // schools is noise, and an Inactive athlete is not scored either.
