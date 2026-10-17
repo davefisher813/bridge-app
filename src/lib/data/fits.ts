@@ -101,9 +101,11 @@ export function tidyFitText(lines: string[] | null | undefined): string[] {
   for (const raw of lines ?? []) {
     if (/^D3 school: athletic scholarships are not allowed/i.test(raw)) continue;
     if (/^No cost or aid data for this D3 school$/i.test(raw)) continue;
-    const scored = raw.match(/^Scored on .+ only: no (.+) data yet$/i);
+    // "Scored on only: no ..." is what a fit with nothing scored stored
+    // (an empty list between the words); there is nothing to say then.
+    const scored = raw.match(/^Scored on\s*(.*?)\s*only: no (.+) data yet$/i);
     if (scored) {
-      out.push(`No ${scored[1]} data`.replace(/ or /g, " or "));
+      if (scored[1]) out.push(`No ${scored[2]} data`);
       continue;
     }
     out.push(raw.replace(/^(No GPA on file|No measurables on file): enter .+ for an accurate .+ fit$/i, "$1"));
