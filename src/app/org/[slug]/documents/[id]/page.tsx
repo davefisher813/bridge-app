@@ -243,7 +243,7 @@ function displayFields(extracted: Record<string, unknown> | null): { label: stri
       const v = extracted[key];
       const list = summarizeList(key, v);
       const value = list ?? (typeof v === "boolean" ? (v ? "Yes" : "No") : typeof v === "number" && /cost|efc|sai/i.test(key) ? `$${Math.round(v).toLocaleString("en-US")}` : String(v));
-      return { label, value };
+      return { label, value: key === "recommenderTitle" && !String(v).trim() ? "Other" : value };
     })
     .map((f) => (PROSE_LABELS.has(f.label) ? { ...f, value: f.value.split(" · ").map(plainText).filter((v) => v.trim() !== "").join(" · ") } : f))
     .filter((f) => f.value !== "");
@@ -510,7 +510,8 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // The file as it was stored: never changed after upload. Name, format,
   // size, who, when and the SHA-256 of the bytes, then what it shows
   // (Piece 6) and a copy to save.
-  const hash = doc.content_hash ? (doc.content_hash.match(/.{1,8}/g) ?? []).join(" ") : null;
+  // One unbroken string, so it can be selected and compared (live test D7).
+  const hash = doc.content_hash ?? null;
   const typeLabel = documentTypeLabel(doc, CATEGORY_LABEL);
   const facts: [string, string][] = [
     ...(doc.title ? ([["Title", doc.title]] as [string, string][]) : []),
@@ -518,7 +519,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     ["File Name", doc.file_name],
     ["Format", formatLabelOf(doc.format, doc.media_type)],
     ["Size", formatBytes(doc.file_size)],
-    ...(uploadedBy ? ([["Uploaded By", uploadedBy]] as [string, string][]) : []),
+    ["Uploaded By", uploadedBy ?? (doc.uploaded_by ? "Someone no longer in this organization" : "Not recorded")],
     ["Uploaded", longDate(doc.created_at)],
     ...(hash ? ([["SHA-256", hash]] as [string, string][]) : []),
   ];

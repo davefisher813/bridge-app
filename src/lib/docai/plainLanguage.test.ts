@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasDeveloperTalk, plainLines, plainText } from "./plainLanguage";
+import { aOrAn, fixArticles, hasDeveloperTalk, plainLines, plainText } from "./plainLanguage";
 
 describe("plain language for extraction text (Alfred, 2026-10-15)", () => {
   it("drops a sentence that talks about a field or a column", () => {
@@ -19,5 +19,13 @@ describe("plain language for extraction text (Alfred, 2026-10-15)", () => {
 
   it("plainLines drops the lines that are only field talk", () => {
     expect(plainLines(["Hard to read the GPA.", "studentName is null.", "The page is cut off. The column is blank."])).toEqual(["Hard to read the GPA.", "The page is cut off."]);
+  });
+
+  it("fixes an article before a vowel word and leaves the rest (live test D5)", () => {
+    expect(fixArticles("This looks like a letter, not a athlete profile.")).toBe("This looks like a letter, not an athlete profile.");
+    expect(plainText("It is not a athlete profile.")).toBe("It is not an athlete profile.");
+    expect(fixArticles("a university and a transcript")).toBe("a university and a transcript");
+    expect(aOrAn("athlete profile")).toBe("an athlete profile");
+    expect(aOrAn("transcript")).toBe("a transcript");
   });
 });

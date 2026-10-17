@@ -543,6 +543,17 @@ describe("LAW: the document screen shows the suggestion and asks", () => {
     return renderToStaticMarkup(await mod.default({ params: Promise.resolve({ slug: ORG_WITH_MODULES, id }), searchParams: Promise.resolve({}) }));
   }
 
+  it("the original file shows its fingerprint as one string and always says who uploaded it (D3, D7)", async () => {
+    const r = await upload("Fixture_Athlete_transcript.txt", "x");
+    const row = rowOf(r.documentId!);
+    row.content_hash = "a3f1c2d4e5b6a7980123456789abcdef0123456789abcdef0123456789abcdef";
+    row.uploaded_by = null;
+    const out = await html(r.documentId!);
+    expect(out).toContain("a3f1c2d4e5b6a7980123456789abcdef0123456789abcdef0123456789abcdef");
+    expect(out).toContain("Uploaded By");
+    expect(out).toContain("Not recorded");
+  });
+
   it("a document that is gone sends the person to the library, not an error screen (live test O2)", async () => {
     await expect(html("00000000-0000-0000-0000-00000000dead")).rejects.toThrow("NEXT_REDIRECT:/org/" + ORG_WITH_MODULES + "/documents");
   });
