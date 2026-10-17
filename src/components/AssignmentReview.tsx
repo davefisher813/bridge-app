@@ -27,7 +27,7 @@ export function AssignmentReview({ complete, revise }: { complete: CompleteActio
         <TextAreaField
           name="comment"
           label="What Needs to Change"
-          hint="The athlete login sees this when it is sent back."
+          hint="The Athlete login sees this when it is sent back."
           maxLength={ASSIGNMENT_TEXT_MAX}
           defaultValue={state.comment ?? ""}
           error={state.errors.comment}

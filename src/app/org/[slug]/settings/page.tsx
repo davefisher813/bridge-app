@@ -75,7 +75,7 @@ export default async function OrgSettingsPage({ params, searchParams }: { params
           kind="people"
           role={master ? "committed" : "neutral"}
           title={master ?? "Nobody Set"}
-          meta={master ? `${isMaster ? "You. " : ""}Only they invite people, change access levels or remove someone.` : "Any Admin invites people, changes access levels and removes someone."}
+          meta={master ? `${isMaster ? "You hold it. Only you invite people, change access levels or remove someone." : "Only they invite people, change access levels or remove someone."}` : "Any Admin invites people, changes access levels and removes someone."}
           trailingAction={
             isMaster ? (
               <AdvisorSheet
