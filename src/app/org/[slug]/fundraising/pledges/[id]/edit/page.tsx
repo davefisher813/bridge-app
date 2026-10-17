@@ -6,9 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 import { removePledge, updatePledge } from "@/lib/actions/fundraising";
 import { PledgeForm } from "@/components/FundraisingForms";
 import { loadSeatOptions } from "@/lib/data/seatOptions";
-import { toCents } from "@/lib/fundraising/rollup";
+import { formatMoney, toCents } from "@/lib/fundraising/rollup";
+import { longDate } from "@/lib/copy/dates";
 import { centsToDecimalString } from "@/lib/validation/gift";
-import { ConfirmButton, Form, Notice, Screen, Section } from "@/components/kit";
+import { Body, Card, Chevron, ConfirmButton, Form, Label, Notice, Row, Screen, Section } from "@/components/kit";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,17 @@ export default async function EditPledgePage({ params, searchParams }: { params:
   const boardMembers = await loadSeatOptions(supabase, org, p.solicited_by);
   const who = donors.find((d) => d.id === p.donor_id)?.name ?? "Pledge";
 
+  // Payments applied (live test F1): the gifts recorded against this
+  // pledge, what they add up to, what is left, and this donor's other
+  // gifts that no pledge claims yet, each one tap from linking.
+  const { data: giftRows } = await supabase.from("gifts").select("id, amount, received_on, pledge_id").eq("org_id", org.id).eq("donor_id", p.donor_id).order("received_on", { ascending: false });
+  const donorGifts = ((giftRows ?? []) as { id: string; amount: number | string; received_on: string; pledge_id: string | null }[]).map((g) => ({ id: g.id, cents: toCents(g.amount), on: g.received_on, pledgeId: g.pledge_id }));
+  const applied = donorGifts.filter((g) => g.pledgeId === p.id);
+  const unlinked = donorGifts.filter((g) => g.pledgeId === null);
+  const promisedCents = toCents(p.amount);
+  const appliedCents = applied.reduce((sum, g) => sum + g.cents, 0);
+  const remainingCents = p.status === "written_off" || p.status === "fulfilled" ? 0 : Math.max(0, promisedCents - appliedCents);
+
   return (
     <Screen title="Edit Pledge" back={{ href: `/org/${slug}/fundraising/pledges`, label: "Pledges" }} lede={who}>
       {error && <Notice tone="danger" title={error} />}
@@ -47,6 +59,21 @@ export default async function EditPledgePage({ params, searchParams }: { params:
         submitLabel="Save Pledge"
         initial={{ donorId: p.donor_id, amount: centsToDecimalString(toCents(p.amount)), promisedOn: p.promised_on, dueOn: p.due_on, campaignId: p.campaign_id, solicitedBy: p.solicited_by, notes: p.notes, status: p.status }}
       />
+      <Section label="Payments" role="committed" kind="money">
+        <Card isStatic>
+          <Body weight="semibold">{`${formatMoney(remainingCents)} remaining`}</Body>
+          <Label>{`${formatMoney(promisedCents)} promised · ${formatMoney(appliedCents)} applied from ${applied.length} ${applied.length === 1 ? "gift" : "gifts"}`}</Label>
+        </Card>
+        {applied.map((g) => (
+          <Row key={g.id} href={`/org/${slug}/fundraising/gifts/${g.id}/edit`} kind="money" role="committed" title={formatMoney(g.cents)} meta={longDate(g.on)} trailing={<Chevron />} wrap />
+        ))}
+        {unlinked.length > 0 && (
+          <Label>{`${unlinked.length} other ${unlinked.length === 1 ? "gift" : "gifts"} from this donor ${unlinked.length === 1 ? "is" : "are"} not applied to any pledge. Open one and choose this pledge to apply it.`}</Label>
+        )}
+        {unlinked.map((g) => (
+          <Row key={g.id} href={`/org/${slug}/fundraising/gifts/${g.id}/edit`} kind="money" role="contact" title={formatMoney(g.cents)} meta={`${longDate(g.on)} · Not applied to a pledge`} trailing={<Chevron />} wrap />
+        ))}
+      </Section>
       <Section label="Remove" role="danger" kind="blocked">
         <Form action={removePledge.bind(null, slug, p.id)}>
           <ConfirmButton title="Remove This Pledge?" body="The promise goes. Any payments already made against it stay as gifts and still count." confirmLabel="Remove">

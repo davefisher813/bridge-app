@@ -280,8 +280,26 @@ describe("LAW: copy fixes from the Oct 16 audit (V6, V7)", () => {
     expect(read("src/app/org/[slug]/view-as/page.tsx")).toContain("Their own profile and nothing else");
     expect(read("src/app/org/[slug]/fundraising/page.tsx")).not.toContain("All years first, then each year");
     expect(read("src/app/org/[slug]/settings/page.tsx")).not.toContain('"You. "');
+    // Complete is a finishing action in green, not the brand red that also means danger (V8).
+    expect(read("src/components/AssignmentReview.tsx")).toContain('<Button variant="positive">Complete</Button>');
+    expect(read("src/components/kit/index.tsx")).toMatch(/positive: "bg-solid-committed text-solid-committed-on"/);
     const { activitySummary } = await import("@/lib/data/activity");
     expect(activitySummary("document_deleted", { kind: "other" })).toBe("Deleted a document for good");
     expect(activitySummary("document_deleted", { kind: "transcript" })).toBe("Deleted a transcript for good");
+  });
+});
+
+describe("LAW: pledges show payments applied and say each amount once (F1, V9)", () => {
+  it("the edit screen shows what is promised, applied and remaining", async () => {
+    const html = await render("@/app/org/[slug]/fundraising/pledges/[id]/edit/page", { params: p({ slug: ORG_WITH_MODULES, id: "pl1" }), searchParams: p({}) });
+    expect(html).toMatch(/Payments/);
+    expect(html).toMatch(/remaining/);
+    expect(html).toMatch(/promised · \$[\d,.]+ applied from \d+ gifts?/);
+  });
+
+  it("a row says the amount at the right, not also in its line", async () => {
+    const html = await render("@/app/org/[slug]/fundraising/pledges/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) });
+    expect(html).not.toMatch(/\$[\d,.]+ promised ·/);
+    expect(html).toMatch(/Promised|promised/);
   });
 });

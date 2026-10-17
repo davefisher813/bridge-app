@@ -21,7 +21,7 @@ export function AssignmentReview({ complete, revise }: { complete: CompleteActio
   return (
     <Stack gap={4}>
       <Form action={complete}>
-        <Button>Complete</Button>
+        <Button variant="positive">Complete</Button>
       </Form>
       <Form action={formAction} error={state.errors.form}>
         <TextAreaField
