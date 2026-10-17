@@ -84,7 +84,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "family-schools-major", path: "@/app/org/[slug]/family/schools/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ major: "Biology" }) }, expect: /Fixture State University/, as: FAMILY_ID },
   { name: "family-school", path: "@/app/org/[slug]/family/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.school }) }, expect: /Fixture State University[\s\S]*Money/, as: FAMILY_ID },
   { name: "family-schoolD3", path: "@/app/org/[slug]/family/schools/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.schoolD3 }) }, expect: /No Athletic Scholarships at D3/, as: FAMILY_ID },
-  { name: "member-long-address", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: LONG_INVITE_ID }), searchParams: p({}) }, expect: /example-organization\.test/ },
+  { name: "member-long-address", path: "@/app/org/[slug]/members/[userId]/page", props: { params: p({ slug: ORG_WITH_MODULES, userId: LONG_INVITE_ID }), searchParams: p({}) }, expect: /(example-organization\.test[\s\S]*Save Email|Save Email[\s\S]*example-organization\.test)/ },
   { name: "roster", path: "@/app/org/[slug]/roster/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture Athlete/ },
   // The search path on each list that has one: the term narrows the
   // rows, and a term nothing matches reaches the empty state rather
