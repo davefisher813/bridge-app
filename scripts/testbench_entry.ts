@@ -345,7 +345,7 @@ function runSuite(): Check[] {
     const r = scoreFit(a, school({ financials: { outstateTotal: 30000 } }));
     if (!r.partial) return "not marked partial";
     if (r.counted.includes("academic") || r.counted.includes("athletic")) return `counted ${r.counted.join(", ")}`;
-    if (!r.warnings.join(" ").toLowerCase().includes("scored on")) return "did not say what it scored on";
+    if (!r.warnings.join(" ").toLowerCase().includes("no academic or athletic data")) return "did not say what data is missing";
     return null;
   });
 

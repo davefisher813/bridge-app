@@ -423,11 +423,11 @@ describe("LAW: a placed athlete has no score anywhere", () => {
   // (the render law above): planted and reverted.
   it("the board shows the Enrolled athlete's status where the score would sit, and scores the Active one", async () => {
     const html = await render("@/app/org/[slug]/board/page", { params: p({ slug: ORG_WITH_MODULES }) });
-    const placed = rowAfter(html, "Fixture Enrolled to Fixture State University");
+    const placed = rowAfter(html, "Fixture Enrolled");
     expect(placed).toMatch(/>Enrolled</);
     expect(placed).not.toMatch(SCORE);
     expect(placed).not.toMatch(/Not Scored Yet/);
-    const active = rowAfter(html, "Fixture Athlete to Fixture State University");
+    const active = rowAfter(html, "Fixture Athlete");
     expect(active).toMatch(SCORE);
     expect(active).toMatch(/>93</);
   });

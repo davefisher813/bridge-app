@@ -1,3 +1,4 @@
+import { lastCommunication } from "@/lib/data/lastCommunication";
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
 import { getOrgBySlug } from "@/lib/org/membership";
@@ -18,7 +19,7 @@ import { isOpenStatus, loadAthleteAssignments, sortByUrgency, todayIso } from "@
 import { AssignmentRows } from "@/components/AssignmentRows";
 import { ActivityRows } from "@/components/ActivityRows";
 import { loadCoachOptions } from "@/lib/data/lookups";
-import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyState, Form, Grid2, Hidden, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
+import { Avatar, Body, Card, Chevron, ConfirmButton, EmptyLine, EmptyState, Form, Grid2, Hidden, Label, LinkButton, Notice, Row, Score, Screen, Section, Stack, Stat, StatRow, TextLink } from "@/components/kit";
 import { relationshipLabel } from "@/lib/copy/relationships";
 import { statusRole, stageKind } from "@/components/statusHue";
 import { metricRowsToEntries, type MetricRow } from "@/lib/data/fitAdapters";
@@ -212,7 +213,15 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const goal = GOAL_LABEL[(athlete.goal ?? "balanced") as AthleteGoal] ?? GOAL_LABEL.balanced;
   const budgetCents = athlete.family_budget_cents as number | null;
 
-  const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ ...t, school: unwrap(t.schools) }));
+  // The newest log entry per target, read from the Communication Log
+  // itself so there is no second field to keep current.
+  const targetIds = ((targetRows ?? []) as TargetRow[]).map((t) => t.id);
+  const { data: commRows } = targetIds.length > 0 ? await supabase.from("target_communications").select("target_id, occurred_on").in("target_id", targetIds).eq("org_id", org.id) : { data: [] };
+  const lastByTarget = new Map<string, string | null>();
+  for (const r of (commRows ?? []) as { target_id: string; occurred_on: string | null }[]) {
+    lastByTarget.set(r.target_id, lastCommunication([{ occurred_on: lastByTarget.get(r.target_id) }, r]));
+  }
+  const targets = ((targetRows ?? []) as TargetRow[]).map((t) => ({ ...t, school: unwrap(t.schools), last: lastByTarget.get(t.id) ?? null }));
   const openTargets = targets.filter((t) => t.status !== "Not Interested");
 
   const journey = deriveJourneyStage(targets.map((t) => ({ status: t.status, schoolName: t.school?.name ?? "" })));
@@ -532,7 +541,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
             <EmptyState kind="target" title="No Matches Yet" action={canEdit ? <LinkButton href={`/org/${slug}/schools`}>Open Schools</LinkButton> : undefined} />
           ) : (
             <>
-              {topFits.map((f) => (
+              {topFits.map((f, i) => (
                 <Row
                   key={f.school_id}
                   href={`/org/${slug}/roster/${id}/matches`}
@@ -541,10 +550,12 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
                   title={f.school.name}
                   meta={`${f.school.division} · ${f.partial ? partialLabelFor(f) : (f.reasons[0] ?? f.warnings[0] ?? "")}`}
                   trailing={
-                    <>
-                      <Score score={f.score} />
-                      <Label tone={TAG_TONE[f.tag as FitTag] ?? "muted"}>{f.tag}</Label>
-                    </>
+                    i > 0 && topFits[i - 1].score === f.score && topFits[i - 1].tag === f.tag ? undefined : (
+                      <>
+                        <Score score={f.score} />
+                        <Label tone={TAG_TONE[f.tag as FitTag] ?? "muted"}>{f.tag}</Label>
+                      </>
+                    )
                   }
                 />
               ))}
@@ -571,7 +582,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
                 kind="school"
                 role={statusRole(t.status)}
                 title={t.school?.name ?? "Unknown School"}
-                meta={`${t.school?.division ?? ""}${t.offer_type ? ` · ${t.offer_type} offer${t.offer_scholarship_percent ? ` (${t.offer_scholarship_percent}%)` : ""}` : ""}`}
+                meta={`${t.school?.division ?? ""}${t.offer_type ? ` · ${t.offer_type} offer${t.offer_scholarship_percent ? ` (${t.offer_scholarship_percent}%)` : ""}` : ""}${t.last ? ` · Last Communication ${longDate(t.last)}` : ""}`}
                 trailing={<StatusPill status={t.status} />}
               />
             ))
@@ -605,7 +616,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
           them. */}
       <Section label="Notes" count={notes.length} role="accent" kind="note">
         {notes.length === 0 ? (
-          <EmptyState kind="note" title="No Notes Yet" />
+          <EmptyLine>No Notes Yet</EmptyLine>
         ) : (
           notes.map((n) => (
             <Card key={n.id}>
@@ -645,7 +656,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
 
       <Section label="Contacts" count={contacts.length} role="people" kind="people">
         {contacts.length === 0 ? (
-          <EmptyState kind="people" title="No Contacts Yet" />
+          <EmptyLine>No Contacts Yet</EmptyLine>
         ) : (
           contacts.map((c) => (
             <Card key={c.id}>

@@ -1,3 +1,5 @@
+import { lastCommunication } from "@/lib/data/lastCommunication";
+import { longDate } from "@/lib/copy/dates";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
@@ -84,7 +86,7 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
       )
       .eq("org_id", org.id)
       .order("created_at", { ascending: false }),
-    supabase.from("target_communications").select("target_id, kind").eq("org_id", org.id),
+    supabase.from("target_communications").select("target_id, kind, occurred_on").eq("org_id", org.id),
     supabase.from("target_visits").select("target_id").eq("org_id", org.id),
   ]);
 
@@ -110,7 +112,7 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
   // One batched query for every target's log, grouped in memory, rather
   // than a query per row. The counts are chips on the row, never part of
   // the score.
-  const commsByTarget = new Map<string, { target_id: string; kind: string }[]>();
+  const commsByTarget = new Map<string, { target_id: string; kind: string; occurred_on: string | null }[]>();
   for (const row of commRows ?? []) {
     const list = commsByTarget.get(row.target_id) ?? [];
     list.push(row);
@@ -140,7 +142,9 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
       const stored = fits.get(`${athlete.id}:${school.id}`);
       const fit = stored ? { ...rowToFit(stored), signals } : null;
 
-      return { id: t.id, athleteId: athlete.id, athleteStatus: athleteRow.status, status: t.status, coachName: t.coach_name, athleteName: athlete.name, athleteSport: athlete.sport, schoolName: school.name, schoolDivision: school.division, fit };
+      const last = lastCommunication(commsByTarget.get(t.id) ?? []);
+
+      return { last, id: t.id, athleteId: athlete.id, athleteStatus: athleteRow.status, status: t.status, coachName: t.coach_name, athleteName: athlete.name, athleteSport: athlete.sport, schoolName: school.name, schoolDivision: school.division, fit };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
 
@@ -217,8 +221,8 @@ export default async function BoardPage({ params, searchParams }: { params: Prom
                 href={`/org/${slug}/board/${r.id}`}
                 kind="school"
                 role={statusRole(r.status)}
-                title={`${r.athleteName} to ${r.schoolName}`}
-                meta={`${r.athleteSport} · ${r.schoolDivision}${r.coachName ? ` · ${r.coachName}` : ""}`}
+                title={r.athleteName}
+                meta={`${r.schoolName} · ${r.athleteSport} · ${r.schoolDivision}${r.coachName ? ` · ${r.coachName}` : ""}${r.last ? ` · Last Communication ${longDate(r.last)}` : ""}`}
                 trailing={
                   !isScoredStatus(r.athleteStatus) ? (
                     <StatusPill status={r.athleteStatus} />

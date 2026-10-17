@@ -4,7 +4,7 @@ import { managesAccess } from "@/lib/org/master";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { signout } from "@/lib/auth/actions";
 import { labelForRole } from "@/lib/org/roleLabels";
-import { Button, ConfirmButton, Form, Label, Notice, Row, Screen, Section, Stack } from "@/components/kit";
+import { Button, ConfirmButton, Form, Label, Notice, Divider, Row, Screen, Section, Stack } from "@/components/kit";
 import { PresetForm } from "@/components/PresetForm";
 import { YourNameForm } from "@/components/YourNameForm";
 import { SetPasswordForm } from "@/components/SetPasswordForm";
@@ -70,6 +70,8 @@ export default async function MorePage({ params, searchParams }: { params: Promi
         {canEdit && <Row href={`/org/${slug}/documents`} kind="document" role="place" title="Documents" wrap />}
       </Section>
 
+      <Divider />
+
       <Section label="Reference" role="place" kind="school">
         <Row href={`/org/${slug}/schools`} kind="school" role="place" title="Schools" wrap />
         <Row href={`/org/${slug}/grading-scales`} kind="scale" role="contact" title="Grading Scales" wrap />
@@ -97,6 +99,8 @@ export default async function MorePage({ params, searchParams }: { params: Promi
           <Row kind="target" role="place" title="Scoring Preset" meta={`${presetLabel} · set by an Admin`} wrap />
         )}
       </Section>
+
+      <Divider />
 
       {(org.modules.donor_fundraising || org.modules.board_governance) && (
         <Section label="Foundation" role="committed" kind="money">

@@ -409,6 +409,17 @@ export function EmptyState({ kind = "info", role = "neutral", title, action, chi
   );
 }
 
+// An empty section collapsed to one quiet line, for places where a
+// full empty state would only take room (Notes, Contacts).
+export function EmptyLine({ children }: { children: ReactNode }) {
+  return <p className="text-label text-muted">{children}</p>;
+}
+
+// A rule between groups of sections, so a long page reads in blocks.
+export function Divider() {
+  return <hr className="border-t-2 border-line" />;
+}
+
 // Something the screen has to tell the person: a saved confirmation, a
 // refusal, a warning about a stand-in. Tone picks the glyph and its hue.
 export function Notice({ tone, title, children }: { tone: "success" | "danger" | "warning" | "info"; title: ReactNode; children?: ReactNode }) {
