@@ -999,7 +999,7 @@ describe("LAW: every server action refuses while viewing, before it does anythin
       return out;
     };
     const files = walk(join(ROOT, "src")).filter((f) => /\.(ts|tsx)$/.test(f) && !/\.test\.tsx?$/.test(f) && !f.includes("/laws/") && !f.includes("/testing/"));
-    const FORBIDDEN = /generateLink|SignJWT|jsonwebtoken|setSession\(|signInWithIdToken|auth\.admin\.updateUserById|createSigned(Upload)?Url/;
+    const FORBIDDEN = /generateLink|SignJWT|jsonwebtoken|setSession\(|signInWithIdToken|createSigned(Upload)?Url/;
     expect(files.filter((f) => FORBIDDEN.test(read(f))).map((f) => f.slice(ROOT.length + 1))).toEqual([]);
     // createUser is allowed in one place: adding an Admin without an invite
     // (Dave, 2026-10-16). It makes an account with no password, no session
@@ -1007,6 +1007,13 @@ describe("LAW: every server action refuses while viewing, before it does anythin
     // own emailed link. Nothing here signs anyone in.
     const makers = files.filter((f) => /auth\.admin\.createUser/.test(read(f))).map((f) => f.slice(ROOT.length + 1));
     expect(makers).toEqual(["src/lib/actions/members.ts"]);
+    // updateUserById likewise: one place, only to put an email on an account
+    // nobody has signed in to yet (setPendingMemberEmailForm), never a password.
+    const editors = files.filter((f) => /auth\.admin\.updateUserById/.test(read(f))).map((f) => f.slice(ROOT.length + 1));
+    expect(editors).toEqual(["src/lib/actions/members.ts"]);
+    const edit = read(join(ROOT, "src/lib/actions/members.ts")).match(/auth\.admin\.updateUserById\([^)]*\)/)![0];
+    expect(edit).toContain("email_confirm: false");
+    expect(edit).not.toMatch(/password|app_metadata|phone/);
     const call = read(join(ROOT, "src/lib/actions/members.ts")).match(/auth\.admin\.createUser\(\{[\s\S]*?\}\);/)![0];
     expect(call).toContain("email_confirm: false");
     expect(call).not.toMatch(/password|app_metadata|phone/);

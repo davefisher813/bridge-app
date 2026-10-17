@@ -600,6 +600,37 @@ describe("LAW: membership is written by the service role, only by an owner, and 
     expect(writes.find((w) => w.table === "auth:create" || w.table === "auth:invite")).toBeUndefined();
   });
 
+  it("an email can be added to an advisor who has none, once, with nothing sent (Alfred, 2026-10-17)", async () => {
+    withKey();
+    const { inviteMember, setPendingMemberEmailForm } = await import("@/lib/actions/members");
+    await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "", role: "owner", fullName: "Later Coach", delivery: "silent", assignAthleteId: IDS.athlete })));
+    const user = (data.users as { id: string; email: string; full_name: string }[]).find((u) => u.full_name === "Later Coach")!;
+    writes.length = 0;
+    const r = await run(() => setPendingMemberEmailForm(ORG_WITH_MODULES, user.id, form({ email: "Later@Example.test" })));
+    expect(decodeURIComponent(r.redirect!)).toContain("Email saved. Nothing was sent");
+    expect(writes.find((w) => w.table === "auth:update")?.rows[0]).toMatchObject({ id: user.id, email: "later@example.test" });
+    expect(writes.find((w) => w.table === "auth:invite")).toBeUndefined();
+    expect(user.email).toBe("later@example.test");
+    // The athlete is still theirs, untouched.
+    expect(data.athletes.find((a) => a.id === IDS.athlete)!.advisor_id).toBe(user.id);
+  });
+
+  it("an email already on another account, a bad one, and a person who has signed in are all refused", async () => {
+    withKey();
+    const { inviteMember, setPendingMemberEmailForm } = await import("@/lib/actions/members");
+    await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "", role: "owner", fullName: "Third Coach", delivery: "silent" })));
+    const user = (data.users as { id: string; email: string; full_name: string; last_sign_in_at?: string | null }[]).find((u) => u.full_name === "Third Coach")!;
+    writes.length = 0;
+    const taken = await run(() => setPendingMemberEmailForm(ORG_WITH_MODULES, user.id, form({ email: "member@example.test" })));
+    expect(decodeURIComponent(taken.redirect!)).toContain("already belongs to another account");
+    const bad = await run(() => setPendingMemberEmailForm(ORG_WITH_MODULES, user.id, form({ email: "nope" })));
+    expect(decodeURIComponent(bad.redirect!)).toContain("not a valid email");
+    user.last_sign_in_at = "2026-10-01T00:00:00Z";
+    const signedIn = await run(() => setPendingMemberEmailForm(ORG_WITH_MODULES, user.id, form({ email: "fresh@example.test" })));
+    expect(decodeURIComponent(signedIn.redirect!)).toContain("already signed in");
+    expect(writes.find((w) => w.table === "auth:update")).toBeUndefined();
+  });
+
   it("a placeholder address is never shown", async () => {
     const { visibleEmail, noEmailAddress } = await import("@/lib/org/noEmail");
     expect(visibleEmail(noEmailAddress())).toBe("");

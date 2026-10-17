@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cleanTitle, labelForRole, TITLE_MAX } from "@/lib/org/roleLabels";
 import { ASSIGNABLE_ROLES } from "@/lib/validation/member";
 import { RELATIONSHIPS, relationshipLabel } from "@/lib/copy/relationships";
-import { assignAdvisorForm, changeMemberRoleForm, removeMemberForm, removeMemberPhotoForm, renameMemberForm, setMemberTitleForm, unassignAdvisorForm } from "@/lib/actions/members";
+import { assignAdvisorForm, changeMemberRoleForm, removeMemberForm, removeMemberPhotoForm, renameMemberForm, setMemberTitleForm, setPendingMemberEmailForm, unassignAdvisorForm } from "@/lib/actions/members";
 import { MemberPhotoForm } from "@/components/MemberPhotoForm";
 import { photoUrl } from "@/lib/people/photo";
 import { linkGuardian, unlinkGuardian, updateGuardianRelationship } from "@/lib/actions/guardians";
@@ -151,6 +151,19 @@ export default async function MemberPage({
           </Stack>
         </Form>
       </Section>
+
+      {!person?.last_sign_in_at && canManage && (
+        // Someone who has not signed in yet: an email can be added or fixed.
+        // Nothing is sent; their own sign-in with it finds this account.
+        <Section label="Email" role="people" kind="people">
+          <Form action={setPendingMemberEmailForm.bind(null, slug, member.user_id)}>
+            <Stack gap={3}>
+              <Field name="email" label="Email" type="email" autoComplete="off" inputMode="email" required defaultValue={visibleEmail(person?.email)} hint="Nothing is sent. When they sign in with this email, everything assigned to them is there." />
+              <Button variant="secondary">Save Email</Button>
+            </Stack>
+          </Form>
+        </Section>
+      )}
 
       <Section label="Photo" role="people" kind="people">
         <MemberPhotoForm slug={slug} orgId={org.id} userId={member.user_id} name={name} photo={photo} />

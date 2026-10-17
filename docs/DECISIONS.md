@@ -4466,4 +4466,16 @@ never shown ("No email on file"). "Send an Invite Email" and Viewer and
 Athlete invites still require an email.
 Consequences: such a person is assignable at once. They cannot sign in until
 a real address is on their account; there is no screen to set it yet, so
-that is the next piece if Dave wants the later sign-in to find them.
+that piece is built (2026-10-17): see below.
+
+## 2026-10-17: add an email to an advisor who has none
+
+Decision: a person who has never signed in gets an Email section on their
+Members page (Master Account only). Saving puts the address on their
+existing account (`auth.admin.updateUserById`, `email_confirm: false`, no
+email sent). When they sign in with it Supabase finds that same account, so
+their athletes and history are theirs and no second advisor exists.
+Refused: an address that belongs to another account (accounts are not
+merged here), one that is not valid, and a person who has already signed in.
+Consequences: the law against minting credentials allows `updateUserById`
+in `members.ts` only, for an email on an unconfirmed account.

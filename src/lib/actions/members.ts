@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { noEmailAddress } from "@/lib/org/noEmail";
 import { sendFailureMessage } from "@/lib/auth/errors";
 import { revalidatePath } from "next/cache";
@@ -937,4 +938,58 @@ export async function removeMemberPhotoForm(slug: string, userId: string): Promi
   }
   revalidatePath(`/org/${slug}`, "layout");
   redirect(`${back}?notice=${q("Photo removed. Their initials show instead.")}`);
+}
+
+// Add or change the email of a person who has not signed in yet (Dave,
+// 2026-10-17). An advisor added without an email becomes reachable here:
+// once a real address is on the account, their own sign-in with that
+// address is this same account, so everything assigned to them is theirs.
+// Nothing is sent. Only for someone who has never signed in; a signed-in
+// person changes their own address. The address must not belong to another
+// account: two accounts cannot be merged from here.
+export async function setPendingMemberEmailForm(slug: string, userId: string, formData: FormData): Promise<void> {
+  await requireNotViewing();
+  const org = await getOrgBySlug(slug);
+  if (!org) redirect("/unauthorized");
+  const me = await requireOwner(org.id);
+  const back = `/org/${slug}/members/${userId}`;
+  const refused = await masterGate(org, me.id);
+  if (refused) redirect(`${back}?error=${q(refused)}`);
+
+  const parsed = z.string().trim().toLowerCase().email("That is not a valid email.").safeParse(String(formData.get("email") ?? ""));
+  if (!parsed.success) redirect(`${back}?error=${q(parsed.error.issues[0]?.message ?? "That is not a valid email.")}`);
+  const email = parsed.data;
+
+  const supabase = await createClient();
+  const { data: membership } = await supabase.from("org_members").select("user_id").eq("org_id", org.id).eq("user_id", userId).maybeSingle();
+  if (!membership) redirect(`${back}?error=${q("That person is not in this organization.")}`);
+  if (!serviceRoleConfigured()) redirect(`${back}?error=${q("Changing an email is not set up on this server yet: the service role key is missing.")}`);
+
+  const admin = createAdminClient();
+  const { data: person } = await admin.from("users").select("id, email, last_sign_in_at").eq("id", userId).maybeSingle();
+  const target = person as { id: string; email: string; last_sign_in_at: string | null } | null;
+  if (!target) redirect(`${back}?error=${q("That person has no account to change.")}`);
+  if (target.last_sign_in_at) redirect(`${back}?error=${q("They have already signed in. They change their own email.")}`);
+  if (target.email === email) redirect(`${back}?notice=${q("That email is already on file.")}`);
+
+  const { data: taken } = await admin.from("users").select("id").eq("email", email).neq("id", userId).maybeSingle();
+  if (taken) redirect(`${back}?error=${q("That email already belongs to another account. Add that account as an Admin and assign the athletes there instead.")}`);
+
+  const { error } = await admin.auth.admin.updateUserById(userId, { email, email_confirm: false });
+  if (error) redirect(`${back}?error=${q(`Could not save the email: ${error.message}`)}`);
+  // The profile row follows the account (the trigger does it too; this keeps
+  // the screen right at once).
+  await admin.from("users").update({ email }).eq("id", userId);
+
+  await logActivity(supabase, {
+    orgId: org.id,
+    actorId: me.id,
+    action: "settings_changed",
+    subjectType: "member",
+    subjectId: userId,
+    summary: activitySummary("settings_changed", { setting: "an email on file for someone not signed in yet" }),
+  });
+  revalidatePath(`/org/${slug}/members`);
+  revalidatePath(`/org/${slug}/advisors`);
+  redirect(`${back}?notice=${q("Email saved. Nothing was sent. When they sign in with it, everything assigned to them is there.")}`);
 }

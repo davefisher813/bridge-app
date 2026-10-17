@@ -705,6 +705,14 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
         return code === "expired" ? { data: {}, error: { message: "invalid code" } } : { data: {}, error: null };
       },
       admin: {
+        async updateUserById(id: string, attrs: { email?: string; email_confirm?: boolean }) {
+          if (opts.authFail) return { data: { user: null }, error: { message: opts.authFail } };
+          const user = (data.users ?? []).find((u) => u.id === id);
+          if (!user) return { data: { user: null }, error: { message: "User not found" } };
+          if (attrs.email) user.email = attrs.email;
+          recorded.push({ op: "update", table: "auth:update", rows: [{ id, email: attrs.email ?? null }], filters: [] });
+          return { data: { user: { id, email: user.email } }, error: null };
+        },
         async createUser(args: { email: string; email_confirm?: boolean; user_metadata?: Record<string, unknown> }) {
           if (opts.authFail) return { data: { user: null }, error: { message: opts.authFail } };
           const users = data.users ?? (data.users = []);
