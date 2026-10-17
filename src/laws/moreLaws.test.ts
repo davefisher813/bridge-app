@@ -71,7 +71,7 @@ const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) =>
 
 // The kit's Section writes its label in one caps span. Every label on
 // the page, in order.
-const sectionLabels = (html: string) => [...html.matchAll(/uppercase tracking-wide text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
+const sectionLabels = (html: string) => [...html.matchAll(/font-bold text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
 // The markup of one section, from its label to the next section.
 function sectionOf(html: string, label: string): string {
   const start = html.indexOf(`>${label}</span>`);

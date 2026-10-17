@@ -254,7 +254,7 @@ export function AthleteForm({
 
       {recruitType === "hs" ? (
         <Stack gap={3}>
-          <Label caps>High school details</Label>
+          <Label caps>High School Details</Label>
           <SuggestField
             name="highSchool"
             label="High School"
@@ -284,7 +284,7 @@ export function AthleteForm({
         </Stack>
       ) : (
         <Stack gap={3}>
-          <Label caps>Transfer details</Label>
+          <Label caps>Transfer Details</Label>
           <SuggestField
             name="currentSchool"
             label="Current School"
@@ -330,7 +330,7 @@ export function AthleteForm({
         // is Mark Enrolled or Mark Graduated on the athlete page, which
         // also closes out recruiting; blank leaves the date as it is.
         <Stack gap={3}>
-          <Label caps>NCAA clock dates</Label>
+          <Label caps>NCAA Clock Dates</Label>
           <Grid2>
             {dates.enrollment && (
               <Field name="enrollmentDate" label="Enrollment Date" hint="First full-time enrollment." type="date" defaultValue={f("enrollmentDate")} error={err("enrollmentDate")} />
@@ -343,7 +343,7 @@ export function AthleteForm({
       {/* docs/MATCHING_CONTRACT.md: the goal shifts the blend, the budget
           drives the money score, the home state picks in-state cost. */}
       <Stack gap={3}>
-        <Label caps>Goal and money</Label>
+        <Label caps>Goal and Money</Label>
         <SelectField name="goal" label="Goal" defaultValue={f("goal") || "balanced"}>
           {ATHLETE_GOALS.map((g) => (
             <option key={g.value} value={g.value}>
@@ -367,7 +367,7 @@ export function AthleteForm({
       {/* Five grades on the 20 to 80 scouting scale. They blend into the
           athletic score by position group; blank means metrics alone. */}
       <Stack gap={3}>
-        <Label caps>Admin assessment</Label>
+        <Label caps>Admin Assessment</Label>
         <Grid2>
           {GRADE_KEYS.map((k) => (
             <Field key={k} name={k} label={gradeLabel(k, sport)} type="number" min={GRADE_MIN} max={GRADE_MAX} step="5" inputMode="numeric" defaultValue={f(k)} error={err(k)} />
@@ -378,7 +378,7 @@ export function AthleteForm({
 
       {firstMetrics && (
         <Stack gap={3}>
-          <Label caps>First metrics</Label>
+          <Label caps>First Metrics</Label>
           <Label>{`Optional. Each number becomes a dated entry in the log${metricList.first.length ? ", the ones that score for the position first" : ""}. The best verified number is what scores.`}</Label>
           <Grid2>
             {[...metricList.first, ...metricList.more].map((m) => (

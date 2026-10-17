@@ -106,6 +106,19 @@ describe("LAW: a title is written in Title Case", () => {
     expect(offenders).toEqual([]);
   });
 
+  // Dave, 2026-10-17: "No ALL CAPS anywhere." Words are written in Title Case
+  // and shown as written; no style turns them into capitals.
+  it("nothing is shown in capitals by style, and a bold small heading is Title Case", () => {
+    const offenders: string[] = [];
+    for (const f of UI) {
+      const src = readFileSync(f, "utf8");
+      if (/\buppercase\b|text-transform:\s*uppercase/.test(src)) offenders.push(`${rel(f)}: uses uppercase`);
+      for (const m of src.matchAll(/<Label caps>([^<{]+)<\/Label>/g)) if (titleCase(m[1]!) !== m[1]) offenders.push(`${rel(f)}: "${m[1]}" should be "${titleCase(m[1]!)}"`);
+    }
+    for (const css of ["src/app/globals.css"]) if (/text-transform:\s*uppercase/.test(readFileSync(css, "utf8"))) offenders.push(`${css}: uppercase`);
+    expect(offenders).toEqual([]);
+  });
+
   it("titleCase leaves acronyms, small words and sentences alone", () => {
     expect(titleCase("NCAA eligibility")).toBe("NCAA Eligibility");
     expect(titleCase("Add a school's scale")).toBe("Add a School's Scale");

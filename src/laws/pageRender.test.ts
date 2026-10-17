@@ -1557,7 +1557,7 @@ describe("LAW: Advisor leads the profile, only an Admin sees its controls, More 
   // the field the sheet posts.
   const ASSIGN_CONTROLS = /Assign Athlete|>Assign<|>Change<|Clear Advisor|Add Admin|assignAthleteId|name="advisorId"/;
   // The kit's Section label span, in page order.
-  const sectionLabels = (html: string) => [...html.matchAll(/<span class="text-label font-bold uppercase tracking-wide text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
+  const sectionLabels = (html: string) => [...html.matchAll(/<span class="text-label font-bold text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
   const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
   const profile = (id: string) => render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id }), searchParams: p({}) });
 
@@ -1829,7 +1829,7 @@ describe("LAW: the activity log is the Admin's, five on the profile, searchable,
 // on the Bridge screens).
 describe("LAW: assignments are the Admin's to give and review, the Athlete login's to answer, and the Viewer reads none", () => {
   const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
-  const sectionLabels = (html: string) => [...html.matchAll(/<span class="text-label font-bold uppercase tracking-wide text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
+  const sectionLabels = (html: string) => [...html.matchAll(/<span class="text-label font-bold text-muted">([^<]+)<\/span>/g)].map((m) => m[1]!);
   const slug = ORG_WITH_MODULES;
   const staffBase = `/org/${slug}/roster/${IDS.athlete}/assignments`;
   const familyBase = `/org/${slug}/family/${IDS.athlete}`;

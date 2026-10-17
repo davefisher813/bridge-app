@@ -4,6 +4,7 @@
 // row, so a lifetime total cannot drift from the gifts it is made of.
 // That is the same reason the donors list computes rather than reads.
 
+import { displayName } from "@/lib/copy/personName";
 import { notFound } from "next/navigation";
 import { orgToday } from "@/lib/datetime/today";
 import { longDate } from "@/lib/copy/dates";
@@ -83,7 +84,7 @@ export default async function DonorPage({ params, searchParams }: { params: Prom
 
   return (
     <Screen
-      title={d.name}
+      title={displayName(d.name)}
       back={{ href: `/org/${slug}/fundraising/donors`, label: "Donors" }}
       lede={`${TYPE_LABEL[d.donor_type] ?? d.donor_type.replace(/_/g, " ")}${d.email ? ` · ${d.email}` : ""}`}
     >

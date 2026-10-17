@@ -52,7 +52,7 @@ export default async function MemberGivingPage({ params }: { params: Promise<{ s
               meta={`${formatMoneyShort(c.progress.raisedCents)} of ${formatMoneyShort(c.progress.goalCents)}${c.endsOn ? ` · ends ${longDate(c.endsOn)}` : ""}`}
               trailing={
                 <Body weight="bold" numeric>
-                  {c.progress.percentOfGoal === null ? "no goal" : `${c.progress.percentOfGoal}%`}
+                  {c.progress.percentOfGoal === null ? "No Goal" : `${c.progress.percentOfGoal}%`}
                 </Body>
               }
               wrap
@@ -102,7 +102,7 @@ export default async function MemberGivingPage({ params }: { params: Promise<{ s
                   <div className="flex items-start justify-between gap-3">
                     <Body weight="bold">{board.name}</Body>
                     <Body weight="bold" numeric>
-                      {pct === null ? "no target" : `${pct}%`}
+                      {pct === null ? "No Target" : `${pct}%`}
                     </Body>
                   </div>
                   <Label>{`${summary.seatsFilled} ${summary.seatsFilled === 1 ? "seat" : "seats"} · ${formatMoneyShort(summary.committedCents)} give/get · ${formatMoneyShort(summary.raisedCents)} in`}</Label>

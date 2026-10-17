@@ -117,7 +117,7 @@ export default async function BoardGovernancePage({
                         </Label>
                       </div>
                       <Body weight="bold" numeric>
-                        {s.percent === null ? "no target" : `${s.percent}%`}
+                        {s.percent === null ? "No Target" : `${s.percent}%`}
                       </Body>
                     </div>
                     {s.belowMinimum && (

@@ -64,7 +64,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
               {p.goalCents > 0 ? `${formatMoneyShort(p.raisedCents)} of ${formatMoneyShort(p.goalCents)}` : `${formatMoneyShort(p.raisedCents)} raised`}
             </Body>
             <Body weight="bold" numeric tone={pct == null ? "muted" : "ink"}>
-              {pct == null ? "no goal" : `${pct}%`}
+              {pct == null ? "No Goal" : `${pct}%`}
             </Body>
           </div>
           {/* The bar is the role's hue laid flat, so it tracks `role`

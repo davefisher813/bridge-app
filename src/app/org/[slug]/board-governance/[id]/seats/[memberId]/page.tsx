@@ -156,7 +156,7 @@ export default async function SeatPage({
                     : `${formatMoney(p.remainingCents)} still to go`}
               </Body>
               <Body weight="bold" numeric>
-                {p.percent === null ? "no target" : `${p.percent}%`}
+                {p.percent === null ? "No Target" : `${p.percent}%`}
               </Body>
             </div>
             {p.commitmentCents > 0 && (

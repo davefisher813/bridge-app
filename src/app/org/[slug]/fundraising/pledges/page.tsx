@@ -5,6 +5,7 @@
 // money in the bank. Overdue first, because that is the only part of it
 // anyone needs to act on.
 
+import { displayName } from "@/lib/copy/personName";
 import { orgToday } from "@/lib/datetime/today";
 import { notFound } from "next/navigation";
 import { longDate } from "@/lib/copy/dates";
@@ -36,7 +37,7 @@ export default async function PledgesPage({ params, searchParams }: { params: Pr
 
   const pledges = toPledges(pledgeRows as PledgeRow[] | null);
   const gifts = toGifts(giftRows as GiftRow[] | null);
-  const donorName = new Map((donorRows ?? []).map((d) => [(d as { id: string }).id, (d as { name: string }).name]));
+  const donorName = new Map((donorRows ?? []).map((d) => [(d as { id: string }).id, displayName((d as { name: string }).name)]));
 
   // Outstanding comes from the rollup, not from the pledge's own status:
   // part payment against a pledge is a gift, and the remainder is what

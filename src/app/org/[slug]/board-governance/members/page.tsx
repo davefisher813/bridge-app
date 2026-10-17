@@ -120,7 +120,7 @@ export default async function AllSeatsPage({
                     wrap
                     trailing={
                       <Body weight="bold" numeric>
-                        {p?.percent == null ? "no target" : `${p.percent}%`}
+                        {p?.percent == null ? "No Target" : `${p.percent}%`}
                       </Body>
                     }
                   />

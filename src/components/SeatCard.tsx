@@ -31,7 +31,7 @@ export function SeatCard({ seat, fiscalYear, href }: { seat: NonNullable<GivingV
         <div className="flex items-start justify-between gap-3">
           <Body weight="bold">{seat.member.roleTitle ? `${seat.member.roleTitle}${seat.board ? ` · ${seat.board.name}` : ""}` : (seat.board?.name ?? "Your Seat")}</Body>
           <Body weight="bold" numeric tone={role}>
-            {p.percent === null ? "no target" : `${p.percent}%`}
+            {p.percent === null ? "No Target" : `${p.percent}%`}
           </Body>
         </div>
         {p.commitmentCents > 0 ? (
