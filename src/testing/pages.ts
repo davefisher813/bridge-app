@@ -31,7 +31,7 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   // Stage 3, 2026-09-26: the staff member's own athletes, the one never
   // checked in with first.
   { name: "mine", path: "@/app/org/[slug]/mine/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /My Athletes[\s\S]*never checked in[\s\S]*Fixture Athlete/ },
-  { name: "members", path: "@/app/org/[slug]/members/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Example Owner[\s\S]*Invited[\s\S]*Example Member/ },
+  { name: "members", path: "@/app/org/[slug]/members/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Example Owner[\s\S]*Waiting to Sign In[\s\S]*Example Member/ },
   { name: "invite", path: "@/app/org/[slug]/members/new/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Send Invite/ },
   // Stage 5 Phase 2, 2026-09-27: the same invite reached from an
   // athlete's Advisor sheet is Add Admin, pinned to that athlete, and
