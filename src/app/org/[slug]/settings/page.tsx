@@ -146,16 +146,10 @@ export default async function OrgSettingsPage({ params, searchParams }: { params
           </Body>
           <Label>
             {status.checked
-              ? `${status.applied} of ${status.lines.filter((l) => l.state !== "cut").length} updates are on the database, checked against its own history just now.${status.latest ? ` The latest is ${status.latest.title}.` : ""}`
+              ? `${status.applied} of ${status.lines.filter((l) => l.state !== "cut").length} updates are on the database, checked against its own history just now.`
               : "The database's history could not be read just now, so this shows the repo's record only."}
           </Label>
         </Card>
-        {[...status.missing, ...status.pending, ...recent.filter((l) => l.state !== "missing" && l.state !== "pending")].map((l) => (
-          <Card key={l.file} isStatic>
-            <Body weight="semibold">{l.title}</Body>
-            <Label>{STATE_LABEL[l.state]}</Label>
-          </Card>
-        ))}
       </Section>
     </Screen>
   );

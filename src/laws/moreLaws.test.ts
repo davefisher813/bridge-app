@@ -237,6 +237,12 @@ describe("LAW: Doc AI cost and its budget belong to the Master Account", () => {
     expect(await spending()).toMatch(/Doc AI Spending/);
   });
 
+  it("the page shows no model identifier, token count or removed-document placeholder (live test V4)", async () => {
+    const html = await spending();
+    expect(html).not.toMatch(/claude-|opus-|haiku-|sonnet-|\d+ tokens|A Removed Document/);
+    expect(html).toMatch(/Quick check|Standard reading|Detailed reading|· Reading/);
+  });
+
   it("another Admin sees none of it on More, and the page is not found", async () => {
     secondAdmin();
     const html = await more();
@@ -260,5 +266,7 @@ describe("LAW: the first tab has one name on every surface", () => {
     expect(src).not.toMatch(/label: "Home"/);
     expect(src).toMatch(/ORG_TABS[\s\S]*?label: "Today"/);
     expect(src).toMatch(/MEMBER_TABS[\s\S]*?label: "Today"/);
+    // Targets has its own icon, not Today's house (live test V2).
+    expect(src).toMatch(/label: "Targets", kind: "target"/);
   });
 });

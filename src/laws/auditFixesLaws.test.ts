@@ -266,10 +266,10 @@ describe("LAW: Organization Settings says which database updates are on", () => 
     const html = text(await render("@/app/org/[slug]/settings/page", { params: P({ slug: ORG_WITH_MODULES }), searchParams: P({}) }));
     expect(html).toMatch(/Database Updates/);
     expect(html).toMatch(/checked against its own history just now/);
-    // The newest applied update is named, whichever it is.
-    expect(html).toMatch(/The latest is [A-Z][A-Za-z ]+\./);
-    // No migration number anywhere in the list (Alfred, 2026-10-15).
+    // Internal update names are not user-facing (live test V3): a count and a
+    // state, never a list of migration names.
     const section = html.slice(html.indexOf("Database Updates"));
-    expect(section).not.toMatch(/\b00\d\d\b/);
+    expect(section).not.toMatch(/\b00\d\d\b|View As|Documents Bulk|Document Identity|Assignments Bulk|Org Master Account|Suggestion Before/);
+    expect(section).not.toMatch(/The latest is/);
   });
 });
