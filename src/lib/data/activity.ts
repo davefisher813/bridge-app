@@ -302,7 +302,11 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   document_archived: (s) => `Archived ${article(word(s.kind, "document"))} ${word(s.kind, "document")}${s.name ? ` for ${who(s.name)}` : ""}`,
   document_linked: (s) => (s.to ? `Linked ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to ${who(s.to)}${s.from ? ` instead of ${who(s.from)}` : ""}` : `Unlinked ${article(word(s.kind, "document"))} ${word(s.kind, "document")} from ${who(s.from)}`),
   board_seat_donor_linked: (s) => `Linked ${person(s.person)}'s board seat to their donor record`,
-  document_deleted: (s) => `Deleted ${article(word(s.kind, "document"))} ${word(s.kind, "document")} for good`,
+  document_deleted: (s) => {
+    // The kind "other" read as "an other" (live test V7): it is just a document.
+    const kind = /^other$/i.test((s.kind ?? "").trim()) ? "document" : word(s.kind, "document");
+    return `Deleted ${article(kind)} ${kind} for good`;
+  },
   document_renamed: (s) => `Retitled ${article(word(s.kind, "document"))} ${word(s.kind, "document")}`,
   document_typed: (s) => `Set the type of ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to ${word(s.to, "a new type")}`,
   document_unarchived: (s) => `Unarchived ${article(word(s.kind, "document"))} ${word(s.kind, "document")}${s.name ? ` for ${who(s.name)}` : ""}`,

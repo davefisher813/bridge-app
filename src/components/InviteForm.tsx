@@ -52,6 +52,8 @@ export function InviteForm({
   const value = (key: string) => (state.values?.[key] === undefined ? "" : String(state.values[key]));
   // Viewer by default: the level that changes nothing is the safe one.
   const [role, setRole] = useState(pinned ? "family" : preset?.role ?? (value("role") || "member"));
+  // How an Admin is brought in: silently by default (Dave, 2026-10-16).
+  const [delivery, setDelivery] = useState(value("delivery") || "silent");
   const roles = athletes.length > 0 ? ASSIGNABLE_ROLES : ASSIGNABLE_ROLES.filter((r) => r !== "family");
 
   if (preset) {
@@ -62,7 +64,8 @@ export function InviteForm({
         <Hidden name="returnTo" value={preset.returnTo} />
         <Field name="email" label="Email" type="email" autoComplete="off" inputMode="email" required defaultValue={value("email")} error={err("email")} hint={preset.role === "owner" ? `${labelForRole("owner")}s add and edit everything, including members, schools and settings.` : undefined} />
         <Field name="fullName" label="Name (optional)" autoComplete="off" defaultValue={value("fullName")} />
-        <Button disabled={pending}>{pending ? "Sending..." : "Send Invite"}</Button>
+        {preset.role === "owner" && <DeliveryField value={delivery} onChange={setDelivery} />}
+        <Button disabled={pending}>{pending ? "Working..." : preset.role === "owner" && delivery === "silent" ? "Add Without Inviting" : "Send Invite"}</Button>
       </Form>
     );
   }
@@ -138,7 +141,25 @@ export function InviteForm({
         </>
       )}
       <Field name="fullName" label="Name (optional)" autoComplete="off" defaultValue={value("fullName")} />
-      <Button disabled={pending}>{pending ? "Sending..." : "Send Invite"}</Button>
+      {role === "owner" && <DeliveryField value={delivery} onChange={setDelivery} />}
+      <Button disabled={pending}>{pending ? "Working..." : role === "owner" && delivery === "silent" ? "Add Without Inviting" : "Send Invite"}</Button>
     </Form>
+  );
+}
+
+// Adding an Admin: nothing is sent unless the person asks for it. The
+// default is the quiet add; the invitation email stays one tap away.
+function DeliveryField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <SelectField
+      name="delivery"
+      label="How"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      hint={value === "silent" ? "Nothing is sent to them. They can be assigned athletes right away, and when they sign in with this email it is all there." : "They get an email with a sign-in link that works for 24 hours."}
+    >
+      <option value="silent">Add Without Inviting</option>
+      <option value="invite">Send an Invite Email</option>
+    </SelectField>
   );
 }

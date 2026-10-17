@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { personLabel } from "@/lib/org/roleLabels";
 import { loadAdvisorCounts, loadStaff } from "@/lib/data/staff";
 import { photoUrl } from "@/lib/people/photo";
-import { Avatar, Chevron, EmptyState, Row, Screen, Section } from "@/components/kit";
+import { managesAccess } from "@/lib/org/master";
+import { AddButton, Avatar, Chevron, EmptyState, Row, Screen, Section } from "@/components/kit";
 
 // Advisors (Stage 5, Phase 3): every Admin and how many athletes each
 // one advises, with the way into the person's page, where the bulk
@@ -47,7 +48,7 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
   );
 
   return (
-    <Screen title="Advisors" back={{ href: `/org/${slug}/more`, label: "More" }} lede={unassigned}>
+    <Screen title="Advisors" back={{ href: `/org/${slug}/more`, label: "More" }} lede={unassigned} action={me.role === "owner" && managesAccess(org.masterUserId, me.id) ? <AddButton href={`/org/${slug}/members/new?role=owner`} label="Add" /> : undefined}>
       <Row href={`/org/${slug}/advisor-hub`} kind="people" role="people" title="Advisor Hub" meta="Who is due for a check-in, who has no advisor, the latest check-ins" trailing={<Chevron />} wrap />
       {counts.unassigned > 0 && (
         <Row href={`/org/${slug}/roster?advisor=none`} kind="athlete" role="time" title="No Advisor Yet" meta={`${athletes(counts.unassigned)} still being recruited`} trailing={<Chevron />} wrap />
@@ -59,7 +60,7 @@ export default async function AdvisorsPage({ params }: { params: Promise<{ slug:
         )}
       </Section>
       {invited.length > 0 && (
-        <Section label="Invited" count={invited.length} role="time" kind="clock">
+        <Section label="Waiting to Sign In" count={invited.length} role="time" kind="clock">
           {invited.map(row)}
         </Section>
       )}

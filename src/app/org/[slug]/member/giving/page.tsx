@@ -85,7 +85,7 @@ export default async function MemberGivingPage({ params }: { params: Promise<{ s
             </>
           ) : (
             <EmptyState kind="money" title="No Seat Linked Yet">
-              Your sign-in is not linked to a board seat. Ask {org.name} to link it from your seat&apos;s page.
+              {`Your sign-in is not linked to a board seat. Ask ${org.name} to link it from your seat's page.`}
             </EmptyState>
           )}
         </Section>

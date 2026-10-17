@@ -166,7 +166,7 @@ describe("LAW: discarding an applied document undoes what it wrote", () => {
     // Both apply paths: the automatic one inside processDocument and the
     // human one in applyDocument. Missing it on either leaves half the
     // documents in the system un-undoable.
-    const matches = source.match(/applied_changes: outcome\.changes/g) ?? [];
+    const matches = source.match(/applied_changes: (\{ \.\.\.)?outcome\.changes/g) ?? [];
     expect(matches.length).toBe(2);
   });
 

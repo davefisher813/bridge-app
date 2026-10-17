@@ -21,9 +21,15 @@ export function hasDeveloperTalk(text: string): boolean {
 
 // The text with any sentence of internal field talk removed. Empty when
 // nothing user-facing is left.
+// "a athlete profile" read wrong in stored reasons (live test D5).
+export function fixArticles(text: string): string {
+  return text.replace(/\b([Aa]) (?=(athlete|academic|assignment|admission|eligibility|enrollment|offer|award|official|unofficial)\b)/g, (_m, a: string) => (a === "A" ? "An " : "an "));
+}
+
 export function plainText(text: string): string {
-  if (!hasDeveloperTalk(text)) return text;
-  return sentencesOf(text)
+  const fixed = fixArticles(text);
+  if (!hasDeveloperTalk(fixed)) return fixed;
+  return sentencesOf(fixed)
     .filter((s) => !hasDeveloperTalk(s))
     .join(" ");
 }
@@ -37,3 +43,8 @@ export function plainLines(lines: string[]): string[] {
 // Said to the model with every extraction (src/lib/docai/categories.ts).
 export const PLAIN_LANGUAGE_RULE =
   "- Every sentence you write (summary, notes, key facts, warnings) is for a parent or coach, in plain words. Never mention field names, JSON, null, columns or the schema. When something is missing from the page, say what is missing in plain words (\"the page does not print a student name\") or leave it out.\n";
+
+// "an athlete profile", "a transcript".
+export function aOrAn(noun: string): string {
+  return `${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}`;
+}

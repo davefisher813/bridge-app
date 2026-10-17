@@ -75,7 +75,7 @@ export default async function OrgSettingsPage({ params, searchParams }: { params
           kind="people"
           role={master ? "committed" : "neutral"}
           title={master ?? "Nobody Set"}
-          meta={master ? `${isMaster ? "You. " : ""}Only they invite people, change access levels or remove someone.` : "Any Admin invites people, changes access levels and removes someone."}
+          meta={master ? `${isMaster ? "You hold it. Only you invite people, change access levels or remove someone." : "Only they invite people, change access levels or remove someone."}` : "Any Admin invites people, changes access levels and removes someone."}
           trailingAction={
             isMaster ? (
               <AdvisorSheet
@@ -146,16 +146,10 @@ export default async function OrgSettingsPage({ params, searchParams }: { params
           </Body>
           <Label>
             {status.checked
-              ? `${status.applied} of ${status.lines.filter((l) => l.state !== "cut").length} updates are on the database, checked against its own history just now.${status.latest ? ` The latest is ${status.latest.title}.` : ""}`
+              ? `${status.applied} of ${status.lines.filter((l) => l.state !== "cut").length} updates are on the database, checked against its own history just now.`
               : "The database's history could not be read just now, so this shows the repo's record only."}
           </Label>
         </Card>
-        {[...status.missing, ...status.pending, ...recent.filter((l) => l.state !== "missing" && l.state !== "pending")].map((l) => (
-          <Card key={l.file} isStatic>
-            <Body weight="semibold">{l.title}</Body>
-            <Label>{STATE_LABEL[l.state]}</Label>
-          </Card>
-        ))}
       </Section>
     </Screen>
   );

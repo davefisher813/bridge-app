@@ -98,7 +98,7 @@ export function BulkSelect({
           <div className="mx-auto flex max-w-2xl flex-col gap-3 px-4 pt-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="text-body font-extrabold text-ink" aria-live="polite">
-                {count} selected
+                {`${count} selected`}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button type="button" variant="quiet" inline onClick={() => setSelected(new Set(ids))}>

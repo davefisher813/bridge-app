@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Field } from "@/components/kit";
 
 // A search box for a list. Typing narrows nothing until Search or
@@ -13,6 +13,12 @@ export function SearchField({ initial = "", label = "Search", placeholder }: { i
   const pathname = usePathname();
   const params = useSearchParams();
   const [value, setValue] = useState(initial);
+  const box = useRef<HTMLDivElement>(null);
+  // What the box holds right now, read from the box itself: a value put
+  // there without a keystroke (autofill, a test driver, a paste handler)
+  // never reaches the state, and Search then searched for nothing
+  // (live test D10, 2026-10-16).
+  const current = () => box.current?.querySelector("input")?.value ?? value;
 
   // Whatever else is in the address stays there: a screen can carry a
   // filter and a search at once, and neither clears the other.
@@ -26,7 +32,7 @@ export function SearchField({ initial = "", label = "Search", placeholder }: { i
   };
 
   return (
-    <div className="flex items-end gap-3">
+    <div ref={box} className="flex items-end gap-3">
       <div className="min-w-0 flex-1">
         <Field
           name="q"
@@ -39,12 +45,12 @@ export function SearchField({ initial = "", label = "Search", placeholder }: { i
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              apply(value);
+              apply(current());
             }
           }}
         />
       </div>
-      <Button type="button" variant="secondary" inline onClick={() => apply(value)}>
+      <Button type="button" variant="secondary" inline onClick={() => apply(current())}>
         Search
       </Button>
     </div>

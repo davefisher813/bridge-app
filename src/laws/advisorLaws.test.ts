@@ -291,7 +291,7 @@ describe("LAW: the sheet lists Admins most recently used first, then by name, ne
     const { renderToStaticMarkup } = await import("react-dom/server");
     const html = renderToStaticMarkup(await AdvisorsPage({ params: Promise.resolve({ slug: ORG_WITH_MODULES }) }));
     // One Admin, one Invited, and nobody listed twice.
-    expect(html).toMatch(/Admins[\s\S]*Example Owner[\s\S]*Invited[\s\S]*an\.unusually\.long\.invited\.address/);
+    expect(html).toMatch(/Admins[\s\S]*Example Owner[\s\S]*Waiting to Sign In[\s\S]*an\.unusually\.long\.invited\.address/);
     expect(html.match(/Example Owner/g)!.length).toBe(1);
   });
 
@@ -437,7 +437,8 @@ describe("LAW: Add Admin invites, then assigns, and comes back to the athlete", 
     expect(withAthlete).toMatch(/name="role" value="owner"/);
     expect(withAthlete).toContain(`name="assignAthleteId" value="${IDS.athleteTransfer}"`);
     expect(withAthlete).toContain(`name="returnTo" value="${back}"`);
-    expect(withAthlete).toMatch(/Send Invite/);
+    expect(withAthlete).toMatch(/Add Without Inviting/);
+    expect(withAthlete).toMatch(/name="delivery"/);
     expect(withAthlete).not.toMatch(/name="role"[^>]*>\s*<option/);
 
     const plain = await render("@/app/org/[slug]/members/new/page", { params: P({ slug: ORG_WITH_MODULES }), searchParams: P({}) });

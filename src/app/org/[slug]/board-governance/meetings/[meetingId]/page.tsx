@@ -89,8 +89,8 @@ export default async function MeetingPage({ params, searchParams }: { params: Pr
               />
               {files.length > 0 && <DownloadLink href={`/org/${slug}/documents/${d.id}/download?n=1`}>Download {d.title ?? d.file_name}</DownloadLink>}
               <Form action={detachMeetingDocument.bind(null, slug, meetingId, d.id)}>
-                <ConfirmButton title="Take This Off the Meeting?" body="The document stays in Documents. Only this meeting's list changes." confirmLabel="Take Off">
-                  Take Off the Meeting
+                <ConfirmButton title="Remove This From the Meeting?" body="The document stays in Documents. Only this meeting's list changes." confirmLabel="Remove">
+                  Remove From Meeting
                 </ConfirmButton>
               </Form>
             </Stack>

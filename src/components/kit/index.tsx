@@ -430,12 +430,14 @@ export function Notice({ tone, title, children }: { tone: "success" | "danger" |
 // ── Controls ─────────────────────────────────────────────────────────
 // One button. Full width by default, because on a phone that is what a
 // primary action is. `inline` for a small one inside a row or header.
-type ButtonVariant = "primary" | "secondary" | "destructive" | "quiet";
+type ButtonVariant = "primary" | "secondary" | "destructive" | "quiet" | "positive";
 
 const BUTTON: Record<ButtonVariant, string> = {
   primary: "bg-solid-accent text-solid-accent-on",
   secondary: "border border-line text-ink",
   destructive: "border border-line text-tint-danger-on",
+  // A finishing action (Complete): green, never the brand red that also means danger.
+  positive: "bg-solid-committed text-solid-committed-on",
   quiet: "text-tint-accent-on",
 };
 

@@ -23,7 +23,7 @@ const ORG_TABS: { href: string; label: string; kind: RowKind }[] = [
   { href: "roster", label: "Athletes", kind: "athlete" },
   // Targets, not Board: "most won't get what that means" (Dave,
   // 2026-09-21). The route stays /board.
-  { href: "board", label: "Targets", kind: "school" },
+  { href: "board", label: "Targets", kind: "target" },
   { href: "more", label: "More", kind: "settings" },
 ];
 

@@ -237,6 +237,12 @@ describe("LAW: Doc AI cost and its budget belong to the Master Account", () => {
     expect(await spending()).toMatch(/Doc AI Spending/);
   });
 
+  it("the page shows no model identifier, token count or removed-document placeholder (live test V4)", async () => {
+    const html = await spending();
+    expect(html).not.toMatch(/claude-|opus-|haiku-|sonnet-|\d+ tokens|A Removed Document/);
+    expect(html).toMatch(/Quick check|Standard reading|Detailed reading|· Reading/);
+  });
+
   it("another Admin sees none of it on More, and the page is not found", async () => {
     secondAdmin();
     const html = await more();
@@ -248,7 +254,7 @@ describe("LAW: Doc AI cost and its budget belong to the Master Account", () => {
 describe("LAW: small copy fixes (Alfred, 2026-10-15)", () => {
   it("the scoring preset hint says re-scores", async () => {
     const html = await more();
-    expect(html).toContain("Saving re-scores every match.");
+    expect(html).toContain("Saving recalculates every match for every athlete.");
     expect(html).not.toContain("rescores every match");
   });
 });
@@ -260,5 +266,40 @@ describe("LAW: the first tab has one name on every surface", () => {
     expect(src).not.toMatch(/label: "Home"/);
     expect(src).toMatch(/ORG_TABS[\s\S]*?label: "Today"/);
     expect(src).toMatch(/MEMBER_TABS[\s\S]*?label: "Today"/);
+    // Targets has its own icon, not Today's house (live test V2).
+    expect(src).toMatch(/label: "Targets", kind: "target"/);
+  });
+});
+
+describe("LAW: copy fixes from the Oct 16 audit (V6, V7)", () => {
+  it("reads plainly", async () => {
+    const { readFileSync } = await import("node:fs");
+    const read = (p: string) => readFileSync(p, "utf8");
+    expect(read("src/components/AssignmentReview.tsx")).toContain("The Athlete login sees this when it is sent back.");
+    expect(read("src/app/org/[slug]/board-governance/meetings/[meetingId]/page.tsx")).toContain("Remove From Meeting");
+    expect(read("src/app/org/[slug]/view-as/page.tsx")).toContain("Their own profile and nothing else");
+    expect(read("src/app/org/[slug]/fundraising/page.tsx")).not.toContain("All years first, then each year");
+    expect(read("src/app/org/[slug]/settings/page.tsx")).not.toContain('"You. "');
+    // Complete is a finishing action in green, not the brand red that also means danger (V8).
+    expect(read("src/components/AssignmentReview.tsx")).toContain('<Button variant="positive">Complete</Button>');
+    expect(read("src/components/kit/index.tsx")).toMatch(/positive: "bg-solid-committed text-solid-committed-on"/);
+    const { activitySummary } = await import("@/lib/data/activity");
+    expect(activitySummary("document_deleted", { kind: "other" })).toBe("Deleted a document for good");
+    expect(activitySummary("document_deleted", { kind: "transcript" })).toBe("Deleted a transcript for good");
+  });
+});
+
+describe("LAW: pledges show payments applied and say each amount once (F1, V9)", () => {
+  it("the edit screen shows what is promised, applied and remaining", async () => {
+    const html = await render("@/app/org/[slug]/fundraising/pledges/[id]/edit/page", { params: p({ slug: ORG_WITH_MODULES, id: "pl1" }), searchParams: p({}) });
+    expect(html).toMatch(/Payments/);
+    expect(html).toMatch(/remaining/);
+    expect(html).toMatch(/promised · \$[\d,.]+ applied from \d+ gifts?/);
+  });
+
+  it("a row says the amount at the right, not also in its line", async () => {
+    const html = await render("@/app/org/[slug]/fundraising/pledges/page", { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) });
+    expect(html).not.toMatch(/\$[\d,.]+ promised ·/);
+    expect(html).toMatch(/Promised|promised/);
   });
 });

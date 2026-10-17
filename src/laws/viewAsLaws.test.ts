@@ -999,8 +999,17 @@ describe("LAW: every server action refuses while viewing, before it does anythin
       return out;
     };
     const files = walk(join(ROOT, "src")).filter((f) => /\.(ts|tsx)$/.test(f) && !/\.test\.tsx?$/.test(f) && !f.includes("/laws/") && !f.includes("/testing/"));
-    const FORBIDDEN = /generateLink|SignJWT|jsonwebtoken|setSession\(|signInWithIdToken|auth\.admin\.(createUser|updateUserById)|createSigned(Upload)?Url/;
+    const FORBIDDEN = /generateLink|SignJWT|jsonwebtoken|setSession\(|signInWithIdToken|auth\.admin\.updateUserById|createSigned(Upload)?Url/;
     expect(files.filter((f) => FORBIDDEN.test(read(f))).map((f) => f.slice(ROOT.length + 1))).toEqual([]);
+    // createUser is allowed in one place: adding an Admin without an invite
+    // (Dave, 2026-10-16). It makes an account with no password, no session
+    // and no link, confirmed by nobody; the person signs in later with their
+    // own emailed link. Nothing here signs anyone in.
+    const makers = files.filter((f) => /auth\.admin\.createUser/.test(read(f))).map((f) => f.slice(ROOT.length + 1));
+    expect(makers).toEqual(["src/lib/actions/members.ts"]);
+    const call = read(join(ROOT, "src/lib/actions/members.ts")).match(/auth\.admin\.createUser\(\{[\s\S]*?\}\);/)![0];
+    expect(call).toContain("email_confirm: false");
+    expect(call).not.toMatch(/password|app_metadata|phone/);
     // The one verifyOtp is the callback for a person's OWN emailed link.
     expect(files.filter((f) => /verifyOtp/.test(read(f))).map((f) => f.slice(ROOT.length + 1))).toEqual(["src/app/auth/callback/route.ts"]);
   });

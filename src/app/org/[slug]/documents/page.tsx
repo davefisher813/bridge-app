@@ -1,6 +1,7 @@
 import { documentTypeLabel, READER_TYPES } from "@/lib/documents/fileTypes";
 import { bulkApproveDocuments, bulkArchiveDocuments, bulkLinkDocumentsToAthlete, bulkRestoreDocuments, bulkSetDocumentType, bulkSuggestDocuments, undoBulkSuggest } from "@/lib/actions/documentsBulk";
 import { notFound } from "next/navigation";
+import { readableFileName } from "@/lib/documents/displayName";
 import { plainText } from "@/lib/docai/plainLanguage";
 import { countOf, SUGGEST_CAP } from "@/lib/bulk/ids";
 import { decodeSuggestUndo } from "@/lib/data/suggestionUndo";
@@ -84,7 +85,8 @@ function athleteLabel(doc: DocRow, linkedNames?: Map<string, string>): string | 
   // the name read off the page.
   if (doc.linked_athlete_id && linkedNames && !linkedNames.has(doc.linked_athlete_id)) return a?.name ?? REMOVED_ATHLETE;
   const linked = doc.linked_athlete_id ? linkedNames?.get(doc.linked_athlete_id) : undefined;
-  return a?.name ?? linked ?? doc.extracted?.studentName ?? null;
+  const read = doc.extracted?.studentName;
+  return a?.name ?? linked ?? (typeof read === "string" ? read : null);
 }
 
 // The four views. Uploaded and Processing are in All only: they are on
@@ -160,9 +162,9 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
         ? // A reference reading (Board Document, Other) is never matched to
           // an athlete, so it never says "no match".
           `${label}${athlete ? ` · ${athlete}` : doc.category === "board_document" || doc.category === "other" ? "" : " · No Match"}`
-        : (label ?? doc.file_name);
-  const reason = lifecycle === "processing" && isStaleProcessing(lifecycle, doc.lifecycle_changed_at) ? "Reading did not finish." : doc.review_reason ? plainText(doc.review_reason) || null : null;
-  const facts = [doc.title ? label : null, doc.title || typed || doc.status === "filed" ? doc.file_name : null, formatLabelOf(doc.format, doc.media_type), formatBytes(doc.file_size), ago(doc.created_at)].filter(Boolean);
+        : (label ?? readableFileName(doc.file_name));
+  const reason = lifecycle === "processing" && isStaleProcessing(lifecycle, doc.lifecycle_changed_at) ? "Reading did not finish." : doc.review_reason && lifecycle !== "archived" && lifecycle !== "ready" ? plainText(doc.review_reason) || null : null;
+  const facts = [doc.title ? label : null, doc.title || typed || doc.status === "filed" || title !== doc.file_name ? doc.file_name : null, formatLabelOf(doc.format, doc.media_type), formatBytes(doc.file_size), ago(doc.created_at)].filter(Boolean);
   const notes = [...(doc.status === "filed" ? [] : suggestionNotes(doc, linkedNames)), doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
   return (
     <Row
@@ -175,7 +177,7 @@ function DocumentRow({ slug, doc, linkedNames }: { slug: string; doc: DocRow; li
       select={<BulkCheck id={doc.id} label={title} />}
       trailing={
         <>
-          <LifecycleChip lifecycle={lifecycle} />
+          {lifecycle !== "archived" && <LifecycleChip lifecycle={lifecycle} />}
           {pct !== null && (
             <Body weight="bold" numeric tone={confidenceRole(pct)}>
               {pct}%

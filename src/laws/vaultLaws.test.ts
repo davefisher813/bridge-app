@@ -607,7 +607,8 @@ describe("LAW: every row and every document screen shows its status, and Delete 
     for (const v of ["needs_review", "ready", "archived"]) expect(out).toContain(`/documents?view=${v}`);
     const rows = out.split('data-kit="row"').length - 1;
     const chips = (out.match(/inline-flex items-center gap-2 text-label font-bold text-ink[^>]*>(?:<svg[\s\S]*?<\/svg>)?(Uploaded|Processing|Needs Review|Ready|Archived)</g) ?? []).length;
-    expect(chips).toBe(rows);
+    // Every row but an archived one carries its chip: the Archived section already says it (live test D6).
+    expect(chips).toBe(rows - 1);
     const archived = await html(LIST, listProps({ view: "archived" }));
     expect(archived).toContain("old-notes.txt");
     expect(archived).not.toContain("team-letter.docx");

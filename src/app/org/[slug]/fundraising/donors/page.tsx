@@ -75,7 +75,7 @@ export default async function DonorsPage({ params, searchParams }: { params: Pro
   return (
     <Screen
       title="Donors"
-      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }} lede={`${donors.length} ${donors.length === 1 ? "supporter" : "supporters"}`}
+      back={{ href: `/org/${slug}/fundraising`, label: "Fundraising" }} lede={`${donors.length} ${donors.length === 1 ? "supporter" : "supporters"} on file. Fundraising counts only those who have given cash, so its number can be lower.`}
       action={canEdit ? <AddButton href={`/org/${slug}/fundraising/donors/new`} label="Add" /> : undefined}
     >
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}

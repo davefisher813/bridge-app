@@ -31,6 +31,8 @@ import { METRIC_PLAUSIBLE, metricPlausible, TEST_TOTAL_RANGE } from "./plausibil
 import { daysAhead } from "./lenient";
 import { contradictions, contradictionWarning, FIELD_LABEL, unquotedIdentity } from "./identity";
 
+import { aOrAn } from "./plainLanguage";
+
 export interface ModelCallOptions {
   model: string;
   maxTokens: number;
@@ -357,7 +359,7 @@ export async function runExtractionPipeline(input: PipelineInput): Promise<Pipel
       return {
         ok: false,
         stage: "triage_wrong_category",
-        error: `This looks like ${what}, not a ${cat.label.toLowerCase()}. ${triage.issues[0] || triage.reason}`,
+        error: `This looks like ${what}, not ${aOrAn(cat.label.toLowerCase())}. ${triage.issues[0] || triage.reason}`,
         triage,
       };
     }

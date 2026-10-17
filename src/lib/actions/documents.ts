@@ -175,6 +175,10 @@ interface AppliedChanges {
   // are gone and an undo cannot bring them back, so it says so rather
   // than implying a clean reversal.
   coursesSuperseded: number;
+  // Who the document was filed to before this apply picked an athlete
+  // (usually nobody). Undo puts that back, so the MATCHED TO link goes
+  // and the pick returns. Absent on records made before 2026-10-16.
+  priorAthleteId?: string | null;
 }
 
 interface ApplyOutcome {
@@ -1280,12 +1284,12 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
   const supabase = await createClient();
   const { data } = await supabase
     .from("documents")
-    .select("id, category, extracted, status, read_by")
+    .select("id, category, extracted, status, read_by, athlete_id")
     .eq("id", documentId)
     .eq("org_id", org.id)
     .single();
 
-  const doc = data as { id: string; category: DocCategoryId | null; extracted: Record<string, unknown> | null; status: string; read_by?: string | null } | null;
+  const doc = data as { id: string; category: DocCategoryId | null; extracted: Record<string, unknown> | null; status: string; read_by?: string | null; athlete_id?: string | null } | null;
   if (!doc) return { ok: false, error: "Document not found." };
   if (!doc.category || !doc.extracted) return { ok: false, error: "There is nothing extracted to apply." };
   // Board Document and Other are read for a person, never put on an
@@ -1352,7 +1356,7 @@ export async function applyDocument(slug: string, documentId: string, athleteId:
     .from("documents")
     .update({
       // What to put back if this is discarded later. See migrations/0011.
-      applied_changes: outcome.changes,
+      applied_changes: { ...outcome.changes, priorAthleteId: doc.athlete_id ?? null },
       ...(applyWarnings.length ? { failure_reason: applyWarnings.join(" ") } : {}),
       updated_at: new Date().toISOString(),
     })
@@ -1436,8 +1440,9 @@ export async function deleteDocument(slug: string, documentId: string): Promise<
     summary: activitySummary("document_deleted", { kind: documentKind(doc.category ?? doc.requested_category) }),
   });
 
-  revalidatePath(`/org/${slug}/documents`);
-  if (doc.linked_athlete_id) revalidatePath(`/org/${slug}/roster/${doc.linked_athlete_id}`);
+  // No revalidatePath here: it re-rendered the detail page of the document
+  // that was just deleted, which has nothing left to show (live test O2).
+  // The redirect lands on a page that reads fresh.
   redirect(`/org/${slug}/documents?notice=${encodeURIComponent(`Deleted ${doc.file_name}.`)}`);
 }
 
@@ -1496,6 +1501,10 @@ export async function discardDocument(
   if (!claimed || (claimed as unknown[]).length === 0) return { ok: false, error: "That document was just changed by someone else. Reload and look again." };
 
   const undone = doc.status === "applied" ? await undoApply(org.id, doc.id, doc.applied_changes) : [];
+  // Apply set the athlete; undoing it takes the link off again, back to
+  // who the document was filed to before (nobody, for a pick), so the
+  // MATCHED TO line goes and the pick returns (live test D9, 2026-10-16).
+  const priorAthlete = doc.status === "applied" ? (doc.applied_changes?.priorAthleteId ?? null) : doc.athlete_id;
 
   const { error } = await supabase
     .from("documents")
@@ -1503,6 +1512,7 @@ export async function discardDocument(
       // The record is consumed. Leaving it would let a second discard,
       // or a later bug, try to restore values a second time.
       applied_changes: null,
+      athlete_id: priorAthlete,
       // Kept on the row rather than only returned, so the screen still
       // says what happened after a reload.
       undo_note: undone.length ? undone.join(" ") : null,

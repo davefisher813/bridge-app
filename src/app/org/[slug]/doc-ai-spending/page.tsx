@@ -14,6 +14,15 @@ import { Body, Card, Chevron, EmptyState, Label, Notice, Row, Screen, Section } 
 
 export const dynamic = "force-dynamic";
 
+// What kind of reading it was, never the model's own identifier (live test V4).
+function readingKind(model: string | null | undefined): string {
+  const m = (model ?? "").toLowerCase();
+  if (m.includes("haiku")) return "Quick check";
+  if (m.includes("sonnet")) return "Standard reading";
+  if (m.includes("opus") || m.includes("fable")) return "Detailed reading";
+  return "Reading";
+}
+
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
@@ -54,13 +63,13 @@ export default async function DocAiSpendingPage({ params }: { params: Promise<{ 
         ))}
       </Section>
 
-      <Section label="This Month" count={calls.length} role="contact" kind="money">
+      <Section label="This Month" role="contact" kind="money">
         {calls.length === 0 ? (
           <EmptyState kind="money" title="No Calls Yet" />
         ) : (
           calls.map((c) => {
-            const meta = `${shortDate(c.createdAt)} · ${c.model} · ${c.inputTokens + c.outputTokens} tokens`;
-            const title = `${c.documentName ?? "A Removed Document"} · ${dollars(c.costCents)}`;
+            const meta = `${shortDate(c.createdAt)} · ${readingKind(c.model)}`;
+            const title = `${c.documentName ?? "A Document Since Deleted"} · ${dollars(c.costCents)}`;
             return c.documentId && c.documentName ? (
               <Row key={c.id} href={`/org/${slug}/documents/${c.documentId}`} kind="money" role="contact" title={title} meta={meta} trailing={<Chevron />} wrap />
             ) : (

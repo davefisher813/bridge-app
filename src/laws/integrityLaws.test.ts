@@ -265,11 +265,14 @@ describe("LAW: a removed athlete takes their targets with them, and the document
     remove();
     const html = await render("@/app/org/[slug]/documents/page", {});
     expect(html).toContain("Removed Athlete");
-    expect(html).not.toContain("Fixture Athlete");
+    // The athlete label is gone. A file name may still carry a name (the
+    // readable title of an untyped file is made from it), so the check is
+    // on the label's places: after a dot, or alone in a cell.
+    expect(html).not.toMatch(/· Fixture Athlete|>Fixture Athlete</);
     expect(html).not.toContain(`/roster/${IDS.athlete}`);
     // A search for the removed name finds nothing through the label.
     const searched = await render("@/app/org/[slug]/documents/page", {}, { q: "fixture athlete" });
-    expect(searched).not.toContain("Fixture Athlete");
+    expect(searched).not.toMatch(/· Fixture Athlete|>Fixture Athlete</);
   });
 
   it("the document page says Removed Athlete, with no name and no link to them", async () => {

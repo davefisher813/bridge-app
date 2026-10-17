@@ -705,6 +705,15 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
         return code === "expired" ? { data: {}, error: { message: "invalid code" } } : { data: {}, error: null };
       },
       admin: {
+        async createUser(args: { email: string; email_confirm?: boolean; user_metadata?: Record<string, unknown> }) {
+          if (opts.authFail) return { data: { user: null }, error: { message: opts.authFail } };
+          const users = data.users ?? (data.users = []);
+          const id = `fake-user-${users.length + 1}`;
+          users.push({ id, email: args.email, full_name: String(args.user_metadata?.full_name ?? "") });
+          // Recorded under its own name: a test can see that no invite went out.
+          recorded.push({ op: "insert", table: "auth:create", rows: [{ email: args.email, email_confirm: args.email_confirm ?? false }], filters: [] });
+          return { data: { user: { id, email: args.email } }, error: null };
+        },
         async inviteUserByEmail(email: string, options?: { data?: Record<string, unknown>; redirectTo?: string }) {
           if (opts.authFail) return { data: { user: null }, error: { message: opts.authFail } };
           const users = data.users ?? (data.users = []);

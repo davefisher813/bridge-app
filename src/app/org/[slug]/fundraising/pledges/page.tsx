@@ -57,7 +57,9 @@ export default async function PledgesPage({ params, searchParams }: { params: Pr
       kind="pledge"
       role={role}
       title={r.p.donorId ? (donorName.get(r.p.donorId) ?? "Unknown Donor") : "Anonymous"}
-      meta={`${formatMoney(r.p.amountCents)} promised${r.p.dueOn ? ` · due ${longDate(r.p.dueOn)}` : ""}`}
+      // The amount is said once (live test V9): at the right when nothing
+      // has been received, or as "of $X promised" when part has.
+      meta={[r.outstanding === r.p.amountCents || r.p.status === "written_off" ? "Promised" : `Of ${formatMoney(r.p.amountCents)} promised`, r.p.dueOn ? `due ${longDate(r.p.dueOn)}` : null].filter(Boolean).join(" · ")}
       wrap
       trailing={
         <Body weight="bold" numeric>

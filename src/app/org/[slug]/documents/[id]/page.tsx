@@ -25,6 +25,7 @@ import { DocumentSuggestions } from "@/components/DocumentSuggestions";
 import { setDocumentIdentity, suggestDocumentAgain } from "@/lib/actions/documentIdentity";
 import type { IdentityCandidate } from "@/lib/docai/suggest";
 import { plainText } from "@/lib/docai/plainLanguage";
+import { figureText } from "@/lib/docai/figures";
 
 // Read Again runs the model from this page's form, and a real model call
 // on a scanned transcript can run past a minute: the same limit as the
@@ -91,6 +92,9 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 // "a" or "an" before a type's name.
+// The fingerprint stays one string to copy, and may wrap between groups of
+// eight on a narrow screen (<wbr> is a place to break, not a character).
+const wrappable = (hash: string) => (hash.match(/.{1,8}/g) ?? []).flatMap((g, i) => (i === 0 ? [g] : [<wbr key={i} />, g]));
 const withArticle = (label: string) => `${/^[aeiou]/i.test(label) ? "an" : "a"} ${label}`;
 
 const REMOVED_ATHLETE = "Removed Athlete";
@@ -163,7 +167,7 @@ const FIELD_LABEL: Record<string, string> = {
   people: "People Named",
   organizations: "Organizations",
   dates: "Dates",
-  amounts: "Dollar Figures",
+  amounts: "Figures",
   deadlines: "Deadlines",
   actionItems: "Action Items",
   keyFacts: "Key Facts",
@@ -215,7 +219,7 @@ function summarizeList(key: string, value: unknown): string | null {
     return (value as { name?: string; role?: string | null }[]).map((p) => `${p.name ?? "?"}${p.role ? ` (${p.role})` : ""}`).join(", ");
   }
   if (key === "amounts") {
-    return (value as { amount?: number; what?: string | null }[]).map((a) => `$${Math.round(a.amount ?? 0).toLocaleString("en-US")}${a.what ? ` ${a.what}` : ""}`).join("; ");
+    return (value as { amount?: number; what?: string | null }[]).map((a) => figureText(a.amount, a.what)).join("; ");
   }
   if (key === "deadlines" || key === "dates") {
     return (value as { date?: string; what?: string | null }[]).map((d) => `${d.date ?? "?"}${d.what ? ` ${d.what}` : ""}`).join("; ");
@@ -242,7 +246,7 @@ function displayFields(extracted: Record<string, unknown> | null): { label: stri
       const v = extracted[key];
       const list = summarizeList(key, v);
       const value = list ?? (typeof v === "boolean" ? (v ? "Yes" : "No") : typeof v === "number" && /cost|efc|sai/i.test(key) ? `$${Math.round(v).toLocaleString("en-US")}` : String(v));
-      return { label, value };
+      return { label, value: key === "recommenderTitle" && !String(v).trim() ? "Other" : value };
     })
     .map((f) => (PROSE_LABELS.has(f.label) ? { ...f, value: f.value.split(" · ").map(plainText).filter((v) => v.trim() !== "").join(" · ") } : f))
     .filter((f) => f.value !== "");
@@ -271,7 +275,9 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     .eq("org_id", org.id)
     .single();
 
-  if (!data) notFound();
+  // Gone (deleted a moment ago, or never here): back to the library, never
+  // an error screen (live test O2, 2026-10-16).
+  if (!data) redirect(`/org/${slug}/documents`);
   const doc = data as DocDetail;
   // Stored text from older readings can still carry field talk (Alfred,
   // 2026-10-15); it is cleaned as it is shown, wherever it appears.
@@ -507,7 +513,8 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   // The file as it was stored: never changed after upload. Name, format,
   // size, who, when and the SHA-256 of the bytes, then what it shows
   // (Piece 6) and a copy to save.
-  const hash = doc.content_hash ? (doc.content_hash.match(/.{1,8}/g) ?? []).join(" ") : null;
+  // One unbroken string, so it can be selected and compared (live test D7).
+  const hash = doc.content_hash ?? null;
   const typeLabel = documentTypeLabel(doc, CATEGORY_LABEL);
   const facts: [string, string][] = [
     ...(doc.title ? ([["Title", doc.title]] as [string, string][]) : []),
@@ -515,7 +522,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     ["File Name", doc.file_name],
     ["Format", formatLabelOf(doc.format, doc.media_type)],
     ["Size", formatBytes(doc.file_size)],
-    ...(uploadedBy ? ([["Uploaded By", uploadedBy]] as [string, string][]) : []),
+    ["Uploaded By", uploadedBy ?? (doc.uploaded_by ? "Someone no longer in this organization" : "Not recorded")],
     ["Uploaded", longDate(doc.created_at)],
     ...(hash ? ([["SHA-256", hash]] as [string, string][]) : []),
   ];
@@ -526,7 +533,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           {facts.map(([label, value]) => (
             <Stack key={label} gap={2}>
               <Label>{label}</Label>
-              <Body weight="semibold">{value}</Body>
+              <Body weight="semibold">{label === "SHA-256" ? wrappable(value) : value}</Body>
             </Stack>
           ))}
         </Stack>
@@ -876,9 +883,10 @@ export default async function DocumentPage({ params, searchParams }: { params: P
                 />
                 <Meter parts={[{ role: confidenceRole(pct), fraction: pct / 100 }]} />
                 <Label>
-                  {modelPct !== null ? `It was ${modelPct}% sure of what it read` : "Confidence was not reported"}
-                  {legibility !== null ? `, the scan was ${legibility}% legible` : ""}, and it came from {SOURCE_LABEL[doc.source_role] ?? doc.source_role}.
-                  {isApplied ? " Applied without asking." : " That is not enough to change an athlete without a look."}
+                  {[
+                    `${modelPct !== null ? `It was ${modelPct}% sure of what it read` : "Confidence was not reported"}${legibility !== null ? `, the scan was ${legibility}% legible` : ""}, and it came from ${SOURCE_LABEL[doc.source_role] ?? doc.source_role}.`,
+                    isApplied ? "Applied without asking." : "That is not enough to change an athlete without a look.",
+                  ].join(" ")}
                 </Label>
               </Stack>
             </Section>

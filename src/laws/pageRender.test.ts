@@ -471,7 +471,11 @@ describe("LAW: a placed athlete has no score anywhere", () => {
     expect(row).toMatch(/>Inactive</);
     expect(row).not.toMatch(SCORE);
     const profile = await render("@/app/org/[slug]/roster/[id]/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });
-    expect(profile).not.toMatch(/Schools? Evaluated/);
+    // The section is still there, empty, with the reason (live test O1).
+    expect(profile).toMatch(/Schools Evaluated/);
+    expect(profile).toMatch(/No Matches Yet/);
+    expect(profile).toMatch(/Matches stopped scoring while Fixture Athlete is inactive\./);
+    expect(profile).not.toMatch(/\d+ Schools? Evaluated/);
     expect(profile).toMatch(/>Targets</);
     currentUser = FAMILY_ID;
     const family = await render("@/app/org/[slug]/family/[id]/matches/page", { params: p({ slug: ORG_WITH_MODULES, id: IDS.athlete }) });

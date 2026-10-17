@@ -89,6 +89,11 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
   // new Admin is assigned as that athlete's advisor once they are in.
   // Only a role that may advise; an athlete login or a Viewer cannot.
   const assignAthleteId = String(formData.get("assignAthleteId") ?? "").trim() || null;
+  // How an Admin is brought in: "silent" adds them with nothing sent;
+  // "invite" sends the invitation email, as before. Asked of an Admin
+  // only (they can advise); a Viewer or an Athlete login is always
+  // invited, since they have no use for a login they were never told of.
+  const silent = canAdvise(role) && String(formData.get("delivery") ?? "") === "silent";
   if (assignAthleteId && !canAdvise(role)) {
     return { errors: { role: "Only an Admin can be an athlete's advisor." }, values: Object.fromEntries(formData.entries()) };
   }
@@ -219,6 +224,22 @@ export async function inviteMember(slug: string, _prev: MemberActionState, formD
       return { errors: { email: "Already a member of this organization." }, values: Object.fromEntries(formData.entries()) };
     }
     notice = `${email} already had an account and has been added. They can sign in with their email.`;
+  } else if (silent) {
+    // Add without an invite (Dave, 2026-10-16): the person gets a profile
+    // and a place in the org, and nothing is sent, ever. When they sign in
+    // later with this email, Supabase finds this same account, so the
+    // athletes, assignments and history already on it are theirs with
+    // nothing re-entered and no second advisor made.
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      email_confirm: false,
+      user_metadata: fullName ? { full_name: fullName } : {},
+    });
+    if (error || !data?.user) {
+      return { errors: { form: `Could not add them: ${error ? error.message : "no account was created."}` }, values: Object.fromEntries(formData.entries()) };
+    }
+    userId = data.user.id;
+    notice = `${fullName || email} was added. Nothing was sent to them. They can sign in with ${email} whenever they are ready, and everything assigned to them will be there.`;
   } else {
     const origin = await siteOrigin();
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {

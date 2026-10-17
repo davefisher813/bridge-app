@@ -21,13 +21,13 @@ export function AssignmentReview({ complete, revise }: { complete: CompleteActio
   return (
     <Stack gap={4}>
       <Form action={complete}>
-        <Button>Complete</Button>
+        <Button variant="positive">Complete</Button>
       </Form>
       <Form action={formAction} error={state.errors.form}>
         <TextAreaField
           name="comment"
           label="What Needs to Change"
-          hint="The athlete login sees this when it is sent back."
+          hint="The Athlete login sees this when it is sent back."
           maxLength={ASSIGNMENT_TEXT_MAX}
           defaultValue={state.comment ?? ""}
           error={state.errors.comment}

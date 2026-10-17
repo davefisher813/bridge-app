@@ -103,7 +103,7 @@ export default async function FundraisingPage({
   }
 
   return (
-    <Screen title="Fundraising" lede="All years first, then each year">
+    <Screen title="Fundraising" lede="What has come in, across every year and then year by year.">
       {(notice || error) && <Notice tone={error ? "danger" : "success"} title={error ?? notice} />}
 
       {/* The headline is every year together (Dave, 2026-10-13: "not
@@ -114,7 +114,7 @@ export default async function FundraisingPage({
           <Stat value={formatMoneyShort(all.cashCents)} label="Raised, All Years" role="committed" kind="money" href={`/org/${slug}/fundraising/gifts`} />
           <Stat value={all.giftCount} label="Gifts, All Years" role="contact" kind="people" href={`/org/${slug}/fundraising/gifts`} />
         </StatRow>
-        <Label>{`Cash in the door from ${all.donorCount} ${all.donorCount === 1 ? "supporter" : "supporters"}, ${all.years.length} ${all.years.length === 1 ? "year" : "years"} together.${all.inKindCents > 0 ? ` ${formatMoneyShort(all.inKindCents)} more was given in kind.` : ""}`}</Label>
+        <Label>{`Cash in the door from ${all.donorCount} ${all.donorCount === 1 ? "supporter" : "supporters"} who gave, ${all.years.length} ${all.years.length === 1 ? "year" : "years"} together.${all.inKindCents > 0 ? ` ${formatMoneyShort(all.inKindCents)} more was given in kind.` : ""}`}</Label>
       </Stack>
 
       {all.promisedCents > 0 && (
@@ -199,12 +199,12 @@ export default async function FundraisingPage({
                     </Body>
                     <Label>
                       {formatMoneyShort(c.receivedCents)}
-                      {c.budgetCents > 0 ? ` of ${formatMoneyShort(c.budgetCents)}` : " received, no target set"}
+                      {c.budgetCents > 0 ? ` of ${formatMoneyShort(c.budgetCents)}` : " received"}
                       {c.inKindCents > 0 ? ` · ${formatMoneyShort(c.inKindCents)} in kind` : ""}
                     </Label>
                   </div>
                   <Body weight="bold" numeric tone={c.percentOfBudget === null ? "muted" : "ink"}>
-                    {c.percentOfBudget === null ? "no target" : `${c.percentOfBudget}%`}
+                    {c.percentOfBudget === null ? "no target set" : `${c.percentOfBudget}%`}
                   </Body>
                 </div>
                 <Meter parts={[{ role, fraction: (c.percentOfBudget ?? 0) / 100 }]} />

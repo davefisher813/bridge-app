@@ -551,6 +551,44 @@ describe("LAW: membership is written by the service role, only by an owner, and 
     expect(membership?.rows[0]).toMatchObject({ org_id: data.orgs[0]!.id, role: "owner" });
   });
 
+  it("adding an Admin without inviting makes the account and the membership and sends nothing (Dave, 2026-10-16)", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "Quiet@Example.test", role: "owner", fullName: "Quiet Coach", delivery: "silent" })));
+    expect(r.redirect).toContain("/members");
+    expect(decodeURIComponent(r.redirect!)).toContain("Nothing was sent");
+    expect(writes.find((w) => w.table === "auth:invite")).toBeUndefined();
+    const created = writes.find((w) => w.table === "auth:create");
+    expect(created?.rows[0]).toMatchObject({ email: "quiet@example.test", email_confirm: false });
+    expect(writes.find((w) => w.table === "org_members" && w.op === "insert")?.rows[0]).toMatchObject({ org_id: data.orgs[0]!.id, role: "owner" });
+  });
+
+  it("a silently added advisor can be given an athlete straight away, and the athlete is theirs", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    const r = await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "quiet2@example.test", role: "owner", fullName: "Quiet Two", delivery: "silent", assignAthleteId: IDS.athlete })));
+    expect(r.redirect).toBeTruthy();
+    expect(writes.find((w) => w.table === "auth:invite")).toBeUndefined();
+    const newId = (data.users as { id: string; email: string }[]).find((u) => u.email === "quiet2@example.test")!.id;
+    expect(data.athletes.find((a) => a.id === IDS.athlete)!.advisor_id).toBe(newId);
+  });
+
+  it("the invite stays available as its own choice", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "loud@example.test", role: "owner", delivery: "invite" })));
+    expect(writes.find((w) => w.table === "auth:invite")?.rows[0]?.email).toBe("loud@example.test");
+    expect(writes.find((w) => w.table === "auth:create")).toBeUndefined();
+  });
+
+  it("a Viewer is always invited, whatever the form says", async () => {
+    withKey();
+    const { inviteMember } = await import("@/lib/actions/members");
+    await run(() => inviteMember(ORG_WITH_MODULES, { errors: {} }, form({ email: "viewer-new@example.test", role: "member", delivery: "silent" })));
+    expect(writes.find((w) => w.table === "auth:invite")).toBeTruthy();
+    expect(writes.find((w) => w.table === "auth:create")).toBeUndefined();
+  });
+
   it("an owner adding an existing account writes the membership and sends no invitation", async () => {
     withKey();
     const { inviteMember } = await import("@/lib/actions/members");
@@ -1021,6 +1059,27 @@ describe("LAW: every document type applies to the record and every apply can be 
     const u = await discardDocument(ORG_WITH_MODULES, "doc-offer");
     expect(u.undone!.join(" ")).toMatch(/Removed the college/);
     expect(writes.find((w) => w.table === "recruiting_targets" && w.op === "delete")).toBeTruthy();
+  });
+
+  it("Undo and Discard takes the Matched To link off and brings the pick back (live test D9)", async () => {
+    data.documents!.push(pendingDoc("doc-rec-d9", "recommendation", { studentName: "Fixture Athlete", recommenderName: "Coach Fixture", recommenderTitle: "Coach", recType: "athletic", tone: "strong", summary: "A strong letter." }));
+    const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
+    const row = () => data.documents!.find((d) => d.id === "doc-rec-d9") as Record<string, unknown>;
+    expect((await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-rec-d9", IDS.athlete))).ok).toBe(true);
+    expect(row().athlete_id).toBe(IDS.athlete);
+    expect((row().applied_changes as { priorAthleteId: unknown }).priorAthleteId).toBeNull();
+    const u = await discardDocument(ORG_WITH_MODULES, "doc-rec-d9");
+    expect(u.ok).toBe(true);
+    expect(row().athlete_id).toBeNull();
+    expect(row().status).toBe("discarded");
+  });
+
+  it("Undo and Discard puts back the athlete a document was already filed to", async () => {
+    data.documents!.push({ ...pendingDoc("doc-rec-d9b", "recommendation", { studentName: "Fixture Athlete" }), athlete_id: IDS.athleteTransfer });
+    const { applyDocument, discardDocument } = await import("@/lib/actions/documents");
+    await asRealModel(() => applyDocument(ORG_WITH_MODULES, "doc-rec-d9b", IDS.athlete));
+    await discardDocument(ORG_WITH_MODULES, "doc-rec-d9b");
+    expect((data.documents!.find((d) => d.id === "doc-rec-d9b") as Record<string, unknown>).athlete_id).toBe(IDS.athleteTransfer);
   });
 
   it("an offer letter for a college already on the board moves it to Offer and the undo puts the stage back", async () => {

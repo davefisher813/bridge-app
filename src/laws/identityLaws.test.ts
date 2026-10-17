@@ -505,6 +505,21 @@ describe("LAW: an unconfirmed suggestion is in Needs Review", () => {
     expect(await list("ready")).toContain("Fixture_Athlete_transcript.txt");
   });
 
+  it("a machine file name reads as a title, and an archived row carries no second Archived label (D6, V5)", async () => {
+    const r = await upload("browser-download-20261009T014437.089730450Z-11-fiscal-policy.txt", "x");
+    const row = rowOf(r.documentId!);
+    row.category = null;
+    row.requested_category = null;
+    row.suggested_type = null;
+    row.review_reason = "No type chosen.";
+    row.lifecycle = "archived";
+    const out = (await list("archived")).replace(/<script>[\s\S]*?<\/script>/g, "");
+    expect(out).toContain("Fiscal Policy");
+    expect(out).not.toMatch(/line-clamp-2 text-body font-semibold text-ink">browser-download/); // the title; the file name stays in the details line
+    expect(out).not.toContain("No type chosen.");
+    expect((out.match(/>Archived</g) ?? []).length).toBe(2); // the tile and the section, not the row
+  });
+
   it("confirming takes it out of Needs Review", async () => {
     const r = await upload("Fixture_Athlete_transcript.txt", "x");
     rowOf(r.documentId!).lifecycle = "ready";
@@ -527,6 +542,21 @@ describe("LAW: the document screen shows the suggestion and asks", () => {
     const mod = await import("@/app/org/[slug]/documents/[id]/page");
     return renderToStaticMarkup(await mod.default({ params: Promise.resolve({ slug: ORG_WITH_MODULES, id }), searchParams: Promise.resolve({}) }));
   }
+
+  it("the original file shows its fingerprint as one string and always says who uploaded it (D3, D7)", async () => {
+    const r = await upload("Fixture_Athlete_transcript.txt", "x");
+    const row = rowOf(r.documentId!);
+    row.content_hash = "a3f1c2d4e5b6a7980123456789abcdef0123456789abcdef0123456789abcdef";
+    row.uploaded_by = null;
+    const out = (await html(r.documentId!)).replace(/<wbr\/>/g, ""); // break points, not characters
+    expect(out).toContain("a3f1c2d4e5b6a7980123456789abcdef0123456789abcdef0123456789abcdef");
+    expect(out).toContain("Uploaded By");
+    expect(out).toContain("Not recorded");
+  });
+
+  it("a document that is gone sends the person to the library, not an error screen (live test O2)", async () => {
+    await expect(html("00000000-0000-0000-0000-00000000dead")).rejects.toThrow("NEXT_REDIRECT:/org/" + ORG_WITH_MODULES + "/documents");
+  });
 
   it("a reading never shows field talk: a sentence about a null or a column is left out", async () => {
     const r = await upload("Fixture_Athlete_transcript.txt", "x");

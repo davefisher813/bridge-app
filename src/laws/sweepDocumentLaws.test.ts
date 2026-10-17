@@ -392,6 +392,8 @@ describe("LAW: the document screens' titles are Title Case, and a reference read
     expect(html).toMatch(/Course Load/);
     expect(html).toMatch(/Why It Stopped/);
     expect(html).toMatch(/Medium Confidence/);
+    // Words stay apart (live test D2): "came from you. That is not enough".
+    expect(html).toMatch(/and it came from [A-Za-z ]+\. That is not enough/);
     const { titleCase } = await import("@/lib/copy/titleCase");
     const src = readFileSync("src/app/org/[slug]/documents/[id]/page.tsx", "utf8");
     const labels = src.slice(src.indexOf("const FIELD_LABEL"), src.indexOf("};", src.indexOf("const FIELD_LABEL")));
