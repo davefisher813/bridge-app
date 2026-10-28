@@ -28,6 +28,8 @@ interface BulkState {
   selecting: boolean;
   selected: ReadonlySet<string>;
   toggle: (id: string) => void;
+  // Select or clear several at once: a row that stands for a stack of files.
+  toggleMany: (ids: readonly string[]) => void;
 }
 
 const BulkContext = createContext<BulkState | null>(null);
@@ -74,6 +76,16 @@ export function BulkSelect({
           const next = new Set(prev);
           if (next.has(id)) next.delete(id);
           else next.add(id);
+          return next;
+        }),
+      toggleMany: (many) =>
+        setSelected((prev) => {
+          const next = new Set(prev);
+          const all = many.every((id) => next.has(id));
+          for (const id of many) {
+            if (all) next.delete(id);
+            else next.add(id);
+          }
           return next;
         }),
     }),
@@ -132,12 +144,13 @@ export function BulkSelect({
 
 // The checkbox at the left of a row, shown only while selecting. It is a
 // 44px tap target of its own, outside the row's link.
-export function BulkCheck({ id, label }: { id: string; label: string }) {
+export function BulkCheck({ id, ids, label }: { id?: string; ids?: readonly string[]; label: string }) {
   const ctx = useContext(BulkContext);
   if (!ctx || !ctx.selecting) return null;
+  const many = ids ?? (id ? [id] : []);
   return (
     <label className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center pl-3">
-      <input type="checkbox" checked={ctx.selected.has(id)} onChange={() => ctx.toggle(id)} aria-label={`Select ${label}`} className="h-6 w-6 accent-[var(--accent)]" />
+      <input type="checkbox" checked={many.length > 0 && many.every((x) => ctx.selected.has(x))} onChange={() => ctx.toggleMany(many)} aria-label={`Select ${label}`} className="h-6 w-6 accent-[var(--accent)]" />
     </label>
   );
 }

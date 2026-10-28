@@ -441,6 +441,19 @@ describe("LAW: a placed athlete has no score anywhere", () => {
     expect(found).toMatch(/fixture\.pdf/);
   });
 
+  it("every count on Documents agrees: the tiles add up to All, the header says All, and each section counts its own files", async () => {
+    const html = await render("@/app/org/[slug]/documents/page", { params: p({ slug: ORG_WITH_MODULES }) });
+    const tile = (label: string) => Number(html.match(new RegExp(`tabular-nums[^>]*>(\\d+)</div></div><div class="text-label font-bold text-muted">${label}<`))?.[1] ?? 0);
+    const all = tile("All");
+    expect(all).toBeGreaterThan(0);
+    expect(tile("Needs Review") + tile("Ready") + tile("Archived") + tile("Reading")).toBe(all);
+    expect(html).toContain(`All: ${all} documents`);
+    // Each section's count is the number of files in that state, which is the tile's number for it.
+    const section = (label: string) => Number(html.match(new RegExp(`text-label font-bold text-muted">${label}</span><span class="h-px[^>]*></span><span class="text-label font-bold tabular-nums text-ink">(\\d+)<`))?.[1] ?? 0);
+    const sections = section("Needs Review") + section("Ready") + section("Archived") + section("Uploaded") + section("Processing");
+    expect(sections).toBe(all);
+  });
+
   it("the matches list prints a score and tag only where they change", async () => {
     const { readFileSync } = await import("node:fs");
     expect(readFileSync("src/app/org/[slug]/roster/[id]/matches/page.tsx", "utf8")).toContain("sameAsAbove ? undefined : String(f.score)");

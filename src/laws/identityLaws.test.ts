@@ -501,8 +501,18 @@ describe("LAW: an unconfirmed suggestion is in Needs Review", () => {
     expect(inReview).toContain("Fixture_Athlete_transcript.txt");
     expect(inReview).toContain("Maybe Fixture Athlete?");
     expect(row.lifecycle).toBe("ready");
-    // Not duplicated into the Ready view's own section count when asked for Ready: it is still Ready.
-    expect(await list("ready")).toContain("Fixture_Athlete_transcript.txt");
+    // Counted once: waiting on a person, it is under Needs Review and not also under Ready (audit D1/D2).
+    expect(await list("ready")).not.toContain("Fixture_Athlete_transcript.txt");
+  });
+
+  it("a Ready file waiting on a person is counted once, so the tiles still add up to All (audit D1/D2)", async () => {
+    const r = await upload("Fixture_Athlete_transcript.txt", "x");
+    const row = rowOf(r.documentId!);
+    row.lifecycle = "ready";
+    expect(row.identity_status).toBe("proposed");
+    const html = await list("all");
+    const tile = (label: string) => Number(html.match(new RegExp(`tabular-nums[^>]*>(\\d+)</div></div><div class="text-label font-bold text-muted">${label}<`))?.[1] ?? 0);
+    expect(tile("Needs Review") + tile("Ready") + tile("Archived") + tile("Reading")).toBe(tile("All"));
   });
 
   it("a machine file name reads as a title, and an archived row carries no second Archived label (D6, V5)", async () => {
