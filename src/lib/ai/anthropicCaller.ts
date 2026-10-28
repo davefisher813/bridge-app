@@ -137,6 +137,9 @@ export function apiKeyShape(raw: string | undefined): string {
   return [
     `length ${raw.length}`,
     `starts ${raw.slice(0, 7) === "sk-ant-" ? "sk-ant-" : "differently"}`,
+    // The console shows the last four characters of every key, so this is
+    // how an Admin tells a mistyped copy from the key they made.
+    `ends ${cleaned && cleaned.length >= 12 ? cleaned.slice(-4) : "n/a"}`,
     `whitespace ${/\s/.test(raw) ? "yes" : "no"}`,
     `quotes ${/["']/.test(raw) ? "yes" : "no"}`,
     cleaned === raw ? "unchanged by cleaning" : `cleaned length ${cleaned?.length ?? 0}`,
