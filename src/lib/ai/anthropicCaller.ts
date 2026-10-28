@@ -121,6 +121,28 @@ export function apiErrorDetail(e: unknown): string {
   return text.replace(/sk-ant-[A-Za-z0-9_-]+/g, "[key]").replace(/\s+/g, " ").slice(0, 300);
 }
 
+// The key as the environment holds it, with the stray quotes or spaces a
+// paste into a settings box can leave around it removed.
+export function cleanApiKey(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  const cleaned = raw.trim().replace(/^["']+|["']+$/g, "").trim();
+  return cleaned === "" ? undefined : cleaned;
+}
+
+// The shape of the key, never its value: enough to tell a truncated or
+// quoted paste from a revoked key when the API answers 401.
+export function apiKeyShape(raw: string | undefined): string {
+  if (raw === undefined) return "not set";
+  const cleaned = cleanApiKey(raw);
+  return [
+    `length ${raw.length}`,
+    `starts ${raw.slice(0, 7) === "sk-ant-" ? "sk-ant-" : "differently"}`,
+    `whitespace ${/\s/.test(raw) ? "yes" : "no"}`,
+    `quotes ${/["']/.test(raw) ? "yes" : "no"}`,
+    cleaned === raw ? "unchanged by cleaning" : `cleaned length ${cleaned?.length ?? 0}`,
+  ].join(", ");
+}
+
 export function explainApiError(e: unknown): string {
   const err = e as { status?: number; message?: string; name?: string };
   const msg = (err.message ?? String(e)).toLowerCase();
@@ -146,7 +168,7 @@ export function createAnthropicCaller(opts: AnthropicCallerOptions = {}): ModelC
   // the function be killed with the document left at "processing".
   // Two retries cover a 429 or a 5xx blip; the timeout is per attempt,
   // and the pipeline's two calls plus retries still fit.
-  const client: MessagesClient = opts.client ?? new Anthropic({ timeout: 100_000, maxRetries: 2 });
+  const client: MessagesClient = opts.client ?? new Anthropic({ apiKey: cleanApiKey(process.env.ANTHROPIC_API_KEY), timeout: 100_000, maxRetries: 2 });
   return async (call) => {
     const content = contentFor(call);
     if (content.length === 1) throw new Error("None of the files can be read by the model.");
@@ -171,7 +193,7 @@ export function createAnthropicCaller(opts: AnthropicCallerOptions = {}): ModelC
       });
     } catch (e) {
       // Runtime logs are kept for an hour, so the real answer goes there too.
-      console.error(`[docai] Anthropic call failed (model ${call.model}): ${apiErrorDetail(e)}`);
+      console.error(`[docai] Anthropic call failed (model ${call.model}): ${apiErrorDetail(e)}. Key: ${apiKeyShape(process.env.ANTHROPIC_API_KEY)}`);
       throw new Error(explainApiError(e));
     }
 
