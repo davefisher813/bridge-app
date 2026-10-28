@@ -175,6 +175,8 @@ describe("the API key as pasted", () => {
     const shape = apiKeyShape('"sk-ant-abc123"');
     expect(shape).toMatch(/quotes yes/);
     expect(shape).not.toMatch(/abc123/);
+    expect(apiKeyShape("sk-ant-api03-ABCDEFGHIJKLMNOP-wxyz")).toMatch(/ends wxyz/);
+    expect(apiKeyShape("sk-ant-api03-ABCDEFGHIJKLMNOP-wxyz")).not.toMatch(/ABCDEFGHIJ/);
     expect(apiKeyShape(undefined)).toBe("not set");
   });
 });
