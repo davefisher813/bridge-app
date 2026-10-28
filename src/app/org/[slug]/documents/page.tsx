@@ -171,6 +171,18 @@ function groupNearDuplicates(list: DocRow[], names: Map<string, string>, searchi
   return [...groups.values()].map((g) => [g[0]!, g.slice(1)]);
 }
 
+// "3 Files", and where they are counted when they are not all in one state,
+// so a stack that spans Ready and Archived reconciles with both counts.
+function stackLabel(files: DocRow[]): string {
+  const by = new Map<string, number>();
+  for (const f of files) {
+    const label = LIFECYCLE_LABEL[(isLifecycle(f.lifecycle) ? f.lifecycle : "needs_review") as Lifecycle];
+    by.set(label, (by.get(label) ?? 0) + 1);
+  }
+  const head = `${files.length} Files`;
+  return by.size > 1 ? `${head} (${[...by].map(([k, n]) => `${n} ${k}`).join(", ")})` : head;
+}
+
 function DocumentRow({ slug, doc, linkedNames, same = [], view = "all", stackQuery }: { slug: string; doc: DocRow; linkedNames: Map<string, string>; same?: DocRow[]; view?: string; stackQuery?: string }) {
   const athlete = athleteLabel(doc, linkedNames);
   const pct = doc.provenance?.confidence != null ? Math.round(doc.provenance.confidence * 100) : null;
@@ -185,7 +197,7 @@ function DocumentRow({ slug, doc, linkedNames, same = [], view = "all", stackQue
   // anything worked out; its type and file name go below.
   const title = docTitle(doc, linkedNames);
   const reason = lifecycle === "processing" && isStaleProcessing(lifecycle, doc.lifecycle_changed_at) ? "Reading did not finish." : doc.review_reason && lifecycle !== "archived" && lifecycle !== "ready" ? plainText(doc.review_reason) || null : null;
-  const facts = [doc.title ? label : null, doc.title || typed || doc.status === "filed" || title !== doc.file_name ? doc.file_name : null, same.length > 0 ? `${same.length + 1} Files` : null, same.length > 0 ? null : ago(doc.created_at)].filter(Boolean);
+  const facts = [doc.title ? label : null, doc.title || typed || doc.status === "filed" || title !== doc.file_name ? doc.file_name : null, same.length > 0 ? stackLabel([doc, ...same]) : null, same.length > 0 ? null : ago(doc.created_at)].filter(Boolean);
   const notes = [...(doc.status === "filed" ? [] : suggestionNotes(doc, linkedNames)), doc.status === "applied" ? "Applied to the record." : null, reason, isStubReading(doc.read_by) ? "Made up by the stand-in." : null].filter(Boolean);
   return (
     <Row
@@ -195,7 +207,7 @@ function DocumentRow({ slug, doc, linkedNames, same = [], view = "all", stackQue
       title={title}
       meta={[facts.join(" · "), ...notes].join(" · ")}
       wrap
-      select={same.length > 0 ? undefined : <BulkCheck id={doc.id} label={title} />}
+      select={<BulkCheck ids={[doc.id, ...same.map((x) => x.id)]} label={same.length > 0 ? `${title}, ${same.length + 1} files` : title} />}
       trailing={
         <>
           {lifecycle !== "archived" && <LifecycleChip lifecycle={lifecycle} />}
@@ -267,9 +279,19 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   // person confirms, changes or says it is about nobody.
   const awaitsWho = (r: DocRow) =>
     r.lifecycle === "ready" && (r.identity_status === "proposed" || r.identity_status === "ambiguous") && (r.identity_candidates ?? []).some((c) => linkedNames.has(c.athleteId));
-  const inView = (v: View) => (v === "all" ? matched : v === "needs_review" ? matched.filter((r) => r.lifecycle === "needs_review" || awaitsWho(r)) : matched.filter((r) => r.lifecycle === v));
+  // One file, one state, one count. A Ready file still waiting on a
+  // person to confirm who it is about is counted and listed under Needs
+  // Review only, never also under Ready, so the tiles add up to All and
+  // the sections add up to the tile above them (audit D1/D2, 2026-10-24:
+  // those files were in both, so the tiles summed to 152 against 137).
+  const stateOf = (r: DocRow): Lifecycle => (awaitsWho(r) ? "needs_review" : ((isLifecycle(r.lifecycle) ? r.lifecycle : "needs_review") as Lifecycle));
+  const inView = (v: View) => (v === "all" ? matched : matched.filter((r) => stateOf(r) === v));
   const rows = inView(view);
-  const inState = (state: Lifecycle) => rows.filter((r) => !stacked.hidden.has(r.id)).filter((r) => (view === "needs_review" && awaitsWho(r) ? "needs_review" : r.lifecycle) === state);
+  // Every file of a state, counted. What is drawn is fewer rows when files
+  // are stacked ("3 Files"), and the stack row says so.
+  const inState = (state: Lifecycle) => rows.filter((r) => stateOf(r) === state);
+  const drawnIn = (state: Lifecycle) => inState(state).filter((r) => !stacked.hidden.has(r.id));
+  const inProgress = matched.filter((r) => stateOf(r) === "uploaded" || stateOf(r) === "processing").length;
   // An athlete's assignment files stack into one row across states; a
   // search lists each file on its own.
   const stacked = q ? { hidden: new Set<string>(), behind: new Map<string, { others: DocRow[]; who: string }>() } : stackAssignments(rows);
@@ -313,6 +335,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
         {VIEWS.map((v) => (
           <Stat key={v.id} href={viewHref(v.id)} value={inView(v.id).length} label={v.label} role={v.id === view ? "accent" : "neutral"} kind={v.id === view ? "check" : undefined} />
         ))}
+        {inProgress > 0 && <Stat href={viewHref("all")} value={inProgress} label="Reading" role="contact" />}
       </StatRow>
 
       {(all.length > 5 || q) && <SearchField initial={q} placeholder="A file name, a type or an athlete" />}
@@ -417,10 +440,11 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
           }
         >
           {(["uploaded", "processing", "needs_review", "ready", "archived"] as const).map((state) => {
-            const list = inState(state);
-            if (list.length === 0) return null;
+            const files = inState(state);
+            if (files.length === 0) return null;
+            const list = drawnIn(state);
             return (
-              <Section key={state} label={LIFECYCLE_LABEL[state]} count={list.length} role={state === "needs_review" ? "offer" : state === "ready" ? "committed" : state === "processing" ? "contact" : "neutral"} kind={state === "needs_review" ? "warning" : state === "ready" ? "check" : state === "processing" ? "clock" : state === "archived" ? "note" : "document"}>
+              <Section key={state} label={LIFECYCLE_LABEL[state]} count={files.length} role={state === "needs_review" ? "offer" : state === "ready" ? "committed" : state === "processing" ? "contact" : "neutral"} kind={state === "needs_review" ? "warning" : state === "ready" ? "check" : state === "processing" ? "clock" : state === "archived" ? "note" : "document"}>
                 {groupNearDuplicates(list, linkedNames, !!q).map(([d, same]) => (
                   <DocumentRow key={d.id} slug={slug} doc={d} linkedNames={linkedNames} same={[...same, ...(stacked.behind.get(d.id)?.others ?? [])]} view={view} stackQuery={stacked.behind.get(d.id)?.who} />
                 ))}
