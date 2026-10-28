@@ -143,6 +143,10 @@ describe("what the API's errors mean to the person uploading", () => {
     expect(explainApiError({ status: 400, message: "Could not process image" })).toMatch(/could not be opened/);
     expect(explainApiError({ status: 413, message: "request_too_large" })).toMatch(/too large/);
     expect(explainApiError({ status: 401, message: "invalid x-api-key" })).toMatch(/AI key/);
+    // The banner also says what Anthropic answered, never a key.
+    const denied = explainApiError({ status: 403, error: { error: { type: "permission_error", message: "Your API key does not have access to claude-opus-5 sk-ant-api03-SECRET123" } }, message: "403" });
+    expect(denied).toMatch(/Anthropic said: 403 permission_error Your API key does not have access/);
+    expect(denied).not.toMatch(/SECRET123/);
     expect(explainApiError({ status: 429, message: "rate_limit_error" })).toMatch(/busy/);
     expect(explainApiError({ status: 529, message: "overloaded_error" })).toMatch(/overloaded/);
     expect(explainApiError({ name: "APIConnectionTimeoutError", message: "Request timed out." })).toMatch(/took too long/);
