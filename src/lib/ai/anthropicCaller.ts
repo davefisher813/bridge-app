@@ -109,6 +109,18 @@ export interface AnthropicCallerOptions {
 // The SDK's messages name status codes and request ids; the document
 // screen needs a sentence that says what to do. Anything unrecognised
 // keeps the SDK's message so it can still be diagnosed.
+// What Anthropic itself answered, for an Admin diagnosing a failure: the
+// status, the error type and its message, with anything shaped like a key
+// scrubbed. The sentence below tells a person what to do; this says why.
+export function apiErrorDetail(e: unknown): string {
+  const err = e as { status?: number; message?: string; error?: { error?: { type?: string; message?: string }; type?: string; message?: string } };
+  const body = err.error?.error ?? err.error;
+  const type = body?.type;
+  const message = body?.message ?? err.message ?? String(e);
+  const text = [err.status, type, message].filter((x) => x !== undefined && x !== "").join(" ");
+  return text.replace(/sk-ant-[A-Za-z0-9_-]+/g, "[key]").replace(/\s+/g, " ").slice(0, 300);
+}
+
 export function explainApiError(e: unknown): string {
   const err = e as { status?: number; message?: string; name?: string };
   const msg = (err.message ?? String(e)).toLowerCase();
@@ -119,7 +131,7 @@ export function explainApiError(e: unknown): string {
   }
   if (/too many pages|page limit|maximum.*pages|exceeds the maximum number of pages/.test(msg)) return "This PDF has more pages than the model reads at once. Upload the transcript pages on their own.";
   if (status === 413 || /request_too_large|too large|exceeds.*(size|bytes)/.test(msg)) return "The file is too large for the model. Scan it at a lower resolution, or upload the pages one at a time.";
-  if (status === 401 || status === 403 || /authentication|invalid x-api-key|api key/.test(msg)) return "The server's AI key is missing or not valid. An Admin needs to check the ANTHROPIC_API_KEY setting.";
+  if (status === 401 || status === 403 || /authentication|invalid x-api-key|api key/.test(msg)) return `The server's AI key is missing or not valid. An Admin needs to check the ANTHROPIC_API_KEY setting. Anthropic said: ${apiErrorDetail(e)}`;
   if (status === 429 || /rate limit|rate_limit/.test(msg)) return "The model is busy right now. Wait a minute and read it again.";
   if (status === 529 || /overloaded/.test(msg)) return "The model is overloaded right now. Wait a minute and read it again.";
   if (status === 400 && /credit|billing|balance/.test(msg)) return "The AI account is out of credit. An Admin needs to top it up.";
@@ -158,6 +170,8 @@ export function createAnthropicCaller(opts: AnthropicCallerOptions = {}): ModelC
         messages: [{ role: "user", content }],
       });
     } catch (e) {
+      // Runtime logs are kept for an hour, so the real answer goes there too.
+      console.error(`[docai] Anthropic call failed (model ${call.model}): ${apiErrorDetail(e)}`);
       throw new Error(explainApiError(e));
     }
 
