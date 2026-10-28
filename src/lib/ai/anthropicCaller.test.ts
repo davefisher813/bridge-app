@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
-import { contentFor, costCents, createAnthropicCaller, explainApiError, ModelRefusedError, type MessagesClient, type ModelUsage } from "./anthropicCaller";
+import { apiKeyShape, cleanApiKey, contentFor, costCents, createAnthropicCaller, explainApiError, ModelRefusedError, type MessagesClient, type ModelUsage } from "./anthropicCaller";
 import type { ModelCallOptions } from "@/lib/docai/pipeline";
 import type { IngestedRecord } from "@/lib/docai/types";
 
@@ -164,5 +164,17 @@ describe("what the API's errors mean to the person uploading", () => {
       },
     };
     await expect(createAnthropicCaller({ client })(call())).rejects.toThrow(/password protected/);
+  });
+});
+
+describe("the API key as pasted", () => {
+  it("strips quotes and spaces, and says only its shape", () => {
+    expect(cleanApiKey('  "sk-ant-abc123"\n')).toBe("sk-ant-abc123");
+    expect(cleanApiKey("   ")).toBeUndefined();
+    expect(cleanApiKey(undefined)).toBeUndefined();
+    const shape = apiKeyShape('"sk-ant-abc123"');
+    expect(shape).toMatch(/quotes yes/);
+    expect(shape).not.toMatch(/abc123/);
+    expect(apiKeyShape(undefined)).toBe("not set");
   });
 });
