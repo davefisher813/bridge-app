@@ -1,0 +1,45 @@
+Alfred: no code changed this round, so there are no new commits and `main` stays at `d3fdcf9` (PR #39).
+
+**Doc AI: I could not re-test it end to end. It needs one upload from a signed-in Admin.**
+- **What I can see:**
+  - `ANTHROPIC_API_KEY` is set in Vercel production and has not been edited since it was created on Sep 23. Its value is hidden, so I can't tell if it is valid.
+  - Vercel shows no runtime errors in the last 7 days.
+  - The last recorded reading was Oct 16 05:01, using Opus 5 and Haiku 4.5, for about 7 cents. Nothing has been attempted since, so there is no invalid-key error in the logs or database to quote. The failed attempt must have left no trace.
+- **What I can't do:** I have no signed-in session on the production app, and the key can't be read to test it directly.
+- **If the key is wrong, the app will say:** "The server's AI key is missing or not valid. An Admin needs to check the ANTHROPIC_API_KEY setting." The key lives in Vercel, under the commit-app project, Settings, Environment Variables.
+- **To test it:** an Admin uploads any small PDF at Documents, Add. The document should go from Processing to Needs Review with a reading. A new row in `docai_usage` dated today confirms it, and I can check that row in the database the moment you say it's done.
+- **If it fails again:** send me the exact message shown on the document. A key from the old, empty account will need to be replaced in Vercel by the account owner.
+
+**1. Linda Fisher gift reconciliation: the numbers measure different things, and there is no single missing $15,312.37.**
+- **App board total:** $17,354.40 across 4 gifts. These are Wei Chang $2,500 (Apr 7), Linda Fisher $5,000 (Jun 1), Byron Valverde $4,854.40 (Jun 16, net of Stripe fees) and the new Linda $5,000 (Oct 16).
+- **Source workbook:** The "BFFSA 2026 Financials" Contributions tab also totals **$17,354.40**, but with a different set of gifts:
+  - Shawna Doster $5,000.
+  - Byron Valverde $4,854.40.
+  - Wei Chang $2,500.
+  - Linda Fisher $5,000.
+  - There is no Oct 16 gift, and the sheet was last edited Oct 4.
+- **What that means for the app:**
+  - Shawna Doster's $5,000 is not in the app as a board gift. The Chase ledger confirms the wire arrived Jun 16 ("Shawna Doster 2026 Wire", with a $15 wire fee). The Contributions tab still calls it "Pending Wire".
+  - The app's total matches the workbook's only because the new Oct 16 gift offsets Shawna's missing one.
+  - If Shawna's gift is added, the app's board total becomes **$22,354.40**.
+  - The Oct 16 check has no source document in Drive. I entered it on your word.
+- **Where your $27,666.77 and $32,666.77 come from:**
+  - They are the fiscal sponsor (Ribbon) "paid toward pledge" amounts stored in the notes of five board pledges: Linda $6,339.77, Byron $5,879, Wei $1,766, Shawna $3,706 and Lear Beyer $9,976. That sums to **$27,666.77**, and **$32,666.77** is that plus the new $5,000.
+  - This is a different basis from board gifts. It is all-time money received through the fiscal sponsor and it includes Lear Beyer.
+  - The app shows $0 paid on all five pledges, because no gift row is linked to a pledge. That is why the app looks $15,312.37 short.
+- **I did not add or change anything else.** Adding Shawna's gift, or linking gifts to pledges, risks double-counting money that may already be in the 2025 individual gifts. I also can't confirm that the workbook's "Shawna Doster" is the donor "Shawna Hamilton Doster" in the app.
+
+**2. Carried from Oct 19:** nothing else is open apart from the Supabase settings, which is on the needs list below.
+
+**Needs list (all named exactly; none of this blocks other work)**
+1. Henry Tolentino's email address, for his invite (Dave).
+2. The three Document Approver names (Dave).
+3. Supabase dashboard owner:
+   - Set the Authentication site URL and redirect URLs to `https://commit-app-nu.vercel.app`, and review the email templates and SMTP.
+   - Turn on point-in-time recovery, a paid add-on under Database, then Backups.
+   - Postgres reports `archive_mode = on`, but that is a Supabase default and does not prove point-in-time recovery is enabled.
+4. An Admin to run the Doc AI upload test above.
+5. A decision on the board gifts:
+   - Whether to add Shawna Doster's $5,000 Jun 16 wire as a board gift.
+   - The source for the Oct 16 Linda Fisher check, ideally the check number.
+   - Whether to link gifts to the five fiscal-sponsor pledges so "paid" stops reading $0.

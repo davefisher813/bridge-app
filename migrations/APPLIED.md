@@ -96,3 +96,4 @@ to be applied).
 | 0074_view_as.sql | applied | 20261015041818 0074_view_as |
 | 0075_document_suggestion_before.sql | applied | 20261015175532 0075_document_suggestion_before |
 | 0076_close_open_documents_read.sql | applied | 2026-10-31 0076_drop_open_documents_read (policy documents_read_own dropped) |
+| 0077_athlete_files_narrow_read.sql | applied | 2026-10-31 0077_athlete_files_narrow_read |
