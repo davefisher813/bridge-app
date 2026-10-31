@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignmentStackKey, stackAssignments } from "./assignmentStack";
+import { assignmentStackKey, carryHidden, stackAssignments } from "./assignmentStack";
 
 const pdf = "application/pdf";
 const xl = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -36,5 +36,25 @@ describe("assignment stacks", () => {
     expect([...behind.keys()]).toEqual(["r"]);
     expect(behind.get("r")!.others).toHaveLength(2);
     expect(hidden.has("a") && hidden.has("x") && !hidden.has("r")).toBe(true);
+  });
+});
+
+describe("hidden files travel with a merged lead (audit 204)", () => {
+  it("a lead folded into another title group brings its stack along, so every file is in a label", () => {
+    const mk = (id: string, file_name: string) => ({ id, file_name, media_type: pdf, lifecycle: "archived", created_at: "2026-10-01T00:00:00Z" });
+    const files = [mk("a1", "assignment-2-junior-pena.pdf"), mk("a2", "Junior Pena - Assignment 2.pdf"), mk("n1", "ncaa-eligibility-junior-pena.pdf"), mk("n2", "Junior Pena - NCAA Eligibility Center.pdf")];
+    const { hidden, behind } = stackAssignments(files);
+    const drawn = files.filter((f) => !hidden.has(f.id));
+    // Both leads share a title, so the page merges them into one group.
+    const merged = carryHidden([[drawn[0]!, drawn.slice(1)]] as [(typeof files)[number], (typeof files)[number][]][], behind);
+    const total = merged.reduce((n, [, same]) => n + 1 + same.length, 0);
+    expect(total).toBe(files.length);
+  });
+});
+
+describe("the Documents page carries hidden files through its title groups", () => {
+  it("wraps the groups in carryHidden", async () => {
+    const { readFileSync } = await import("node:fs");
+    expect(readFileSync("src/app/org/[slug]/documents/page.tsx", "utf8")).toContain("carryHidden(groupNearDuplicates(");
   });
 });

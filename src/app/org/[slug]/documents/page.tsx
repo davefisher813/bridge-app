@@ -1,4 +1,4 @@
-import { stackAssignments } from "@/lib/documents/assignmentStack";
+import { carryHidden, stackAssignments } from "@/lib/documents/assignmentStack";
 import { documentTypeLabel, READER_TYPES } from "@/lib/documents/fileTypes";
 import { bulkApproveDocuments, bulkArchiveDocuments, bulkLinkDocumentsToAthlete, bulkRestoreDocuments, bulkSetDocumentType, bulkSuggestDocuments, undoBulkSuggest } from "@/lib/actions/documentsBulk";
 import { notFound } from "next/navigation";
@@ -445,8 +445,8 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
             const list = drawnIn(state);
             return (
               <Section key={state} label={LIFECYCLE_LABEL[state]} count={files.length} role={state === "needs_review" ? "offer" : state === "ready" ? "committed" : state === "processing" ? "contact" : "neutral"} kind={state === "needs_review" ? "warning" : state === "ready" ? "check" : state === "processing" ? "clock" : state === "archived" ? "note" : "document"}>
-                {groupNearDuplicates(list, linkedNames, !!q).map(([d, same]) => (
-                  <DocumentRow key={d.id} slug={slug} doc={d} linkedNames={linkedNames} same={[...same, ...(stacked.behind.get(d.id)?.others ?? [])]} view={view} stackQuery={stacked.behind.get(d.id)?.who} />
+                {carryHidden(groupNearDuplicates(list, linkedNames, !!q), stacked.behind).map(([d, same]) => (
+                  <DocumentRow key={d.id} slug={slug} doc={d} linkedNames={linkedNames} same={same} view={view} stackQuery={stacked.behind.get(d.id)?.who} />
                 ))}
               </Section>
             );
