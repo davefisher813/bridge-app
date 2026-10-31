@@ -1000,6 +1000,9 @@ describe("LAW: a real model call is charged to the org, and stops at the month's
     withModel();
     try {
       const lastMonth = new Date();
+      // Day 1 first: on the 31st, "a month ago" is a day that does not
+      // exist and rolls into this month.
+      lastMonth.setUTCDate(1);
       lastMonth.setUTCMonth(lastMonth.getUTCMonth() - 1);
       data.docai_usage!.push({ id: "du_old", org_id: data.orgs[0]!.id, document_id: null, request_id: "req_old", model: "claude-opus-5", input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, cost_cents: 5000, created_at: lastMonth.toISOString() });
       const { processDocument } = await import("@/lib/actions/documents");

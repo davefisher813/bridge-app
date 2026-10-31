@@ -55,3 +55,19 @@ export function stackAssignments<T extends { id: string; file_name: string; medi
   }
   return { hidden, behind };
 }
+
+// Title groups are built from the rows that are drawn, and a drawn row can
+// itself be the lead of a stack ("X - NCAA Eligibility Center.pdf" hides
+// behind "ncaa-eligibility-x.pdf"). When two leads share a title and merge
+// into one row, each lead's hidden files must come along, or they vanish
+// from the list and from its "N Files" label (audit 204: Archived counted
+// 77 and the labels added up to 75, the two lost files being the unlinked
+// NCAA Eligibility PDFs of two athletes whose leads shared the title
+// "Other, Name" with their assignment leads).
+export function carryHidden<T extends { id: string }>(groups: [T, T[]][], behind: Map<string, { others: T[] }>): [T, T[]][] {
+  return groups.map(([lead, same]) => {
+    const members = [lead, ...same];
+    const carried = members.flatMap((m) => behind.get(m.id)?.others ?? []);
+    return [lead, [...same, ...carried]];
+  });
+}
