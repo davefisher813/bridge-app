@@ -131,6 +131,21 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from inf
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0075_document_suggestion_before.sql"
 echo "==> 0075 is reversible"
 
+# 0076: the open storage read policy that only production had. Plant it as
+# production held it, apply the migration, and check it is gone while the
+# real bucket policy stays; then down (puts it back) and up again.
+echo "==> 0076: plant production's open policy, apply, check it is gone"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -c \"create policy documents_read_own on storage.objects for select to authenticated using (bucket_id = 'documents')\""
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0076_close_open_documents_read.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'documents_read_own'\"" | grep -qx 0
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'documents_bucket_read'\"" | grep -qx 1
+echo "==> 0076: down, then up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0076_close_open_documents_read_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'documents_read_own'\"" | grep -qx 1
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0076_close_open_documents_read.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'documents_read_own'\"" | grep -qx 0
+echo "==> 0076 is reversible"
+
 echo "==> Seeding data and running RLS assertions"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/rls_test.sql"
 
