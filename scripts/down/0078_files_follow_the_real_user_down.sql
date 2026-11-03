@@ -92,6 +92,7 @@ begin
   return new;
 end $$;
 
+drop function if exists public.upload_is_mine(text);
 drop function if exists public.document_link_athlete(uuid, uuid);
 drop function if exists public.documents_locked(uuid);
 drop function if exists private._real_can_read_doc(uuid, uuid, uuid, uuid);

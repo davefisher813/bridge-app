@@ -97,3 +97,4 @@ to be applied).
 | 0075_document_suggestion_before.sql | applied | 20261015175532 0075_document_suggestion_before |
 | 0076_close_open_documents_read.sql | applied | 20261031193512 0076_drop_open_documents_read (applied by hand through the Supabase connector 2026-10-31 after approval; same statement, different name) |
 | 0077_athlete_files_narrow_read.sql | applied | 20261031194210 0077_athlete_files_narrow_read |
+| 0078_files_follow_the_real_user.sql | pending | draft for Tony's read, not applied; production stays on 0077 |

@@ -35,11 +35,13 @@
 --      document's own org folder, and never one another document lists.
 --      So an Admin cannot claim an orphan or an athlete's file by
 --      inserting a row for it.
---   3. App change shipped with this migration: the server action that
---      reads the file straight after upload (documents.ts) reads it with
---      the service client after checking the object's owner is the caller
---      and its folder is the caller's org. Until the row exists nobody
---      else can open it.
+--   3. App change shipped in the same release (src/lib/vault/readBack.ts,
+--      used by documents.ts): the read-back after upload first tries the
+--      caller's own session. If Storage refuses, it asks
+--      public.upload_is_mine(path) (section 8): true only for an object the
+--      caller uploaded that no document lists yet, in an org folder they
+--      administer. Only then does it read with the service client. Until
+--      the row exists nobody else can open the file.
 -- Once the row exists the file follows the document rule above.
 --
 -- Dave's rulings (2026-11-03, relayed by Alfred): locked rows are view-only
@@ -82,15 +84,19 @@ create or replace function private._real_entitled_to_athlete(p_athlete uuid, p_o
   $$;
 
 -- One document row: may the real signed-in person open its file?
+-- A document with no athlete is open to the org's Admins. A document with
+-- one or more athletes (athlete_id, linked_athlete_id, subject_athlete_id)
+-- is open only to someone entitled to EVERY athlete it names, so a document
+-- that names two different athletes opens for the master alone.
 create or replace function private._real_can_read_doc(p_org uuid, p_a uuid, p_l uuid, p_s uuid) returns boolean
   language sql stable security definer
   set search_path = ''
   as $$
     select auth.uid() is not null and case
       when p_a is null and p_l is null and p_s is null then p_org in (select private._real_staff_org_ids())
-      else (p_a is not null and private._real_entitled_to_athlete(p_a, p_org))
-        or (p_l is not null and private._real_entitled_to_athlete(p_l, p_org))
-        or (p_s is not null and private._real_entitled_to_athlete(p_s, p_org))
+      else (p_a is null or private._real_entitled_to_athlete(p_a, p_org))
+        and (p_l is null or private._real_entitled_to_athlete(p_l, p_org))
+        and (p_s is null or private._real_entitled_to_athlete(p_s, p_org))
     end
   $$;
 
@@ -213,7 +219,7 @@ begin
       if (storage.foldername(p))[1] is distinct from new.org_id::text then
         raise exception 'documents: % is not in this organization''s folder', p using errcode = 'insufficient_privilege';
       end if;
-      if not exists (select 1 from storage.objects o where o.bucket_id = 'documents' and o.name = p and o.owner = caller)
+      if not exists (select 1 from storage.objects o where o.bucket_id = 'documents' and o.name = p and (o.owner = caller or o.owner_id = caller::text))
          and not exists (select 1 from public.orgs g where g.id = new.org_id and g.master_user_id = caller) then
         raise exception 'documents: % was not uploaded by the signed-in person', p using errcode = 'insufficient_privilege';
       end if;
@@ -225,7 +231,7 @@ begin
   return new;
 end $$;
 
--- ── 7. Link a document to an athlete, without needing to open it after ─
+-- ── 7. Link an unlinked document to an athlete, without needing to open it after ─
 --
 -- Postgres refuses a plain update that leaves the caller a row they can
 -- no longer read, so an Admin who is not the athlete's advisor or the
@@ -233,8 +239,12 @@ end $$;
 -- that one write for them. It checks the caller can open the document as
 -- it is now (so a locked document stays view-only), is a real Admin of its
 -- org (never a view-as session), and that the athlete is in the same org.
--- p_athlete null unlinks. It writes linked_athlete_id and updated_at, as
--- the app's own update does; the app keeps writing the activity line.
+-- A document that already names an athlete keeps it: this function links
+-- an UNLINKED document, and is a no-op when asked for the athlete it
+-- already has. It never moves a document to a different athlete and never
+-- unlinks one (that would widen who may open the file). It writes
+-- linked_athlete_id and updated_at, as the app's own update does; the app
+-- keeps writing the activity line.
 create or replace function public.document_link_athlete(p_doc uuid, p_athlete uuid) returns void
   language plpgsql security definer
   set search_path = ''
@@ -257,7 +267,19 @@ begin
   if not private._real_can_read_doc(d.org_id, d.athlete_id, d.linked_athlete_id, d.subject_athlete_id) then
     raise exception 'document_link_athlete: this document is locked' using errcode = 'insufficient_privilege';
   end if;
-  if p_athlete is not null and not exists (
+  if d.athlete_id is not null or d.linked_athlete_id is not null or d.subject_athlete_id is not null then
+    if p_athlete is null
+       or (d.athlete_id is not null and d.athlete_id <> p_athlete)
+       or (d.linked_athlete_id is not null and d.linked_athlete_id <> p_athlete)
+       or (d.subject_athlete_id is not null and d.subject_athlete_id <> p_athlete) then
+      raise exception 'document_link_athlete: this document already belongs to an athlete' using errcode = 'insufficient_privilege';
+    end if;
+    return;
+  end if;
+  if p_athlete is null then
+    return;
+  end if;
+  if not exists (
     select 1 from public.athletes a where a.id = p_athlete and a.org_id = d.org_id and a.deleted_at is null
   ) then
     raise exception 'document_link_athlete: that athlete is not on this organization''s roster' using errcode = 'invalid_parameter_value';
@@ -267,3 +289,29 @@ end $$;
 
 revoke all on function public.document_link_athlete(uuid, uuid) from public, anon;
 grant execute on function public.document_link_athlete(uuid, uuid) to authenticated;
+
+-- ── 8. Is this object my own, not yet listed by any document? ────────
+--
+-- The server action that reads a file straight after upload asks this
+-- before it falls back to the service client. True only for a signed-in
+-- Admin (never a view-as session) of the object's org folder, for an
+-- object they uploaded (owner or owner_id), that no document lists yet.
+-- Once a document lists it, the file follows the document rule and this
+-- is false. The app checks the folder too; nothing here opens the file.
+create or replace function public.upload_is_mine(p_path text) returns boolean
+  language sql stable security definer
+  set search_path = ''
+  as $$
+    select auth.uid() is not null
+      and not private._viewing()
+      and (storage.foldername(p_path))[1] in (select x::text from private._real_staff_org_ids() x)
+      and exists (
+        select 1 from storage.objects o
+        where o.bucket_id = 'documents' and o.name = p_path
+          and (o.owner = auth.uid() or o.owner_id = auth.uid()::text)
+      )
+      and not exists (select 1 from public.documents d where p_path = any (d.storage_paths) or p_path = any (d.original_paths))
+  $$;
+
+revoke all on function public.upload_is_mine(text) from public, anon;
+grant execute on function public.upload_is_mine(text) to authenticated;

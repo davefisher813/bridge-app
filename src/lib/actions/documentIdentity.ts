@@ -68,6 +68,13 @@ function linkAfter(doc: { linked_athlete_id: string | null; subject_athlete_id: 
   return followed ? next : doc.linked_athlete_id;
 }
 
+// What a refusal says when this person may not change who a document is
+// about (migration 0078: only the athlete's advisor and the Master Account
+// can). Postgres reports it as an RLS refusal (42501), or as no row
+// changed when the document is locked to them.
+const NOT_YOURS = "Only this athlete's advisor or the Master Account can change who this document is about.";
+const refusedByAccess = (error: { code?: string } | null) => error?.code === "42501";
+
 function back(slug: string, documentId: string, error?: string): never {
   revalidatePath(`/org/${slug}/documents`);
   revalidatePath(`/org/${slug}/documents/${documentId}`);
@@ -88,11 +95,13 @@ export async function setDocumentIdentity(slug: string, documentId: string, form
 
   if (!value) {
     if (doc.identity_status !== "confirmed" && doc.identity_status !== "not_an_athlete") back(slug, documentId);
-    const { error } = await supabase
+    const { data: changed, error } = await supabase
       .from("documents")
       .update({ subject_athlete_id: null, linked_athlete_id: linkAfter(doc, null), identity_status: unconfirmedStatus(doc.identity_candidates ?? []), identity_confirmed_by: null, identity_confirmed_at: null })
       .eq("id", doc.id)
-      .eq("org_id", org.id);
+      .eq("org_id", org.id)
+      .select("id");
+    if (refusedByAccess(error) || (!error && !changed?.length)) back(slug, documentId, NOT_YOURS);
     if (error) back(slug, documentId, "That could not be changed. Try again.");
     await logActivity(supabase, {
       orgId: org.id,
@@ -113,7 +122,7 @@ export async function setDocumentIdentity(slug: string, documentId: string, form
     if (!athlete) back(slug, documentId, "That athlete is not on this roster.");
   }
 
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("documents")
     .update({
       subject_athlete_id: athlete?.id ?? null,
@@ -123,7 +132,9 @@ export async function setDocumentIdentity(slug: string, documentId: string, form
       identity_confirmed_at: now,
     })
     .eq("id", doc.id)
-    .eq("org_id", org.id);
+    .eq("org_id", org.id)
+    .select("id");
+  if (refusedByAccess(error) || (!error && !changed?.length)) back(slug, documentId, NOT_YOURS);
   if (error) back(slug, documentId, "That could not be saved. Try again.");
 
   await logActivity(supabase, {

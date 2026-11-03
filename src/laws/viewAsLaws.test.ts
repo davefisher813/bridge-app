@@ -312,6 +312,15 @@ const PRIVATE_MAY_READ_REAL_UID = new Set([
   "documents_ready_by_approver",
   "activity_is_honest",
   "assignment_is_honest",
+  // Migration 0078 (Dave, 2026-11-03, "the real user decides files"): who
+  // may open a file is the real signed-in person, never the person being
+  // viewed. These answer for auth.uid() on purpose. src/laws/fileAccessLaws.test.ts
+  // pins what they may and may not do.
+  "_real_staff_org_ids",
+  "_real_entitled_to_athlete",
+  "_real_can_read_doc",
+  "_can_read_document_object",
+  "documents_insert_guard",
 ]);
 
 // Private helpers still reading auth.uid() directly, the nine access

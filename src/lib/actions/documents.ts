@@ -36,6 +36,7 @@ import { NOBODY_NAMED } from "@/lib/documents/approvers";
 import { documentKind, isSettableType, moveBlock, orgAthleteName, typeBlock, typePatch } from "@/lib/data/documentMoves";
 import { checkVaultFile, isTextReadable, readerCanRead, readerPageOf, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
 import { readerText } from "@/lib/vault/textExtract";
+import { downloadAfterUpload } from "@/lib/vault/readBack";
 import { storedFormatOf } from "@/lib/vault/preview";
 import { didNotLookLike, isLifecycle, isStaleProcessing as isStaleLifecycle } from "@/lib/vault/lifecycle";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
@@ -246,6 +247,7 @@ type StorageReader = {
       download(path: string): Promise<{ data: Blob | null; error: { message: string } | null }>;
     };
   };
+  rpc?(fn: "upload_is_mine", args: { p_path: string }): PromiseLike<{ data: unknown; error: unknown }>;
 };
 
 // The ONE place the app removes anything from the documents bucket, and it
@@ -298,7 +300,10 @@ async function readStoredRecords(
     if (!inOrg && !(opts.includeFamily === true && isFamilyStoragePathFor(r.storagePath, orgId))) {
       return { ok: false, error: `${r.originalName || "That file"} was not uploaded to this organization's folder.` };
     }
-    const { data, error } = await supabase.storage.from("documents").download(r.storagePath);
+    // A file nobody lists yet is read with the service client when it is the
+    // person's own upload (migration 0078); anything else keeps the person's
+    // own Storage rights.
+    const { data, error } = await downloadAfterUpload(supabase, createAdminClient, r.storagePath);
     if (error || !data) {
       return { ok: false, error: `${r.originalName || "That file"} could not be read back after upload. Try again.` };
     }
@@ -441,7 +446,10 @@ export async function processDocument(
   }
 
   // The originals, read back from the bucket with the caller's own client,
-  // so Storage's policies decide whether they may see the file at all.
+  // so Storage's policies decide whether they may see the file at all. The
+  // one exception is the caller's own upload that no document lists yet
+  // (migration 0078): downloadAfterUpload asks the database before it uses
+  // the service client.
   // Read back, checked and hashed from the bytes that are really there;
   // the browser's word for what a file is counts for nothing.
   const checked: { upload: OriginalUpload; format: VaultFormat; mediaType: string; size: number; sha: Buffer; hex: string; bytes: Uint8Array }[] = [];
@@ -449,7 +457,7 @@ export async function processDocument(
     if (!STORAGE_PATH.test(o.storagePath) || !o.storagePath.startsWith(`${org.id}/`)) {
       return refuse(`${o.name || "That file"} was not uploaded to this organization's folder.`);
     }
-    const { data: blob, error: readError } = await supabase.storage.from("documents").download(o.storagePath);
+    const { data: blob, error: readError } = await downloadAfterUpload(supabase, createAdminClient, o.storagePath);
     if (readError || !blob) return refuse(`${o.name || "That file"} could not be read back after upload. Try again.`);
     confirmed.add(o.storagePath);
     const bytes = new Uint8Array(await blob.arrayBuffer());

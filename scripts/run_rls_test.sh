@@ -254,6 +254,31 @@ su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0073_document_ident
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_trigger where tgname = 'documents_subject_is_coherent'\"" | grep -qx 1
 echo "==> 0073 is reversible"
 
+# 0077 and 0078 (files follow the real user). Run after the RLS suite so its
+# seeded rows and assertions are not disturbed. 0077 is as production holds
+# it; 0078 is checked by its own proofs, then taken down and put back.
+echo "==> 0077: athlete files readable by the athlete, advisor and master"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0077_athlete_files_narrow_read.sql"
+echo "==> 0078: snapshot before, apply, proofs, down compared with the snapshot, up again"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/proof/scratch_supabase_like.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"$SNAP\"" > /tmp/zz_0078_before.txt
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0078_files_follow_the_real_user.sql"
+su postgres -c "psql -d $DB -P pager=off -f scripts/proof/0078_proofs.sql" > /tmp/zz_0078_proofs.txt
+grep -q ' PASS$' /tmp/zz_0078_proofs.txt
+# While Tony's rule stays "an object with no document row is the master's
+# alone", the two BLOCKER cases (Storage returns the row it inserts) fail by
+# design. Anything else failing stops the runner.
+if grep ' FAIL$' /tmp/zz_0078_proofs.txt | grep -v 'BLOCKER' | grep -q .; then
+  grep ' FAIL$' /tmp/zz_0078_proofs.txt | grep -v 'BLOCKER'
+  echo "FAIL: a 0078 proof failed"; exit 1
+fi
+echo "    $(grep -c ' PASS$' /tmp/zz_0078_proofs.txt) proofs pass; failing by design: $(grep -c 'BLOCKER.* FAIL$' /tmp/zz_0078_proofs.txt)"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f scripts/down/0078_files_follow_the_real_user_down.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"$SNAP\"" > /tmp/zz_0078_after.txt
+diff /tmp/zz_0078_before.txt /tmp/zz_0078_after.txt
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0078_files_follow_the_real_user.sql"
+echo "==> 0078 is reversible"
+
 echo "==> Dropping throwaway database"
 su postgres -c "psql -c 'drop database if exists $DB;'"
 
