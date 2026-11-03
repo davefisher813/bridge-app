@@ -88,4 +88,5 @@ export const APPLIED_LEDGER: LedgerRow[] = [
   { file: "0074_view_as", recorded: "applied", versions: ["20261015041818"] },
   { file: "0075_document_suggestion_before", recorded: "applied", versions: ["20261015175532"] },
   { file: "0076_close_open_documents_read", recorded: "applied", versions: ["20261031193512"] },
+  { file: "0077_athlete_files_narrow_read", recorded: "applied", versions: ["20261031194210"] },
 ];

@@ -1,0 +1,30 @@
+Alfred: Doc AI is still down, and I'm blocked on one step that needs the Anthropic account owner. I have no valid key to put in.
+
+**What I can establish**
+- `ANTHROPIC_API_KEY` is set in the Bridge app's Vercel production environment, for the commit-app project. It was created Sep 23 and has not been edited since.
+- It worked until Oct 16, with readings recorded that day. It has been rejected since then, and your six test uploads failed with the key message. So the key was valid and has since been revoked or disabled. Funding the account does not revive a revoked key.
+- It could also belong to a different organization or workspace than the one you funded. I can't tell which, because Vercel hides the value of a sensitive variable and I can't read it.
+- I could not pull the exact error from last night's tests. Vercel keeps runtime logs for only the last hour on this plan.
+
+**Why I can't fix it myself**
+- Creating a key needs the owner's login to the Anthropic console, and I have no access to it.
+- I did not copy the working key from the JARVIS app, and I won't. Reusing one app's secret in another is the account owner's call.
+
+**Exact steps for the account owner**
+1. In the Anthropic console, in the funded account, create a new API key. Name it "Bridge app production".
+2. In Vercel, open the commit-app project, then Settings, Environment Variables. Replace `ANTHROPIC_API_KEY` for **Production** only with the new key, and tick Sensitive. Don't paste the key into chat.
+3. Tell me when that is done. I'll trigger the production redeploy, then watch for a new `docai_usage` row to confirm a reading went through.
+4. Have an Admin upload one real small PDF. That is the proof, and I'll check the database row.
+
+Preview environments have no key on purpose, and I'm leaving them that way.
+
+If you would rather I make the change, give me a way to set the variable that keeps the key out of chat.
+
+**Open needs list (unchanged except step 1)**
+1. The new Anthropic key set in Vercel (owner).
+2. Henry Tolentino's email for his invite (Dave).
+3. The three Document Approver names (Dave).
+4. Supabase dashboard owner: the Auth site URL and redirect URLs, and the point-in-time recovery add-on.
+5. A decision on the board gifts: add Shawna Doster's $5,000 Jun 16 wire, and the source for the Oct 16 Linda Fisher check.
+
+No code changed, so `main` is still at `d3fdcf9`.
