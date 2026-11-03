@@ -17,7 +17,8 @@
 --   13     a file with no document row: master only (13, 17)
 --   14     an original (original_paths only) file
 --   16     claiming someone else's object with a document row
---   17     the mid-upload sequence, step by step
+--   17     the mid-upload sequence, step by step, ending in link-to-athlete (D6)
+--   L1-L10 document_link_athlete and locked rows being view-only
 --   P1a-e  staff moving Needs Review to Ready (Doc AI Piece 1)
 begin;
 
@@ -185,15 +186,29 @@ select pg_temp.t('17 upload', 'Step 3: the row is created (no athlete yet)', '1'
 select pg_temp.t('17 upload', 'Step 4: an unlinked upload is open to the org''s Admins', 'READ', 'a0000000-0000-0000-0000-000000000004', 'read', '25eb1763-fe05-450f-ad41-cbf79215c316/doc_p_n/a.pdf');
 select pg_temp.t('17 upload', 'Step 4: not to a Viewer', 'DENIED', 'a0000000-0000-0000-0000-000000000006', 'read', '25eb1763-fe05-450f-ad41-cbf79215c316/doc_p_n/a.pdf');
 select pg_temp.t('17 upload', 'Step 4: not to Athlete B', 'DENIED', 'a0000000-0000-0000-0000-000000000002', 'read', '25eb1763-fe05-450f-ad41-cbf79215c316/doc_p_n/a.pdf');
--- Step 5: linking the upload to an athlete the Admin is not entitled to. The update would leave a row the
--- Admin can no longer read, and Postgres refuses it (also for a plain update, with no RETURNING). This is
--- the designed fail-closed behavior of 0078 as drafted; a definer RPC for "link to athlete" is the open
--- decision (D6). The link below is made by the migration owner, standing in for that RPC.
-select pg_temp.t('17 upload', 'Step 5: the Admin tries to link it to Athlete A directly (plain update)', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000004', 'dml', $q$update public.documents set linked_athlete_id = 'b0000000-0000-0000-0000-00000000000a' where file_name = 'SYNTH-new-upload.pdf'$q$);
-update public.documents set linked_athlete_id = 'b0000000-0000-0000-0000-00000000000a' where file_name = 'SYNTH-new-upload.pdf';
-select pg_temp.t('17 upload', 'Step 5b: once linked, the uploading Admin no longer opens it', 'DENIED', 'a0000000-0000-0000-0000-000000000004', 'read', '25eb1763-fe05-450f-ad41-cbf79215c316/doc_p_n/a.pdf');
-select pg_temp.t('17 upload', 'Step 5b: Athlete A''s advisor does', 'READ', 'a0000000-0000-0000-0000-000000000003', 'read', '25eb1763-fe05-450f-ad41-cbf79215c316/doc_p_n/a.pdf');
-select pg_temp.t('17 upload', 'Step 5b: the uploading Admin now gets the 5 fixture documents and this one as locked stubs', '6', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select count(*)::text from public.documents_locked('25eb1763-fe05-450f-ad41-cbf79215c316')$q$);
+-- Step 5: linking the upload to an athlete the Admin is not entitled to. A plain update would leave a row
+-- the Admin can no longer read, and Postgres refuses it (D6). The Admin links through
+-- public.document_link_athlete instead, and the file then locks for them.
+select pg_temp.t('17 upload', 'Step 5a: a plain update to link is refused', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000004', 'dml', $q$update public.documents set linked_athlete_id = 'b0000000-0000-0000-0000-00000000000a' where file_name = 'SYNTH-new-upload.pdf'$q$);
+select pg_temp.t('17 upload', 'Step 5b: the Admin links it through document_link_athlete', 'linked', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select 'linked' from (select public.document_link_athlete((select id from public.documents where file_name = 'SYNTH-new-upload.pdf'), 'b0000000-0000-0000-0000-00000000000a')) x$q$);
+select pg_temp.t('17 upload', 'Step 5c: once linked, the uploading Admin no longer opens it', 'DENIED', 'a0000000-0000-0000-0000-000000000004', 'read', '25eb1763-fe05-450f-ad41-cbf79215c316/doc_p_n/a.pdf');
+select pg_temp.t('17 upload', 'Step 5c: Athlete A''s advisor does', 'READ', 'a0000000-0000-0000-0000-000000000003', 'read', '25eb1763-fe05-450f-ad41-cbf79215c316/doc_p_n/a.pdf');
+select pg_temp.t('17 upload', 'Step 5c: the uploading Admin now gets the 5 fixture documents and this one as locked stubs', '6', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select count(*)::text from public.documents_locked('25eb1763-fe05-450f-ad41-cbf79215c316')$q$);
+
+-- L: document_link_athlete (D6) and locked rows being view-only
+select pg_temp.t('L1 link', 'Unentitled Admin relinks a locked document (A''s) to Athlete B', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select 'linked' from (select public.document_link_athlete('c0000000-0000-0000-0000-0000000000a3', 'b0000000-0000-0000-0000-00000000000b')) x$q$);
+select pg_temp.t('L2 link', 'Unentitled Admin unlinks a locked document', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select 'linked' from (select public.document_link_athlete('c0000000-0000-0000-0000-0000000000a3', null)) x$q$);
+select pg_temp.t('L3 link', 'Advisor of A relinks A''s document to Athlete B', 'linked', 'a0000000-0000-0000-0000-000000000003', 'q', $q$select 'linked' from (select public.document_link_athlete('c0000000-0000-0000-0000-0000000000a3', 'b0000000-0000-0000-0000-00000000000b')) x$q$);
+select pg_temp.t('L4 link', 'Viewer', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000006', 'q', $q$select 'linked' from (select public.document_link_athlete('c0000000-0000-0000-0000-0000000000a6', 'b0000000-0000-0000-0000-00000000000a')) x$q$);
+select pg_temp.t('L5 link', 'Athlete A (family)', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000001', 'q', $q$select 'linked' from (select public.document_link_athlete('c0000000-0000-0000-0000-0000000000a6', 'b0000000-0000-0000-0000-00000000000a')) x$q$);
+select pg_temp.t('L6 link', 'Signed out (anon)', 'ERROR 42501', null, 'q', $q$select 'linked' from (select public.document_link_athlete('c0000000-0000-0000-0000-0000000000a6', 'b0000000-0000-0000-0000-00000000000a')) x$q$);
+select pg_temp.t('L7 link', 'An athlete that is not on the roster', 'ERROR 22023', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select 'linked' from (select public.document_link_athlete('c0000000-0000-0000-0000-0000000000a6', 'b0000000-0000-0000-0000-0000000000ff')) x$q$);
+select pg_temp.t('L8 link', 'A document id that does not exist', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select 'linked' from (select public.document_link_athlete('c0000000-0000-0000-0000-0000000000ff', null)) x$q$);
+select pg_temp.t('L9 link', 'Admin starts view-as Athlete A', 'started', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select case when public.start_view_as('25eb1763-fe05-450f-ad41-cbf79215c316','a0000000-0000-0000-0000-000000000001') is not null then 'started' end$q$);
+select pg_temp.t('L9 link', '... then tries to link an unlinked document (view-as never writes)', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select 'linked' from (select public.document_link_athlete('c0000000-0000-0000-0000-0000000000a6', 'b0000000-0000-0000-0000-00000000000a')) x$q$);
+update public.view_as_sessions set ended_at = now(), end_reason = 'returned' where viewer_id = 'a0000000-0000-0000-0000-000000000004' and ended_at is null;
+select pg_temp.t('L10 view-only', 'Unentitled Admin changes a locked document directly (plain update)', '0', 'a0000000-0000-0000-0000-000000000004', 'dml', $q$update public.documents set file_name = 'SYNTH-renamed.pdf' where id = 'c0000000-0000-0000-0000-0000000000a3'$q$);
+select pg_temp.t('L10 view-only', 'Unentitled Admin deletes a locked document (0048 revokes DELETE from signed-in users)', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000004', 'dml', $q$delete from public.documents where id = 'c0000000-0000-0000-0000-0000000000a3'$q$);
 
 select n, who, expected, actual, case when actual = expected then 'PASS' else 'FAIL' end as result from results order by seq;
 rollback;

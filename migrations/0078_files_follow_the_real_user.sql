@@ -42,6 +42,15 @@
 --      else can open it.
 -- Once the row exists the file follows the document rule above.
 --
+-- Dave's rulings (2026-11-03, relayed by Alfred): locked rows are view-only
+-- (an Admin who cannot open a document cannot change it); area approvers
+-- are deferred this round; the locked row is design A; the Oct 28 orphan
+-- transcript stays master-only; and an Admin may link an upload to an
+-- athlete they are not entitled to (public.document_link_athlete, below),
+-- after which the file locks for them. Linking is the only write an
+-- unentitled Admin keeps on a document, and only for a document they can
+-- still open.
+--
 -- search_path on the four older helpers stays as it is (public); that is
 -- a separate 0079, drafted by Tony after this lands.
 -- Down: scripts/down/0078_files_follow_the_real_user_down.sql.
@@ -215,3 +224,46 @@ begin
   end loop;
   return new;
 end $$;
+
+-- ── 7. Link a document to an athlete, without needing to open it after ─
+--
+-- Postgres refuses a plain update that leaves the caller a row they can
+-- no longer read, so an Admin who is not the athlete's advisor or the
+-- master could not link an upload to that athlete. This function makes
+-- that one write for them. It checks the caller can open the document as
+-- it is now (so a locked document stays view-only), is a real Admin of its
+-- org (never a view-as session), and that the athlete is in the same org.
+-- p_athlete null unlinks. It writes linked_athlete_id and updated_at, as
+-- the app's own update does; the app keeps writing the activity line.
+create or replace function public.document_link_athlete(p_doc uuid, p_athlete uuid) returns void
+  language plpgsql security definer
+  set search_path = ''
+  as $$
+declare
+  caller uuid := auth.uid();
+  d record;
+begin
+  if caller is null then
+    raise exception 'document_link_athlete: sign in first' using errcode = 'insufficient_privilege';
+  end if;
+  if private._viewing() then
+    raise exception 'document_link_athlete: read only while viewing as someone else' using errcode = 'insufficient_privilege';
+  end if;
+  select x.id, x.org_id, x.athlete_id, x.linked_athlete_id, x.subject_athlete_id into d
+    from public.documents x where x.id = p_doc;
+  if not found or d.org_id not in (select private._real_staff_org_ids()) then
+    raise exception 'document_link_athlete: not available' using errcode = 'insufficient_privilege';
+  end if;
+  if not private._real_can_read_doc(d.org_id, d.athlete_id, d.linked_athlete_id, d.subject_athlete_id) then
+    raise exception 'document_link_athlete: this document is locked' using errcode = 'insufficient_privilege';
+  end if;
+  if p_athlete is not null and not exists (
+    select 1 from public.athletes a where a.id = p_athlete and a.org_id = d.org_id and a.deleted_at is null
+  ) then
+    raise exception 'document_link_athlete: that athlete is not on this organization''s roster' using errcode = 'invalid_parameter_value';
+  end if;
+  update public.documents set linked_athlete_id = p_athlete, updated_at = now() where id = p_doc;
+end $$;
+
+revoke all on function public.document_link_athlete(uuid, uuid) from public, anon;
+grant execute on function public.document_link_athlete(uuid, uuid) to authenticated;
