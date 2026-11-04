@@ -158,6 +158,13 @@ export const PAGES: Array<{ name: string; path: string; props: Record<string, un
   { name: "grading-scales", path: "@/app/org/[slug]/grading-scales/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Fixture High School/ },
   { name: "approved-courses", path: "@/app/org/[slug]/approved-courses/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Unscaled High School/ },
   { name: "documents", path: "@/app/org/[slug]/documents/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /stub-read\.pdf/ },
+  // Migration 0078 (Dave, 2026-11-03, "show as locked", design A): the
+  // second Admin is not the master and advises nobody, so the fixture's
+  // database hands them two documents as locked stubs. The list shows a
+  // lock row for each, counted in the tiles and sections but with no
+  // checkbox; its page says what it can and nothing more.
+  { name: "documents-locked", path: "@/app/org/[slug]/documents/page", props: { params: p({ slug: ORG_WITH_MODULES }) }, expect: /Locked Document[\s\S]*Locked Document/, as: ADMIN_TWO_ID },
+  { name: "document-locked", path: "@/app/org/[slug]/documents/[id]/page", props: { params: p({ slug: ORG_WITH_MODULES, id: IDS.lockedDocument }), searchParams: p({}) }, expect: /Locked Document[\s\S]*You cannot open this file\. Only the athlete it belongs to, that athlete(&#x27;|')s advisor and the Master Account can\.[\s\S]*Name[\s\S]*Hidden/, as: ADMIN_TWO_ID },
   { name: "documents-search", path: "@/app/org/[slug]/documents/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({ q: "fixture" }) }, expect: /fixture.pdf/ },
   { name: "campaigns", path: "@/app/org/[slug]/fundraising/campaigns/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Campaigns[\s\S]*Fixture Campaign[\s\S]*\$5,000 raised of a \$25,000 goal/ },
   { name: "fundraising", path: "@/app/org/[slug]/fundraising/page", props: { params: p({ slug: ORG_WITH_MODULES }), searchParams: p({}) }, expect: /Fundraising/ },

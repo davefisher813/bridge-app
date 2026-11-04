@@ -144,6 +144,19 @@ export function fakeRpc(data: Dataset, userId: string | null, name: string, args
       .map((d) => ({ id: d.id, file_name: d.file_name, category: d.category ?? null, status: d.status, media_type: d.media_type, file_size: d.file_size, created_at: d.created_at }));
     return { data: rows, error: null };
   }
+  // Migration 0078: the documents of the org the caller (an Admin) cannot
+  // open, as id, org_id, status, lifecycle and created_at, nothing more.
+  // The fixture says who they are locked to with `visible_to`; the
+  // fixture owner (the master account) has none.
+  if (name === "documents_locked") {
+    const orgId = args.p_org;
+    if (!staffOf(data, orgId, userId)) return { data: [], error: null };
+    const rows = (data.locked_documents ?? [])
+      .filter((d) => d.org_id === orgId && d.visible_to === userId)
+      .sort(newestFirst("created_at"))
+      .map((d) => ({ id: d.id, org_id: d.org_id, status: d.status, lifecycle: d.lifecycle, created_at: d.created_at }));
+    return { data: rows, error: null };
+  }
   if (name === "family_document_twin") {
     const orgId = args.p_org;
     const rows = (data.documents ?? [])
@@ -628,4 +641,41 @@ export function fakeFamilySendDocument(
   log.push(line);
   recorded.push({ op: "insert", table: "activity_log", rows: [line], filters: [], via: "rpc:family_send_document" });
   return { data: docId, error: null };
+}
+
+// public.document_link_athlete(p_doc, p_athlete), migration 0078, in plain
+// words: signed in (else 42501); not while viewing (the caller refuses
+// that first); the document exists and the caller is staff of its org
+// (else 42501, one answer for both); the document is not locked to the
+// caller (42501 "locked"); a document that already names an athlete keeps
+// it (42501 "already belongs"; asking for the same athlete changes
+// nothing); the athlete is on the org's live roster (22023). It sets
+// linked_athlete_id and updated_at.
+export function fakeLinkDocument(
+  data: Dataset,
+  userId: string | null,
+  args: Record<string, unknown>,
+  recorded: RecordedWrite[],
+  failOn: (table: string, op: string) => string | null,
+): { data: null; error: { message: string; code: string } | null } {
+  const refuse = (code: string, message: string) => ({ data: null, error: { code, message: `document_link_athlete: ${message}` } });
+  if (!userId) return refuse("42501", "sign in first");
+  const doc = (data.documents ?? []).find((d) => d.id === args.p_doc);
+  if (!doc || !staffOf(data, doc.org_id, userId)) return refuse("42501", "not available");
+  if ((data.locked_documents ?? []).some((l) => l.id === doc.id && l.visible_to === userId)) return refuse("42501", "this document is locked");
+  const athleteId = typeof args.p_athlete === "string" ? args.p_athlete : null;
+  const named = [doc.athlete_id, doc.linked_athlete_id, doc.subject_athlete_id].filter((v) => v != null);
+  if (named.length > 0) {
+    if (athleteId === null || named.some((v) => v !== athleteId)) return refuse("42501", "this document already belongs to an athlete");
+    return { data: null, error: null };
+  }
+  if (athleteId === null) return { data: null, error: null };
+  const athlete = (data.athletes ?? []).find((a) => a.id === athleteId && a.org_id === doc.org_id && !a.deleted_at);
+  if (!athlete) return refuse("22023", "that athlete is not on this organization's roster");
+  const injected = failOn("documents", "update");
+  if (injected) return { data: null, error: { code: "XX000", message: injected } };
+  doc.linked_athlete_id = athleteId;
+  doc.updated_at = new Date().toISOString();
+  recorded.push({ op: "update", table: "documents", rows: [{ linked_athlete_id: athleteId }], filters: [{ column: "id", value: doc.id }, { column: "org_id", value: doc.org_id }], via: "rpc:document_link_athlete" });
+  return { data: null, error: null };
 }

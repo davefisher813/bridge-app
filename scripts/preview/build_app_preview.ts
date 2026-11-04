@@ -49,7 +49,7 @@ let currentViewing: string | null = null;
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => {
     const data = buildFixture();
-    if (currentViewing === ADMIN_TWO_ID) withSecondAdmin(data);
+    if (currentViewing === ADMIN_TWO_ID || currentUser === ADMIN_TWO_ID) withSecondAdmin(data);
     return createFakeClient(data, { userId: currentUser, viewing: currentViewing });
   },
 }));

@@ -18,6 +18,7 @@ import type { Role } from "@/components/statusHue";
 import { isStubbedModel } from "@/lib/actions/documents";
 import { SearchField } from "@/components/SearchField";
 import { isStubReading } from "@/lib/data/readBy";
+import { loadLockedDocuments, LOCKED_TITLE, type LockedDoc } from "@/lib/data/lockedDocuments";
 
 // The vault. Every stored document, in the five states it moves through:
 // Uploaded, Processing, Needs Review, Ready, Archived (migration 0048).
@@ -183,6 +184,18 @@ function stackLabel(files: DocRow[]): string {
   return by.size > 1 ? `${head} (${[...by].map(([k, n]) => `${n} ${k}`).join(", ")})` : head;
 }
 
+// A document the Admin cannot open (migration 0078, design A): a lock where
+// the document glyph goes, the one title, the state chip and the date. The
+// database sent no name, type or athlete, so there is none to show, and it
+// has no checkbox: a locked document is looked at, not acted on.
+function LockedRow({ slug, doc }: { slug: string; doc: LockedDoc }) {
+  return <Row href={`/org/${slug}/documents/${doc.id}`} kind="lock" role="neutral" title={LOCKED_TITLE} meta={`Added ${ago(doc.created_at)}`} trailing={<LifecycleChip lifecycle={lockedState(doc)} />} />;
+}
+
+function lockedState(doc: LockedDoc): Lifecycle {
+  return (isLifecycle(doc.lifecycle) ? doc.lifecycle : "needs_review") as Lifecycle;
+}
+
 function DocumentRow({ slug, doc, linkedNames, same = [], view = "all", stackQuery }: { slug: string; doc: DocRow; linkedNames: Map<string, string>; same?: DocRow[]; view?: string; stackQuery?: string }) {
   const athlete = athleteLabel(doc, linkedNames);
   const pct = doc.provenance?.confidence != null ? Math.round(doc.provenance.confidence * 100) : null;
@@ -261,6 +274,10 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   const linkedNames = new Map(((athleteRows ?? []) as { id: string; name: string }[]).map((a) => [a.id, a.name]));
 
   const all = (data ?? []) as DocRow[];
+  // Documents this Admin may see exist but cannot open (migration 0078):
+  // state and date only. A search matches on names, which they do not
+  // have, so a search never lists them.
+  const lockedAll = await loadLockedDocuments(supabase, org.id);
   // File name, type or athlete, across every state; the view then narrows
   // it, so a search finds a document wherever it is and the tiles say
   // how many matches each view holds.
@@ -291,7 +308,10 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   // are stacked ("3 Files"), and the stack row says so.
   const inState = (state: Lifecycle) => rows.filter((r) => stateOf(r) === state);
   const drawnIn = (state: Lifecycle) => inState(state).filter((r) => !stacked.hidden.has(r.id));
-  const inProgress = matched.filter((r) => stateOf(r) === "uploaded" || stateOf(r) === "processing").length;
+  const lockedMatched = q ? [] : lockedAll;
+  const lockedIn = (v: View) => (v === "all" ? lockedMatched : lockedMatched.filter((l) => lockedState(l) === v));
+  const lockedInState = (state: Lifecycle) => lockedIn(view).filter((l) => lockedState(l) === state);
+  const inProgress = matched.filter((r) => stateOf(r) === "uploaded" || stateOf(r) === "processing").length + lockedMatched.filter((l) => lockedState(l) === "uploaded" || lockedState(l) === "processing").length;
   // An athlete's assignment files stack into one row across states; a
   // search lists each file on its own.
   const stacked = q ? { hidden: new Set<string>(), behind: new Map<string, { others: DocRow[]; who: string }>() } : stackAssignments(rows);
@@ -305,8 +325,25 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
   };
   const viewLabel = VIEWS.find((v) => v.id === view)!.label;
 
+  const sections = (["uploaded", "processing", "needs_review", "ready", "archived"] as const).map((state) => {
+            const files = inState(state);
+            const lockedHere = lockedInState(state);
+            if (files.length === 0 && lockedHere.length === 0) return null;
+            const list = drawnIn(state);
+            return (
+              <Section key={state} label={LIFECYCLE_LABEL[state]} count={files.length + lockedHere.length} role={state === "needs_review" ? "offer" : state === "ready" ? "committed" : state === "processing" ? "contact" : "neutral"} kind={state === "needs_review" ? "warning" : state === "ready" ? "check" : state === "processing" ? "clock" : state === "archived" ? "note" : "document"}>
+                {carryHidden(groupNearDuplicates(list, linkedNames, !!q), stacked.behind).map(([d, same]) => (
+                  <DocumentRow key={d.id} slug={slug} doc={d} linkedNames={linkedNames} same={same} view={view} stackQuery={stacked.behind.get(d.id)?.who} />
+                ))}
+                {lockedHere.map((l) => (
+                  <LockedRow key={l.id} slug={slug} doc={l} />
+                ))}
+              </Section>
+            );
+          });
+
   return (
-    <Screen title="Documents" lede={`${viewLabel}${q ? `, matching "${q}"` : ""}: ${rows.length} ${rows.length === 1 ? "document" : "documents"}`} action={<AddButton href={`/org/${slug}/documents/new`} label="Add" />}>
+    <Screen title="Documents" lede={`${viewLabel}${q ? `, matching "${q}"` : ""}: ${rows.length + lockedIn(view).length} ${rows.length + lockedIn(view).length === 1 ? "document" : "documents"}`} action={<AddButton href={`/org/${slug}/documents/new`} label="Add" />}>
       {notice && <Notice tone="success" title={notice} />}
       {suggestUndo && (
         <Form action={undoBulkSuggest.bind(null, slug)}>
@@ -333,15 +370,18 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
 
       <StatRow>
         {VIEWS.map((v) => (
-          <Stat key={v.id} href={viewHref(v.id)} value={inView(v.id).length} label={v.label} role={v.id === view ? "accent" : "neutral"} kind={v.id === view ? "check" : undefined} />
+          <Stat key={v.id} href={viewHref(v.id)} value={inView(v.id).length + lockedIn(v.id).length} label={v.label} role={v.id === view ? "accent" : "neutral"} kind={v.id === view ? "check" : undefined} />
         ))}
         {inProgress > 0 && <Stat href={viewHref("all")} value={inProgress} label="Reading" role="contact" />}
       </StatRow>
 
       {(all.length > 5 || q) && <SearchField initial={q} placeholder="A file name, a type or an athlete" />}
 
-      {rows.length === 0 ? (
-        <EmptyState kind="document" title={q ? "Nothing Matches" : all.length === 0 ? "No Documents Yet" : `Nothing in ${viewLabel}`} action={q || all.length > 0 ? undefined : <LinkButton href={`/org/${slug}/documents/new`}>Add the First One</LinkButton>} />
+      {rows.length === 0 && lockedIn(view).length === 0 ? (
+        <EmptyState kind="document" title={q ? "Nothing Matches" : all.length === 0 && lockedAll.length === 0 ? "No Documents Yet" : `Nothing in ${viewLabel}`} action={q || all.length > 0 || lockedAll.length > 0 ? undefined : <LinkButton href={`/org/${slug}/documents/new`}>Add the First One</LinkButton>} />
+      ) : rows.length === 0 ? (
+        // Nothing here can be acted on, so no selection bar.
+        <>{sections}</>
       ) : (
         <BulkSelect
           ids={rows.map((r) => r.id)}
@@ -439,18 +479,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
             </>
           }
         >
-          {(["uploaded", "processing", "needs_review", "ready", "archived"] as const).map((state) => {
-            const files = inState(state);
-            if (files.length === 0) return null;
-            const list = drawnIn(state);
-            return (
-              <Section key={state} label={LIFECYCLE_LABEL[state]} count={files.length} role={state === "needs_review" ? "offer" : state === "ready" ? "committed" : state === "processing" ? "contact" : "neutral"} kind={state === "needs_review" ? "warning" : state === "ready" ? "check" : state === "processing" ? "clock" : state === "archived" ? "note" : "document"}>
-                {carryHidden(groupNearDuplicates(list, linkedNames, !!q), stacked.behind).map(([d, same]) => (
-                  <DocumentRow key={d.id} slug={slug} doc={d} linkedNames={linkedNames} same={same} view={view} stackQuery={stacked.behind.get(d.id)?.who} />
-                ))}
-              </Section>
-            );
-          })}
+          {sections}
         </BulkSelect>
       )}
     </Screen>

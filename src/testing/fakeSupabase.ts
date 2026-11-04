@@ -1,4 +1,4 @@
-import { ensureViewAsSession, fakeEndViewAs, fakeFamilySendDocument, fakeRpc, fakeStartViewAs, fakeSubmitAssignment } from "./fakeRpc";
+import { ensureViewAsSession, fakeEndViewAs, fakeFamilySendDocument, fakeLinkDocument, fakeRpc, fakeStartViewAs, fakeSubmitAssignment } from "./fakeRpc";
 import { transitionFor, type Lifecycle } from "@/lib/vault/lifecycle";
 
 // An in-memory stand-in for the Supabase client, good enough to render a
@@ -667,6 +667,9 @@ export function createFakeClient(data: Dataset, opts: FakeClientOptions) {
       // family_send_document (0066) writes as the caller, so it refuses while viewing too.
       if (viewing && name === "family_send_document") return viewingRefusal(name);
       if (name === "family_send_document") return fakeFamilySendDocument(data, opts.userId, args, recorded, failOn);
+      // document_link_athlete (0078) writes as the caller, so it refuses while viewing too.
+      if (viewing && name === "document_link_athlete") return viewingRefusal(name);
+      if (name === "document_link_athlete") return fakeLinkDocument(data, opts.userId, args, recorded, failOn);
       return fakeRpc(data, effectiveId, name, args);
     },
     auth: {

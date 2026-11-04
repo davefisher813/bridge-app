@@ -28,6 +28,8 @@ import { getOrgBySlug } from "@/lib/org/membership";
 import { countOf, parseBulkIds, SUGGEST_CAP } from "@/lib/bulk/ids";
 import { decodeSuggestUndo, encodeSuggestUndo, planSuggestUndo, type UndoRow } from "@/lib/data/suggestionUndo";
 import { bulkNotice, SkipTally } from "@/lib/bulk/notice";
+import { loadLockedDocuments } from "@/lib/data/lockedDocuments";
+import { linkDocument } from "@/lib/data/linkDocument";
 import { activitySummary, logActivity } from "@/lib/data/activity";
 import { moveLifecycle } from "@/lib/data/vault";
 import { loadDocApprovers } from "@/lib/data/docApprovers";
@@ -98,7 +100,11 @@ async function open(slug: string, formData: FormData) {
   const tally = new SkipTally();
   // An id that is not this org's (or is gone) comes back as no row.
   const found = new Set(docs.map((d) => d.id));
-  for (const id of parsed.ids) if (!found.has(id)) tally.add("no longer here");
+  const missing = parsed.ids.filter((id) => !found.has(id));
+  // One a person cannot open is not "gone": migration 0078 hides it from
+  // this read and lists it as locked, so it is counted as that.
+  const locked = missing.length > 0 ? new Set((await loadLockedDocuments(supabase, org.id)).map((d) => d.id)) : new Set<string>();
+  for (const id of missing) tally.add(locked.has(id) ? "locked to you" : "no longer here");
   return { org, user, supabase, back, docs, tally, selected: parsed.ids.length };
 }
 
@@ -194,9 +200,9 @@ export async function bulkLinkDocumentsToAthlete(slug: string, formData: FormDat
       tally.add("already linked to them");
       continue;
     }
-    const { error } = await supabase.from("documents").update({ linked_athlete_id: next.id, updated_at: new Date().toISOString() }).eq("id", doc.id).eq("org_id", org.id);
-    if (error) {
-      tally.add("could not be saved");
+    const linked = await linkDocument(supabase, { orgId: org.id, documentId: doc.id, currentAthleteId: doc.linked_athlete_id, athleteId: next.id });
+    if (!linked.ok) {
+      tally.add(linked.reason === "locked" ? "locked to you" : linked.reason === "has_athlete" ? "linked to another athlete, which only the Master Account can change" : "could not be saved");
       continue;
     }
     applied += 1;

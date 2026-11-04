@@ -4479,3 +4479,27 @@ Refused: an address that belongs to another account (accounts are not
 merged here), one that is not valid, and a person who has already signed in.
 Consequences: the law against minting credentials allows `updateUserById`
 in `members.ts` only, for an email on an unconfirmed account.
+
+## 2026-11-03: a file opens for the real user; the rest shows as locked (0078, draft)
+
+Decision (Dave, relayed by Alfred and Tony): who may open a file is the
+real signed-in person, never the person being viewed (View As keeps
+working for screens and never grants a file). A file belongs to an athlete's
+advisor, the athlete's own login and the Master Account. An Admin who cannot
+open a document still sees that it exists, locked: state and date only, the
+name, type and athlete never sent (design A, a lock row). Locked rows are
+view-only. An Admin may link an unlinked upload to an athlete they cannot
+open (`document_link_athlete`), after which it locks for them; a document
+that already names an athlete is moved only by the Master Account. Area
+approvers are deferred. Identity confirmation is not extended: advisor and
+Master Account only, and a refusal says so on screen.
+Reason: athlete data is visible only to the athlete, the advisor and Dave.
+Alternatives: hiding locked rows (breaks Needs Review counts); masking in
+the screen only (the data would still reach the phone).
+Consequences: migration 0078 is a draft for Tony's read and is not applied.
+Its master-only rule for an object with no document row stops a non-master
+Admin's or an Athlete's upload when Storage returns the row it inserted;
+Option B (the uploader reads their own unlisted upload) fixes that and is
+waiting on Tony and Dave. The app side is built to work before and after
+0078: the locked list and the link function are asked for, and a missing
+function means nothing is locked and the old update is used.

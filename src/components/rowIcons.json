@@ -78,5 +78,6 @@
   "stage_visit": "<path d='M19 10.5c0 5-7 10-7 10s-7-5-7-10a7 7 0 0 1 14 0z'/><circle cx='12' cy='10.5' r='2.75'/>",
   "stage_offer": "<path d='M6.5 3.5h11v4.5a5.5 5.5 0 0 1-11 0z'/><path d='M12 13.5v4'/><path d='M8 20.5h8'/>",
   "stage_committed": "<circle cx='12' cy='12' r='8.5'/><path d='M8.25 12.25L11 15l4.75-5'/>",
-  "stage_none": "<circle cx='12' cy='12' r='8.5'/><path d='M8 12h8'/>"
+  "stage_none": "<circle cx='12' cy='12' r='8.5'/><path d='M8 12h8'/>",
+  "lock": "<rect x='5' y='11' width='14' height='9.5' rx='2'/><path d='M8 11V8a4 4 0 0 1 8 0v3'/><path d='M12 15.2v2'/>"
 }

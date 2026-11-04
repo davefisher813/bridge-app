@@ -57,6 +57,8 @@ export const IDS = {
   // Read while no AI key was set (documents.read_by = 'stub'): never
   // appliable, and the review screen says why.
   documentStub: "00000000-0000-0000-0000-000000000112",
+  lockedDocument: "00000000-0000-0000-0000-00000000c0d1",
+  lockedDocumentReady: "00000000-0000-0000-0000-00000000c0d2",
   highSchool: "00000000-0000-0000-0000-000000000141",
   highSchoolUnscaled: "00000000-0000-0000-0000-000000000142",
   orgScale: "00000000-0000-0000-0000-000000000121",
@@ -1178,6 +1180,15 @@ export function buildFixture(): Dataset {
     board_meetings: [
       { id: IDS.meetingUpcoming, org_id: BRIDGE, board_id: IDS.board, title: "Fall Board Meeting", meets_on: inDays(10), location: "Fixture Community Room", notes: "Budget review, the fall recruiting report, and a vote on the conflict of interest policy.", created_by: OWNER, created_at: "2026-10-01T14:00:00.000Z", updated_at: "2026-10-01T14:00:00.000Z" },
       { id: IDS.meetingPast, org_id: BRIDGE, board_id: null, title: "Summer Planning Meeting", meets_on: "2026-07-15", location: null, notes: null, created_by: OWNER, created_at: "2026-07-01T14:00:00.000Z", updated_at: "2026-07-01T14:00:00.000Z" },
+    ],
+    // Migration 0078: documents the fixture's second Admin (not the master,
+    // not an advisor) cannot open. documents_locked returns these, and only
+    // these columns, to that Admin; to everyone else it returns none. They
+    // are not in `documents`: row level security hides the real rows from
+    // that Admin, so the Documents screen is built from the stubs alone.
+    locked_documents: [
+      { id: IDS.lockedDocument, org_id: BRIDGE, status: "pending", lifecycle: "needs_review", created_at: "2026-10-28T15:00:00.000Z", visible_to: ADMIN_TWO_ID },
+      { id: IDS.lockedDocumentReady, org_id: BRIDGE, status: "pending", lifecycle: "ready", created_at: "2026-10-20T15:00:00.000Z", visible_to: ADMIN_TWO_ID },
     ],
     board_meeting_documents: [
       { meeting_id: IDS.meetingUpcoming, document_id: "doc-word", org_id: BRIDGE, added_by: OWNER, created_at: "2026-10-01T15:00:00.000Z" },

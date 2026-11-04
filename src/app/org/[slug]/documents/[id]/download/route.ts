@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser, STAFF_ROLES } from "@/lib/auth/guard";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { createClient } from "@/lib/supabase/server";
+import { lockedDocumentById } from "@/lib/data/lockedDocuments";
 import { storedPageMediaType } from "@/lib/vault/format";
 import { inlineMediaTypeOf } from "@/lib/vault/preview";
 
@@ -23,7 +24,9 @@ import { inlineMediaTypeOf } from "@/lib/vault/preview";
 // and a photo, and the row's media_type is only its first file's.
 //
 // Anyone who is not staff of the org, or any id that is not theirs, gets
-// the same 404, so the route does not say which documents exist.
+// the same 404, so the route does not say which documents exist. The one
+// exception is a document an Admin of the org may see but not open
+// (migration 0078): 403 "Locked".
 export async function GET(request: NextRequest, { params }: { params: Promise<{ slug: string; id: string }> }) {
   const { slug, id } = await params;
   const notFound = () => new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
@@ -36,7 +39,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const supabase = await createClient();
   const { data } = await supabase.from("documents").select("file_name, media_type, original_paths, storage_paths").eq("id", id).eq("org_id", org.id).maybeSingle();
   const doc = data as { file_name: string; media_type: string; original_paths: string[] | null; storage_paths: string[] | null } | null;
-  if (!doc) return notFound();
+  if (!doc) {
+    // A document this Admin may see but not open (migration 0078) answers
+    // 403 "locked": they already know it exists, and nothing else is said.
+    // Any other id is the same 404 as ever.
+    if (await lockedDocumentById(supabase, org.id, id)) return new NextResponse("Locked", { status: 403, headers: { "Cache-Control": "no-store" } });
+    return notFound();
+  }
 
   // Rows from before the vault have no original_paths; their one stored
   // copy is the only bytes there ever were.

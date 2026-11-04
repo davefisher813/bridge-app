@@ -89,7 +89,7 @@ async function render(modulePath: string, props: Record<string, unknown>): Promi
 function look(page: { as?: string; viewing?: string }) {
   currentUser = page.as ?? OWNER_ID;
   viewing = page.viewing ?? null;
-  if (viewing === ADMIN_TWO_ID) withSecondAdmin(data);
+  if (viewing === ADMIN_TWO_ID || currentUser === ADMIN_TWO_ID) withSecondAdmin(data);
 }
 
 // The page inside the org layout, the way Next serves it: the layout is

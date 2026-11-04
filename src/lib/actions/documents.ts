@@ -37,6 +37,7 @@ import { documentKind, isSettableType, moveBlock, orgAthleteName, typeBlock, typ
 import { checkVaultFile, isTextReadable, readerCanRead, readerPageOf, readerTextBlocker, type VaultFormat } from "@/lib/vault/format";
 import { readerText } from "@/lib/vault/textExtract";
 import { downloadAfterUpload } from "@/lib/vault/readBack";
+import { linkDocument, LINK_REFUSALS } from "@/lib/data/linkDocument";
 import { storedFormatOf } from "@/lib/vault/preview";
 import { didNotLookLike, isLifecycle, isStaleProcessing as isStaleLifecycle } from "@/lib/vault/lifecycle";
 import { planFieldRestore, readableColumn } from "@/lib/data/undoPlan";
@@ -1773,12 +1774,14 @@ export async function linkDocumentToAthlete(slug: string, documentId: string, fo
   if ((next?.id ?? null) === doc.linked_athlete_id) redirect(`${back}?notice=${encodeURIComponent("Nothing changed.")}`);
   const previous = await orgAthleteName(supabase, org.id, doc.linked_athlete_id);
 
-  const { error } = await supabase
-    .from("documents")
-    .update({ linked_athlete_id: next?.id ?? null, updated_at: new Date().toISOString() })
-    .eq("id", documentId)
-    .eq("org_id", org.id);
-  if (error) redirect(`${back}?error=${encodeURIComponent(`Could not save the athlete: ${error.message}`)}`);
+  // An unlinked document is linked through document_link_athlete (migration
+  // 0078), so an Admin who will not be able to open it afterwards can still
+  // say who it is about. Moving or clearing one is the database's call.
+  const linked = await linkDocument(supabase, { orgId: org.id, documentId, currentAthleteId: doc.linked_athlete_id, athleteId: next?.id ?? null });
+  if (!linked.ok) {
+    const why = linked.reason === "failed" ? `Could not save the athlete: ${linked.message}` : LINK_REFUSALS[linked.reason];
+    redirect(`${back}?error=${encodeURIComponent(why)}`);
+  }
 
   await logActivity(supabase, {
     orgId: org.id,

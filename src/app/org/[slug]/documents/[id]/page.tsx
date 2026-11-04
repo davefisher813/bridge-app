@@ -1,4 +1,6 @@
 import { notFound, redirect } from "next/navigation";
+import { LockedDocumentScreen } from "@/components/LockedDocument";
+import { lockedDocumentById } from "@/lib/data/lockedDocuments";
 import { getOrgBySlug } from "@/lib/org/membership";
 import { requireRole, STAFF_ROLES } from "@/lib/auth/guard";
 import { createClient } from "@/lib/supabase/server";
@@ -277,7 +279,13 @@ export default async function DocumentPage({ params, searchParams }: { params: P
 
   // Gone (deleted a moment ago, or never here): back to the library, never
   // an error screen (live test O2, 2026-10-16).
-  if (!data) redirect(`/org/${slug}/documents`);
+  if (!data) {
+    // A document this Admin may see but not open (migration 0078) has a
+    // page that says so; anything else that is gone goes back to the library.
+    const locked = await lockedDocumentById(supabase, org.id, id);
+    if (locked) return <LockedDocumentScreen slug={slug} doc={locked} />;
+    redirect(`/org/${slug}/documents`);
+  }
   const doc = data as DocDetail;
   // Stored text from older readings can still carry field talk (Alfred,
   // 2026-10-15); it is cleaned as it is shown, wherever it appears.

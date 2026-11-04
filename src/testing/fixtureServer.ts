@@ -24,7 +24,7 @@ import { cookies } from "next/headers";
 import { ADMIN_TWO_ID, buildFixture, OWNER_ID, FAMILY_ID, MEMBER_ID, withSecondAdmin } from "@/testing/fixture";
 import { createFakeClient } from "@/testing/fakeSupabase";
 
-const KNOWN = new Set([OWNER_ID, FAMILY_ID, MEMBER_ID]);
+const KNOWN = new Set([OWNER_ID, FAMILY_ID, MEMBER_ID, ADMIN_TWO_ID]);
 const VIEWABLE = new Set([FAMILY_ID, MEMBER_ID, ADMIN_TWO_ID]);
 
 // Normally every request gets a fresh fixture, so a write is gone by the
@@ -92,7 +92,7 @@ export const createClient = cache(async () => {
   // The second Admin exists only for the request that views them, so no
   // other screen's counts move.
   const data = fixtureDataset();
-  if (viewing === ADMIN_TWO_ID) withSecondAdmin(data);
+  if (viewing === ADMIN_TWO_ID || userId === ADMIN_TWO_ID) withSecondAdmin(data);
   const client = createFakeClient(data, { userId, viewing });
   return persist ? withUploadReadback(client) : client;
 });

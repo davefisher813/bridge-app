@@ -189,6 +189,8 @@ describe("LAW: grey is for a status, not for decoration", () => {
     { file: "roster/[id]/eligibility/page.tsx", near: "Not Counted", why: "courses the NCAA does not count, de-emphasised on purpose" },
     { file: "documents/page.tsx", near: 'label="Archived"', why: "Archived is the quiet state, out of the working lists" },
     { file: "documents/[id]/page.tsx", near: 'label="Original File"', why: "the stored file's facts carry no status to signal" },
+    { file: "documents/page.tsx", near: "LOCKED_TITLE", why: "a locked document has no colour of its own; the state chip beside it carries the state (migration 0078, design A)" },
+    { file: "components/LockedDocument.tsx", near: 'label="What You Can See"', why: "a locked document's page: nothing about it has a status colour but the chip" },
   ];
 
   it("a literal grey role appears only where the grey means something", () => {
