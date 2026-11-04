@@ -194,7 +194,8 @@ export interface ActivitySubjects {
   document_ready: { name?: string | null; kind: string };
   document_archived: { name?: string | null; kind: string };
   document_unarchived: { name?: string | null; kind: string };
-  // Migration 0058: a person linked a document to an athlete, or unlinked it.
+  // Migration 0058: a person linked a document to an athlete, or unlinked
+  // it. `to` and `from` decide which; the line never names the athlete.
   document_linked: { kind: string; to?: string | null; from?: string | null };
   // A document deleted for good (Oct 11). The kind only, never the name.
   document_deleted: { kind: string };
@@ -300,7 +301,11 @@ const TEMPLATES: { [A in ActivityAction]: (s: ActivitySubjects[A]) => string } =
   document_needs_review: (s) => `Moved ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to Needs Review${s.name ? ` for ${who(s.name)}` : ""}`,
   document_ready: (s) => `Marked ${article(word(s.kind, "document"))} ${word(s.kind, "document")} Ready${s.name ? ` for ${who(s.name)}` : ""}`,
   document_archived: (s) => `Archived ${article(word(s.kind, "document"))} ${word(s.kind, "document")}${s.name ? ` for ${who(s.name)}` : ""}`,
-  document_linked: (s) => (s.to ? `Linked ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to ${who(s.to)}${s.from ? ` instead of ${who(s.from)}` : ""}` : `Unlinked ${article(word(s.kind, "document"))} ${word(s.kind, "document")} from ${who(s.from)}`),
+  // The names only decide Linked or Unlinked and are never written (Tony's
+  // 0078 gate, low severity): the line is readable by every Admin, and who a
+  // document is about is the athlete's own business. The row's athlete_id
+  // still says which athlete, for the screens that may name them.
+  document_linked: (s) => (s.to ? `Linked ${article(word(s.kind, "document"))} ${word(s.kind, "document")} to an athlete` : `Unlinked ${article(word(s.kind, "document"))} ${word(s.kind, "document")} from an athlete`),
   board_seat_donor_linked: (s) => `Linked ${person(s.person)}'s board seat to their donor record`,
   document_deleted: (s) => {
     // The kind "other" read as "an other" (live test V7): it is just a document.

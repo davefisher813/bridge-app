@@ -168,3 +168,22 @@ describe("LAW: linking goes through document_link_athlete and never moves a docu
     expect(bulk).not.toMatch(/\.update\(\{ linked_athlete_id/);
   });
 });
+
+// Tony's 0078 gate, item 3 (low severity): the document_linked log line is
+// read by every Admin, so it never names the athlete.
+// Verified this law bites: put the athlete's name back into the template,
+// watched the first test fail, reverted.
+describe("LAW: a document_linked log line never names the athlete", () => {
+  it("new lines say 'an athlete', whatever names the caller passes", async () => {
+    const { activitySummary } = await import("@/lib/data/activity");
+    expect(activitySummary("document_linked", { kind: "transcript", to: "Jordan Lee", from: "Sam Diaz" })).toBe("Linked a transcript to an athlete");
+    expect(activitySummary("document_linked", { kind: "transcript", to: null, from: "Sam Diaz" })).toBe("Unlinked a transcript from an athlete");
+  });
+
+  it("lines already written with names are shown masked, and other lines are left alone", async () => {
+    const { readableSummary } = await import("@/components/ActivityRows");
+    expect(readableSummary("Linked a transcript to Jordan Lee instead of Sam Diaz", "document_linked")).toBe("Linked a transcript to an athlete");
+    expect(readableSummary("Unlinked a transcript from Sam Diaz", "document_linked")).toBe("Unlinked a transcript from an athlete");
+    expect(readableSummary("Linked Pat Chair's board seat to their donor record", "board_seat_donor_linked")).toBe("Linked Pat Chair's board seat to their donor record");
+  });
+});

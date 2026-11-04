@@ -257,6 +257,14 @@ echo "==> 0073 is reversible"
 # 0077 and 0078 (files follow the real user). Run after the RLS suite so its
 # seeded rows and assertions are not disturbed. 0077 is as production holds
 # it; 0078 is checked by its own proofs, then taken down and put back.
+# The steps above took older migrations down and up one at a time, which
+# leaves a policy in the form its own last re-up wrote (the family upload
+# policy came back in its 0048 form). Production holds the form 0068 gave
+# it (0074 adds a not-viewing term the 0078 proofs do not depend on), so put
+# that back before 0077 and 0078 are judged.
+echo "==> Restoring the family upload policy to the form production holds"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0068_access_tightening.sql"
+su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -tA -c \"select count(*) from pg_policies where policyname = 'documents_bucket_family_insert' and with_check like '%_family_upload_folders%'\"" | grep -qx 1
 echo "==> 0077: athlete files readable by the athlete, advisor and master"
 su postgres -c "psql -d $DB -v ON_ERROR_STOP=1 -f migrations/0077_athlete_files_narrow_read.sql"
 echo "==> 0078: snapshot before, apply, proofs, down compared with the snapshot, up again"

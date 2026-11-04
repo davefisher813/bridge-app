@@ -4503,3 +4503,8 @@ Option B (the uploader reads their own unlisted upload) fixes that and is
 waiting on Tony and Dave. The app side is built to work before and after
 0078: the locked list and the link function are asked for, and a missing
 function means nothing is locked and the old update is used.
+
+## 2026-11-04: Tony's 0078 gate, changes requested and made
+
+Decision: (1) an athlete answering an assignment with a file (submit_assignment) is proved under the stricter documents_insert_guard (proofs S1 to S7: the answer files, the guardian, advisor and master read it, Athlete B, the unassigned Admin and a file the guardian did not upload are refused); the guard needed no change. (2) Option B stays unapplied and kept ready. (3) The document_linked activity line no longer names the athlete ("Linked a transcript to an athlete"); lines already written are shown masked. Severity: low. The line is readable by every Admin, and the row's athlete_id still says which athlete for screens that may name them; old rows keep their stored text. (4) The search_path fix for the four older helpers is 0079, drafted by Tony after 0078 lands; a law keeps 0078 from touching them.
+Consequences: the repo runner now restores the family upload policy to the form production holds before judging 0077 and 0078, because its earlier down-and-up cycles leave an older form. With Option B unapplied the two BLOCKER proofs fail by design: a non-master Admin's or an Athlete login's upload is refused if Storage returns the row it inserts. That is worth proving on a staging upload before 0078 is applied.

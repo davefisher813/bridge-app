@@ -36,8 +36,14 @@ const GONE: ReadonlySet<ActivityAction> = new Set(["athlete_removed", "target_re
 // A meta line is a sentence, so it reads "5 minutes ago". Past a week
 // the date itself is clearer than "40 days ago".
 // Lines written before the fix read "Deleted an other for good" (live test V7).
-function readableSummary(summary: string): string {
-  return summary.replace(/^Deleted an other for good/, "Deleted a document for good");
+export function readableSummary(summary: string, action: ActivityAction): string {
+  const fixed = summary.replace(/^Deleted an other for good/, "Deleted a document for good");
+  // Lines written before 0078's gate named the athlete a document was
+  // linked to or from. Those names are not shown: the same words as a new line.
+  if (action === "document_linked") {
+    return fixed.replace(/^(Linked .+?) to .+$/, "$1 to an athlete").replace(/^(Unlinked .+?) from .+$/, "$1 from an athlete");
+  }
+  return fixed;
 }
 
 export function whenLabel(iso: string, now: number = Date.now()): string {
@@ -88,13 +94,13 @@ export function ActivityRows({
         const glyph = GLYPH[r.subjectType] ?? GLYPH.athlete;
         const meta = [r.actorName ?? "Someone", whenLabel(r.createdAt, now)].filter(Boolean).join(" · ");
         const href = hrefFor(slug, r, liveAthletes, profileLinks);
-        if (href) return <Row key={r.id} href={href} kind={glyph.kind} role={glyph.role} title={readableSummary(r.summary)} meta={meta} wrap />;
+        if (href) return <Row key={r.id} href={href} kind={glyph.kind} role={glyph.role} title={readableSummary(r.summary, r.action)} meta={meta} wrap />;
         return (
           <Card key={r.id} isStatic>
             <Inline align="start">
               <RowGlyph kind={glyph.kind} role={glyph.role} />
               <div className="min-w-0 flex-1">
-                <Body weight="semibold">{readableSummary(r.summary)}</Body>
+                <Body weight="semibold">{readableSummary(r.summary, r.action)}</Body>
                 <Label>{meta}</Label>
               </div>
             </Inline>

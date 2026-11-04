@@ -115,3 +115,15 @@ describe("LAW: the app reads a fresh upload back through the checked path only",
     expect(identity).toContain("refusedByAccess(error)");
   });
 });
+
+// Tony's 0078 gate, item 4: the four older helpers pin search_path to public
+// where everything else pins it empty. Fixing that rewrites bodies that about
+// a hundred policies depend on, so it is its own migration (0079), drafted
+// after 0078 lands. 0078 must not touch them.
+describe("LAW: 0078 leaves the four older access helpers alone", () => {
+  it("none of _member_org_ids, _staff_org_ids, _family_org_ids or _owner_org_ids is redefined", () => {
+    for (const helper of ["_member_org_ids", "_staff_org_ids", "_family_org_ids", "_owner_org_ids"]) {
+      expect(sql, `${helper} is 0079's`).not.toMatch(new RegExp(`function private\\.${helper}\\(`));
+    }
+  });
+});

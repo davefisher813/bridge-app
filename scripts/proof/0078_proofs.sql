@@ -22,6 +22,7 @@
 --   16     claiming someone else's object with a document row
 --   17     the mid-upload sequence, step by step, ending in link-to-athlete (D6)
 --   L1-L10 document_link_athlete and locked rows being view-only
+--   S1-S7  an Athlete's guardian answers an assignment with a file (submit_assignment)
 --   P1a-e  staff moving Needs Review to Ready (Doc AI Piece 1)
 begin;
 
@@ -114,6 +115,8 @@ insert into public.documents (id, org_id, file_name, file_size, media_type, sour
 -- a document that names two different athletes (athlete_id A, linked B): AND semantics make it the master's alone
 insert into public.documents (id, org_id, file_name, file_size, media_type, source_role, athlete_id, linked_athlete_id, storage_paths, original_paths, lifecycle) values
  ('c0000000-0000-0000-0000-0000000000a7','5c5c0000-0000-0000-0000-000000000001','SYNTH-two-athletes.pdf',1,'application/pdf','admin','b0000000-0000-0000-0000-00000000000a','b0000000-0000-0000-0000-00000000000b',array['5c5c0000-0000-0000-0000-000000000001/doc_p_x/a.pdf'],array['5c5c0000-0000-0000-0000-000000000001/doc_p_x/a.pdf'],'needs_review');
+-- an open upload assignment for Athlete A (Athlete A's guardian answers it in the S block)
+insert into public.assignments (id, org_id, athlete_id, title, kind) values ('e1000000-0000-0000-0000-00000000000a','5c5c0000-0000-0000-0000-000000000001','b0000000-0000-0000-0000-00000000000a','SYNTH upload assignment','upload');
 -- Athlete A's advisor approves transcripts (area academic) for P1e
 insert into public.doc_approvers (org_id, area, user_id) values ('5c5c0000-0000-0000-0000-000000000001','academic','a0000000-0000-0000-0000-000000000003');
 
@@ -199,6 +202,19 @@ select pg_temp.t('09b send', 'Step 4: the advisor of A can', 'READ', 'a0000000-0
 select pg_temp.t('09b send', 'Step 4: the master can', 'READ', '5c5c0000-0000-0000-0000-0000000000d1', 'read', $q$5c5c0000-0000-0000-0000-000000000001/family/b0000000-0000-0000-0000-00000000000a_req1/x.pdf$q$);
 select pg_temp.t('09b send', 'BLOCKER: the guardians upload when the insert returns the row (what Supabase Storage does)', 'returned', 'a0000000-0000-0000-0000-000000000001', 'q', $q$with x as (insert into storage.objects (bucket_id, name, owner, owner_id) values ('documents','5c5c0000-0000-0000-0000-000000000001/family/b0000000-0000-0000-0000-00000000000a_req2/y.pdf','a0000000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000001') returning name) select case when count(*) = 1 then 'returned' end from x$q$);
 
+-- S: an Athlete's guardian answers an assignment with a file (submit_assignment) under the stricter insert guard
+select pg_temp.t('S1 submit', 'Athlete As guardian uploads the answer into the assignment folder (no row returned)', '1', 'a0000000-0000-0000-0000-000000000001', 'dml', $q$insert into storage.objects (bucket_id, name, owner, owner_id) values ('documents','5c5c0000-0000-0000-0000-000000000001/family/e1000000-0000-0000-0000-00000000000a/answer.pdf','a0000000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000001')$q$);
+select pg_temp.t('S2 submit', '... submits it with submit_assignment', 'submitted', 'a0000000-0000-0000-0000-000000000001', 'q', $q$select case when public.submit_assignment('e1000000-0000-0000-0000-00000000000a', 'done', 'answer.pdf', 1, 'application/pdf', '5c5c0000-0000-0000-0000-000000000001/family/e1000000-0000-0000-0000-00000000000a/answer.pdf') is not null then 'submitted' end$q$);
+select pg_temp.t('S3 submit', '... the assignment is now submitted and carries the document', 'submitted:true', 'a0000000-0000-0000-0000-000000000001', 'q', $q$select status::text || ':' || (document_id is not null)::text from public.assignments where id = 'e1000000-0000-0000-0000-00000000000a'$q$);
+select pg_temp.t('S4 submit', '... the guardian reads the answer back', 'READ', 'a0000000-0000-0000-0000-000000000001', 'read', $q$5c5c0000-0000-0000-0000-000000000001/family/e1000000-0000-0000-0000-00000000000a/answer.pdf$q$);
+select pg_temp.t('S4 submit', '... Athlete B cannot open it', 'DENIED', 'a0000000-0000-0000-0000-000000000002', 'read', $q$5c5c0000-0000-0000-0000-000000000001/family/e1000000-0000-0000-0000-00000000000a/answer.pdf$q$);
+select pg_temp.t('S4 submit', '... the unassigned Admin cannot open it', 'DENIED', 'a0000000-0000-0000-0000-000000000004', 'read', $q$5c5c0000-0000-0000-0000-000000000001/family/e1000000-0000-0000-0000-00000000000a/answer.pdf$q$);
+select pg_temp.t('S4 submit', '... the advisor of A can', 'READ', 'a0000000-0000-0000-0000-000000000003', 'read', $q$5c5c0000-0000-0000-0000-000000000001/family/e1000000-0000-0000-0000-00000000000a/answer.pdf$q$);
+select pg_temp.t('S4 submit', '... the master can', 'READ', '5c5c0000-0000-0000-0000-0000000000d1', 'read', $q$5c5c0000-0000-0000-0000-000000000001/family/e1000000-0000-0000-0000-00000000000a/answer.pdf$q$);
+select pg_temp.t('S5 submit', 'Athlete Bs guardian cannot answer Athlete As assignment', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000002', 'q', $q$select public.submit_assignment('e1000000-0000-0000-0000-00000000000a', 'x', 'a.pdf', 1, 'application/pdf', '5c5c0000-0000-0000-0000-000000000001/family/e1000000-0000-0000-0000-00000000000a/answer.pdf')::text$q$);
+select pg_temp.t('S6 submit', 'Athlete As guardian cannot answer with a file they did not upload', 'ERROR 23514', 'a0000000-0000-0000-0000-000000000001', 'q', $q$select public.submit_assignment('e1000000-0000-0000-0000-00000000000a', 'x', 'a.pdf', 1, 'application/pdf', '5c5c0000-0000-0000-0000-000000000001/doc_p_a/a.pdf')::text$q$);
+select pg_temp.t('S7 submit', 'The unassigned Admin cannot submit an Athletes assignment', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select public.submit_assignment('e1000000-0000-0000-0000-00000000000a', 'x', 'a.pdf', 1, 'application/pdf', '5c5c0000-0000-0000-0000-000000000001/family/e1000000-0000-0000-0000-00000000000a/answer.pdf')::text$q$);
+
 -- 10, 10b, 15: view-as is allowed, and never grants file access
 select pg_temp.t('10 view-as', 'Admin not assigned to A starts view-as Athlete A', 'started', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select case when public.start_view_as('5c5c0000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000001') is not null then 'started' end$q$);
 select pg_temp.t('10 view-as', '... then reads Athlete A''s file', 'DENIED', 'a0000000-0000-0000-0000-000000000004', 'read', '5c5c0000-0000-0000-0000-000000000001/doc_p_a/a.pdf');
@@ -249,7 +265,7 @@ select pg_temp.t('17 upload', 'Step 5a: a plain update to link is refused', 'ERR
 select pg_temp.t('17 upload', 'Step 5b: the Admin links it through document_link_athlete', 'linked', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select 'linked' from (select public.document_link_athlete((select id from public.documents where file_name = 'SYNTH-new-upload.pdf'), 'b0000000-0000-0000-0000-00000000000a')) x$q$);
 select pg_temp.t('17 upload', 'Step 5c: once linked, the uploading Admin no longer opens it', 'DENIED', 'a0000000-0000-0000-0000-000000000004', 'read', '5c5c0000-0000-0000-0000-000000000001/doc_p_n/a.pdf');
 select pg_temp.t('17 upload', 'Step 5c: Athlete A''s advisor does', 'READ', 'a0000000-0000-0000-0000-000000000003', 'read', '5c5c0000-0000-0000-0000-000000000001/doc_p_n/a.pdf');
-select pg_temp.t('17 upload', 'Step 5c: the uploading Admin now gets the 6 fixture documents, the guardian''s PDF and this one as locked stubs', '8', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select count(*)::text from public.documents_locked('5c5c0000-0000-0000-0000-000000000001')$q$);
+select pg_temp.t('17 upload', 'Step 5c: the uploading Admin now gets the 6 fixture documents, the guardian''s PDF, the assignment answer and this one as locked stubs', '9', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select count(*)::text from public.documents_locked('5c5c0000-0000-0000-0000-000000000001')$q$);
 
 -- L: document_link_athlete (D6) and locked rows being view-only
 select pg_temp.t('L1 link', 'Unentitled Admin relinks a locked document (A''s) to Athlete B', 'ERROR 42501', 'a0000000-0000-0000-0000-000000000004', 'q', $q$select 'linked' from (select public.document_link_athlete('c0000000-0000-0000-0000-0000000000a3', 'b0000000-0000-0000-0000-00000000000b')) x$q$);
