@@ -4508,3 +4508,31 @@ function means nothing is locked and the old update is used.
 
 Decision: (1) an athlete answering an assignment with a file (submit_assignment) is proved under the stricter documents_insert_guard (proofs S1 to S7: the answer files, the guardian, advisor and master read it, Athlete B, the unassigned Admin and a file the guardian did not upload are refused); the guard needed no change. (2) Option B stays unapplied and kept ready. (3) The document_linked activity line no longer names the athlete ("Linked a transcript to an athlete"); lines already written are shown masked. Severity: low. The line is readable by every Admin, and the row's athlete_id still says which athlete for screens that may name them; old rows keep their stored text. (4) The search_path fix for the four older helpers is 0079, drafted by Tony after 0078 lands; a law keeps 0078 from touching them.
 Consequences: the repo runner now restores the family upload policy to the form production holds before judging 0077 and 0078, because its earlier down-and-up cycles leave an older form. With Option B unapplied the two BLOCKER proofs fail by design: a non-master Admin's or an Athlete login's upload is refused if Storage returns the row it inserts. That is worth proving on a staging upload before 0078 is applied.
+
+## 2026-11-05: 0078 passed the staging upload test; not yet on production
+
+Decision: 0078 ran on a Supabase staging branch of Bridge-app (project ref
+kqvxkqqyojnnvkfkevhe, now deleted) and its real Storage upload test passed
+every step. Production stays on 0077 until Tony's final word and a backup
+or point-in-time-recovery check.
+Result: an Athlete login uploads an answer file, submits it with
+submit_assignment under the stricter insert guard and reads it back; a
+non-master Admin uploads a file, upload_is_mine returns true, and the Admin
+cannot read it back until a document row exists (the master-only rule). The
+two BLOCKER cases in the scratch proofs (an insert that returns the new row)
+did not occur in real Storage on a plain upload, so Option B stays unneeded
+and unapplied.
+How it ran: the Supabase connector asks a question on every write that the
+session cannot answer, so Alfred ran the migrations by hand in the branch SQL
+editor (scripts/staging/branch_0078/ holds the batches, the seed and the
+schema fingerprint). 0048 was missing from the branch because production got
+it by hand with no history row.
+Limit of the proof: the branch held the repo's policy set only. Production
+has three objects no migration creates (see the last section of
+migrations/APPLIED.md): the needs_review_shelf view, documents_no_delete
+and documents_family_insert. The family step passing on the stricter branch
+means it passes on production, since production only adds an allow rule.
+Open: a ruling on documents_family_insert (bring into the repo, drop, or
+accept); 0079, the search_path fix for the four older helpers, after 0078
+lands.
+

@@ -98,3 +98,15 @@ to be applied).
 | 0076_close_open_documents_read.sql | applied | 20261031193512 0076_drop_open_documents_read (applied by hand through the Supabase connector 2026-10-31 after approval; same statement, different name) |
 | 0077_athlete_files_narrow_read.sql | applied | 20261031194210 0077_athlete_files_narrow_read |
 | 0078_files_follow_the_real_user.sql | pending | draft for Tony's read, not applied; production stays on 0077 |
+
+## Found on production, not in any migration file (2026-11-05)
+
+Found by comparing a staging branch built from the repo's files with
+production. Production holds three objects no file creates. None was
+changed or removed; this is a record, not a fix.
+
+| Object | What it is | Effect |
+|---|---|---|
+| `public.needs_review_shelf` | A view made by hand. 0052 closed it (invoker rights, no anon or signed-in grant) and did not drop it. | Six columns production has and a repo-built database does not. Nothing in the app reads it. |
+| `storage.objects` policy `documents_no_delete` | DELETE for signed-in people, `false AND NOT _viewing()`. | Never allows a delete. A repo-built database denies deletes by having no delete policy, so the behavior is the same. |
+| `storage.objects` policy `documents_family_insert` | INSERT for signed-in people into the documents bucket: first folder is one of their family orgs, extension pdf, jpg, jpeg or png, and not viewing. | Looser than the repo's `documents_bucket_family_insert` (0068), which also requires the `family` folder and exactly three path segments. Insert policies are ORed, so production accepts more family upload paths than the repo intends. Awaiting a ruling from Tony and Dave: bring it into the repo, drop it, or accept it. |
