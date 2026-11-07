@@ -1,8 +1,8 @@
 # Grants status
 
-Last updated: Saturday, November 7, 2026.
+Last updated: Saturday, November 7, 2026 (FCCF moved from done to drafted).
 
-Rule: nothing here is submitted by Claude. Alfred checks each proposal against the fact base. Dave approves exact content before anything is sent anywhere.
+Rule: nothing here is submitted by Claude, and Claude does not touch any funder portal. Alfred checks each proposal against the fact base. Dave approves exact content before anything is sent anywhere.
 
 ## Active proposals (drafted in this folder)
 
@@ -13,6 +13,7 @@ Rule: nothing here is submitted by Claude. Alfred checks each proposal against t
 | Good Sports | Equipment donation | Equipment, 5 percent shipping | Rolling, 2 to 3 week decision | Draft complete with one correction (below). Cannot be submitted until Dave answers eligibility. | Whether Bridge charges any participation fee ($299 or below required); ages; equipment list; Dave's approval of shipping cost, evaluation after each donation and release form. |
 | Impact100 Westchester | Impact Boost Award | $5,000 proposed (recent Boost awards were $5,000) | Portal Feb 8 to 26, 2027. Interviews Mar 8 to 26. Recipients May 18. | Draft complete, ready for Feb. | Total revenue (must be under $250,000); Port Chester athlete count; 2025 Form 990 status; whether funds must be spent in Westchester; portal questions (public Feb 8). |
 | New Canaan Community Foundation | Full proposal, Access Fund | $10,000 | LOI submitted Oct 16 (request 012692). Notification mid-Dec 2026. Full proposal due mid-Jan 2027 if invited. | Draft complete, held until invited. | Dave's years in the field wording; award timing; board giving figure at filing; full proposal form. |
+| Fairfield County's Community Foundation (FCCF) | Capacity Building, Fundraising and Revenue Development | $10,000 | Rolling, no deadline, taken while funding lasts. Review about 10 to 12 weeks. | Draft complete (proposals/07), awaiting Dave's review with Alfred. NOT submitted. Alfred's direct submission route is stood down on Dave's order. | Portal state unknown (see below); vendor quotes for the three paid lines; IRS determination letter in hand; board list confirmed; 10 items in the file. |
 
 ## Assessed, not drafted
 
@@ -25,7 +26,10 @@ Rule: nothing here is submitted by Claude. Alfred checks each proposal against t
 | Funder | Amount | State |
 | --- | --- | --- |
 | MLB-MLBPA Youth Development Foundation | $10,000, Access Fund | Letter SENT Nov 6, 2026. Update expected within 60 days. Board decides quarterly. |
-| Fairfield County's Community Foundation (FCCF) | $10,000, Capacity Building | Being submitted through FCCF's portal by Alfred, night of Nov 6, 2026. Rolling. Review about three months. |
+
+## FCCF portal state (as reported by Alfred, night of Nov 6)
+
+FCCF takes applications at grantinterface.com, urlkey fairfield. Alfred's two direct attempts that night both ended partway, outcome unknown. An applicant account for dave@bffsa.org may or may not exist. No application state is confirmed, and it is not known whether a partial or empty application is open. Claude has not touched the portal and will not. Before anyone enters proposals/07, check the portal for an existing account and an open draft, and work from that so a second application is not created.
 
 ## Corrections found while verifying (for Alfred)
 
