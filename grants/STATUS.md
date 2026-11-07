@@ -1,6 +1,6 @@
 # Grants status
 
-Last updated: Saturday, November 7, 2026 (Giants Foundation line added; its packet is not yet in Drive).
+Last updated: Saturday, November 7, 2026 (Giants packet found in Drive and cross-checked).
 
 Rule: nothing here is submitted by Claude, and Claude does not touch any funder portal. Alfred checks each proposal against the fact base. Dave approves exact content before anything is sent anywhere.
 
@@ -14,7 +14,7 @@ Rule: nothing here is submitted by Claude, and Claude does not touch any funder 
 | Impact100 Westchester | Impact Boost Award | $5,000 proposed (recent Boost awards were $5,000) | Portal Feb 8 to 26, 2027. Interviews Mar 8 to 26. Recipients May 18. | Draft complete, ready for Feb. | Total revenue (must be under $250,000); Port Chester athlete count; 2025 Form 990 status; whether funds must be spent in Westchester; portal questions (public Feb 8). |
 | New Canaan Community Foundation | Full proposal, Access Fund | $10,000 | LOI submitted Oct 16 (request 012692). Notification mid-Dec 2026. Full proposal due mid-Jan 2027 if invited. | Draft complete, held until invited. | Dave's years in the field wording; award timing; board giving figure at filing; full proposal form. |
 | Fairfield County's Community Foundation (FCCF) | Capacity Building, Fundraising and Revenue Development | $10,000 | Rolling, no deadline, taken while funding lasts. Review about 10 to 12 weeks. | Draft complete (proposals/07), awaiting Dave's review with Alfred. NOT submitted. Alfred's direct submission route is stood down on Dave's order. | Portal state unknown (see below); vendor quotes for the three paid lines; IRS determination letter in hand; board list confirmed; 10 items in the file. |
-| The Giants Foundation, Inc. | Giants Foundation Grant Program | $10,000 | Dec 31, 2026 | Drafting. Packet drafted by Alfred and with Dave for approval. NOTHING submitted. Claude has not seen the packet (see note below). | The packet files into Drive as 08-giants-foundation-grant-program.md once they can be reached; the form's own questions must be read inside the application before submitting; anything in the gaps and compliance files. |
+| The Giants Foundation, Inc. | Giants Foundation Grant Program | $10,000 (set by Alfred under Dave's Nov 7 decision grant; the funder publishes no range) | Dec 31, 2026 | Packet drafted Nov 7 and in Drive as 08 (filed by another session, not written by Claude). With Dave for approval. NOTHING submitted. | The form's own questions (inside the DonationX-hosted application) must be read before submitting; 17 gaps in the packet; conflicts with the fact base listed below that need Alfred's ruling. |
 
 ## Assessed, not drafted
 
@@ -28,13 +28,22 @@ Rule: nothing here is submitted by Claude, and Claude does not touch any funder 
 | --- | --- | --- |
 | MLB-MLBPA Youth Development Foundation | $10,000, Access Fund | Letter SENT Nov 6, 2026. Update expected within 60 days. Board decides quarterly. |
 
-## Giants Foundation: what is and is not in Drive
+## Giants Foundation: packet and cross-check
 
-Alfred asked (Nov 7) for the Giants Foundation packet to be copied into the Grants folder as 08-giants-foundation-grant-program.md. The source files are on Dave's local drafts drive (giants-foundation-2026-11-07: narrative, gaps, compliance) and in the "Giants Foundation Grant Packet" document in the Bridge grants goal files. Neither is reachable from Claude's session, and a search of Google Drive finds no Giants Foundation file. So 08 is NOT in Drive and is not done. Nothing about the packet's content is stated here, because Claude has not read it. The facts on record are only those Alfred gave: funder The Giants Foundation, Inc.; program Giants Foundation Grant Program; deadline December 31, 2026; amount $10,000; status drafting; nothing submitted.
+The packet is in Drive as 08-giants-foundation-grant-program.md (Grants folder, id 1qF_uym0NHzwzPMayhvdVY-5LN6ZvGKac, 22,743 bytes, created Nov 7 07:37 UTC by another session). Alfred also filed the three source drafts in the same folder on Nov 7: giants-foundation-narrative.md (id 1nQAjpVitL6ET5f9u2tQq5M-DTBUYFAtB), giants-foundation-gaps.md (id 1dsIHyxFeRmVUgP-plbBUVMBLmou8TyfQ) and giants-foundation-compliance.md (id 1OWJOZhZXIyjSQ0PHpiO1r1CigDC_V5Hj). Claude did not write any of them. Claude's first search missed 08 (it was created after the first folder listing); Alfred's check was right. Claude has read the 08 packet once, in full. It holds the narrative, the gaps list (17 items) and the compliance check. Nothing is submitted. The funder does not publish its questions: the form must be read inside the application and the packet matched to it field by field before anything is entered.
 
-Before submitting: the form's own questions have to be read inside the application and matched to the packet field by field. The packet was written without them.
+Conflicts between the Giants packet and the fact base. Not edited by Claude. Alfred rules, Dave approves any change:
 
-To finish: put the three source files (narrative, gaps, compliance) and the packet document into the Grants folder in Drive, or paste them to Claude, and Claude will file the packet as 08 in the folder's naming and update this table.
+1. Board titles. The packet lists Shawna Hamilton Doster as "Board Member" with the Board Chair unconfirmed, Byron Valverde as "Director of External Affairs" and Wei Chang as "Treasurer and Development Chair." The fact base and the Oct 11 confirmed roster say Shawna is Chair, Byron Vice Chair, Wei Treasurer, Linda Secretary and Governance, Dave Founder and Executive Director. Every other proposal uses the fact base.
+2. Pathways Finance. The packet describes a 16 session track on NIL, credit, contracts and independent living with SCORE Western Connecticut guest speakers. The fact base and proposals 01, 02, 04 describe an eight week program, Wednesdays at 8 PM Eastern. These cannot both go to funders. Dave says which.
+3. Facts in the packet that are not in the fact base: 11 athletes signed with colleges in 2026 (the fact base has five in September 2026 alone); $14,800 paid toward athlete tuition in summer 2026; the Elite Squad Academy $500 per athlete per month match (four athletes); events raising more than $20,000 in 2026; the 2024 Form 990 showing total revenue $20,965 and expenses $14,774. They come from the packet's profile record. Alfred verifies them before any reaches a funder.
+4. Legal name. The packet asks to confirm whether the legal name carries an LLC suffix from the original entity formation. The fact base and every proposal say "Bridge Foundation For Student Athletes Inc." This affects all proposals.
+5. Board giving. The packet flags $50,000 versus $40,000. The fact base is four giving members at $10,000 each, $40,000 a year.
+6. Internal inconsistency: the header says the ask is $10,000 and the narrative requests $10,000, but the compliance check says the draft "states no amount."
+7. No clean line item budget yet (packet gap 14). The packet's budget lists categories and actual costs, not a request budget that adds up to $10,000.
+8. Style: the packet contains em dashes (the first heading and the funder line). The standing rule is none.
+
+One useful fact for another proposal: the packet gives the 2024 Form 990 total revenue as $20,965. That answers part of Impact100 TO CONFIRM 3 (Boost needs revenue under $250,000). It is for the 2024 partial year (Apr 24 to Dec 31, 2024) and comes from the packet, which Claude has not checked against the 990.
 
 ## FCCF portal state (as reported by Alfred, night of Nov 6)
 
@@ -54,8 +63,8 @@ A file only counts as done when it is in Drive AND listed here. Repo copies live
 | 06-spectrum-digital-education-assessment.md | Grants | 12NFAQrBnl4PDhd9uLE0lmTm7TnM5YFrK |
 | 07-fccf-capacity-building-fundraising.md | Grants | 1ojdCIrkwZlGHwgb8YZlx4FP085T_rxYG |
 | Shawna-Board-Update-2026-11-06-FCCF-line-corrected.md | Board | 1vzDhZzDbGTw1TCguNqeyLFYLV_INQ_VT |
-| 08-giants-foundation-grant-program.md | Grants | NOT IN DRIVE YET (source not reachable) |
-| STATUS.md | Grants | see the Drive copy named STATUS.md (a fresh copy is uploaded each time this file changes; the older copy is renamed STATUS-superseded) |
+| 08-giants-foundation-grant-program.md | Grants | 1qF_uym0NHzwzPMayhvdVY-5LN6ZvGKac (filed by another session, read by Claude, not written by Claude) |
+| STATUS.md | Grants | see the Drive copy named STATUS.md (a fresh copy is uploaded each time this file changes; older copies are renamed STATUS-superseded) |
 
 Uploaded sizes matched the repo copies byte for byte. Update this table when a file changes.
 
