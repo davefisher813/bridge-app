@@ -43,7 +43,7 @@ Board of directors: Shawna Hamilton Doster (Chair), Byron Valverde (Vice Chair),
 
 Teens in the communities Bridge serves are approaching college and first jobs, and the money decisions arrive whether or not anyone has taught them how money works. Bridge sees the gap in its own work. Families weigh showcase fees of $300 to $500 each, camp fees of $200 to $300 each, and equipment costs of $100 to $200. For low income families those prices alone can decide whether a student is seen by college coaches. A teen who cannot plan for costs he can already name is not ready for tuition bills, work study pay or a first credit offer.
 
-Bridge's own approved figures are the only data in this draft. If Dave wants published data on teen financial literacy, it goes in with a named source at his direction (TO CONFIRM 3).
+Bridge's own approved figures are the only data in this draft. If Dave wants published data on teen financial literacy added, it goes in with a named source at his direction (TO CONFIRM 3).
 
 ## 4. The request
 
@@ -111,7 +111,7 @@ Bridge Foundation For Student Athletes Inc accepts the grant conditions of the T
 | --- | --- |
 | Board list with employer, job title and board position for each member | NOT ON RECORD for employer and job title. The five names and board positions are on record. TO CONFIRM 11. |
 | Last audited financial statement, or a filed tax form (full return or 990EZ; TD does not accept the 990N) | The 2024 Form 990 is in hand, signed May 15, 2025, tax year April 24 to December 31, 2024. Whether a 2025 return exists is TO CONFIRM 12. |
-| 501(c)(3) determination letter | Paper letter NOT YET IN HAND. Exemption CONFIRMED on the IRS record (Nov 7, per Alfred): EIN 99-2660039 is on the IRS list of organizations that can receive tax deductible contributions (Publication 78), marked as a public charity. The paper determination letter is not posted by the IRS and is not in the Drive. The EIN assignment notice (CP 575, April 2024) is in hand, but that is the number letter. Remaining step: the organization's own copy of the letter, which Linda or the accountant may hold. TO CONFIRM 13. |
+| 501(c)(3) determination letter | IN HAND (Nov 7, per Alfred): an IRS letter dated March 10, 2026 (LTR 4170C), answering a February 27, 2026 request. It states that the IRS issued a determination letter in April 2025 granting Bridge Foundation for Student Athletes Inc exemption under 501(c)(3), and that the organization is a public charity under 509(a)(2), not a private foundation. A PDF is filed in the Governance and Legal Drive folder as "IRS Determination Confirmation - LTR 4170C - 2026-03-10.pdf" (file id 1Db7Tv9fBawEnwjMCKkHB7uU9ycPQHAL_). This is the IRS's confirmation letter, not the April 2025 determination letter itself; a funder that asks for the original by name may still want it. The exemption is also on the IRS Publication 78 list as a public charity. TO CONFIRM 13. |
 | Current operating budget | The $32,750 figure is on record. A clean document to upload must be produced (TO CONFIRM 14). |
 | Project budget | Section 4 above, once Dave confirms the lines. |
 
@@ -129,7 +129,7 @@ Bridge Foundation For Student Athletes Inc accepts the grant conditions of the T
 10. Whether any other funder has been asked to support Pathways Finance, or any funding for it is secured.
 11. For each board member: employer and job title.
 12. The 2024 return is a full Form 990 (per the Oct 16 packet, signed May 15, 2025), which TD accepts. Still open: whether a 2025 return exists.
-13. PARTLY ANSWERED (Nov 7): Exemption CONFIRMED on the IRS record (Nov 7, per Alfred): EIN 99-2660039 is on the IRS list of organizations that can receive tax deductible contributions (Publication 78), marked as a public charity. The paper determination letter is not posted by the IRS and is not in the Drive. The EIN assignment notice (CP 575, April 2024) is in hand, but that is the number letter. Remaining step: the organization's own copy of the letter, which Linda or the accountant may hold. TD asks for the letter itself as a PDF, so a Publication 78 listing may not be enough on its own; ask TD if the letter cannot be found.
+13. ANSWERED Nov 7: the paper copy is in hand. It is an IRS letter dated March 10, 2026 (LTR 4170C), answering a February 27, 2026 request. It states that the IRS issued a determination letter in April 2025 granting Bridge Foundation for Student Athletes Inc exemption under 501(c)(3), and that the organization is a public charity under 509(a)(2), not a private foundation. A PDF is filed in the Governance and Legal Drive folder as "IRS Determination Confirmation - LTR 4170C - 2026-03-10.pdf" (file id 1Db7Tv9fBawEnwjMCKkHB7uU9ycPQHAL_). This is the IRS's confirmation letter, not the April 2025 determination letter itself; a funder that asks for the original by name may still want it. The exemption is also on the IRS Publication 78 list as a public charity. TD asks for the letter as a PDF; upload this confirmation letter and say so.
 14. A clean current operating budget document for upload.
 15. TD's word and character limits, visible only inside the portal.
 16. The November 13 date, if Dave wants it confirmed with TD at TD.us-charitablegiving@td.com or newyorkcharitablegiving@td.com.

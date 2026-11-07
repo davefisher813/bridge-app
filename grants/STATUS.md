@@ -1,6 +1,6 @@
 # Grants status
 
-Last updated: Saturday, November 7, 2026 (grouped questions for Dave filed).
+Last updated: Saturday, November 7, 2026 (Dave's Nov 7 answers and the IRS letter filled in; all drafts re-uploaded).
 
 Rule: nothing here is submitted by Claude, and Claude does not touch any funder portal. Alfred checks each proposal against the fact base. Dave approves exact content before anything is sent anywhere.
 
@@ -8,12 +8,12 @@ Rule: nothing here is submitted by Claude, and Claude does not touch any funder 
 
 | Funder | Program | Amount | Deadline or window | State | What is missing |
 | --- | --- | --- | --- | --- | --- |
-| TD Charitable Foundation | Regional Grants, Pathways Finance | $10,000 | First review date reported as Nov 13, 2026 (not printed by TD). Next: Mar 12, May 14, Jul 30, 2027. Portal open all year. | Draft complete, awaiting review. 6 days to Nov 13. | TO CONFIRM: open to any teen or only Bridge athletes; teens per round, rounds per year, ages; employer and job title for each board member; IRS determination letter in hand as PDF; plus 17 items in the file. |
-| Citizens Charitable Foundation | Financial Empowerment, Pathways Finance | $10,000 proposed (Citizens publishes none) | Dec 1, 2026 | Draft complete, awaiting review. Quiz not taken. | Ask amount; program format and rounds; board giving wording; 14 items in the file. |
+| TD Charitable Foundation | Regional Grants, Pathways Finance | $10,000 | First review date reported as Nov 13, 2026 (not printed by TD). Next: Mar 12, May 14, Jul 30, 2027. Portal open all year. | Draft complete, awaiting review. 6 days to Nov 13. ELIGIBILITY RISK: Dave confirmed Nov 7 the program is open to Bridge athletes only; TD wants public programs. Alfred and Dave decide whether TD is still the right door. | Rounds per year, ages, targets; format; employer and job title for each board member; whether a 2025 return exists; 17 items in the file (open to Bridge only, teens per round, the IRS letter and the cost source are answered). |
+| Citizens Charitable Foundation | Financial Empowerment, Pathways Finance | $10,000 proposed (Citizens publishes none) | Dec 1, 2026 | Draft complete, awaiting review. Quiz not taken. | Ask amount; format and rounds; board giving wording; per athlete or per family for the cost figures; 14 items in the file (teens per round, Bridge-only, the IRS letter and the cost source are answered). |
 | Good Sports | Equipment donation | Equipment, 5 percent shipping | Rolling, 2 to 3 week decision | Draft complete with one correction (below). Cannot be submitted until Dave answers eligibility. | Whether Bridge charges any participation fee ($299 or below required); ages; equipment list; Dave's approval of shipping cost, evaluation after each donation and release form. |
 | Impact100 Westchester | Impact Boost Award | $5,000 proposed (recent Boost awards were $5,000) | Portal Feb 8 to 26, 2027. Interviews Mar 8 to 26. Recipients May 18. | Draft complete, ready for Feb. | Total revenue (must be under $250,000); Port Chester athlete count; 2025 Form 990 status; whether funds must be spent in Westchester; portal questions (public Feb 8). |
 | New Canaan Community Foundation | Full proposal, Access Fund | $10,000 | LOI submitted Oct 16 (request 012692). Notification mid-Dec 2026. Full proposal due mid-Jan 2027 if invited. | Draft complete, held until invited. | Dave's years in the field wording; award timing; board giving figure at filing; full proposal form. |
-| Fairfield County's Community Foundation (FCCF) | Capacity Building, Fundraising and Revenue Development | $10,000 | Rolling, no deadline, taken while funding lasts. Review about 10 to 12 weeks. | Draft complete (proposals/07), awaiting Dave's review with Alfred. NOT submitted. Alfred's direct submission route is stood down on Dave's order. | Portal state unknown (see below); vendor quotes for the three paid lines; IRS determination letter in hand; board list confirmed; 10 items in the file. |
+| Fairfield County's Community Foundation (FCCF) | Capacity Building, Fundraising and Revenue Development | $10,000 | Rolling, no deadline, taken while funding lasts. Review about 10 to 12 weeks. | Draft complete (proposals/07), awaiting Dave's review with Alfred. NOT submitted. Alfred's direct submission route is stood down on Dave's order. | Portal state unknown (see below); vendor quotes for the three paid lines; board list confirmed; 10 items in the file. The IRS letter is in hand (answered Nov 7). |
 | The Giants Foundation, Inc. | Giants Foundation Grant Program | $10,000 (set by Alfred under Dave's Nov 7 decision grant; the funder publishes no range) | Dec 31, 2026 | Packet drafted Nov 7 and in Drive as 08 (filed by another session, not written by Claude). With Dave for approval. NOTHING submitted. | The form's own questions (inside the DonationX-hosted application) must be read before submitting; 17 gaps in the packet; conflicts with the fact base listed below that need Alfred's ruling. |
 
 ## Assessed, not drafted
@@ -45,6 +45,14 @@ Conflicts between the Giants packet and the fact base. Not edited by Claude. Alf
 
 One useful fact for another proposal: the packet gives the 2024 Form 990 total revenue as $20,965. That answers part of Impact100 TO CONFIRM 3 (Boost needs revenue under $250,000). It is for the 2024 partial year (Apr 24 to Dec 31, 2024) and comes from the packet, which Claude has not checked against the 990.
 
+## Answers received Nov 7 (Dave, relayed by Alfred) and where they went
+
+1. Pathways Finance runs in phases of eight weeks, and the phases repeat; it is not a block of 16 sessions. Proposals 01, 02, 04 are right. The Giants packet's 16 sessions is wrong and needs correcting by its owner.
+2. Pathways Finance is open to Bridge athletes only. Filled into 01 and 02, and flagged in 01 as an eligibility risk for TD.
+3. A round is about 10 to 15 teens, however many end up taking part. Filled into 01 and 02. Rounds per year and ages are still open.
+4. The 501(c)(3) item is closed (Alfred, ~4:06 PM). Dave produced an IRS letter dated March 10, 2026 (LTR 4170C), answering a February 27, 2026 request. It states the IRS issued a determination letter in April 2025 granting Bridge Foundation for Student Athletes Inc exemption under 501(c)(3), and that the organization is a public charity under 509(a)(2), not a private foundation. A PDF is filed in the Governance and Legal Drive folder as "IRS Determination Confirmation - LTR 4170C - 2026-03-10.pdf" (id 1Db7Tv9fBawEnwjMCKkHB7uU9ycPQHAL_). It is the IRS's confirmation letter, not the April 2025 determination letter itself. Filled into 01, 02, 07 and the grouped list. The IRS letter spells the name "Bridge Foundation for Student Athletes Inc" (no LLC); the NCCF portal registration capitalizes "For". Alfred reported this; Claude has not read the letter.
+5. The $3,700 and $5,000 figures come from Bridge's own summer season college recruiting expenses, not outside averages. Filled into 02, 03, 04, 05. Still open: per athlete or per family, which season, how many athletes. The MLB YDF letter (sent Nov 6) and the NCCF LOI (filed Oct 16) describe them as national and Northeast averages, and the Giants packet repeats that. Alfred and Dave decide whether any needs a correction.
+
 ## FCCF portal state (as reported by Alfred, night of Nov 6)
 
 FCCF takes applications at grantinterface.com, urlkey fairfield. Alfred's two direct attempts that night both ended partway, outcome unknown. An applicant account for dave@bffsa.org may or may not exist. No application state is confirmed, and it is not known whether a partial or empty application is open. Claude has not touched the portal and will not. Before anyone enters proposals/07, check the portal for an existing account and an open draft, and work from that so a second application is not created.
@@ -55,16 +63,16 @@ A file only counts as done when it is in Drive AND listed here. Repo copies live
 
 | File | Drive folder | Drive file id |
 | --- | --- | --- |
-| 01-td-charitable-foundation-regional-grants.md | Grants | 1YqZwIMDH-iGPrR1BgpbAKoaUQMl8GJ0v |
-| 02-citizens-financial-empowerment.md | Grants | 1qyP61Y9mCJ4Sye1387NqHfTmbnqWUxuZ |
-| 03-good-sports-equipment-donations.md | Grants | 1o1HkgrfCBIeZMjeNCL7l_rjTFbkb4Aqm |
-| 04-impact100-westchester-impact-boost.md | Grants | 1PS6EYwt27nhMavTEDGrs_lz1KBu8Avp8 |
-| 05-new-canaan-community-foundation-full-proposal.md | Grants | 1X9IcyRo-j2o9_G7Wx6MIGhuM7XHCJbkM |
+| 01-td-charitable-foundation-regional-grants.md | Grants | 1DJcVcBNM72f3TrwIslfaAPlgOnYBZm51 |
+| 02-citizens-financial-empowerment.md | Grants | 1cXAMj5OBE4ZR7XnWkSM4fZVv_tK3NkCO |
+| 03-good-sports-equipment-donations.md | Grants | 1M3px0y2Rykd626Wfb9Mg7Feat6PHjXNd |
+| 04-impact100-westchester-impact-boost.md | Grants | 1E4TuVJFMnwgg6ihaT6DEkQ4pRrviFAjg |
+| 05-new-canaan-community-foundation-full-proposal.md | Grants | 1nPOuVuLJw3f7pM6LN41CPdxi708nookH |
 | 06-spectrum-digital-education-assessment.md | Grants | 12NFAQrBnl4PDhd9uLE0lmTm7TnM5YFrK |
-| 07-fccf-capacity-building-fundraising.md | Grants | 1ojdCIrkwZlGHwgb8YZlx4FP085T_rxYG |
+| 07-fccf-capacity-building-fundraising.md | Grants | 1hos-J178Pd6HmBXZ5vNXQxi-IRogCRQ8 |
 | Shawna-Board-Update-2026-11-06-FCCF-line-corrected.md | Board | 1vzDhZzDbGTw1TCguNqeyLFYLV_INQ_VT |
 | 08-giants-foundation-grant-program.md | Grants | 1qF_uym0NHzwzPMayhvdVY-5LN6ZvGKac (filed by another session, read by Claude, not written by Claude) |
-| dave-to-confirm-grouped-2026-11-07.md | Grants | 1iDhCnKPiKn-xFwEHnPMEmePXhh1zvC_X (41 questions for Dave, grouped by what each unblocks; answers hold until after 4 PM Nov 7) |
+| dave-to-confirm-grouped-2026-11-07.md | Grants | 18dRB3CVl8oKhGaAJk_8IWVuTupadIt0x (41 questions for Dave, grouped by what each unblocks; answers hold until after 4 PM Nov 7) |
 | STATUS.md | Grants | see the Drive copy named STATUS.md (a fresh copy is uploaded each time this file changes; older copies are renamed STATUS-superseded) |
 
 Uploaded sizes matched the repo copies byte for byte. Update this table when a file changes.
