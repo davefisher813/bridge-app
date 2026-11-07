@@ -39,13 +39,13 @@ The Bridge Foundation for Student Athletes is a 501(c)(3) based in Stamford, Con
 
 ## 3. The need
 
-Teens in the communities Bridge serves are approaching college and first jobs, and the money decisions arrive whether or not anyone has taught them how money works. Bridge sees the gap in its own work. Families weigh showcase fees of $300 to $500 each, camp fees of $200 to $300 each, and equipment costs of $100 to $200. Travel baseball costs an average of $3,700 per year nationally and up to $5,000 per year in the Northeast (Aspen Institute Project Play figures, checked October 13; exact citation is TO CONFIRM 2). For low income families those prices alone can decide whether a student is seen by college coaches. A teen who cannot plan for costs he can already name is not ready for tuition bills, work study pay or a first credit offer.
+Teens in the communities Bridge serves are approaching college and first jobs, and the money decisions arrive whether or not anyone has taught them how money works. Bridge sees the gap in its own work. Families weigh showcase fees of $300 to $500 each, camp fees of $200 to $300 each, and equipment costs of $100 to $200. Bridge's own books show what a summer of college recruiting costs: about $3,700 on average and up to $5,000 (Bridge's recorded summer season college recruiting expenses, per Dave, Nov 7; whether that is per athlete or per family, which season, and how many athletes it covers is TO CONFIRM 2). For low income families those prices alone can decide whether a student is seen by college coaches. A teen who cannot plan for costs he can already name is not ready for tuition bills, work study pay or a first credit offer.
 
 ## 4. The request
 
 Amount: $10,000 for Pathways Finance only.
 
-Pathways Finance, presented by Kevin Valdovinos, runs eight weeks per round, Wednesdays at 8 PM Eastern. It teaches pay, saving, spending and banking before college and first jobs arrive. The grant pays for instruction, materials and outcome tracking.
+Pathways Finance, presented by Kevin Valdovinos, runs eight weeks per round, Wednesdays at 8 PM Eastern. It is recurring: the phases of eight weeks repeat. It is open to Bridge athletes only. A round has about 10 to 15 teens, however many end up taking part (Dave, Nov 7). It teaches pay, saving, spending and banking before college and first jobs arrive. The grant pays for instruction, materials and outcome tracking.
 
 ### Project budget (proposed, every line for Dave to confirm)
 
@@ -67,7 +67,7 @@ Structure and scheduling: eight weekly sessions per round, Wednesdays at 8 PM Ea
 
 Content: money skills for teens. Weekly topics are not on record and none are named (TO CONFIRM 7).
 
-Who participates: teens in Stamford, Port Chester and the Bronx. Teens per round, rounds per year, ages, and whether sessions are open to any teen or only Bridge athletes are TO CONFIRM 5.
+Who participates: Bridge athletes in Stamford, Port Chester and the Bronx. Open to Bridge athletes only (Dave, Nov 7). About 10 to 15 teens per round (Dave, Nov 7). Rounds per year and ages are TO CONFIRM 5.
 
 How success will be measured, and reported to Citizens after the grant:
 
@@ -112,10 +112,10 @@ dave@bffsa.org | 203-536-9118 | bffsa.org
 ## TO CONFIRM (for Dave, nothing here is filled in by guessing)
 
 1. The ask amount. Citizens publishes none. $10,000 is proposed.
-2. The exact citation for the $3,700 and $5,000 travel baseball cost figures.
+2. ANSWERED Nov 7 (Dave): the $3,700 average and $5,000 high come from Bridge's own summer season college recruiting expenses, not from outside averages. Still open: per athlete or per family, which season, and how many athletes.
 3. Is Pathways Finance in person or online? How many rounds does the budget fund?
 4. Start and end dates of the funded rounds.
-5. Teens per round, rounds per year, ages or grades, and whether sessions are open to any teen or only Bridge athletes.
+5. ANSWERED IN PART Nov 7 (Dave): open to Bridge athletes only; about 10 to 15 teens per round. Still open: rounds per year, ages or grades. (Citizens' published terms in the sweep do not state a public-access rule; confirm in the quiz.)
 6. Target numbers for the four measures.
 7. Weekly session content, if an answer should name topics.
 8. The board giving paid to date. $32,666.77 comes from the approved fill sheet. Per the October 16 packet it includes payments by a former board member made during his time on the board, so confirm the wording before it goes out.
@@ -123,5 +123,5 @@ dave@bffsa.org | 203-536-9118 | bffsa.org
 10. Why 2026 budgeted expenses are lower than 2025 actual expenses, if Citizens asks.
 11. A chartered mission statement, if Citizens asks for one word for word.
 12. The proposed budget lines: basis for each, any to remove or resize.
-13. Which documents Citizens asks for after the quiz (990, determination letter, board list). The board list needs employer and job title only if asked. The IRS determination letter and the 2025 return status are not confirmed as in hand.
+13. Which documents Citizens asks for after the quiz (990, determination letter, board list). The board list needs employer and job title only if asked. IRS letter: Exemption CONFIRMED on the IRS record (Nov 7, per Alfred): EIN 99-2660039 is on the IRS list of organizations that can receive tax deductible contributions (Publication 78), marked as a public charity. The paper determination letter is not posted by the IRS and is not in the Drive. The EIN assignment notice (CP 575, April 2024) is in hand, but that is the number letter. Remaining step: the organization's own copy of the letter, which Linda or the accountant may hold. The 2025 return status is not confirmed.
 14. Citizens' form fields and any limits, visible only on Citizens' site.

@@ -38,7 +38,7 @@ Contact: Dave Fisher, Executive Director, dave@bffsa.org, 203-536-9118. Website 
 
 ## 3. The need
 
-Travel baseball costs an average of $3,700 per year nationally and up to $5,000 per year in the Northeast (Aspen Institute Project Play figures, checked October 13; exact citation TO CONFIRM 5). For low income families that price alone decides who is seen by college coaches. Showcases cost $300 to $500 each, camps $200 to $300 each, and equipment $100 to $200. Money is only half the barrier: the recruiting process is complicated and built on relationships, so families without guidance or money are shut out before it starts. Port Chester athletes face the same costs as the rest of Bridge's athletes.
+Bridge's own books show what a summer of college recruiting costs: about $3,700 on average and up to $5,000 (Bridge's recorded summer season college recruiting expenses, per Dave, Nov 7; whether that is per athlete or per family, which season, and how many athletes it covers is TO CONFIRM 5). For low income families that price alone decides who is seen by college coaches. Showcases cost $300 to $500 each, camps $200 to $300 each, and equipment $100 to $200. Money is only half the barrier: the recruiting process is complicated and built on relationships, so families without guidance or money are shut out before it starts. Port Chester athletes face the same costs as the rest of Bridge's athletes.
 
 Bridge is a small organization whose fundraising runs on one person's network. A $5,000 award is a large share of a $32,750 annual budget.
 
@@ -88,7 +88,7 @@ An award is one time support for two athletes. Bridge has no endowment. Board me
 2. Whether a 2025 Form 990 will be filed by February 2027, since Boost asks for a recently submitted 990.
 3. Total annual revenue (Boost requires under $250,000).
 4. How many of the 35 athletes live in or are served in Port Chester, and whether Impact100 counts them as Westchester beneficiaries.
-5. The exact citation for the travel baseball cost figures.
+5. ANSWERED Nov 7 (Dave): the $3,700 average and $5,000 high come from Bridge's own summer season college recruiting expenses, not from outside averages. Still open: per athlete or per family, which season, and how many athletes.
 6. Which project: Access Fund for Port Chester athletes (drafted), Pathways Finance, or mission support.
 7. Whether Boost funds must be spent in Westchester. Ask Impact100 (a question about the guidelines is permitted by their FAQ).
 8. Award timing and dates.

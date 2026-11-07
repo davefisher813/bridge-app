@@ -15,7 +15,7 @@ Built from: Alfred's draft of Nov 6, 2026 (td-regional-draft-2026-11-06), the ap
 | --- | --- |
 | Tax status | 501(c)(3). Bridge Foundation For Student Athletes Inc, EIN 99-2660039. |
 | Located in TD's footprint | Yes. Stamford, Connecticut. TD lists Southern Connecticut under its New York regional office. |
-| Program open to the public | NOT ON RECORD. See TO CONFIRM 1. TD does not fund organizations with a limited constituency. |
+| Program open to the public | NO. Dave confirmed Nov 7 that Pathways Finance is open to Bridge athletes only. TD requires programs to be open and accessible to the public and does not fund organizations with a limited constituency. This is an eligibility risk for TD. Alfred and Dave decide whether TD is still the right door before this application goes in. See TO CONFIRM 1. |
 | Programmatic, direct community impact | Yes. Pathways Finance is a teaching program for teens. |
 | Serves low to moderate income people | Yes. Bridge serves underserved student athletes, many from low to moderate income households. |
 | Minimum grant | $5,000. The request is $10,000. |
@@ -31,7 +31,7 @@ Bridge runs three programs:
 
 - Hands on recruiting guidance: college lists, coach outreach, player profiles, timelines and academic preparation.
 - The Access Fund, which pays the showcase, camp and equipment costs that end recruiting journeys before they start.
-- Pathways Finance, an eight week financial literacy program for teens, held Wednesdays at 8 PM Eastern.
+- Pathways Finance, an eight week financial literacy program for teens, held Wednesdays at 8 PM Eastern. It is recurring: the eight week phases repeat. It is open to Bridge athletes only.
 
 Organization facts for the form: Executive Director Dave Fisher. Website bffsa.org. Phone 203-536-9118. Address 54 Clifford Ave, Stamford, CT 06905. Fiscal year January 1 to December 31.
 
@@ -49,7 +49,7 @@ Bridge's own approved figures are the only data in this draft. If Dave wants pub
 
 Amount: $10,000. Project: Pathways Finance: Financial Literacy for Underserved Teens. Type: program support for Pathways Finance only.
 
-Pathways Finance is an eight week financial literacy program for teens, presented by Kevin Valdovinos. It teaches young people how money works before they face the choices that shape their adult lives: a first paycheck, a first bank account, a college bill, and the cost of the activities they already take part in. This grant would pay for the instruction, materials and outcome tracking of the funded rounds.
+Pathways Finance is an eight week financial literacy program for teens, presented by Kevin Valdovinos. The program is recurring: it runs in phases of eight weeks, and the phases repeat. It is open to Bridge athletes only. A round has about 10 to 15 teens, however many end up taking part (Dave, Nov 7). It teaches young people how money works before they face the choices that shape their adult lives: a first paycheck, a first bank account, a college bill, and the cost of the activities they already take part in. This grant would pay for the instruction, materials and outcome tracking of the funded rounds.
 
 ### Project budget (proposed, every line for Dave to confirm)
 
@@ -69,11 +69,11 @@ If sessions run online, the food and venue lines change. TO CONFIRM 4 asks for t
 
 ## 5. Design elements
 
-Structure and scheduling: Eight weekly sessions per round, held Wednesdays at 8 PM Eastern. Number of rounds, start and end dates, and format are TO CONFIRM 4 and 5.
+Structure and scheduling: Eight weekly sessions per round, held Wednesdays at 8 PM Eastern. The eight week phases repeat (Dave, Nov 7). Number of rounds per year, start and end dates, and format are TO CONFIRM 4 and 5.
 
 Content: Money skills for teens: pay, saving, spending, banking, credit and the cost of college. The record confirms the program and its presenter only, so no weekly topics are named here (TO CONFIRM 6).
 
-Who participates: Teens in Stamford, Connecticut, Port Chester, New York, and the Bronx. Whether sessions are open to any teen in the community or only to teens already in Bridge programs is not on record (TO CONFIRM 1). Teens per round, rounds per year and ages are not on record (TO CONFIRM 7).
+Who participates: Bridge athletes from Stamford, Connecticut, Port Chester, New York, and the Bronx. The program is open to Bridge athletes only (Dave, Nov 7; see the eligibility risk in section 1 and TO CONFIRM 1). About 10 to 15 teens take part in a round, however many end up taking part (Dave, Nov 7). Rounds per year and ages are not on record (TO CONFIRM 7).
 
 How success will be measured, and reported to TD in the impact report it requires after a grant:
 
@@ -111,25 +111,25 @@ Bridge Foundation For Student Athletes Inc accepts the grant conditions of the T
 | --- | --- |
 | Board list with employer, job title and board position for each member | NOT ON RECORD for employer and job title. The five names and board positions are on record. TO CONFIRM 11. |
 | Last audited financial statement, or a filed tax form (full return or 990EZ; TD does not accept the 990N) | The 2024 Form 990 is in hand, signed May 15, 2025, tax year April 24 to December 31, 2024. Whether a 2025 return exists is TO CONFIRM 12. |
-| 501(c)(3) determination letter | Whether it is in hand as a PDF is TO CONFIRM 13. |
+| 501(c)(3) determination letter | Paper letter NOT YET IN HAND. Exemption CONFIRMED on the IRS record (Nov 7, per Alfred): EIN 99-2660039 is on the IRS list of organizations that can receive tax deductible contributions (Publication 78), marked as a public charity. The paper determination letter is not posted by the IRS and is not in the Drive. The EIN assignment notice (CP 575, April 2024) is in hand, but that is the number letter. Remaining step: the organization's own copy of the letter, which Linda or the accountant may hold. TO CONFIRM 13. |
 | Current operating budget | The $32,750 figure is on record. A clean document to upload must be produced (TO CONFIRM 14). |
 | Project budget | Section 4 above, once Dave confirms the lines. |
 
 ## TO CONFIRM (for Dave, nothing here is filled in by guessing)
 
-1. Are Pathways Finance sessions open to any teen in the community, or only to Bridge athletes? This decides a TD eligibility point.
+1. ANSWERED Nov 7 (Dave): Pathways Finance is open to Bridge athletes only. Consequence: TD requires programs open and accessible to the public and does not fund a limited constituency. Decide whether TD is still the right door, or whether the program can honestly be described as open to the community.
 2. Is there a chartered mission statement in the incorporation or bylaws documents to replace the drafted one?
 3. Does Dave want published data on teen financial literacy added, and from which named source?
 4. Is Pathways Finance in person or online? How many rounds does $10,000 fund?
 5. Start and end dates of the funded rounds (the grant period).
 6. Weekly session content, if the portal answer should name topics.
-7. Teens per round, rounds per year, ages or grades served, and target numbers for the four measures.
+7. ANSWERED IN PART Nov 7 (Dave): about 10 to 15 teens per round, however many end up taking part. Still open: rounds per year (the eight week phases repeat), ages or grades served, and target numbers for the four measures.
 8. Any confirmed partner (school, community organization, company) with name and role.
 9. Why 2026 budgeted expenses ($32,750) are lower than 2025 actual expenses ($35,253.16), in one or two sentences.
 10. Whether any other funder has been asked to support Pathways Finance, or any funding for it is secured.
 11. For each board member: employer and job title.
-12. Which form Bridge last filed (full Form 990 or 990EZ), and whether a 2025 return exists.
-13. That the IRS determination letter is in hand as a PDF.
+12. The 2024 return is a full Form 990 (per the Oct 16 packet, signed May 15, 2025), which TD accepts. Still open: whether a 2025 return exists.
+13. PARTLY ANSWERED (Nov 7): Exemption CONFIRMED on the IRS record (Nov 7, per Alfred): EIN 99-2660039 is on the IRS list of organizations that can receive tax deductible contributions (Publication 78), marked as a public charity. The paper determination letter is not posted by the IRS and is not in the Drive. The EIN assignment notice (CP 575, April 2024) is in hand, but that is the number letter. Remaining step: the organization's own copy of the letter, which Linda or the accountant may hold. TD asks for the letter itself as a PDF, so a Publication 78 listing may not be enough on its own; ask TD if the letter cannot be found.
 14. A clean current operating budget document for upload.
 15. TD's word and character limits, visible only inside the portal.
 16. The November 13 date, if Dave wants it confirmed with TD at TD.us-charitablegiving@td.com or newyorkcharitablegiving@td.com.

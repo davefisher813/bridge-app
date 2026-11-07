@@ -105,7 +105,7 @@ This grant pays for one time capacity, not ongoing costs. Once the grants progra
 
 | Document | State |
 | --- | --- |
-| IRS determination letter | Needed for the portal as a first time applicant. Whether it is in hand is TO CONFIRM 3. |
+| IRS determination letter | Needed for the portal as a first time applicant. Paper letter NOT YET IN HAND. Exemption CONFIRMED on the IRS record (Nov 7, per Alfred): EIN 99-2660039 is on the IRS list of organizations that can receive tax deductible contributions (Publication 78), marked as a public charity. The paper determination letter is not posted by the IRS and is not in the Drive. The EIN assignment notice (CP 575, April 2024) is in hand, but that is the number letter. Remaining step: the organization's own copy of the letter, which Linda or the accountant may hold. TO CONFIRM 3. |
 | Most recent Form 990 | 2024, in hand, signed May 15, 2025. |
 | Organization budget vs actual, current fiscal year (2026) | Prepare an export from the Treasurer's live 2026 financials workbook, the same source used for the NCCF submission. |
 | Organization budget vs actual, last fiscal year (2025) | Financial Reporting 2025.xlsx, on file. |
@@ -128,7 +128,7 @@ FCCF does not publish the portal questions in public. Inside the portal an appli
 
 1. Portal state: does an applicant account for dave@bffsa.org exist on grantinterface.com (urlkey fairfield), and is there a partial or empty Capacity Building application open? Alfred's two attempts on the night of Nov 6 ended with the outcome unknown. Check before entering anything.
 2. Board list for upload. The records disagree. Confirm the current roster and titles. This package uses the October 11 confirmed roster.
-3. That the IRS determination letter is in hand as a PDF for the portal upload.
+3. PARTLY ANSWERED (Nov 7): Exemption CONFIRMED on the IRS record (Nov 7, per Alfred): EIN 99-2660039 is on the IRS list of organizations that can receive tax deductible contributions (Publication 78), marked as a public charity. The paper determination letter is not posted by the IRS and is not in the Drive. The EIN assignment notice (CP 575, April 2024) is in hand, but that is the number letter. Remaining step: the organization's own copy of the letter, which Linda or the accountant may hold. FCCF asks for the letter as a PDF upload as a first time applicant.
 4. The exact wording of FCCF's strategic result area choices, visible only inside the portal.
 5. Budget quotes. The $10,000 split is Dave's September 2026 plan. Quotes or scopes are open for the three paid pieces: the grant program contractor ($5,000), the HighLevel setup ($2,000) and the board training ($1,500). FCCF's materials do not say quotes are required at application, but the budget rests on estimates until they land.
 6. Numeric targets. The evaluation answer sets no numeric targets. If a portal field requires them, they are Dave's to set.

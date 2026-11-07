@@ -36,7 +36,7 @@ Contact: Dave Fisher, Executive Director, dave@bffsa.org, 203-536-9118. 54 Cliff
 
 ## 3. The need
 
-Equipment is one of the three costs that end Bridge's athletes' recruiting journeys, with showcase fees of $300 to $500 each and camp fees of $200 to $300 each. On Bridge's approved record equipment runs $100 to $200 per athlete, and the Access Fund covers it for families who cannot. Travel baseball costs an average of $3,700 per year nationally and up to $5,000 per year in the Northeast (Aspen Institute Project Play figures, checked October 13; exact citation TO CONFIRM 5). For low income families, the price of taking part alone can decide whether a student is seen by college coaches.
+Equipment is one of the three costs that end Bridge's athletes' recruiting journeys, with showcase fees of $300 to $500 each and camp fees of $200 to $300 each. On Bridge's approved record equipment runs $100 to $200 per athlete, and the Access Fund covers it for families who cannot. Bridge's own books show what a summer of college recruiting costs: about $3,700 on average and up to $5,000 (Bridge's recorded summer season college recruiting expenses, per Dave, Nov 7; whether that is per athlete or per family, which season, and how many athletes it covers is TO CONFIRM 5). For low income families, the price of taking part alone can decide whether a student is seen by college coaches.
 
 Donated equipment would put gear in the hands of Bridge athletes and free Access Fund dollars for the showcase and camp fees that donated gear cannot cover.
 
@@ -85,7 +85,7 @@ dave@bffsa.org | 203-536-9118 | bffsa.org
 2. Ages or grades of the athletes who would use donated equipment (Good Sports serves ages 3 to 18).
 3. Share of Bridge athletes from low income households, in the form Good Sports asks for (for example a free and reduced price lunch share).
 4. How Bridge provides consistent access to physical activity (practices, sessions, a team, a facility), in the words Dave wants used.
-5. The exact citation for the travel baseball cost figures.
+5. ANSWERED Nov 7 (Dave): the $3,700 average and $5,000 high come from Bridge's own summer season college recruiting expenses, not from outside averages. Still open: per athlete or per family, which season, and how many athletes.
 6. The equipment list: items, sizes, quantities.
 7. Dave's approval to pay shipping and handling of 5 percent of the value donated, and to sign the release form and submit an evaluation after each donation.
 8. Shipping address and storage, if different from 54 Clifford Ave.

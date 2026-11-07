@@ -1,23 +1,23 @@
 # Questions for Dave, grouped by what each answer unblocks
 
-Prepared Saturday, November 7, 2026, for Alfred. Dave's answers hold until after 4 PM. Nothing here is answered by guessing; every item is a fact or a decision the grant files do not have. "Files" names the proposal that carries the item in its own TO CONFIRM list (01 TD, 02 Citizens, 03 Good Sports, 04 Impact100, 05 NCCF, 07 FCCF, 08 Giants).
+Prepared Saturday, November 7, 2026, for Alfred. Dave answered the first four items and part of item 6 at about 3:49 PM on Nov 7 (marked ANSWERED below); the rest hold. Nothing here is answered by guessing; every item is a fact or a decision the grant files do not have. "Files" names the proposal that carries the item in its own TO CONFIRM list (01 TD, 02 Citizens, 03 Good Sports, 04 Impact100, 05 NCCF, 07 FCCF, 08 Giants).
 
 ## Ask these first (each unblocks more than one funder)
 
-1. Is Pathways Finance eight weeks (Wednesdays at 8 PM Eastern) or 16 sessions? The Giants packet says 16 sessions on NIL, credit, contracts and independent living. Proposals 01, 02 and 04 say eight weeks. Unblocks TD, Citizens, Impact100 and Giants.
-2. Are Pathways Finance sessions open to any teen in the community, or only to Bridge athletes? TD does not fund a limited constituency, so this decides a TD eligibility point. Unblocks TD and Citizens.
-3. Is the IRS determination letter in hand as a PDF? Unblocks TD, FCCF and possibly Giants.
-4. What is the source for the travel baseball cost figures ($3,700 a year nationally, up to $5,000 in the Northeast)? The Oct 13 check used Aspen Institute Project Play figures; the exact citation is not on file. It appears in Citizens, Good Sports, Impact100, NCCF and Giants.
+1. ANSWERED (Dave, Nov 7): Pathways Finance runs in phases of eight weeks, and the phases repeat; it is a recurring program, not a single block of 16 sessions. Proposals 01, 02 and 04 are right. The Giants packet's "16 sessions" is not, and needs correcting by whoever owns that packet.
+2. ANSWERED (Dave, Nov 7): open to Bridge athletes only. Consequence for Alfred and Dave: TD requires programs open and accessible to the public and does not fund a limited constituency. That is now an eligibility risk for TD, and the TD draft says so. Citizens' published terms do not state a public-access rule; confirm inside the quiz.
+3. PARTLY ANSWERED (Alfred, Nov 7, ~4:00 PM): the exemption is CONFIRMED on the IRS record. EIN 99-2660039 is on the IRS list of organizations that can receive tax deductible contributions (Publication 78), marked as a public charity. The determination letter itself is not posted there and is not in the Drive. The EIN assignment notice (CP 575, April 2024) is in hand, but that is the number letter. Remaining step: the organization's own copy of the letter, which Linda or the accountant may hold. TD and FCCF ask for the letter as a PDF, so they need that copy.
+4. ANSWERED (Dave, Nov 7): the $3,700 average and $5,000 high come from Bridge's own summer season college recruiting expenses, not from national or Northeast averages. The drafts (02, 03, 04, 05) now say so. Still open: is each figure per athlete or per family, which season, and how many athletes. Also: the MLB YDF letter (sent Nov 6) and the NCCF LOI (filed Oct 16) describe them as national and Northeast averages. Alfred and Dave decide whether either needs a correction. The Giants packet repeats the national and Northeast wording.
 
 ## A. Unblocks TD (first review date reported as Nov 13) and Citizens (Dec 1)
 
 5. Is Pathways Finance in person or online? This decides whether the food and venue budget lines make sense. Files: 01, 02.
-6. How many teens per round, how many rounds per year, and what ages or grades? Files: 01, 02.
+6. ANSWERED IN PART (Dave, Nov 7): a round is however many teens end up taking part, about 10 to 15. Still open: rounds per year (the eight week phases repeat) and ages or grades. Files: 01, 02.
 7. How many rounds does $10,000 fund, and what are the start and end dates of the funded rounds? Files: 01, 02.
 8. What target numbers will Bridge commit to for the four measures (teens enrolled, completion rate, learning gain, attendance)? Files: 01, 02.
 9. Is there a confirmed partner for Pathways Finance (school, community organization, company), with name and role? None is claimed. Files: 01, 02.
 10. For each board member: employer and job title. TD asks for this list as a PDF. Files: 01.
-11. Which tax form did Bridge last file (full 990 or 990EZ), and does a 2025 return exist? TD does not accept the 990N. Files: 01, 04.
+11. PARTLY ON RECORD: the 2024 return is a full Form 990 (Oct 16 packet, signed May 15, 2025), which TD accepts (TD does not accept the 990N). Still open: does a 2025 return exist? Files: 01, 04.
 12. Is there a clean current operating budget document to upload? Files: 01.
 13. Why are 2026 budgeted expenses ($32,750) lower than 2025 actual expenses ($35,253.16)? One or two sentences, from Dave or the treasurer. Files: 01, 02.
 14. Is a chartered mission statement on file in the incorporation or bylaws documents, to replace the drafted one? Files: 01, 02.

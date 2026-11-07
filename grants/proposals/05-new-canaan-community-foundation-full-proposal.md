@@ -27,7 +27,7 @@ Bridge was founded in 2023 by Dave Fisher, who founded the Elite Squad NY travel
 
 ## 3. The need
 
-Travel baseball costs an average of $3,700 per year nationally and up to $5,000 per year in the Northeast (Aspen Institute Project Play figures, checked October 13; exact citation TO CONFIRM 2). For low income families, that price alone decides who is seen by college coaches and who is not. Money is only half the barrier. The recruiting process is complicated and built on relationships, so families without guidance or money are shut out before it starts. As submitted in the LOI, no other Tri State nonprofit specializes in college recruiting guidance for baseball players specifically.
+Bridge's own books show what a summer of college recruiting costs: about $3,700 on average and up to $5,000 (Bridge's recorded summer season college recruiting expenses, per Dave, Nov 7; whether that is per athlete or per family, which season, and how many athletes it covers is TO CONFIRM 2). For low income families, that price alone decides who is seen by college coaches and who is not. Money is only half the barrier. The recruiting process is complicated and built on relationships, so families without guidance or money are shut out before it starts. As submitted in the LOI, no other Tri State nonprofit specializes in college recruiting guidance for baseball players specifically.
 
 The second half of the need is Bridge's own: fundraising that runs on one person's network. Bridge has no development staff and is building a grants program. A grant that pays for athletes directly lets the program grow without waiting for that capacity.
 
@@ -77,7 +77,7 @@ Board: Shawna Hamilton Doster (Chair), Byron Valverde (Vice Chair), Linda Fisher
 ## TO CONFIRM (for Dave, nothing here is filled in by guessing)
 
 1. Dave's years in the field. The LOI said "more than 15 years"; Dave withdrew that on October 17. Choose the wording.
-2. The exact citation for the travel baseball cost figures.
+2. ANSWERED Nov 7 (Dave): the $3,700 average and $5,000 high come from Bridge's own summer season college recruiting expenses, not from outside averages. Still open: per athlete or per family, which season, and how many athletes. The October 16 LOI as filed (locked in the portal) describes the figures as national and Northeast averages; this full proposal uses Dave's Nov 7 sourcing. Decide whether the difference needs a note to NCCF.
 3. Award dates and the recruiting calendar for the 2027 to 2028 period.
 4. How applicants for awards are found and what need test applies.
 5. Target numbers for the outcome measures.
