@@ -1,6 +1,6 @@
 # Grants status
 
-Last updated: Saturday, November 7, 2026 (FCCF moved from done to drafted).
+Last updated: Saturday, November 7, 2026 (all drafts uploaded to Drive).
 
 Rule: nothing here is submitted by Claude, and Claude does not touch any funder portal. Alfred checks each proposal against the fact base. Dave approves exact content before anything is sent anywhere.
 
@@ -30,6 +30,38 @@ Rule: nothing here is submitted by Claude, and Claude does not touch any funder 
 ## FCCF portal state (as reported by Alfred, night of Nov 6)
 
 FCCF takes applications at grantinterface.com, urlkey fairfield. Alfred's two direct attempts that night both ended partway, outcome unknown. An applicant account for dave@bffsa.org may or may not exist. No application state is confirmed, and it is not known whether a partial or empty application is open. Claude has not touched the portal and will not. Before anyone enters proposals/07, check the portal for an existing account and an open draft, and work from that so a second application is not created.
+
+## Drive locations (standing rule from Dave, Nov 6: all Bridge work product lives in Google Drive)
+
+A file only counts as done when it is in Drive AND listed here. Repo copies live under `grants/` on branch `claude/grants`. Drive Grants folder id: 1l3ljMUotv8P-TdpfC6W8gR-WFdgNZHar. Drive Board folder id: 1CXt4zxIo7jFr1Jnw8BzyxrBZLeIxFEle.
+
+| File | Drive folder | Drive file id |
+| --- | --- | --- |
+| 01-td-charitable-foundation-regional-grants.md | Grants | 1YqZwIMDH-iGPrR1BgpbAKoaUQMl8GJ0v |
+| 02-citizens-financial-empowerment.md | Grants | 1qyP61Y9mCJ4Sye1387NqHfTmbnqWUxuZ |
+| 03-good-sports-equipment-donations.md | Grants | 1o1HkgrfCBIeZMjeNCL7l_rjTFbkb4Aqm |
+| 04-impact100-westchester-impact-boost.md | Grants | 1PS6EYwt27nhMavTEDGrs_lz1KBu8Avp8 |
+| 05-new-canaan-community-foundation-full-proposal.md | Grants | 1X9IcyRo-j2o9_G7Wx6MIGhuM7XHCJbkM |
+| 06-spectrum-digital-education-assessment.md | Grants | 12NFAQrBnl4PDhd9uLE0lmTm7TnM5YFrK |
+| 07-fccf-capacity-building-fundraising.md | Grants | 1ojdCIrkwZlGHwgb8YZlx4FP085T_rxYG |
+| Shawna-Board-Update-2026-11-06-FCCF-line-corrected.md | Board | 1vzDhZzDbGTw1TCguNqeyLFYLV_INQ_VT |
+| STATUS.md | Grants | see the Drive copy named STATUS.md (a fresh copy is uploaded each time this file changes) |
+
+Uploaded sizes matched the repo copies byte for byte. Update this table when a file changes.
+
+## Board documents
+
+| Document | State |
+| --- | --- |
+| Shawna board update | Shawna board update, FCCF line corrected Nov 6, held send-ready, send is Dave's confirmation only. Dave's original draft (Board folder, id 1aYu6bB_oX11iF4kuzKO246soPcAO4jBy) is untouched. The corrected copy changes one line: the Fairfield County Community Foundation line now reads "capacity building application being prepared, $10,000, to build our fundraising program and donor systems. Rolling deadline, no fixed date." Repo copy: grants/board/Shawna-Board-Update-2026-11-06.md. |
+
+Items noticed in the Shawna update but NOT edited (Alfred decides, Dave approves any change):
+
+1. "Impact100 Westchester: the Boost award window runs February 8 to 26 and fits our size." True on the funder's page (portal Feb 8 to 26, 2027; revenue under $250,000). Bridge's total annual revenue is not on record, so "fits our size" rests on the expense figures.
+2. "Citizens Charitable Foundation: ... the application is drafted." True. The quiz has not been taken.
+3. "In so far this year: $22,354.40" for board donations differs from the $32,666.77 "paid to date" used in the grant proposals. The two may measure different things (this year versus all time, including a former board member). The proposals flag the $32,666.77 wording. A funder who sees both would ask. Not edited.
+4. The per-member lines do not add up to the "in so far" total. Linda $10,000 + Byron $4,854.40 + Wei $2,500 = $17,354.40. The document says $22,354.40, which is $5,000 more. That gap equals Shawna's $5,000 wire, but the same document says that wire "still shows as pending." Either the total includes the pending wire, or it includes $5,000 from somewhere else. Worth a check against the books before it goes out.
+5. "Final board meeting: early December ... same window as the December 1 contribution date." Fine as written; no verification possible from the grant files.
 
 ## Corrections found while verifying (for Alfred)
 

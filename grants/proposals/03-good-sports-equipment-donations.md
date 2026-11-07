@@ -89,6 +89,6 @@ dave@bffsa.org | 203-536-9118 | bffsa.org
 6. The equipment list: items, sizes, quantities.
 7. Dave's approval to pay shipping and handling of 5 percent of the value donated, and to sign the release form and submit an evaluation after each donation.
 8. Shipping address and storage, if different from 54 Clifford Ave.
-9. How many athletes would use donated equipment in the first season.
+9. How many athletes would use the donated equipment in the first season.
 10. Whether Bridge has received equipment donations before, from anyone.
 11. Who completes the application, since it must be done in one sitting with no save.
