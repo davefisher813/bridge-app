@@ -1,6 +1,6 @@
 # Grants status
 
-Last updated: Saturday, November 7, 2026 (all drafts uploaded to Drive).
+Last updated: Saturday, November 7, 2026 (Giants Foundation line added; its packet is not yet in Drive).
 
 Rule: nothing here is submitted by Claude, and Claude does not touch any funder portal. Alfred checks each proposal against the fact base. Dave approves exact content before anything is sent anywhere.
 
@@ -14,6 +14,7 @@ Rule: nothing here is submitted by Claude, and Claude does not touch any funder 
 | Impact100 Westchester | Impact Boost Award | $5,000 proposed (recent Boost awards were $5,000) | Portal Feb 8 to 26, 2027. Interviews Mar 8 to 26. Recipients May 18. | Draft complete, ready for Feb. | Total revenue (must be under $250,000); Port Chester athlete count; 2025 Form 990 status; whether funds must be spent in Westchester; portal questions (public Feb 8). |
 | New Canaan Community Foundation | Full proposal, Access Fund | $10,000 | LOI submitted Oct 16 (request 012692). Notification mid-Dec 2026. Full proposal due mid-Jan 2027 if invited. | Draft complete, held until invited. | Dave's years in the field wording; award timing; board giving figure at filing; full proposal form. |
 | Fairfield County's Community Foundation (FCCF) | Capacity Building, Fundraising and Revenue Development | $10,000 | Rolling, no deadline, taken while funding lasts. Review about 10 to 12 weeks. | Draft complete (proposals/07), awaiting Dave's review with Alfred. NOT submitted. Alfred's direct submission route is stood down on Dave's order. | Portal state unknown (see below); vendor quotes for the three paid lines; IRS determination letter in hand; board list confirmed; 10 items in the file. |
+| The Giants Foundation, Inc. | Giants Foundation Grant Program | $10,000 | Dec 31, 2026 | Drafting. Packet drafted by Alfred and with Dave for approval. NOTHING submitted. Claude has not seen the packet (see note below). | The packet files into Drive as 08-giants-foundation-grant-program.md once they can be reached; the form's own questions must be read inside the application before submitting; anything in the gaps and compliance files. |
 
 ## Assessed, not drafted
 
@@ -26,6 +27,14 @@ Rule: nothing here is submitted by Claude, and Claude does not touch any funder 
 | Funder | Amount | State |
 | --- | --- | --- |
 | MLB-MLBPA Youth Development Foundation | $10,000, Access Fund | Letter SENT Nov 6, 2026. Update expected within 60 days. Board decides quarterly. |
+
+## Giants Foundation: what is and is not in Drive
+
+Alfred asked (Nov 7) for the Giants Foundation packet to be copied into the Grants folder as 08-giants-foundation-grant-program.md. The source files are on Dave's local drafts drive (giants-foundation-2026-11-07: narrative, gaps, compliance) and in the "Giants Foundation Grant Packet" document in the Bridge grants goal files. Neither is reachable from Claude's session, and a search of Google Drive finds no Giants Foundation file. So 08 is NOT in Drive and is not done. Nothing about the packet's content is stated here, because Claude has not read it. The facts on record are only those Alfred gave: funder The Giants Foundation, Inc.; program Giants Foundation Grant Program; deadline December 31, 2026; amount $10,000; status drafting; nothing submitted.
+
+Before submitting: the form's own questions have to be read inside the application and matched to the packet field by field. The packet was written without them.
+
+To finish: put the three source files (narrative, gaps, compliance) and the packet document into the Grants folder in Drive, or paste them to Claude, and Claude will file the packet as 08 in the folder's naming and update this table.
 
 ## FCCF portal state (as reported by Alfred, night of Nov 6)
 
@@ -45,7 +54,8 @@ A file only counts as done when it is in Drive AND listed here. Repo copies live
 | 06-spectrum-digital-education-assessment.md | Grants | 12NFAQrBnl4PDhd9uLE0lmTm7TnM5YFrK |
 | 07-fccf-capacity-building-fundraising.md | Grants | 1ojdCIrkwZlGHwgb8YZlx4FP085T_rxYG |
 | Shawna-Board-Update-2026-11-06-FCCF-line-corrected.md | Board | 1vzDhZzDbGTw1TCguNqeyLFYLV_INQ_VT |
-| STATUS.md | Grants | see the Drive copy named STATUS.md (a fresh copy is uploaded each time this file changes) |
+| 08-giants-foundation-grant-program.md | Grants | NOT IN DRIVE YET (source not reachable) |
+| STATUS.md | Grants | see the Drive copy named STATUS.md (a fresh copy is uploaded each time this file changes; the older copy is renamed STATUS-superseded) |
 
 Uploaded sizes matched the repo copies byte for byte. Update this table when a file changes.
 
@@ -82,6 +92,7 @@ KeyBank Foundation Expression of Interest (needs $100,000 operating budget and 3
 - Nov 13, 2026: TD first review date (reported).
 - Dec 1, 2026: Citizens Financial Empowerment.
 - Mid-Dec 2026: NCCF notification.
+- Dec 31, 2026: Giants Foundation Grant Program.
 - Mid-Jan 2027: NCCF full proposal due if invited.
 - Feb 8 to 26, 2027: Impact100 Boost portal.
 - Feb 2027 (expected): Spectrum window, if a digital fit appears.
