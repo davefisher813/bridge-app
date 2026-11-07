@@ -1,6 +1,6 @@
 # Grants status
 
-Last updated: Saturday, November 7, 2026 (Giants packet found in Drive and cross-checked).
+Last updated: Saturday, November 7, 2026 (grouped questions for Dave filed).
 
 Rule: nothing here is submitted by Claude, and Claude does not touch any funder portal. Alfred checks each proposal against the fact base. Dave approves exact content before anything is sent anywhere.
 
@@ -64,6 +64,7 @@ A file only counts as done when it is in Drive AND listed here. Repo copies live
 | 07-fccf-capacity-building-fundraising.md | Grants | 1ojdCIrkwZlGHwgb8YZlx4FP085T_rxYG |
 | Shawna-Board-Update-2026-11-06-FCCF-line-corrected.md | Board | 1vzDhZzDbGTw1TCguNqeyLFYLV_INQ_VT |
 | 08-giants-foundation-grant-program.md | Grants | 1qF_uym0NHzwzPMayhvdVY-5LN6ZvGKac (filed by another session, read by Claude, not written by Claude) |
+| dave-to-confirm-grouped-2026-11-07.md | Grants | 1iDhCnKPiKn-xFwEHnPMEmePXhh1zvC_X (41 questions for Dave, grouped by what each unblocks; answers hold until after 4 PM Nov 7) |
 | STATUS.md | Grants | see the Drive copy named STATUS.md (a fresh copy is uploaded each time this file changes; older copies are renamed STATUS-superseded) |
 
 Uploaded sizes matched the repo copies byte for byte. Update this table when a file changes.
