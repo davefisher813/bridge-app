@@ -45,7 +45,7 @@ Teens in the communities Bridge serves are approaching college and first jobs, a
 
 Amount: $10,000 for Pathways Finance only.
 
-Pathways Finance, presented by Kevin Valdovinos, runs eight weeks per round, Wednesdays at 8 PM Eastern. It is recurring: the phases of eight weeks repeat. It is open to Bridge athletes only. A round has about 10 to 15 teens, however many end up taking part (Dave, Nov 7). It teaches pay, saving, spending and banking before college and first jobs arrive. The grant pays for instruction, materials and outcome tracking.
+Pathways Finance runs eight weeks per round, Wednesdays at 8 PM Eastern, live on video and recorded, taught by four presenters (Kevin Valdovinos, Wei Chang, Byron Valverde and Sameer) with two Bridge adults on every call. It is recurring: the phases of eight weeks repeat. It is open to Bridge athletes only. A round has about 10 to 15 teens, however many end up taking part (Dave, Nov 7). It teaches pay, saving, spending and banking before college and first jobs arrive. The grant pays for instruction, materials and outcome tracking.
 
 ### Project budget (proposed, every line for Dave to confirm)
 
@@ -56,14 +56,14 @@ None of these figures comes from a quote or a figure on file. The lines add to $
 | Program instruction | $4,000 | Presenter delivery and preparation across the funded rounds |
 | Workbooks and printed materials | $1,500 | A workbook and materials for each participant |
 | Technology for participants | $1,500 | Devices and digital tools for teens who do not have their own |
-| Food for sessions | $1,200 | Food at sessions held outside school hours |
-| Venue and session supplies | $800 | Room costs and supplies for in person sessions |
+| Food for sessions | $1,200 | NOT USABLE: sessions are on video. Reallocation of the $2,000 (this and the next line) is Dave's call |
+| Venue and session supplies | $800 | NOT USABLE: sessions are on video. See the line above |
 | Outcome tracking and reporting | $1,000 | Attendance, start and end assessments, and the report to Citizens |
 | Total | $10,000 | |
 
 ## 5. Design elements
 
-Structure and scheduling: eight weekly sessions per round, Wednesdays at 8 PM Eastern. Rounds, dates and format are TO CONFIRM 3 and 4.
+Structure and scheduling: eight weekly sessions per round, Wednesdays at 8 PM Eastern. Format is on video (program document, October 2026). Season one runs Nov 4, 2026 to Jan 13, 2027. Later rounds and dates are TO CONFIRM 3.
 
 Content: money skills for teens. Weekly topics are not on record and none are named (TO CONFIRM 7).
 
@@ -113,7 +113,7 @@ dave@bffsa.org | 203-536-9118 | bffsa.org
 
 1. The ask amount. Citizens publishes none. $10,000 is proposed.
 2. ANSWERED Nov 7 (Dave): the $3,700 average and $5,000 high come from Bridge's own summer season college recruiting expenses, not from outside averages. Still open: per athlete or per family, which season, and how many athletes.
-3. Is Pathways Finance in person or online? How many rounds does the budget fund?
+3. ANSWERED by the program document: online, on video. Still open: how many rounds does the budget fund, and what do the $2,000 of food and venue lines become?
 4. Start and end dates of the funded rounds.
 5. ANSWERED IN PART Nov 7 (Dave): open to Bridge athletes only; about 10 to 15 teens per round. Still open: rounds per year, ages or grades. (Citizens' published terms in the sweep do not state a public-access rule; confirm in the quiz.)
 6. Target numbers for the four measures.

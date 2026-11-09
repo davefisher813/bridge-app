@@ -11,8 +11,8 @@ Prepared Saturday, November 7, 2026, for Alfred. Dave answered the first four it
 
 ## A. Unblocks TD (first review date reported as Nov 13) and Citizens (Dec 1)
 
-5. Is Pathways Finance in person or online? This decides whether the food and venue budget lines make sense. Files: 01, 02.
-6. ANSWERED IN PART (Dave, Nov 7): a round is however many teens end up taking part, about 10 to 15. Still open: rounds per year (the eight week phases repeat) and ages or grades. Files: 01, 02.
+5. ANSWERED BY RECORD (Pathways program document and session guide, Oct 2026): online, on video, Wednesdays 8:00 PM, 45 minutes, recorded, two BFFSA adults on every call, free to Bridge athletes, season one Nov 4, 2026 to Jan 13, 2027, any gender, a parent signs off under 18. Applied to 01 and 02: the food and venue lines are marked not usable. Four presenters, not one: Kevin Valdovinos, Wei Chang, Byron Valverde, Sameer. Files: 01, 02.
+6. ANSWERED IN PART (Dave, Nov 7): a round is however many teens end up taking part, about 10 to 15. Record adds: under 18 needs parent sign-off, so minors take part. Still open: rounds per year and exact ages or grades. Files: 01, 02.
 7. How many rounds does $10,000 fund, and what are the start and end dates of the funded rounds? Files: 01, 02.
 8. What target numbers will Bridge commit to for the four measures (teens enrolled, completion rate, learning gain, attendance)? Files: 01, 02.
 9. Is there a confirmed partner for Pathways Finance (school, community organization, company), with name and role? None is claimed. Files: 01, 02.
@@ -23,7 +23,7 @@ Prepared Saturday, November 7, 2026, for Alfred. Dave answered the first four it
 14. Is a chartered mission statement on file in the incorporation or bylaws documents, to replace the drafted one? Files: 01, 02.
 15. Citizens publishes no award range. Keep the proposed ask at $10,000? Files: 02.
 16. Does Dave want TD's November 13 date confirmed with TD before treating it as real? The date is not printed on TD's own pages. Files: 01.
-17. Are the proposed Pathways Finance budget lines right? Basis for each, and any to remove or resize. They are Alfred's Nov 6 proposal, not quotes. Files: 01, 02.
+17. PARTLY ANSWERED: food ($1,200) and venue ($800) cannot stand because sessions are on video. Open: what the $2,000 becomes, and whether the presenters are paid at all (the $4,000 instruction line assumes yes). Are the other proposed Pathways Finance budget lines right? Basis for each, and any to remove or resize. They are Alfred's Nov 6 proposal, not quotes. Files: 01, 02.
 
 ## B. Unblocks FCCF (rolling, review about 10 to 12 weeks)
 
@@ -43,7 +43,7 @@ Prepared Saturday, November 7, 2026, for Alfred. Dave answered the first four it
 
 ## D. Unblocks Giants (Dec 31)
 
-28. Board titles. The packet lists Shawna as "Board Member" with the Chair unconfirmed, Byron as "Director of External Affairs" and Wei as "Treasurer and Development Chair." The Oct 11 roster says Shawna is Chair, Byron Vice Chair, Wei Treasurer, Linda Secretary and Governance. Which is right? Files: 08.
+28. ANSWERED BY RECORD: the Oct 11 confirmed roster governs (Shawna Chair, Byron Vice Chair, Wei Treasurer, Linda Secretary and Governance); the Giants packet titles are wrong and whoever owns that packet corrects them. Original question: board titles. The packet lists Shawna as "Board Member" with the Chair unconfirmed, Byron as "Director of External Affairs" and Wei as "Treasurer and Development Chair." The Oct 11 roster says Shawna is Chair, Byron Vice Chair, Wei Treasurer, Linda Secretary and Governance. Which is right? Files: 08.
 29. Are these packet facts true: 11 athletes signed with colleges in 2026, $14,800 paid toward athlete tuition in summer 2026, the Elite Squad Academy match of $500 per athlete per month (four athletes), events that raised more than $20,000 in 2026? None is in the fact base the other proposals use. Files: 08.
 30. Legal name: "Bridge Foundation For Student Athletes Inc" or with an "LLC" suffix? The packet asks to confirm against the IRS determination letter or the 2025 certificate of incorporation. This affects every proposal. Partial answer (Alfred's summary of the IRS letter, not read by Claude): the IRS letter names the organization "Bridge Foundation for Student Athletes Inc", with no LLC. The NCCF portal registration uses "For" in capitals. Confirm which capitalization to use. Files: 08, all.
 31. Board giving: four giving members at $10,000 each ($40,000 a year) or the five-member $50,000 figure the profile record also carries? Files: 08.

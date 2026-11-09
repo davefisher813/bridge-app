@@ -49,7 +49,7 @@ Bridge's own approved figures are the only data in this draft. If Dave wants pub
 
 Amount: $10,000. Project: Pathways Finance: Financial Literacy for Underserved Teens. Type: program support for Pathways Finance only.
 
-Pathways Finance is an eight week financial literacy program for teens, presented by Kevin Valdovinos. The program is recurring: it runs in phases of eight weeks, and the phases repeat. It is open to Bridge athletes only. A round has about 10 to 15 teens, however many end up taking part (Dave, Nov 7). It teaches young people how money works before they face the choices that shape their adult lives: a first paycheck, a first bank account, a college bill, and the cost of the activities they already take part in. This grant would pay for the instruction, materials and outcome tracking of the funded rounds.
+Pathways Finance is an eight week financial literacy program for teens, taught live on video by four presenters (Kevin Valdovinos, Wei Chang, Byron Valverde and Sameer), with two Bridge adults on every call. The program is recurring: it runs in phases of eight weeks, and the phases repeat. It is open to Bridge athletes only. A round has about 10 to 15 teens, however many end up taking part (Dave, Nov 7). It teaches young people how money works before they face the choices that shape their adult lives: a first paycheck, a first bank account, a college bill, and the cost of the activities they already take part in. This grant would pay for the instruction, materials and outcome tracking of the funded rounds.
 
 ### Project budget (proposed, every line for Dave to confirm)
 
@@ -60,16 +60,16 @@ None of these figures comes from a quote, a payroll record or a figure on file. 
 | Program instruction | $4,000 | Paying the presenter for delivery and preparation across the funded rounds |
 | Workbooks and printed materials | $1,500 | A workbook and printed materials for each participant |
 | Technology for participants | $1,500 | Devices and digital tools used in sessions by teens who do not have their own |
-| Food for sessions | $1,200 | Food at sessions held outside school hours |
-| Venue and session supplies | $800 | Room costs and supplies for in person sessions |
+| Food for sessions | $1,200 | NOT USABLE: sessions are on video, so there is no food line. Reallocation of the $2,000 (this and the next line) is Dave's call |
+| Venue and session supplies | $800 | NOT USABLE: sessions are on video, so there is no venue. See the line above |
 | Outcome tracking and reporting | $1,000 | Attendance records, start and end assessments, and the impact report to TD |
 | Total | $10,000 | |
 
-If sessions run online, the food and venue lines change. TO CONFIRM 4 asks for the format.
+Format is settled by the program document (October 2026): sessions are Wednesdays, 8:00 PM, 45 minutes, on video, recorded. The food and venue lines above do not fit that format and must be reallocated before submission.
 
 ## 5. Design elements
 
-Structure and scheduling: Eight weekly sessions per round, held Wednesdays at 8 PM Eastern. The eight week phases repeat (Dave, Nov 7). Number of rounds per year, start and end dates, and format are TO CONFIRM 4 and 5.
+Structure and scheduling: Eight weekly sessions per round, held Wednesdays at 8 PM Eastern. The eight week phases repeat (Dave, Nov 7). Season one runs Nov 4, 2026 to Jan 13, 2027 (weeks off Nov 25, Dec 23, Dec 30), on video, recorded. Later rounds per year and their dates are TO CONFIRM 5.
 
 Content: Money skills for teens: pay, saving, spending, banking, credit and the cost of college. The record confirms the program and its presenter only, so no weekly topics are named here (TO CONFIRM 6).
 
@@ -84,7 +84,7 @@ How success will be measured, and reported to TD in the impact report it require
 
 Target numbers for each measure are TO CONFIRM 7.
 
-Partners: Kevin Valdovinos presents the program. No other partner is claimed, because none is on record (TO CONFIRM 8).
+Partners: the program is taught by Bridge's own presenters (Kevin Valdovinos, Wei Chang, Byron Valverde, Sameer). No other partner is claimed, because none is on record (TO CONFIRM 8).
 
 ## 6. Financial information
 
@@ -120,7 +120,7 @@ Bridge Foundation For Student Athletes Inc accepts the grant conditions of the T
 1. ANSWERED Nov 7 (Dave): Pathways Finance is open to Bridge athletes only. Consequence: TD requires programs open and accessible to the public and does not fund a limited constituency. Decide whether TD is still the right door, or whether the program can honestly be described as open to the community.
 2. Is there a chartered mission statement in the incorporation or bylaws documents to replace the drafted one?
 3. Does Dave want published data on teen financial literacy added, and from which named source?
-4. Is Pathways Finance in person or online? How many rounds does $10,000 fund?
+4. ANSWERED by the program document: online, on video. Still open: how many rounds does $10,000 fund, and what do the $2,000 of food and venue lines become?
 5. Start and end dates of the funded rounds (the grant period).
 6. Weekly session content, if the portal answer should name topics.
 7. ANSWERED IN PART Nov 7 (Dave): about 10 to 15 teens per round, however many end up taking part. Still open: rounds per year (the eight week phases repeat), ages or grades served, and target numbers for the four measures.
