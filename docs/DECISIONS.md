@@ -4536,3 +4536,11 @@ Open: a ruling on documents_family_insert (bring into the repo, drop, or
 accept); 0079, the search_path fix for the four older helpers, after 0078
 lands.
 
+## 2026-11-09: 0078 applied to production
+
+Decision: Dave handed Alfred the Bridge app decisions on Nov 9 and Alfred ordered 0078 applied: Tony's word is no longer a gate. Backup first, then apply, then test.
+What ran: the staging branch test (Nov 7) had passed every step. On Nov 9 a structural snapshot of the objects 0078 replaces was saved (scripts/snapshots/prod_pre_0078_2026-11-09.sql, each function body checked against its production md5), and public.documents (139 rows) was copied to schema backup_pre0078_20261109 with an identical md5 and no grants to the API roles. Then 0078 was applied as migration 20261109203802. All ten functions it defines match this repo's file byte for byte after applying it locally (md5), and the documents_read policy was replaced.
+Production check, rolled-back sessions as real users: the master account sees all 139 documents and all 167 files, and still sees all files while viewing as a Viewer; the two Viewer accounts see none (unchanged: the helper that scopes documents counts owners and staff only); a signed-in stranger and a true anonymous caller see none; linking is refused while viewing. Production holds one master and two Viewers, no non-master Admin and no Athlete login, so those two paths were proven only in the scratch proofs and on the staging branch.
+Not verified from here: Supabase's own platform backups (daily or point in time). The Management API token is invalid in this session; Alfred checks the dashboard.
+Consequences: the in-database copy and the snapshot stay until Alfred confirms the app behaves; then drop schema backup_pre0078_20261109. 0079 (search_path on the four older helpers) is now unblocked.
+
