@@ -16,7 +16,7 @@ Alfred's draft and the Nov 6 sweep describe a "$299 program fee" that Bridge wou
 
 | Standard on the page | Bridge |
 | --- | --- |
-| Directly serve youth ages 3 to 18 | Bridge serves student athletes. The Bridge rosters list graduation years 2025 to 2030, so the athletes are teenagers in roughly grades 8 to 12 (the youngest, class of 2030, is the Elite Squad 17U roster, not Bridge). Exact ages are still TO CONFIRM 2. |
+| Directly serve youth ages 3 to 18 | Bridge serves student athletes. The Bridge athlete roster in Drive (Mar 2026) lists graduation years 2025 to 2028, so Bridge athletes are high schoolers; a parent signs off under 18 per the Pathways document. Exact ages are still TO CONFIRM 2. |
 | Serve youth in high poverty areas | Bridge serves underserved student athletes in Stamford, Port Chester and the Bronx. No poverty percentage is on record, so none is claimed. TO CONFIRM 3. |
 | Charge a participation fee of $299 or below | NOT ON RECORD. The record says recruiting curriculum and advisory are at no cost to the family. TO CONFIRM 1. |
 | Be located and serve youth in the United States | Yes. |
