@@ -30,7 +30,7 @@ Prepared Saturday, November 7, 2026, for Alfred. Dave answered the first four it
 18. Does an applicant account for dave@bffsa.org exist at FCCF's portal (grantinterface.com, urlkey fairfield), and is a partial or empty Capacity Building application open? Alfred's two attempts on the night of Nov 6 ended with the outcome unknown. Check before anyone enters anything. Files: 07.
 19. Quotes for the three paid pieces: the grant program contractor ($5,000), the HighLevel setup ($2,000), the board training ($1,500). The $10,000 split is Dave's September plan. Files: 07.
 20. Is the board list for upload right? The records disagree. The package uses the Oct 11 confirmed roster. Files: 07.
-21. What is the baseline count of institutional applications at the time of entry? The draft says one (NCCF) and was written before the MLB YDF letter went out on Nov 6. Files: 07.
+21. ANSWERED BY RECORD: two (NCCF Oct 16, MLB YDF Nov 6), none awarded; 07 note 8 updated. Original: what is the baseline count of institutional applications at the time of entry? The draft says one (NCCF) and was written before the MLB YDF letter went out on Nov 6. Files: 07.
 22. Is the 5,000 character description limit FCCF's? It comes from Bridge's September draft. Check in the exported question PDF inside the portal. Files: 07.
 23. The wording of FCCF's result-area choices, and any numeric targets the portal requires. Both are visible only inside the portal. Files: 07.
 
@@ -53,7 +53,7 @@ Prepared Saturday, November 7, 2026, for Alfred. Dave answered the first four it
 
 ## E. Unblocks Impact100 (portal Feb 8 to 26, 2027) and NCCF (if invited)
 
-35. What was Bridge's total annual revenue? Impact Boost requires under $250,000. The Giants packet gives the 2024 Form 990 (April 24 to December 31, 2024) as $20,965 revenue and $14,774 expenses; not checked against the 990. Files: 04.
+35. ANSWERED BY RECORD for the threshold: $20,965 in 2024 per the Giants packet's citation of the 2024 Form 990, far under $250,000, so Boost revenue eligibility holds on 2024. Still open: whether a 2025 return exists (see 11). Original: what was Bridge's total annual revenue? Impact Boost requires under $250,000. The Giants packet gives the 2024 Form 990 (April 24 to December 31, 2024) as $20,965 revenue and $14,774 expenses; not checked against the 990. Files: 04.
 36. How many of the 35 athletes live in or are served in Port Chester (Westchester County)? Does Impact100 count them as Westchester beneficiaries, and must Boost funds be spent in Westchester? Files: 04.
 37. Which project for the Boost award: the Access Fund for Port Chester athletes (drafted), Pathways Finance, or mission support? Is the $5,000 ask (matched to recent Boost awards) right? Files: 04.
 38. NCCF: how should the years-in-the-field wording read? The Oct 16 filing said "more than 15 years" and Dave withdrew that on Oct 17 (career start 2015). No proposal states a number of years. Files: 05.
@@ -61,5 +61,5 @@ Prepared Saturday, November 7, 2026, for Alfred. Dave answered the first four it
 
 ## F. Unblocks the Shawna board update (held send-ready; send is Dave's confirmation only)
 
-40. The board donation total. Linda $10,000 + Byron $4,854.40 + Wei $2,500 = $17,354.40, but the document says $22,354.40, a gap of $5,000. That equals Shawna's wire, which the document calls pending. Is the wire counted, or is there $5,000 from somewhere else? Files: board update.
+40. ANSWERED BY ARITHMETIC: the $5,000 gap equals Shawna's wire that the document itself calls pending, so $22,354.40 counts a wire not yet received. Safe wording until Alfred confirms it landed: $17,354.40 received plus $5,000 pending. Open: did the wire land. Original: the board donation total. Linda $10,000 + Byron $4,854.40 + Wei $2,500 = $17,354.40, but the document says $22,354.40, a gap of $5,000. That equals Shawna's wire, which the document calls pending. Is the wire counted, or is there $5,000 from somewhere else? Files: board update.
 41. The proposals use $32,666.77 "paid to date," which includes payments by Lear Beyer while he was on the board. Is that wording right for funders, given the update says $22,354.40 "in so far this year"? Files: 02, 05, 07.
