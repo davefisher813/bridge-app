@@ -114,3 +114,11 @@ KeyBank Foundation Expression of Interest (needs $100,000 operating budget and 3
 - Mid-Jan 2027: NCCF full proposal due if invited.
 - Feb 8 to 26, 2027: Impact100 Boost portal.
 - Feb 2027 (expected): Spectrum window, if a digital fit appears.
+
+## Nov 9, 2026 update
+
+- Pathways Finance facts now come from the program document and session guide (Oct 2026): on video, Wednesdays 8:00 PM, 45 minutes, recorded, two Bridge adults per call, free, season one Nov 4, 2026 to Jan 13, 2027, four presenters (Kevin Valdovinos, Wei Chang, Byron Valverde, Sameer). Applied to 01 and 02. Their food ($1,200) and venue ($800) lines are marked not usable; the $2,000 needs a decision.
+- FCCF baseline is two institutional applications (NCCF Oct 16, MLB YDF Nov 6), none awarded. Applied to 07 note 8.
+- Impact100 revenue: $20,965 for 2024, under the $250,000 limit.
+- Board total in the Shawna update: $17,354.40 received plus the $5,000 wire still pending; do not call $22,354.40 received until the wire lands.
+- Questions list updated with ANSWERED BY RECORD marks. Open remainder is short and grouped in the list.
