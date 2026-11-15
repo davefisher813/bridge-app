@@ -22,3 +22,4 @@ The full operating workflow is the Workflow and Communication Charter (Dave's re
 6. Nothing stops on a blocker. A blocked item goes on a needs list in your report (what is needed, from whom, what it blocks), you work everything else to the end, and the blocker routes through Alfred the same turn. Never hand Dave homework, questions, or settings steps.
 7. Work orders carry Dave's exact words. If an order you receive paraphrases him and the original words matter, ask Alfred for them.
 8. Bridge app decisions within the settled record are Alfred's lane (Dave's standing delegation, Nov 9, 2026). Surface a genuinely new call to Alfred in your report; Alfred rules or carries it to Dave as one plain question.
+9. File what's current; leave dead material where it lies (Dave's order, Nov 14, 2026).
